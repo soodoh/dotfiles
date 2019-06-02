@@ -17,7 +17,7 @@ filetype indent on
 " load file-type specific auto commands
 filetype plugin on
 " redraw only when we need to
-set lazyredraw
+" set lazyredraw
 " highlight matching [{()}]
 set showmatch
 " highlight matches
@@ -30,22 +30,18 @@ set backspace=indent,eol,start
 " inoremap <C-d> <Esc>lxi
 inoremap <C-d> <Del>
 
-" maps <leader> key
+" Custom mappings begin here
 let mapleader=","
-" maps :nohlsearch command to ,<space>
 noremap <leader>hl :nohlsearch<CR>
-" remap for running fzf
 noremap <leader><space> :Files<CR>
-" remap for toggling NERDTree
 noremap <leader>b :NERDTreeToggle<CR>
-" remap for Ag silver searcher
 noremap <leader>f :Ag<CR>
-" remap for Git Blame
 noremap <leader>gb :Gblame<CR>
+noremap <leader>af :ALEFix<CR>
+noremap <leader>an :ALENext<CR>
 
-" Grep Settings
-set grepprg=ag\ --vimgrep\ $*
-set grepformat=%f:%l:%c:%m
+" So FZF will ignore files from .gitignore
+let $FZF_DEFAULT_COMMAND = 'ag -g ""'
 
 " NERD commenter settings
 let g:NERDSpaceDelims = 1
@@ -80,11 +76,11 @@ Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdcommenter'
 Plug 'tpope/vim-fugitive'
-Plug 'mattn/emmet-vim'
-Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
-Plug 'neoclide/coc-tsserver'
-Plug 'neoclide/coc-json'
-Plug 'neoclide/coc-css'
+" Plug 'mattn/emmet-vim'
+" Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
+" Plug 'neoclide/coc-tsserver'
+" Plug 'neoclide/coc-json'
+" Plug 'neoclide/coc-css'
 
 " Syntax Highlighting
 Plug 'pangloss/vim-javascript'
@@ -104,5 +100,5 @@ Plug 'scrooloose/nerdtree'
 Plug 'ryanoasis/vim-devicons'
 call plug#end()
 
-" Set the theme (must be placed after Plugins)
+" set the theme (must be placed after plugins)
 colorscheme blackboard
