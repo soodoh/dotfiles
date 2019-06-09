@@ -3,6 +3,8 @@
 #         without any warranty.
 #         Copyright 2012— Gregory Pakosz (@gpakosz).
 
+# So that Tmux behaves with Vim and NeoVim
+# set-window-option -g utf8 on
 
 # -- navigation ----------------------------------------------------------------
 
