@@ -1,9 +1,9 @@
 " enable syntax processing
 syntax enable
 " number of visual spaces per TAB
-set tabstop=2	  	  
+set tabstop=2
 " number of spaces in tab when editing
-set softtabstop=2 
+set softtabstop=2
 " this fixes the auto-indent for auto-close
 set shiftwidth=2
 " tabs are spaces
@@ -26,6 +26,9 @@ set hlsearch
 set incsearch
 " backspace is stupid in MacOS
 set backspace=indent,eol,start
+" searches are case insensitive unless capital letter is used
+set ignorecase
+set smartcase
 " so that forward delete works in insert mode
 " inoremap <C-d> <Esc>lxi
 inoremap <C-d> <Del>
@@ -37,8 +40,11 @@ noremap <leader><space> :Files<CR>
 noremap <leader>e :Explore<CR>
 noremap <leader>f :Ag<CR>
 noremap <leader>gb :Gblame<CR>
+noremap <leader>gd :Gdiff<CR>
 noremap <leader>af :ALEFix<CR>
 noremap <leader>an :ALENext<CR>
+noremap <leader>!s :!sort<CR>
+noremap <leader>s :sort<CR>
 
 " So FZF will ignore files from .gitignore
 let $FZF_DEFAULT_COMMAND = 'ag -g ""'
@@ -54,11 +60,18 @@ let g:NERDSpaceDelims = 1
 let g:NERDDefaultAlign = 'left'
 
 " Linting settings
+let g:ale_linter_aliases = {
+  \ 'jsx': ['javascript']
+  \ }
 let g:ale_fixers = {
-  \ 'javascript': ['prettier', 'eslint']
+  \ '*': ['trim_whitespace'],
+  \ 'javascript': ['eslint'],
+  \ 'python': ['yapf', 'isort', 'black', 'autopep8', 'add_blank_lines_for_python_control_statements']
   \ }
 let g:ale_linters = {
-  \ 'javascript': ['eslint']
+  \ 'javascript': ['eslint'],
+  \ 'python': ['pylint', 'pyflake', 'pycodestyle'],
+  \ 'rust': ['rustc']
   \ }
 " let g:ale_sign_error='❌'
 " let g:ale_sign_warning='⚠️ '

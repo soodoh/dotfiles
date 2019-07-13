@@ -104,9 +104,11 @@ export EDITOR='nvim'
 # users are encouraged to define aliases within the ZSH_CUSTOM folder.
 # For a full list of active aliases, run `alias`.
 alias gsu="git submodule update --init --recursive"
-alias run-dispatch="MONGO_URL=mongodb://appUser:Alien#09282016@localhost:27018/DispatchDB?authSource=admin npm run local"
+alias run-dispatch-local="MONGO_URL=mongodb://appUser:Alien#09282016@localhost:27018/DispatchDB?authSource=admin npm run local"
+alias run-mp-local="MONGO_URL=mongodb://appUser:Alien#09282016@localhost:27017/MediaPackagerDB?authSource=admin npm run local"
+alias run-dispatch="MONGO_URL=mongodb://appUser:Alien#09282016@lax099130vdev82.ppc.foxeg.com:27018/DispatchDB?authSource=admin npm run local"
 alias run-tube="MONGO_URL=mongodb://appUser:Alien#09282016@lax099130ving50.ppc.foxeg.com:27017/TubeDB?authSource=admin npm run local"
-alias run-mp="MONGO_URL=mongodb://appUser:Alien#09282016@localhost:27017/MediaPackagerDB?authSource=admin npm run local"
+alias run-mp="MONGO_URL=mongodb://appUser:Alien#09282016@lax099130vdev82.ppc.foxeg.com:27017/MediaPackagerDB?authSource=admin npm run local"
 
 DEFAULT_USER=$(whoami)
 
