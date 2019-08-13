@@ -89,7 +89,7 @@ source $ZSH/oh-my-zsh.sh
 # export LANG=en_US.UTF-8
 
 # Preferred editor for local and remote sessions
-export EDITOR='nvim' 
+export EDITOR='nvim'
 # if [[ -n $SSH_CONNECTION ]]; then
 #   export EDITOR='vim'
 # else
@@ -104,8 +104,7 @@ export EDITOR='nvim'
 # users are encouraged to define aliases within the ZSH_CUSTOM folder.
 # For a full list of active aliases, run `alias`.
 alias gsu="git submodule update --init --recursive"
-alias run-dispatch="MONGO_URL=mongodb://appUser:Alien#09282016@lax099130vdev82.ppc.foxeg.com:27018/DispatchDB?authSource=admin npm run local"
-alias run-dispatch-local="MONGO_URL=mongodb://appUser:Alien#09282016@localhost:27018/DispatchDB?authSource=admin npm run local"
+alias run-dispatch="MONGO_URL=mongodb://devUser:devUser@internal-DEV-Mongo-ELB-1534575900.us-west-2.elb.amazonaws.com:27017/DispatchDB?authSource=admin npm run dev"
 alias run-tube="MONGO_URL=mongodb://appUser:Alien#09282016@lax099130ving50.ppc.foxeg.com:27017/TubeDB?authSource=admin npm run local"
 alias run-mp-82="MONGO_URL=mongodb://appUser:Alien#09282016@lax099130vdev82.ppc.foxeg.com:27017/MediaPackagerDB?authSource=admin npm run local"
 
