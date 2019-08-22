@@ -45,6 +45,12 @@ noremap <leader>af :ALEFix<CR>
 noremap <leader>an :ALENext<CR>
 noremap <leader>!s :!sort<CR>
 noremap <leader>s :sort<CR>
+noremap <leader>ue :UltiSnipsEdit<CR>
+
+" UltiSnips Settings
+let g:UltiSnipsSnippetsDir = $HOME.'/.vim/UltiSnips'
+let g:UltiSnipsSnippetDirectories = ['UltiSnips', $HOME.'/.vim/UltiSnips']
+let g:UltiSnipsEditSplit="vertical"
 
 " So FZF will ignore files from .gitignore
 let $FZF_DEFAULT_COMMAND = 'ag -g ""'
@@ -107,6 +113,8 @@ Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
 Plug 'neoclide/coc-tsserver'
 Plug 'neoclide/coc-json'
 Plug 'neoclide/coc-css'
+Plug 'SirVer/ultisnips'
+" Plug 'ycm-core/YouCompleteMe'
 
 " Syntax Highlighting
 Plug 'pangloss/vim-javascript'
