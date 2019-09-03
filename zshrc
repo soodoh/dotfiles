@@ -1,6 +1,7 @@
 # If you come from bash you might have to change your $PATH.
 export PATH="/usr/local/anaconda3/bin:$PATH"
 export PATH=$HOME/bin:/usr/local/bin:$PATH
+export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
@@ -104,11 +105,10 @@ export EDITOR='nvim'
 # plugins, and themes. Aliases can be placed here, though oh-my-zsh
 # users are encouraged to define aliases within the ZSH_CUSTOM folder.
 # For a full list of active aliases, run `alias`.
+alias rm-modules="find . -name \"node_modules\" -exec rm -rf '{}' +"
 alias gsu="git submodule update --init --recursive"
 alias run-dispatch="MONGO_URL=mongodb://devUser:devUser@internal-DEV-Mongo-ELB-1534575900.us-west-2.elb.amazonaws.com:27017/DispatchDB?authSource=admin npm run dev"
 alias run-tube="MONGO_URL=mongodb://appUser:Alien#09282016@lax099130ving50.ppc.foxeg.com:27017/TubeDB?authSource=admin npm run local"
 alias run-mp-82="MONGO_URL=mongodb://appUser:Alien#09282016@lax099130vdev82.ppc.foxeg.com:27017/MediaPackagerDB?authSource=admin npm run local"
 
 DEFAULT_USER=$(whoami)
-
-export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
