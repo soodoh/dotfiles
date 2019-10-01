@@ -5,7 +5,7 @@ FILEPATH=${HOME}/Dropbox/dotfiles
 
 # Revert oh-my-zsh and oh-my-tmux to master branch
 git submodule update -f
-# Add custom plugins to oh-my-zsh directory 
+# Add custom plugins to oh-my-zsh directory
 git clone https://github.com/zsh-users/zsh-autosuggestions ${HOME}/.oh-my-zsh/custom/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${HOME}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 
@@ -17,7 +17,11 @@ ln -s -f $FILEPATH/tmux.conf.local ${HOME}/.tmux.conf.local
 ln -s -f $FILEPATH/oh-my-tmux/.tmux.conf ${HOME}/.tmux.conf
 
 # Create nvim directories if they don't exist
+mkdir -p ${HOME}/.vim
 mkdir -p ${HOME}/.config/nvim
+
+# Create UltiSnips in .vim folder
+ln -s -f $FILEPATH/UltiSnips ${HOME}/.vim/UltiSnips
 
 # Finally link Neovim's config
 ln -s -f $FILEPATH/vimrc ~/.config/nvim/init.vim
