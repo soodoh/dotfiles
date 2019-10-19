@@ -24,4 +24,12 @@ mkdir -p ${HOME}/.config/nvim
 ln -s -f $FILEPATH/UltiSnips ${HOME}/.vim/UltiSnips
 
 # Finally link Neovim's config
-ln -s -f $FILEPATH/vimrc ~/.config/nvim/init.vim
+ln -s -f $FILEPATH/vimrc ${HOME}/.config/nvim/init.vim
+
+# Install vim-plug (Unix)
+# Neovim
+curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+# Vim
+# curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+#     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
