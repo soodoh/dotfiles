@@ -10,7 +10,7 @@ git clone https://github.com/zsh-users/zsh-autosuggestions ${HOME}/.oh-my-zsh/cu
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${HOME}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 
 # Without the -n it adds a symlinked directory with the same name inside its own directory
-ln -s -f -n $FILEPATH/oh-my-zsh ${HOME}/.oh-my-zsh
+ln -s -f $FILEPATH/oh-my-zsh ${HOME}/.oh-my-zsh
 ln -s -f $FILEPATH/vimrc ${HOME}/.vimrc
 ln -s -f $FILEPATH/zshrc ${HOME}/.zshrc
 ln -s -f $FILEPATH/tmux.conf.local ${HOME}/.tmux.conf.local
