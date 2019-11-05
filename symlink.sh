@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # For now, I'm assuming this repo is in my specific Dropbox filepath
-FILEPATH=${HOME}/Dropbox/dotfiles
+FILEPATH=$(pwd)
 
 # Revert oh-my-zsh and oh-my-tmux to master branch
-git submodule update -f
+git submodule update --init --recursive
 # Add custom plugins to oh-my-zsh directory
-git clone https://github.com/zsh-users/zsh-autosuggestions ${HOME}/.oh-my-zsh/custom/plugins/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${HOME}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+git clone https://github.com/zsh-users/zsh-autosuggestions $FILEPATH/oh-my-zsh/custom/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $FILEPATH/oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 
 # Without the -n it adds a symlinked directory with the same name inside its own directory
 ln -s -f $FILEPATH/oh-my-zsh ${HOME}/.oh-my-zsh
