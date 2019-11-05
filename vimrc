@@ -113,6 +113,7 @@ Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
 Plug 'neoclide/coc-tsserver'
 Plug 'neoclide/coc-json'
 Plug 'neoclide/coc-css'
+Plug 'plasticboy/vim-markdown'
 Plug 'SirVer/ultisnips'
 " Plug 'ycm-core/YouCompleteMe'
 
