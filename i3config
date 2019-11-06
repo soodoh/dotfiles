@@ -2,7 +2,15 @@
 #
 # Please see https://i3wm.org/docs/userguide.html for a complete reference!
 
+# Gaps
+for_window [class="^.*"] border pixel 2
+gaps inner 15
+gaps outer 10
+
 set $mod Mod4
+
+# Compositor, for trasparent windows and no screen tearing
+exec compton
 
 # Font for window titles. Will also be used by the bar unless a different font
 # is used in the bar {} block below.

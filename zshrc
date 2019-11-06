@@ -1,3 +1,6 @@
+# If TTY, start xinit
+if [[ -z $DISPLAY ]] && [[ $(tty) = /dev/tty1 ]]; then exec startx; fi
+
 # If you come from bash you might have to change your $PATH.
 # export PATH="/usr/local/anaconda3/bin:$PATH"
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
