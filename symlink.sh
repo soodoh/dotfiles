@@ -10,11 +10,11 @@ git clone https://github.com/zsh-users/zsh-autosuggestions $FILEPATH/oh-my-zsh/c
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $FILEPATH/oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 
 # Without the -n it adds a symlinked directory with the same name inside its own directory
-ln -s -f $FILEPATH/oh-my-zsh ${HOME}/.oh-my-zsh
-ln -s -f $FILEPATH/vimrc ${HOME}/.vimrc
-ln -s -f $FILEPATH/zshrc ${HOME}/.zshrc
-ln -s -f $FILEPATH/tmux.conf.local ${HOME}/.tmux.conf.local
-ln -s -f $FILEPATH/oh-my-tmux/.tmux.conf ${HOME}/.tmux.conf
+ln -sfn $FILEPATH/oh-my-zsh ${HOME}/.oh-my-zsh
+ln -sf $FILEPATH/vimrc ${HOME}/.vimrc
+ln -sf $FILEPATH/zshrc ${HOME}/.zshrc
+ln -sf $FILEPATH/tmux.conf.local ${HOME}/.tmux.conf.local
+ln -sf $FILEPATH/oh-my-tmux/.tmux.conf ${HOME}/.tmux.conf
 
 # Create nvim directories if they don't exist
 mkdir -p ${HOME}/.vim
