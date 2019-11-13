@@ -37,9 +37,9 @@ inoremap <C-d> <Del>
 let mapleader=","
 " Searching hotkeys
 noremap <leader>hl :nohlsearch<CR>
-noremap <leader><space> :Files<CR>
+noremap <expr> <leader><space> (len(system('git rev-parse')) ? ':Files' : ':GFiles --exclude-standard --others --cached')."\<cr>"
 noremap <leader>e :Explore<CR>
-noremap <leader>f :grep
+noremap <leader>f :grep<space>
 noremap [ :cp<CR>
 noremap ] :cn<CR>
 noremap <leader>qf :copen<CR>
@@ -58,9 +58,6 @@ let g:UltiSnipsSnippetsDir = $HOME.'/.vim/UltiSnips'
 let g:UltiSnipsSnippetDirectories = ['UltiSnips', $HOME.'/.vim/UltiSnips']
 let g:UltiSnipsEditSplit="vertical"
 
-" So FZF will ignore files from .gitignore
-" let $FZF_DEFAULT_COMMAND = 'ag --hidden --ignore .git -g ""'
-"
 " FZF window layout
 let g:fzf_layout = { 'window': '20split enew' }
 " So FZF will have Preview
