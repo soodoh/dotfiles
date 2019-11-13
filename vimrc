@@ -35,12 +35,18 @@ inoremap <C-d> <Del>
 
 " Custom mappings begin here
 let mapleader=","
+" Searching hotkeys
 noremap <leader>hl :nohlsearch<CR>
 noremap <leader><space> :Files<CR>
 noremap <leader>e :Explore<CR>
-noremap <leader>f :Ag<CR>
+noremap <leader>f :grep
+noremap [ :cp<CR>
+noremap ] :cn<CR>
+noremap <leader>qf :copen<CR>
+" Git hotkeys
 noremap <leader>gb :Gblame<CR>
 noremap <leader>gd :Gdiff<CR>
+" Linting hotkeys
 noremap <leader>af :ALEFix<CR>
 noremap <leader>an :ALENext<CR>
 noremap <leader>!s :!sort<CR>
@@ -54,6 +60,7 @@ let g:UltiSnipsEditSplit="vertical"
 
 " So FZF will ignore files from .gitignore
 " let $FZF_DEFAULT_COMMAND = 'ag --hidden --ignore .git -g ""'
+"
 " FZF window layout
 let g:fzf_layout = { 'window': '20split enew' }
 " So FZF will have Preview
