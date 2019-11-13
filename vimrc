@@ -53,7 +53,7 @@ let g:UltiSnipsSnippetDirectories = ['UltiSnips', $HOME.'/.vim/UltiSnips']
 let g:UltiSnipsEditSplit="vertical"
 
 " So FZF will ignore files from .gitignore
-let $FZF_DEFAULT_COMMAND = 'ag --hidden --ignore .git -g ""'
+" let $FZF_DEFAULT_COMMAND = 'ag --hidden --ignore .git -g ""'
 " FZF window layout
 let g:fzf_layout = { 'window': '20split enew' }
 " So FZF will have Preview
