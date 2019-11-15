@@ -41,7 +41,7 @@ fi
 ###############################
 audio_volume=$(amixer sget Master | awk -F"[][]" '/dB/ { print $2 }')
 audio_is_muted=$(amixer sget Master | awk -F"[][]" '/dB/ { print $6 }')
-if [ $audio_is_muted = "on" ]
+if [ $audio_is_muted = "off" ]
 then
     audio_active='🔇'
 else
