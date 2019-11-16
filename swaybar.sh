@@ -74,7 +74,7 @@ cpu_speed="CPU $(mpstat | grep all | awk '/\s+/{print $4}' | awk '{print int($1 
 cpu_temp="$(sensors | awk '/^Core /{++r; gsub(/[^[:digit:]]+/, "", $3); s+=$3} END{print int(s/(10*r)+0.5)}')°C"
 cpu_content="$cpu_speed   ($cpu_temp)"
 
-# CPU
+# Storage
 ###############################
 used_space="$(df -BG | grep nvme0n1p4 | awk '{print $3}')"
 available_space="$(df -BG | grep nvme0n1p4 | awk '{print $4}')"

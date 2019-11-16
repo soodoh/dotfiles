@@ -46,7 +46,7 @@ bindsym XF86AudioPrev exec playerctl previous
 # Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
 output * bg `find $wallpapers -maxdepth 1 -type f | shuf -n 1` fill
 # HiDPI Monitor
-output 'Unknown 0xA029 0x00000000' scale 2 bg `find $wallpapers -maxdepth 1 -type f | shuf -n 1` fill
+output 'Unknown 0xA029 0x00000000' scale 2 bg `find $wallpapers -maxdepth 1 -type f | shuf -n 1` fill position 0,0
 
 #
 # Example configuration:
