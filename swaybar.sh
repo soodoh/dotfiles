@@ -8,15 +8,20 @@ date_content="$date_and_week   🕘 $current_time"
 
 # Battery or charger
 ###############################
-battery_charge=$(cat /sys/class/power_supply/BAT0/capacity)%
+battery_charge=$(cat /sys/class/power_supply/BAT0/capacity)
 battery_status=$(cat /sys/class/power_supply/BAT0/status)
 if [ $battery_status = "Discharging" ];
 then
+  if [ $battery_charge -lt 15 ]
+  then
+    battery_icon='⚠'
+  else
     battery_icon='🔋'
+  fi
 else
     battery_icon='⚡'
 fi
-battery_content="$battery_icon $battery_charge"
+battery_content="$battery_icon $battery_charge%"
 
 # Multimedia
 ###############################
@@ -80,11 +85,9 @@ used_space="$(df -BG | grep nvme0n1p4 | awk '{print $3}')"
 available_space="$(df -BG | grep nvme0n1p4 | awk '{print $4}')"
 storage_content="$used_space / $available_space"
 
-
 # Others
 ###############################
 # language=$(swaymsg -r -t get_inputs | awk '/1:1:AT_Translated_Set_2_keyboard/;/xkb_active_layout_name/' | grep -A1 '\b1:1:AT_Translated_Set_2_keyboard\b' | grep "xkb_active_layout_name" | awk -F '"' '{print $4}')
 # loadavg_5min=$(cat /proc/loadavg | awk -F ' ' '{print $2}')
-
 
 echo "$player_content$network_content$separator$storage_content$separator$cpu_content$separator$audio_content$separator$battery_content$separator$date_content  "
