@@ -64,7 +64,11 @@ then
 else
   interface_content="  $(nmcli -f in-use,ssid d wifi list | grep ^\* | sed  's/^\*\s*//' | sed 's/\s*$//')"
 fi
-interface_content+=" ($ping ms)"
+if [ $ping ]
+then
+  interface_content+=" ($ping ms)"
+fi
+
 if ! [ $network ]
 then
    network_icon="⛔"
@@ -83,6 +87,6 @@ cpu_content="$cpu_speed   ($cpu_temp)"
 ###############################
 used_space="$(df -BG | grep nvme0n1p4 | awk '{print $3}')"
 available_space="$(df -BG | grep nvme0n1p4 | awk '{print $4}')"
-storage_content="$used_space / $available_space"
+storage_content="$used_space Used - $available_space Available"
 
 echo "$player_content$network_content$separator$storage_content$separator$cpu_content$separator$audio_content$separator$battery_content$separator$date_content  "
