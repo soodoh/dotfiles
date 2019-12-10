@@ -44,8 +44,8 @@ fi
 
 # Audio
 ###############################
-audio_volume=$(pamixer --sink `pactl list sinks short | grep RUNNING | awk '{print $1}'` --get-volume)
-audio_is_muted=$(pamixer --sink `pactl list sinks short | grep RUNNING | awk '{print $1}'` --get-mute)
+audio_volume=$(pamixer --get-volume)
+audio_is_muted=$(pamixer --get-mute)
 if [ $audio_is_muted = "true" ]
 then
     audio_active='🔇'

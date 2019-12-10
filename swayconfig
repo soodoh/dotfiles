@@ -32,9 +32,9 @@ gaps outer 8
 bindsym $mod+c exec chromium
 
 # Pulseaudio Controls
-bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume `pactl list sinks short | grep RUNNING | awk '{print $1}'` +2%
-bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume `pactl list sinks short | grep RUNNING | awk '{print $1}'` -2%
-bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute `pactl list sinks short | grep RUNNING | awk '{print $1}'` toggle
+bindsym XF86AudioRaiseVolume exec pactl set-sink-volume $(pacmd list-sinks |awk '/* index:/{print $3}') +5%
+bindsym XF86AudioLowerVolume exec pactl set-sink-volume $(pacmd list-sinks |awk '/* index:/{print $3}') -5%
+bindsym XF86AudioMute exec pactl set-sink-mute $(pacmd list-sinks |awk '/* index:/{print $3}') toggle
 
 # Screen brightness controls
 # bindsym XF86MonBrightnessUp exec sh ~/.bright.sh Up
