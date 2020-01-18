@@ -1,6 +1,11 @@
 # If TTY, start Desktop environment
 if [[ -z $DISPLAY ]] && [[ $(tty) = /dev/tty1 ]]; then exec sway; fi
 
+# Start Tmux automatically
+if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
+    tmux attach -t default || tmux new -s default
+fi
+
 # If you come from bash you might have to change your $PATH.
 # export PATH="/usr/local/anaconda3/bin:$PATH"
 # export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
