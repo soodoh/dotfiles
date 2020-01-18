@@ -11,6 +11,8 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $FILEPATH/oh-
 
 # Without the -n it adds a symlinked directory with the same name inside its own directory
 ln -sfn $FILEPATH/oh-my-zsh ${HOME}/.oh-my-zsh
+
+# TODO add alacritty settings
 ln -sf $FILEPATH/vimrc ${HOME}/.vimrc
 ln -sf $FILEPATH/zshrc ${HOME}/.zshrc
 ln -sf $FILEPATH/tmux.conf.local ${HOME}/.tmux.conf.local
