@@ -130,7 +130,7 @@ Plug 'w0rp/ale'
 " Plug 'sjl/badwolf'
 " Plug 'airblade/vim-gitgutter'
 Plug 'wmvanvliet/vim-blackboard'
-Plug '/usr/bin/fzf'
+Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
 Plug 'junegunn/fzf.vim'
 Plug 'terryma/vim-multiple-cursors'
 Plug 'ap/vim-css-color'
