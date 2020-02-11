@@ -23,6 +23,7 @@ set $menu dmenu_path | dmenu | xargs swaymsg exec --
 default_border pixel 2
 default_floating_border pixel 2
 client.focused #00FF00BB #000000BB #CCCCCC #a1f9ff #00FF00BB
+focus_follows_mouse no
 
 # Gaps
 gaps inner 10
