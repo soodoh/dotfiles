@@ -119,3 +119,6 @@ alias gsu="git submodule update --init --recursive"
 alias vim="nvim"
 
 DEFAULT_USER=$(whoami)
+
+# Added by vim fzf install script
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
