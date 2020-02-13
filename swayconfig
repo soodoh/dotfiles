@@ -17,7 +17,7 @@ set $term alacritty
 #
 # Your preferred application launcher
 # Note: it's recommended that you pass the final command to sway
-set $menu dmenu_path | dmenu | xargs swaymsg exec --
+set $menu --no-startup-id rofi -show run  -m -1
 
 # Windows
 default_border pixel 2
@@ -232,15 +232,8 @@ bindsym $mod+r mode "resize"
 #
 # Read `man 5 sway-bar` for more information about this section.
 bar {
-    position top
-    font "Terminus (TTF)"
-    status_command while sh ~/.config/sway/swaybar.sh; do sleep 1; done
-
-    colors {
-        statusline #ffffff
-        background #000000AA
-        inactive_workspace #32323200 #32323200 #5c5c5c
-    }
+    swaybar_command waybar
+    workspace_buttons yes
 }
 
 include /etc/sway/config.d/*
