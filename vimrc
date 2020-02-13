@@ -39,7 +39,7 @@ let mapleader=","
 noremap <leader>hl :nohlsearch<CR>
 noremap <expr> <leader><space> (len(system('git rev-parse')) ? ':Files' : ':GFiles --exclude-standard --others --cached')."\<cr>"
 noremap <leader>e :Explore<CR>
-noremap <leader>f :grep<space>
+noremap <leader>f :grep -r --exclude-dir='node_modules'<space>
 noremap [ :cp<CR>
 noremap ] :cn<CR>
 noremap <leader>qf :copen<CR>
