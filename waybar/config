@@ -1,106 +1,148 @@
 {
-    "layer": "bottom",
-    "position": "top",
-    "height": 30,
-    "modules-left": ["sway/workspaces", "sway/mode"],
-    "modules-center": ["custom/storage-root", "custom/storage-home", "memory", "cpu"],
-    "modules-right": ["network", "pulseaudio", "battery", "custom/time"],
+	"layer": "top",
+	"position": "top",
 
-    "sway/mode": {
-        "format": " {}"
+	"modules-left": [
+		"sway/workspaces",
+		"custom/right-arrow-dark",
+		"custom/right-arrow-light",
+    "clock#2",
+		"custom/right-arrow-dark",
+		"custom/right-arrow-light",
+    "clock#1",
+		"custom/right-arrow-dark",
+		"custom/right-arrow-light",
+    "custom/weather",
+		"custom/right-arrow-dark"
+	],
+	"modules-center": [],
+	"modules-right": [
+		"custom/left-arrow-dark",
+    "network",
+		"custom/left-arrow-light",
+		"custom/left-arrow-dark",
+		"pulseaudio",
+		"custom/left-arrow-light",
+		"custom/left-arrow-dark",
+    "temperature",
+		"custom/left-arrow-light",
+		"custom/left-arrow-dark",
+		"memory",
+		"custom/left-arrow-light",
+		"custom/left-arrow-dark",
+		"cpu",
+		"custom/left-arrow-light",
+		"custom/left-arrow-dark",
+		"disk",
+		"custom/left-arrow-light",
+		"custom/left-arrow-dark",
+		"battery",
+		"custom/left-arrow-light",
+		"custom/left-arrow-dark"
+	],
+
+	"custom/left-arrow-dark": {
+		"format": "",
+		"tooltip": false
+	},
+	"custom/left-arrow-light": {
+		"format": "",
+		"tooltip": false
+	},
+	"custom/right-arrow-dark": {
+		"format": "",
+		"tooltip": false
+	},
+	"custom/right-arrow-light": {
+		"format": "",
+		"tooltip": false
+	},
+
+	"sway/workspaces": {
+		"disable-scroll": true,
+		"format": "{name}"
+	},
+
+	"clock#1": {
+		"format": "{:%a %m/%d}",
+		"tooltip": false
+	},
+	"clock#2": {
+    "interval": 5,
+		"format": "{:%H:%M:%S}",
+		"tooltip": false
+	},
+
+	"pulseaudio": {
+		"format": "{icon} {volume:2}%",
+		"format-bluetooth": "{icon}  {volume}%",
+		"format-muted": "MUTE",
+		"format-icons": {
+			"headphones": "",
+			"default": [
+				"",
+				""
+			]
+		},
+		"scroll-step": 5,
+		"on-click": "pamixer -t",
+		"on-click-right": "pavucontrol"
+	},
+	"memory": {
+		"interval": 5,
+		"format": " {}%"
+	},
+  "temperature": {
+    "critical-threshold": 80,
+    "format-icons": ["", "", "", "", ""],
+    "format": " {icon} {temperatureC}°C "
+  },
+  "network": {
+    "format": " {icon} ",
+    "format-alt": "{ipaddr}/{cidr} {icon}",
+    "format-alt-click": "click-right",
+    "format-icons": {
+      "wifi": [""],
+      "ethernet": [""],
+      "disconnected": [""]
     },
-    "sway/workspaces": {
-        "format": "{name}",
-        "disable-scroll-wraparound": true,
-        "enable-bar-scroll": true,
-        "smooth-scrolling-threshold": 30
-    },
-    "sway/window": {
-        "max-length": 80,
-        "tooltip": false
-    },
-    "clock": {
-        "format": "{:%a %m/%d/%y}",
-        "tooltip": false
-    },
-    "battery": {
-        "format": "{icon} {capacity}%",
-        "format-icons": ["", "", "", "", ""],
-        "format-charging": " {capacity}%",
-        "interval": 30,
-        "states": {
-            "warning": 25,
-            "critical": 10
-        },
-        "tooltip": false
-    },
-    "pulseaudio": {
-        "format": "{volume} {icon}",
-        "format-alt": "{volume} {icon}",
-        "format-alt-click": "click-right",
-        "format-muted": "",
-        "format-icons": {
-            "headphones": "",
-            "handsfree": "",
-            "headset": "",
-            "phone": "",
-            "portable": "",
-            "car": "",
-            "default": ["", "", ""]
-        },
-        "scroll-step": 5,
-        "on-click": "pavucontrol",
-        "tooltip": false
-    },
-    "custom/storage-root": {
-        "format": " {}",
-        "format-alt": " {percentage}%",
-        "format-alt-click": "click-right",
-        "return-type": "json",
-        "interval": 60,
-        "exec": "~/.config/waybar/modules/storage-root.sh"
-    },
-    "custom/storage-home": {
-        "format": " {}",
-        "format-alt": " {percentage}%",
-        "format-alt-click": "click-right",
-        "return-type": "json",
-        "interval": 60,
-        "exec": "~/.config/waybar/modules/storage-home.sh",
-        "on-click": "ranger"
-    },
-    /* "backlight": { */
-    /*     "format": "{icon} {percent}%", */
-    /*     "format-alt-click": "click-right", */
-    /*     //"format-icons": ["", ""], */
-    /*     //"format-icons": ["", ""], */
-    /*     "format-icons": ["", ""], */
-    /*     "on-scroll-down": "light -A 1", */
-    /*     "on-scroll-up": "light -U 1" */
-    /* }, */
-    "custom/time": {
-        "format": " {}",
-        "interval": 5,
-        "return-type": "json",
-        "exec": "~/.config/waybar/modules/time.sh"
-    },
-    "tray": {
-        "icon-size": 18
-    },
-    "cpu": {
-        "tooltip": false,
-        "format": " {}%"
-    },
-    "memory": {
-        "tooltip": false,
-        "format": " {}%"
-        // "format": "{used} / {total}  "
-    },
-    "network": {
-        "format-wifi": " {essid} ({signalStrength}%)",
-        "format-ethernet": " {ifname}: {ipaddr}/{cidr}",
-        "format-linked": " {ifname} (No IP)",
-        "format-disconnected": "Disconnected ⚠",
-        "format-alt": "{ifname}: {ipaddr}/{cidr}"
-    }
+    "tooltip-format": "{icon} ",
+    "tooltip-format-wifi": "{icon} {essid}\nStrength: {signalStrength}%\nFrequency: {frequency}\nIP: {ipaddr}"
+  },
+  "custom/weather": {
+    "format": " {} ",
+    "format-alt": "{alt}: {}",
+    "format-alt-click": "click-right",
+    "interval": 1800,
+    "return-type": "json",
+    "exec": "~/.config/waybar/modules/weather.sh",
+    "exec-if": "ping wttr.in -c1"
+  },
+	"cpu": {
+		"interval": 5,
+		"format": " {usage}%"
+	},
+	"battery": {
+		"states": {
+			"good": 95,
+			"warning": 30,
+			"critical": 15
+		},
+		"format": "{icon} {capacity}%",
+		"format-icons": [
+			"",
+			"",
+			"",
+			"",
+			""
+		]
+	},
+	"disk": {
+		"interval": 5,
+		"format": " {percentage_used:2}%",
+		"path": "/"
+	},
+	"tray": {
+		"icon-size": 20
+	}
 }
