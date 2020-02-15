@@ -100,7 +100,7 @@
       "ethernet": [""],
       "disconnected": [""]
     },
-    "tooltip-format": "{icon} ",
+    "tooltip-format": "{icon}\nIP: {ipaddr}",
     "tooltip-format-wifi": "{icon} {essid}\nStrength: {signalStrength}%\nFrequency: {frequency}\nIP: {ipaddr}"
   },
   "custom/weather": {
