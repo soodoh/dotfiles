@@ -34,6 +34,18 @@ window#waybar {
 #tray {
 	background: #1a1a1a;
 }
+#mode,
+#custom-weather,
+#network,
+#temperature,
+#clock,
+#pulseaudio,
+#memory,
+#cpu,
+#battery,
+#disk {
+	padding: 0 10px;
+}
 
 #workspaces button {
 	padding: 0 2px;
@@ -55,6 +67,12 @@ window#waybar {
   color: rgba(238, 46, 36, 1);
 }
 
+#network {
+  color: #BB8FCE;
+}
+#custom-weather {
+  color: #27AE60;
+}
 #pulseaudio {
 	color: #268bd2;
 }
@@ -68,17 +86,8 @@ window#waybar {
 	color: #859900;
 }
 #temperature {
-  color: #800000;
+  color: #CD6155;
 }
 #disk {
 	color: #b58900;
-}
-
-#clock,
-#pulseaudio,
-#memory,
-#cpu,
-#battery,
-#disk {
-	padding: 0 10px;
 }
