@@ -112,14 +112,20 @@ Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdcommenter'
 Plug 'tpope/vim-fugitive'
-Plug 'mattn/emmet-vim'
+Plug 'plasticboy/vim-markdown'
+Plug 'SirVer/ultisnips'
+Plug 'mcchrish/nnn.vim'
+"
+" Coc Intellisense
 Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
 Plug 'neoclide/coc-tsserver'
 Plug 'neoclide/coc-json'
+Plug 'neoclide/coc-html'
 Plug 'neoclide/coc-css'
-Plug 'plasticboy/vim-markdown'
-Plug 'SirVer/ultisnips'
-" Plug 'ycm-core/YouCompleteMe'
+Plug 'neoclide/coc-eslint'
+Plug 'neoclide/coc-python'
+Plug 'neoclide/coc-rls'
+Plug 'neoclide/coc-yaml'
 
 " Syntax Highlighting
 Plug 'pangloss/vim-javascript'
@@ -127,12 +133,9 @@ Plug 'mxw/vim-jsx'
 " Linting
 Plug 'w0rp/ale'
 " UI Enhancements
-" Plug 'sjl/badwolf'
-" Plug 'airblade/vim-gitgutter'
 Plug 'wmvanvliet/vim-blackboard'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
 Plug 'junegunn/fzf.vim'
-Plug 'terryma/vim-multiple-cursors'
 Plug 'ap/vim-css-color'
 Plug 'Yggdroot/indentLine'
 Plug 'itchyny/lightline.vim'
