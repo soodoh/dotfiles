@@ -38,7 +38,7 @@ let mapleader=","
 " Searching hotkeys
 noremap <leader>hl :nohlsearch<CR>
 noremap <expr> <leader><space> (len(system('git rev-parse')) ? ':Files' : ':GFiles --exclude-standard --others --cached')."\<cr>"
-noremap <leader>e :Explore<CR>
+noremap <leader>e :Np<CR>
 noremap <leader>f :grep -r --exclude-dir='node_modules'<space>
 noremap [ :cp<CR>
 noremap ] :cn<CR>
@@ -57,6 +57,14 @@ noremap <leader>ue :UltiSnipsEdit<CR>
 let g:UltiSnipsSnippetsDir = $HOME.'/.vim/UltiSnips'
 let g:UltiSnipsSnippetDirectories = ['UltiSnips', $HOME.'/.vim/UltiSnips']
 let g:UltiSnipsEditSplit="vertical"
+
+" nnn keybindings
+let g:nnn#action = {
+      \ 'e': 'e',
+      \ '<c-t>': 'tab split',
+      \ '<c-x>': 'split',
+      \ '<c-v>': 'vsplit'
+      \ }
 
 " FZF window layout
 let g:fzf_layout = { 'window': '20split enew' }
