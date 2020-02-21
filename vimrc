@@ -29,54 +29,64 @@ set backspace=indent,eol,start
 " searches are case insensitive unless capital letter is used
 set ignorecase
 set smartcase
+
+" Custom mappings begin here
+" 
+" 
 " so that forward delete works in insert mode
 " inoremap <C-d> <Esc>lxi
 inoremap <C-d> <Del>
-
-" Custom mappings begin here
 let mapleader=","
-" Searching hotkeys
 noremap <leader>hl :nohlsearch<CR>
-noremap <expr> <leader><space> (len(system('git rev-parse')) ? ':Files' : ':GFiles --exclude-standard --others --cached')."\<cr>"
-noremap <leader>e :Np<CR>
-noremap <leader>f :grep -r --exclude-dir='node_modules'<space>
-noremap [ :cp<CR>
-noremap ] :cn<CR>
-noremap <leader>qf :copen<CR>
-" Git hotkeys
-noremap <leader>gb :Gblame<CR>
-noremap <leader>gd :Gdiff<CR>
-" Linting hotkeys
-noremap <leader>af :ALEFix<CR>
-noremap <leader>an :ALENext<CR>
+
+" Easier sorting
 noremap <leader>!s :!sort<CR>
 noremap <leader>s :sort<CR>
-noremap <leader>ue :UltiSnipsEdit<CR>
 
-" UltiSnips Settings
-let g:UltiSnipsSnippetsDir = $HOME.'/.vim/UltiSnips'
-let g:UltiSnipsSnippetDirectories = ['UltiSnips', $HOME.'/.vim/UltiSnips']
-let g:UltiSnipsEditSplit="vertical"
-
-" nnn keybindings
-let g:nnn#action = {
-      \ 'e': 'e',
-      \ '<c-t>': 'tab split',
-      \ '<c-x>': 'split',
-      \ '<c-v>': 'vsplit'
-      \ }
-
+" FZF window binding
+noremap <expr> <leader><space> (len(system('git rev-parse')) ? ':Files' : ':GFiles --exclude-standard --others --cached')."\<cr>"
 " FZF window layout
 let g:fzf_layout = { 'window': '20split enew' }
 " So FZF will have Preview
 command! -bang -nargs=? -complete=dir Files
   \ call fzf#vim#files(<q-args>, fzf#vim#with_preview('right:50%', 'ctrl-p'), <bang>0)
 
+" nnn
+noremap <leader>e :Np<CR>
+noremap <leader>f :Rg<space>
+let g:nnn#action = {
+      \ 'e': 'e',
+      \ '<c-t>': 'tab split',
+      \ '<c-x>': 'split',
+      \ '<c-v>': 'vsplit'
+      \ }
+let g:rg_command = 'rg --vimgrep -S'
+
+" Quick fix bindings
+noremap <leader>qf :copen<CR>
+noremap [ :cp<CR>
+noremap ] :cn<CR>
+
+" Git hotkeys
+noremap <leader>gb :Gblame<CR>
+noremap <leader>gd :Gdiff<CR>
+
+
+" UltiSnips Settings
+noremap <leader>ue :UltiSnipsEdit<CR>
+let g:UltiSnipsSnippetsDir = $HOME.'/.vim/UltiSnips'
+let g:UltiSnipsSnippetDirectories = ['UltiSnips', $HOME.'/.vim/UltiSnips']
+let g:UltiSnipsEditSplit="vertical"
+
+
 " NERD commenter settings
 let g:NERDSpaceDelims = 1
 " Align line-wise comment delimiters flush left instead of following code indentation
 let g:NERDDefaultAlign = 'left'
 
+" Linting hotkeys
+noremap <leader>af :ALEFix<CR>
+noremap <leader>an :ALENext<CR>
 " Linting settings
 let g:ale_linter_aliases = {
   \ 'jsx': ['javascript']
@@ -123,6 +133,7 @@ Plug 'tpope/vim-fugitive'
 Plug 'plasticboy/vim-markdown'
 Plug 'SirVer/ultisnips'
 Plug 'mcchrish/nnn.vim'
+Plug 'jremmen/vim-ripgrep'
 "
 " Coc Intellisense
 Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
