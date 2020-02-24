@@ -31,8 +31,8 @@ set ignorecase
 set smartcase
 
 " Custom mappings begin here
-" 
-" 
+"
+"
 " so that forward delete works in insert mode
 " inoremap <C-d> <Esc>lxi
 inoremap <C-d> <Del>
@@ -53,6 +53,8 @@ command! -bang -nargs=? -complete=dir Files
 
 " nnn
 noremap <leader>e :Np<CR>
+
+" RipGrep
 noremap <leader>f :Rg<space>
 let g:nnn#action = {
       \ 'e': 'e',
@@ -70,14 +72,6 @@ noremap ] :cn<CR>
 " Git hotkeys
 noremap <leader>gb :Gblame<CR>
 noremap <leader>gd :Gdiff<CR>
-
-
-" UltiSnips Settings
-noremap <leader>ue :UltiSnipsEdit<CR>
-let g:UltiSnipsSnippetsDir = $HOME.'/.vim/UltiSnips'
-let g:UltiSnipsSnippetDirectories = ['UltiSnips', $HOME.'/.vim/UltiSnips']
-let g:UltiSnipsEditSplit="vertical"
-
 
 " NERD commenter settings
 let g:NERDSpaceDelims = 1
@@ -112,6 +106,9 @@ highlight ALEWarningSign ctermbg=NONE ctermfg=yellow
 " nmap <silent> <leader>dr <Plug>(coc-references)
 " nmap <silent> <leader>dj <Plug>(coc-implementation)
 
+" Coc Snippets
+
+
 " Lightline
 set laststatus=2
 " For Dev Icons
@@ -131,7 +128,6 @@ Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdcommenter'
 Plug 'tpope/vim-fugitive'
 Plug 'plasticboy/vim-markdown'
-Plug 'SirVer/ultisnips'
 Plug 'mcchrish/nnn.vim'
 Plug 'jremmen/vim-ripgrep'
 "
@@ -145,6 +141,8 @@ Plug 'neoclide/coc-eslint'
 Plug 'neoclide/coc-python'
 Plug 'neoclide/coc-rls'
 Plug 'neoclide/coc-yaml'
+" Coc Snippets
+Plug 'neoclide/coc-snippets'
 
 " Syntax Highlighting
 Plug 'pangloss/vim-javascript'
