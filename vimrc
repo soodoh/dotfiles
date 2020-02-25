@@ -52,16 +52,18 @@ command! -bang -nargs=? -complete=dir Files
   \ call fzf#vim#files(<q-args>, fzf#vim#with_preview('right:50%', 'ctrl-p'), <bang>0)
 
 " nnn
-noremap <leader>e :Np<CR>
-
-" RipGrep
-noremap <leader>f :Rg<space>
+" Disable default mappings
+let g:nnn#set_default_mappings = 0
+" Start nnn in the current file's directory
+nnoremap <leader>n :NnnPicker '%:p:h'<CR>
 let g:nnn#action = {
-      \ 'e': 'e',
       \ '<c-t>': 'tab split',
       \ '<c-x>': 'split',
       \ '<c-v>': 'vsplit'
       \ }
+
+" RipGrep
+noremap <leader>f :Rg<space>
 let g:rg_command = 'rg --vimgrep -S'
 
 " Quick fix bindings
@@ -141,8 +143,6 @@ Plug 'neoclide/coc-eslint'
 Plug 'neoclide/coc-python'
 Plug 'neoclide/coc-rls'
 Plug 'neoclide/coc-yaml'
-" Coc Snippets
-Plug 'neoclide/coc-snippets'
 
 " Syntax Highlighting
 Plug 'pangloss/vim-javascript'
