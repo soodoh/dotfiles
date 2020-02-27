@@ -8,6 +8,7 @@ git submodule update --init --recursive
 # Add custom plugins to oh-my-zsh directory
 git clone https://github.com/zsh-users/zsh-autosuggestions $FILEPATH/oh-my-zsh/custom/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $FILEPATH/oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+git clone https://github.com/tmux-plugins/tpm ${HOME}/.tmux/plugins/tpm
 
 # Without the -n it adds a symlinked directory with the same name inside its own directory
 ln -sfn $FILEPATH/oh-my-zsh ${HOME}/.oh-my-zsh
