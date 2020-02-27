@@ -96,7 +96,7 @@ source $ZSH/oh-my-zsh.sh
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
-# export LANG=en_US.UTF-8
+# export LANGcurl -Ls https://raw.githubusercontent.com/jarun/nnn/master/plugins/getplugs | sh=en_US.UTF-8
 
 # Preferred editor for local and remote sessions
 export EDITOR='nvim'
@@ -118,6 +118,9 @@ alias gsu="git submodule update --init --recursive"
 alias vim="nvim"
 
 DEFAULT_USER=$(whoami)
+
+# nnn plugins
+export NNN_PLUG='c:chksum;f:fzcd'
 
 # Added by vim fzf install script
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
