@@ -80,11 +80,11 @@ ZSH_THEME="agnoster"
 # Add wisely, as too many plugins slow down shell startup.
 plugins=(
   git
-  node
+  tmux
+  docker
+  docker-compose
   npm
-  osx
   extract
-  z
   zsh-syntax-highlighting
   zsh-autosuggestions
 )
@@ -114,7 +114,6 @@ export VISUAL='nvim'
 # plugins, and themes. Aliases can be placed here, though oh-my-zsh
 # users are encouraged to define aliases within the ZSH_CUSTOM folder.
 # For a full list of active aliases, run `alias`.
-alias rm-modules="find . -name \"node_modules\" -exec rm -rf '{}' +"
 alias gsu="git submodule update --init --recursive"
 alias vim="nvim"
 
