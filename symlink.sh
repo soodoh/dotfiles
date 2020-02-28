@@ -27,7 +27,7 @@ mkdir -p ${HOME}/.vim
 mkdir -p ${HOME}/.config/nvim
 
 # Create UltiSnips in .vim folder
-ln -s -f $FILEPATH/UltiSnips ${HOME}/.vim/UltiSnips
+ln -s -f $FILEPATH/ultisnips ${HOME}/.config/coc/ultisnips
 
 # Finally link Neovim's config
 ln -s -f $FILEPATH/vimrc ${HOME}/.config/nvim/init.vim

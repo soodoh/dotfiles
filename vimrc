@@ -71,7 +71,7 @@ noremap <leader>qf :copen<CR>
 noremap [ :cp<CR>
 noremap ] :cn<CR>
 
-" Git hotkeys
+" Git vim-fugitive hotkeys
 noremap <leader>gb :Gblame<CR>
 noremap <leader>gd :Gdiff<CR>
 
@@ -103,18 +103,16 @@ let g:ale_fix_on_save = 1 " Auto-fix on save
 highlight ALEErrorSign ctermbg=NONE ctermfg=red
 highlight ALEWarningSign ctermbg=NONE ctermfg=yellow
 
-" Coc.nvim Intellisense Settings
-" nmap <silent> <leader>dd <Plug>(coc-definition)
-" nmap <silent> <leader>dr <Plug>(coc-references)
-" nmap <silent> <leader>dj <Plug>(coc-implementation)
-
-" Coc Snippets
-
-
 " Lightline
 set laststatus=2
 " For Dev Icons
 set encoding=utf8
+
+" Coc.nvim Intellisense Settings
+" nmap <silent> <leader>dd <Plug>(coc-definition)
+" nmap <silent> <leader>dr <Plug>(coc-references)
+" nmap <silent> <leader>dj <Plug>(coc-implementation)
+noremap <leader>ue :CocCommand snippets.editSnippets<CR>
 
 " Install vim-plug if it is missing
 if empty(glob('~/.vim/autoload/plug.vim'))
@@ -129,9 +127,11 @@ Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdcommenter'
 Plug 'tpope/vim-fugitive'
-Plug 'plasticboy/vim-markdown'
 Plug 'mcchrish/nnn.vim'
 Plug 'jremmen/vim-ripgrep'
+Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
+Plug 'junegunn/fzf.vim'
+Plug 'ap/vim-css-color'
 "
 " Coc Intellisense
 Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
@@ -151,9 +151,6 @@ Plug 'mxw/vim-jsx'
 Plug 'w0rp/ale'
 " UI Enhancements
 Plug 'wmvanvliet/vim-blackboard'
-Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
-Plug 'junegunn/fzf.vim'
-Plug 'ap/vim-css-color'
 Plug 'Yggdroot/indentLine'
 Plug 'itchyny/lightline.vim'
 Plug 'ryanoasis/vim-devicons'
