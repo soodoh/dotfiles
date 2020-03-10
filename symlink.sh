@@ -17,7 +17,13 @@ curl -Ls https://raw.githubusercontent.com/jarun/nnn/master/plugins/getplugs | s
 ln -sfn $FILEPATH/oh-my-zsh ${HOME}/.oh-my-zsh
 
 # TODO add alacritty settings
-ln -sf $FILEPATH/vimrc ${HOME}/.vimrc
+
+# For regular Vim
+# ln -sf $FILEPATH/vimrc ${HOME}/.vimrc
+
+# For NeoVim
+ln -sf $FILEPATH/vimrc ${HOME}/.config/nvim/init.vim
+
 ln -sf $FILEPATH/zshrc ${HOME}/.zshrc
 ln -sf $FILEPATH/tmux.conf.local ${HOME}/.tmux.conf.local
 ln -sf $FILEPATH/oh-my-tmux/.tmux.conf ${HOME}/.tmux.conf
@@ -34,8 +40,8 @@ ln -s -f $FILEPATH/vimrc ${HOME}/.config/nvim/init.vim
 
 # Install vim-plug (Unix)
 # Neovim
-curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs \
-    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+# curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs \
+#    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 # Vim
 # curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
 #     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
