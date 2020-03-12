@@ -91,15 +91,17 @@ let g:ale_linter_aliases = {
 let g:ale_fixers = {
   \ '*': ['trim_whitespace'],
   \ 'javascript': ['eslint'],
+  \ 'typescript': ['tslint'],
   \ 'python': ['yapf', 'isort', 'black', 'autopep8', 'add_blank_lines_for_python_control_statements']
   \ }
 let g:ale_linters = {
+  \ 'typescript': ['tslint'],
   \ 'javascript': ['eslint'],
   \ 'python': ['pylint', 'pyflake', 'pycodestyle'],
   \ 'rust': ['rustc']
   \ }
-" let g:ale_sign_error='❌'
-" let g:ale_sign_warning='⚠️ '
+let g:ale_sign_error='❌'
+let g:ale_sign_warning='⚠️ '
 let g:ale_fix_on_save = 1 " Auto-fix on save
 highlight ALEErrorSign ctermbg=NONE ctermfg=red
 highlight ALEWarningSign ctermbg=NONE ctermfg=yellow
