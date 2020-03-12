@@ -115,14 +115,8 @@ set encoding=utf8
 " nmap <silent> <leader>dj <Plug>(coc-implementation)
 noremap <leader>ue :CocCommand snippets.editSnippets<CR>
 
-" Install vim-plug if it is missing
-if empty(glob('~/.vim/autoload/plug.vim'))
-  silent !curl -fLo ~/.vim/autoload/plug.vim --create-dirs
-    \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-  autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
-endif
 " vim-plug manager
-call plug#begin('~/.vim/plugged')
+call plug#begin('~/.config/nvim/plugged')
 " Developer Features
 Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-surround'
