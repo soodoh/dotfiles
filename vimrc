@@ -132,14 +132,6 @@ Plug 'ap/vim-css-color'
 "
 " Coc Intellisense
 Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
-Plug 'neoclide/coc-tsserver'
-Plug 'neoclide/coc-json'
-Plug 'neoclide/coc-html'
-Plug 'neoclide/coc-css'
-Plug 'neoclide/coc-eslint'
-Plug 'neoclide/coc-python'
-Plug 'neoclide/coc-rls'
-Plug 'neoclide/coc-yaml'
 
 " Syntax Highlighting
 Plug 'pangloss/vim-javascript'
