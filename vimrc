@@ -38,6 +38,8 @@ set smartcase
 inoremap <C-d> <Del>
 let mapleader=","
 noremap <leader>hl :nohlsearch<CR>
+noremap <C-p> :bp<CR>
+noremap <C-n> :bn<CR>
 
 " Easier sorting
 noremap <leader>!s :!sort<CR>
@@ -91,11 +93,11 @@ let g:ale_linter_aliases = {
 let g:ale_fixers = {
   \ '*': ['trim_whitespace'],
   \ 'javascript': ['eslint'],
-  \ 'typescript': ['tslint'],
+  \ 'typescript': ['eslint', 'tslint'],
   \ 'python': ['yapf', 'isort', 'black', 'autopep8', 'add_blank_lines_for_python_control_statements']
   \ }
 let g:ale_linters = {
-  \ 'typescript': ['tslint'],
+  \ 'typescript': ['eslint', 'tslint'],
   \ 'javascript': ['eslint'],
   \ 'python': ['pylint', 'pyflake', 'pycodestyle'],
   \ 'rust': ['rustc']
@@ -116,6 +118,10 @@ set encoding=utf8
 " nmap <silent> <leader>dr <Plug>(coc-references)
 " nmap <silent> <leader>dj <Plug>(coc-implementation)
 noremap <leader>ue :CocCommand snippets.editSnippets<CR>
+
+" air-line
+let g:airline#extensions#tabline#enabled = 1
+let g:airline_powerline_fonts = 1
 
 " vim-plug manager
 call plug#begin('~/.config/nvim/plugged')
@@ -141,7 +147,8 @@ Plug 'w0rp/ale'
 " UI Enhancements
 Plug 'wmvanvliet/vim-blackboard'
 Plug 'Yggdroot/indentLine'
-Plug 'itchyny/lightline.vim'
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
 Plug 'ryanoasis/vim-devicons'
 call plug#end()
 
