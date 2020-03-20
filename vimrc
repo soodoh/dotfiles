@@ -44,7 +44,7 @@ noremap <leader>e :NERDTreeToggle<CR>
 nnoremap <C-j> :bp<CR>
 nnoremap <C-k> :bn<CR>
 nnoremap <leader>b :ls<CR>:b<space>
-nnoremap <leader>bd :bd<CR>
+nnoremap <leader>bd :Bdelete<CR>
 
 " Easier sorting
 noremap <leader>!s :!sort<CR>
@@ -141,6 +141,7 @@ Plug 'preservim/nerdtree'
 Plug 'jremmen/vim-ripgrep'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
 Plug 'junegunn/fzf.vim'
+Plug 'moll/vim-bbye'
 
 " Coc Intellisense
 Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
