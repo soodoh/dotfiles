@@ -40,6 +40,7 @@ let mapleader=","
 noremap <leader>hl :nohlsearch<CR>
 noremap <C-p> :bp<CR>
 noremap <C-n> :bn<CR>
+noremap <leader>e :NERDTreeToggle<CR>
 
 " Easier sorting
 noremap <leader>!s :!sort<CR>
@@ -131,6 +132,7 @@ Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdcommenter'
 Plug 'tpope/vim-fugitive'
 Plug 'mcchrish/nnn.vim'
+Plug 'preservim/nerdtree'
 Plug 'jremmen/vim-ripgrep'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
 Plug 'junegunn/fzf.vim'
