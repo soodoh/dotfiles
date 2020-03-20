@@ -124,6 +124,7 @@ noremap <leader>ue :CocCommand snippets.editSnippets<CR>
 " air-line
 let g:airline#extensions#tabline#enabled = 1
 let g:airline_powerline_fonts = 1
+let g:airline_theme='deus'
 
 " vim-plug manager
 call plug#begin('~/.config/nvim/plugged')
@@ -143,17 +144,19 @@ Plug 'ap/vim-css-color'
 Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
 
 " Syntax Highlighting
+Plug 'leafgarland/typescript-vim'
 Plug 'pangloss/vim-javascript'
-Plug 'mxw/vim-jsx'
+Plug 'MaxMEllon/vim-jsx-pretty'
 " Linting
 Plug 'w0rp/ale'
 " UI Enhancements
-Plug 'wmvanvliet/vim-blackboard'
-Plug 'Yggdroot/indentLine'
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 Plug 'ryanoasis/vim-devicons'
+" Color schemes
+Plug 'rakr/vim-one'
 call plug#end()
 
 " set the theme (must be placed after plugins)
-colorscheme blackboard
+colorscheme one
+set background=dark
