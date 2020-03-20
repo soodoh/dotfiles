@@ -38,9 +38,13 @@ set smartcase
 inoremap <C-d> <Del>
 let mapleader=","
 noremap <leader>hl :nohlsearch<CR>
-noremap <C-p> :bp<CR>
-noremap <C-n> :bn<CR>
 noremap <leader>e :NERDTreeToggle<CR>
+
+" Buffers
+nnoremap <C-j> :bp<CR>
+nnoremap <C-k> :bn<CR>
+nnoremap <leader>b :ls<CR>:b<space>
+nnoremap <leader>bd :bd<CR>
 
 " Easier sorting
 noremap <leader>!s :!sort<CR>
@@ -62,7 +66,6 @@ nnoremap <leader>n :NnnPicker '%:p:h'<CR>
 let g:nnn#command = 'nnn -e'
 let g:nnn#action = {
       \ '<c-t>': 'tab split',
-      \ '<c-x>': 'split',
       \ '<c-v>': 'vsplit'
       \ }
 
@@ -77,7 +80,7 @@ noremap ] :cn<CR>
 
 " Git vim-fugitive hotkeys
 noremap <leader>gb :Gblame<CR>
-noremap <leader>gd :Gdiff<CR>
+noremap <leader>gd :Gdiff
 
 " NERD commenter settings
 let g:NERDSpaceDelims = 1
@@ -129,7 +132,7 @@ let g:airline_theme='deus'
 " vim-plug manager
 call plug#begin('~/.config/nvim/plugged')
 " Developer Features
-Plug 'jiangmiao/auto-pairs'
+" Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdcommenter'
 Plug 'tpope/vim-fugitive'
@@ -138,8 +141,7 @@ Plug 'preservim/nerdtree'
 Plug 'jremmen/vim-ripgrep'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
 Plug 'junegunn/fzf.vim'
-Plug 'ap/vim-css-color'
-"
+
 " Coc Intellisense
 Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
 
@@ -153,6 +155,7 @@ Plug 'w0rp/ale'
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 Plug 'ryanoasis/vim-devicons'
+Plug 'ap/vim-css-color'
 " Color schemes
 Plug 'rakr/vim-one'
 call plug#end()
