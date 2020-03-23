@@ -118,9 +118,9 @@ set laststatus=2
 set encoding=utf8
 
 " Coc.nvim Intellisense Settings
-" nmap <silent> gd <Plug>(coc-definition)
 nmap <silent> gy <Plug>(coc-type-definition)
-nmap <silent> gi <Plug>(coc-implementation)
+nmap <silent> gi <Plug>(coc-definition)
+" nmap <silent> gi <Plug>(coc-implementation)
 " nmap <silent> gr <Plug>(coc-references)
 noremap <leader>ue :CocCommand snippets.editSnippets<CR>
 
