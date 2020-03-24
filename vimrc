@@ -127,7 +127,7 @@ noremap <leader>ue :CocCommand snippets.editSnippets<CR>
 " air-line
 let g:airline#extensions#tabline#enabled = 1
 let g:airline_powerline_fonts = 1
-let g:airline_theme='deus'
+let g:airline_theme='jellybeans'
 
 " vim-plug manager
 call plug#begin('~/.config/nvim/plugged')
@@ -158,9 +158,8 @@ Plug 'vim-airline/vim-airline-themes'
 Plug 'ryanoasis/vim-devicons'
 Plug 'ap/vim-css-color'
 " Color schemes
-Plug 'rakr/vim-one'
+Plug 'nanotech/jellybeans.vim'
 call plug#end()
 
 " set the theme (must be placed after plugins)
-colorscheme one
-set background=dark
+colorscheme jellybeans
