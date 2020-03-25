@@ -39,6 +39,7 @@ inoremap <C-d> <Del>
 let mapleader=","
 noremap <leader>hl :nohlsearch<CR>
 noremap <leader>e :NERDTreeToggle<CR>
+noremap <leader>ef :NERDTreeFind<CR>
 
 " Buffers
 nnoremap <C-j> :bp<CR>
