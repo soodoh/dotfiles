@@ -133,7 +133,7 @@ let g:airline_theme='jellybeans'
 " vim-plug manager
 call plug#begin('~/.config/nvim/plugged')
 " Developer Features
-" Plug 'jiangmiao/auto-pairs'
+Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdcommenter'
 Plug 'tpope/vim-fugitive'
