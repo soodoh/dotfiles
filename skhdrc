@@ -23,6 +23,10 @@ shift + alt - f : yabai -m window --toggle native-fullscreen
 # Toggle window split type
 alt - e : yabai -m window --toggle split
 
+# Equalize window sizes
+# 0x18 is my keycode for '='
+alt - 0x18 : yabai -m space --balance
+
 # Move focus container to workspace
 shift + alt - m : yabai -m window --space last && yabai -m space --focus last
 shift + alt - p : yabai -m window --space prev && yabai -m space --focus prev
@@ -36,17 +40,17 @@ shift + alt - 6 : yabai -m window --space 6 && yabai -m space --focus 6
 
 # Resize windows
 lctrl + alt - h : \
-    yabai -m window --resize left:-20:0 ; \
-    yabai -m window --resize right:-20:0
+    yabai -m window --resize left:-100:0 ; \
+    yabai -m window --resize right:-100:0
 
 lctrl + alt - j : \
-    yabai -m window --resize bottom:0:20 ; \
-    yabai -m window --resize top:0:20
+    yabai -m window --resize bottom:0:100 ; \
+    yabai -m window --resize top:0:100
 
 lctrl + alt - k : \
-    yabai -m window --resize top:0:-20 ; \
-    yabai -m window --resize bottom:0:-20
+    yabai -m window --resize top:0:-100 ; \
+    yabai -m window --resize bottom:0:-100
 
 lctrl + alt - l : \
-    yabai -m window --resize right:20:0 ; \
-    yabai -m window --resize left:20:0
+    yabai -m window --resize right:100:0 ; \
+    yabai -m window --resize left:100:0
