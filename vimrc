@@ -75,7 +75,7 @@ noremap <leader>f :Rg<space>
 let g:rg_command = 'rg --vimgrep -S'
 
 " Quick fix bindings
-noremap <leader>qf :copen<CR>
+" noremap <leader>qf :copen<CR>
 noremap [ :cp<CR>
 noremap ] :cn<CR>
 
