@@ -81,7 +81,7 @@ noremap ] :cn<CR>
 
 " Git vim-fugitive hotkeys
 noremap <leader>gb :Gblame<CR>
-noremap <leader>gd :Gdiff
+noremap <leader>gd :Gdiff<space>
 
 " NERD commenter settings
 let g:NERDSpaceDelims = 1
