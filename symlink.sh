@@ -38,12 +38,12 @@ ln -sf $FILEPATH/oh-my-tmux/.tmux.conf ~/.tmux.conf
 
 # Create UltiSnips in .vim folder
 mkdir -p ~/.config/coc
-ln -s -f $FILEPATH/ultisnips ~/.config/coc/ultisnips
+ln -sfn $FILEPATH/ultisnips ~/.config/coc/ultisnips
+ln -sf $FILEPATH/coc-settings.json ~/.config/nvim/coc-settings.json
 
 # Finally link Neovim's config
 mkdir -p ~/.config/nvim
-ln -s -f $FILEPATH/vimrc ~/.config/nvim/init.vim
-ln -s -f $FILEPATH/coc-settings.json ~/.config/nvim/coc-settings.json
+ln -sf $FILEPATH/vimrc ~/.config/nvim/init.vim
 
 # Install vim-plug (should work on Mac & Linux)
 # Neovim
