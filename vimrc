@@ -88,31 +88,6 @@ let g:NERDSpaceDelims = 1
 " Align line-wise comment delimiters flush left instead of following code indentation
 let g:NERDDefaultAlign = 'left'
 
-" Linting hotkeys
-noremap <leader>af :ALEFix<CR>
-noremap <leader>an :ALENext<CR>
-" Linting settings
-let g:ale_linter_aliases = {
-  \ 'jsx': ['javascript']
-  \ }
-let g:ale_fixers = {
-  \ '*': ['trim_whitespace'],
-  \ 'javascript': ['eslint'],
-  \ 'typescript': ['eslint', 'tslint'],
-  \ 'python': ['yapf', 'isort', 'black', 'autopep8', 'add_blank_lines_for_python_control_statements']
-  \ }
-let g:ale_linters = {
-  \ 'typescript': ['eslint', 'tslint'],
-  \ 'javascript': ['eslint'],
-  \ 'python': ['pylint', 'pyflake', 'pycodestyle'],
-  \ 'rust': ['rustc']
-  \ }
-let g:ale_sign_error='❌'
-let g:ale_sign_warning='⚠️ '
-let g:ale_fix_on_save = 1 " Auto-fix on save
-highlight ALEErrorSign ctermbg=NONE ctermfg=red
-highlight ALEWarningSign ctermbg=NONE ctermfg=yellow
-
 " Lightline
 set laststatus=2
 " For Dev Icons
@@ -121,9 +96,9 @@ set encoding=utf8
 " Coc.nvim Intellisense Settings
 nmap <silent> gy <Plug>(coc-type-definition)
 nmap <silent> gi <Plug>(coc-definition)
-" nmap <silent> gi <Plug>(coc-implementation)
-" nmap <silent> gr <Plug>(coc-references)
 noremap <leader>ue :CocCommand snippets.editSnippets<CR>
+" For coc-highlight
+set termguicolors
 
 " air-line
 let g:airline#extensions#tabline#enabled = 1
@@ -133,7 +108,6 @@ let g:airline_theme='jellybeans'
 " vim-plug manager
 call plug#begin('~/.config/nvim/plugged')
 " Developer Features
-Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdcommenter'
 Plug 'tpope/vim-fugitive'
@@ -145,19 +119,27 @@ Plug 'junegunn/fzf.vim'
 Plug 'moll/vim-bbye'
 
 " Coc Intellisense
-Plug 'neoclide/coc.nvim', {'do': './install.sh nightly'}
+Plug 'neoclide/coc.nvim', {'branch': 'release'}
+Plug 'neoclide/coc-tsserver', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-tslint-plugin', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-eslint', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-css', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-html', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-json', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-yaml', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-python', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-rls', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-snippets', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-git', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-pairs', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-highlight', {'do': 'yarn install --frozen-lockfile'}
 
 " Syntax Highlighting
-Plug 'leafgarland/typescript-vim'
-Plug 'pangloss/vim-javascript'
 Plug 'MaxMEllon/vim-jsx-pretty'
-" Linting
-Plug 'w0rp/ale'
 " UI Enhancements
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 Plug 'ryanoasis/vim-devicons'
-Plug 'ap/vim-css-color'
 " Color schemes
 Plug 'nanotech/jellybeans.vim'
 call plug#end()

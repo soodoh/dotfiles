@@ -43,6 +43,7 @@ ln -s -f $FILEPATH/ultisnips ~/.config/coc/ultisnips
 # Finally link Neovim's config
 mkdir -p ~/.config/nvim
 ln -s -f $FILEPATH/vimrc ~/.config/nvim/init.vim
+ln -s -f $FILEPATH/coc-settings.json ~/.config/nvim/coc-settings.json
 
 # Install vim-plug (should work on Mac & Linux)
 # Neovim
