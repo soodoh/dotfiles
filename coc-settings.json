@@ -1,4 +1,9 @@
 {
   "eslint.autoFixOnSave": true,
-  "tslint.autoFixOnSave": true
+  "tslint.autoFixOnSave": true,
+  "snippets.extends": {
+    "typescript": ["javascript"],
+    "javascriptreact": ["javascript"],
+    "typescriptreact": ["typescript", "javascriptreact"]
+  }
 }

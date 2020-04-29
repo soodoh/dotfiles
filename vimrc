@@ -97,6 +97,7 @@ set encoding=utf8
 nmap <silent> gy <Plug>(coc-type-definition)
 nmap <silent> gi <Plug>(coc-definition)
 noremap <leader>ue :CocCommand snippets.editSnippets<CR>
+imap <C-l> <Plug>(coc-snippets-expand-jump)
 " For coc-highlight
 set termguicolors
 
