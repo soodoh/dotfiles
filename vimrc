@@ -8,7 +8,9 @@ set softtabstop=2
 set shiftwidth=2
 " tabs are spaces
 set expandtab
-" show line numbers
+" show line numbers relative to cursor
+set relativenumber
+" show absolute line numbers
 set number
 " highlight current line
 set cursorline
@@ -16,8 +18,6 @@ set cursorline
 filetype indent on
 " load file-type specific auto commands
 filetype plugin on
-" redraw only when we need to
-" set lazyredraw
 " highlight matching [{()}]
 set showmatch
 " highlight matches
@@ -29,6 +29,9 @@ set backspace=indent,eol,start
 " searches are case insensitive unless capital letter is used
 set ignorecase
 set smartcase
+" Show - instead of whitespace at end of line
+" Also shows ^I instead of tabs
+set list
 
 " Custom mappings begin here
 "
@@ -37,6 +40,7 @@ set smartcase
 " inoremap <C-d> <Esc>lxi
 inoremap <C-d> <Del>
 let mapleader=","
+" other mappings 
 noremap <leader>hl :nohlsearch<CR>
 noremap <leader>e :NERDTreeToggle<CR>
 noremap <leader>ef :NERDTreeFind<CR>
