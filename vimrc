@@ -140,6 +140,9 @@ Plug 'neoclide/coc-pairs', {'do': 'yarn install --frozen-lockfile'}
 Plug 'neoclide/coc-highlight', {'do': 'yarn install --frozen-lockfile'}
 
 " Syntax Highlighting
+Plug 'leafgarland/typescript-vim'
+Plug 'pangloss/vim-javascript'
+Plug 'HerringtonDarkholme/yats.vim' " Necessary for TSX
 Plug 'MaxMEllon/vim-jsx-pretty'
 " UI Enhancements
 Plug 'vim-airline/vim-airline'
