@@ -8,10 +8,14 @@ set softtabstop=2
 set shiftwidth=2
 " tabs are spaces
 set expandtab
-" show line numbers relative to cursor
-set relativenumber
 " show absolute line numbers
 set number
+" auto toggle between relative/absolute numbers
+augroup numbertoggle
+  autocmd!
+  autocmd BufEnter,FocusGained,InsertLeave * set relativenumber
+  autocmd BufLeave,FocusLost,InsertEnter   * set norelativenumber
+augroup END
 " highlight current line
 set cursorline
 " load file-type specific indent files
