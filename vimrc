@@ -41,7 +41,7 @@ set list
 "
 "
 " so that forward delete works in insert mode
-" inoremap <C-d> <Esc>lxi
+inoremap jj <ESC>
 inoremap <C-d> <Del>
 let mapleader=","
 " other mappings 
