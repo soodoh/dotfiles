@@ -14,6 +14,14 @@
 # For Linux:
 # - Install alacritty
 
+# For Themeing:
+# - Add to Slack
+# - Add to Terminal
+# - Add to iTerm2
+
+# After Install:
+# - Run command to install tmux plugins
+
 # I assume the script is being run from it's own directory
 FILEPATH=$(pwd)
 
