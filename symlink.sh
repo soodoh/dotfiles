@@ -38,11 +38,9 @@ curl -Ls https://raw.githubusercontent.com/jarun/nnn/master/plugins/getplugs | s
 # Without the -n it adds a symlinked directory with the same name inside its own directory
 ln -sfn $FILEPATH/oh-my-zsh ~/.oh-my-zsh
 
-
 # TODO move these into .config
 ln -sf $FILEPATH/zshrc ~/.zshrc
-ln -sf $FILEPATH/tmux.conf.local ~/.tmux.conf.local
-ln -sf $FILEPATH/oh-my-tmux/.tmux.conf ~/.tmux.conf
+ln -sf $FILEPATH/tmux.conf ~/.tmux.conf
 
 # Create UltiSnips in .vim folder
 mkdir -p ~/.config/coc
