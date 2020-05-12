@@ -299,7 +299,8 @@ set -g status-position top
    tmux-plugins/tpm             \
    tmux-plugins/tmux-sensible   \
    tmux-plugins/tmux-resurrect  \
-   arcticicestudio/nord-tmux  \
+   tmux-plugins/tmux-continuum  \
+   arcticicestudio/nord-tmux    \
  '
 set -g @continuum-restore 'on'
 
