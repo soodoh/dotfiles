@@ -126,6 +126,7 @@ Plug 'jremmen/vim-ripgrep'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
 Plug 'junegunn/fzf.vim'
 Plug 'moll/vim-bbye'
+Plug 'christoomey/vim-tmux-navigator'
 
 " Coc Intellisense
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
