@@ -51,9 +51,12 @@ noremap <leader>hl :nohlsearch<CR>
 noremap <leader>e :NERDTreeToggle<CR>
 noremap <leader>ef :NERDTreeFind<CR>
 
+" Quick fix bindings
+noremap [q :cp<CR>
+noremap ]q :cn<CR>
 " Buffers
-nnoremap <C-j> :bp<CR>
-nnoremap <C-k> :bn<CR>
+noremap [b :bp<CR>
+noremap ]b :bn<CR>
 nnoremap <leader>b :ls<CR>:b<space>
 nnoremap <leader>bd :Bdelete<CR>
 
@@ -83,11 +86,6 @@ let g:nnn#action = {
 " RipGrep
 noremap <leader>f :Rg<space>
 let g:rg_command = 'rg --vimgrep -S'
-
-" Quick fix bindings
-" noremap <leader>qf :copen<CR>
-noremap [ :cp<CR>
-noremap ] :cn<CR>
 
 " Git vim-fugitive hotkeys
 noremap <leader>gb :Gblame<CR>
