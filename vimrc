@@ -11,11 +11,11 @@ set expandtab
 " show absolute line numbers
 set number
 " auto toggle between relative/absolute numbers
-augroup numbertoggle
-  autocmd!
-  autocmd BufEnter,FocusGained,InsertLeave * set relativenumber
-  autocmd BufLeave,FocusLost,InsertEnter   * set norelativenumber
-augroup END
+" augroup numbertoggle
+"   autocmd!
+"   autocmd BufEnter,FocusGained,InsertLeave * set relativenumber
+"   autocmd BufLeave,FocusLost,InsertEnter   * set norelativenumber
+" augroup END
 " highlight current line
 set cursorline
 " load file-type specific indent files
@@ -46,7 +46,7 @@ inoremap <C-c> <ESC>
 " so that forward delete works in insert mode
 inoremap <C-d> <Del>
 let mapleader=","
-" other mappings 
+e other mappings 
 noremap <leader>hl :nohlsearch<CR>
 noremap <leader>e :NERDTreeToggle<CR>
 noremap <leader>ef :NERDTreeFind<CR>
