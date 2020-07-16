@@ -46,7 +46,7 @@ inoremap <C-c> <ESC>
 " so that forward delete works in insert mode
 inoremap <C-d> <Del>
 let mapleader=","
-e other mappings 
+" other mappings 
 noremap <leader>hl :nohlsearch<CR>
 noremap <leader>e :NERDTreeToggle<CR>
 noremap <leader>ef :NERDTreeFind<CR>

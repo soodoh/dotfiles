@@ -154,3 +154,5 @@ DEFAULT_USER=$(whoami)
 
 # Added by vim fzf install script
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+# Add AWS keys
+[ -f ~/.aws/keys ] && source ~/.aws/keys
