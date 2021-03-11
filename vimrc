@@ -40,7 +40,7 @@ set list
 " Custom mappings begin here
 "
 "
-inoremap jj <ESC>
+" inoremap jj <ESC>
 " so that Ctrl+C triggers InsertLeave autocmd
 inoremap <C-c> <ESC>
 " so that forward delete works in insert mode
