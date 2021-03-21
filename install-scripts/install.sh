@@ -53,14 +53,12 @@ git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 # Installs nnn plugins
 curl -Ls https://raw.githubusercontent.com/jarun/nnn/master/plugins/getplugs | sh
 
-# Without the -n it adds a symlinked directory with the same name inside its own directory
-ln -sfn $FILEPATH/oh-my-zsh $HOME/.oh-my-zsh
-
 # TODO move these into .config
 ln -sf $FILEPATH/zshrc $HOME/.zshrc
 ln -sf $FILEPATH/tmux.conf $HOME/.tmux.conf
 
 # Create UltiSnips in .vim folder
+rm -rf $HOME/.config/coc
 mkdir -p ~/.config/coc
 ln -sfn $FILEPATH/ultisnips $HOME/.config/coc/ultisnips
 ln -sf $FILEPATH/coc-settings.json $HOME/.config/nvim/coc-settings.json
@@ -69,9 +67,9 @@ ln -sf $FILEPATH/coc-settings.json $HOME/.config/nvim/coc-settings.json
 mkdir -p ~/.config/nvim
 ln -sf $FILEPATH/vimrc $HOME/.config/nvim/init.vim
 
-# Install Alacritty for both Mac & Linux
-mkdir -p ~/.config/alacritty
-ln -sf $FILEPATH/alacritty/alacritty.yml $HOME/.config/alacritty/alacritty.yml
+# Install Alacritty folder for both Mac & Linux
+rm -rf $HOME/.config/alacritty
+ln -sfn $FILEPATH/alacritty $HOME/.config/alacritty
 
 # Install vim-plug (should work on Mac & Linux)
 # Neovim
