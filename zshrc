@@ -16,7 +16,7 @@ export ZSH="$HOME/.oh-my-zsh"
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="agnoster"
+# ZSH_THEME="agnoster"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -176,3 +176,6 @@ HB_CNF_HANDLER="$(brew --repository)/Library/Taps/homebrew/homebrew-command-not-
 if [ -f "$HB_CNF_HANDLER" ]; then
 source "$HB_CNF_HANDLER";
 fi
+
+# Use Starship for terminal prompt
+eval "$(starship init zsh)"
