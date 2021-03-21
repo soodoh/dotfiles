@@ -1,5 +1,5 @@
-# Open iTerm2
-# alt - return : open -a /Applications/iTerm.app
+# Open Terminal
+alt + shift - return : open -a alacritty
 
 # Navigation
 alt - h : yabai -m window --focus west
