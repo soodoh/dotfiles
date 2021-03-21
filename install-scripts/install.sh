@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# For Themeing:
-# - Add to Slack
-
 # After Install:
 # - Open Neovim and run command to install Tmux plugins
+# - Add Nord theme to Slack
 
 # Get filepath of this script
 FILE_PATH=$(dirname $(dirname $SCRIPT_PATH))
@@ -21,6 +19,7 @@ FILE_PATH=$(dirname $(dirname $SCRIPT_PATH))
 #   alacritty \
 #   fzf \
 #   ripgrep
+#   z
 
 # TODO if Arch
 # pacman -Syu alacritty \
@@ -29,6 +28,7 @@ FILE_PATH=$(dirname $(dirname $SCRIPT_PATH))
 #   neovim \
 #   fzf \
 #   ripgrep \
+#   z
 
 # TODO if Ubuntu
 # apt-get update && apt-get upgrade
@@ -38,13 +38,16 @@ FILE_PATH=$(dirname $(dirname $SCRIPT_PATH))
 #   neovim \
 #   fzf \
 #   ripgrep \
+#   z
 
 
-# Revert oh-my-zsh and oh-my-tmux to master branch
-git submodule update --init --recursive
+# Install oh-my-zsh
+# TODO check if installed already?
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
 # Add custom plugins to oh-my-zsh directory
-git clone https://github.com/zsh-users/zsh-autosuggestions $FILEPATH/oh-my-zsh/custom/plugins/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $FILEPATH/oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+git clone https://github.com/zsh-users/zsh-autosuggestions $HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
 # Installs tmux plugin manager
 git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 # Installs nnn plugins
