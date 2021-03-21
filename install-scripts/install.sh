@@ -1,26 +1,10 @@
 #!/bin/bash
 
-# Prerequisites:
-# - Install zsh
-# - Install tmux
-# - Install neovim
-# - Install fzf
-# - Install ripgrep
-
-# For Mac:
-# - Install yabai
-# - Install skhd
-
-# For Linux:
-# - Install alacritty
-
 # For Themeing:
 # - Add to Slack
-# - Add to Terminal
-# - Add to iTerm2
 
 # After Install:
-# - Run command to install tmux plugins
+# - Open Neovim and run command to install Tmux plugins
 
 # Get filepath of this script
 FILE_PATH=$(dirname $(dirname $SCRIPT_PATH))
@@ -28,11 +12,33 @@ FILE_PATH=$(dirname $(dirname $SCRIPT_PATH))
 # TODO if MAC
 # TODO install brew
 # brew update && brew upgrade
-# brew install coreutils
-# brew install yabai
-# brew install skhd
+# brew install coreutils \
+#   zsh \
+#   tmux \
+#   neovim \
+#   yabai \
+#   skhd \
+#   alacritty \
+#   fzf \
+#   ripgrep
 
-# TODO if Linux
+# TODO if Arch
+# pacman -Syu alacritty \
+#   zsh \
+#   tmux \
+#   neovim \
+#   fzf \
+#   ripgrep \
+
+# TODO if Ubuntu
+# apt-get update && apt-get upgrade
+# apt-get install alacritty \
+#   zsh \
+#   tmux \
+#   neovim \
+#   fzf \
+#   ripgrep \
+
 
 # Revert oh-my-zsh and oh-my-tmux to master branch
 git submodule update --init --recursive
