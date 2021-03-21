@@ -20,11 +20,11 @@ yabai -m config window_topmost               off
 yabai -m config window_opacity               off
 yabai -m config window_opacity_duration      0.0
 yabai -m config window_shadow                on
-yabai -m config window_border                on
-yabai -m config window_border_width          4
+yabai -m config window_border                off
+# yabai -m config window_border_width          4
 # yabai -m config active_window_border_color   0xff775759
-yabai -m config active_window_border_color   0xff66BB6A
-yabai -m config normal_window_border_color   0xff505050
+# yabai -m config active_window_border_color   0xff66BB6A
+# yabai -m config normal_window_border_color   0xff505050
 # yabai -m config insert_window_border_color   0xffd75f5f
 yabai -m config insert_window_border_color   0xffE57373
 yabai -m config active_window_opacity        1.0
@@ -57,28 +57,28 @@ yabai -m signal --add event=window_destroyed action="~/Programs/bin/focus_yabai"
 yabai -m signal --add event=space_changed action="~/Programs/bin/toggle"
 
 # updates every 5 minutes
-frequency=300
+# frequency=300
 
-function update_battery_loop() {
-	while true; do
-		# Get the current battery percentage.
-		battery=$(pmset -g batt | grep -Eo "\d+%" | cut -d% -f1)
+# function update_battery_loop() {
+#   while true; do
+#     # Get the current battery percentage.
+#     battery=$(pmset -g batt | grep -Eo "\d+%" | cut -d% -f1)
 
-		if [ $battery -gt 84 ]; then
-			yabai -m config status_bar_power_icon_strip battery-full plug
-		elif [ $battery -gt 60 ]; then
-			yabai -m config status_bar_power_icon_strip battery-three-quarters plug
-		elif [ $battery -gt 39 ]; then
-			yabai -m config status_bar_power_icon_strip battery-half plug
-		elif [ $battery -gt 14 ]; then
-			yabai -m config status_bar_power_icon_strip battery-quarter plug
-		else
-			yabai -m config status_bar_power_icon_strip battery-empty plug
-		fi
+#     if [ $battery -gt 84 ]; then
+#       yabai -m config status_bar_power_icon_strip battery-full plug
+#     elif [ $battery -gt 60 ]; then
+#       yabai -m config status_bar_power_icon_strip battery-three-quarters plug
+#     elif [ $battery -gt 39 ]; then
+#       yabai -m config status_bar_power_icon_strip battery-half plug
+#     elif [ $battery -gt 14 ]; then
+#       yabai -m config status_bar_power_icon_strip battery-quarter plug
+#     else
+#       yabai -m config status_bar_power_icon_strip battery-empty plug
+#     fi
 
-		sleep $frequency
-	done
-}
+#     sleep $frequency
+#   done
+# }
 
 # TODO: make icons for battery percentage
 # run the function async
