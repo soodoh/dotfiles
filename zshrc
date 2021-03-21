@@ -84,7 +84,10 @@ plugins=(
   docker
   docker-compose
   npm
-  extract
+  sudo
+  colored-man-pages
+  command-not-found
+  # Custom ones
   zsh-syntax-highlighting
   zsh-autosuggestions
 )
@@ -164,7 +167,12 @@ DEFAULT_USER=$(whoami)
 
 # Added by vim fzf install script
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-# Add AWS keys
-[ -f ~/.aws/keys ] && source ~/.aws/keys
+
 # Load z
 . /usr/local/etc/profile.d/z.sh
+
+# Homebrew command not found
+HB_CNF_HANDLER="$(brew --repository)/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
+if [ -f "$HB_CNF_HANDLER" ]; then
+source "$HB_CNF_HANDLER";
+fi

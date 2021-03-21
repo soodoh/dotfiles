@@ -20,6 +20,7 @@ FILE_PATH=$(dirname $(dirname $SCRIPT_PATH))
 #   fzf \
 #   ripgrep
 #   z
+# brew tap homebrew/command-not-found
 
 # TODO if Arch
 # pacman -Syu alacritty \
