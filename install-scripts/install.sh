@@ -31,7 +31,9 @@ FILE_PATH=$(dirname $(dirname $SCRIPT_PATH))
 #   neovim \
 #   fzf \
 #   ripgrep \
-#   z
+#   z \
+#   lm-sensors \
+#   free
 
 # TODO if Ubuntu
 # apt-get update && apt-get upgrade
@@ -42,7 +44,9 @@ FILE_PATH=$(dirname $(dirname $SCRIPT_PATH))
 #   neovim \
 #   fzf \
 #   ripgrep \
-#   z
+#   z \
+#   lm-sensors \
+#   free
 
 
 # Install oh-my-zsh
