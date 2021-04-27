@@ -14,7 +14,7 @@ hyper - k : yabai -m window --warp north
 hyper - l : yabai -m window --warp east
 
 # Float / Unfloat window
-# shift + alt - space : yabai -m window --toggle float
+meh - space : yabai -m window --toggle float
 
 # Make window native fullscreen
 meh - f         : yabai -m window --toggle zoom-fullscreen
