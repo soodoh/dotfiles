@@ -1,5 +1,16 @@
 #!/usr/bin/env sh
 
+# Application rules
+yabai -m rule --add app="^Alacritty$" space=1
+yabai -m rule --add app="^Google Chrome$" space=1
+yabai -m rule --add app="^Slack$" space=2
+yabai -m rule --add app="^Microsoft Outlook$" space=2
+yabai -m rule --add app="^Notes$" space=3
+yabai -m rule --add app="^Todoist$" space=3
+yabai -m rule --add app="^Messages$" space=4
+yabai -m rule --add app="^Discord$" space=4
+yabai -m rule --add app="^Spotify$" space=4
+
 # bar settings
 # yabai -m config status_bar                   on
 # yabai -m config window_border_width          4
