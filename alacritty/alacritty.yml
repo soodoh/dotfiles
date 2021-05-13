@@ -559,7 +559,9 @@ background_opacity: 0.8
 # binding with the same triggers is defined. To unset a default binding, it can
 # be mapped to the `ReceiveChar` action. Alternatively, you can use `None` for
 # a no-op if you do not wish to receive input characters for that binding.
-#key_bindings:
+key_bindings:
+  # (Fixes Vim Ctrl+6 hotkey for MacOS)
+  - { key: Key6,      mods: Control,       chars: "\x1e"            }
   # (Windows, Linux, and BSD only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
   #- { key: C,        mods: Control|Shift, action: Copy             }
