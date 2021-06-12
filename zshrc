@@ -159,10 +159,6 @@ export VISUAL='nvim'
 alias gsu="git submodule update --init --recursive"
 alias vim="nvim"
 
-# so npm packages are user scoped
-PATH="$HOME/.node_modules/bin:$PATH"
-export npm_config_prefix=~/.node_modules
-
 DEFAULT_USER=$(whoami)
 
 # Added by vim fzf install script
