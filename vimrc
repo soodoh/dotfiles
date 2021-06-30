@@ -1,3 +1,5 @@
+" fix for mouse in Alacritty
+set mouse=a
 " enable syntax processing
 syntax enable
 " number of visual spaces per TAB
