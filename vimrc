@@ -1,5 +1,7 @@
 " fix for mouse in Alacritty
 set mouse=a
+" set JSON file type to JSONC (allowing comments)
+autocmd BufNewFile,BufRead *.json setl ft=jsonc
 " enable syntax processing
 syntax enable
 " number of visual spaces per TAB
@@ -147,10 +149,8 @@ Plug 'neoclide/coc-pairs', {'do': 'yarn install --frozen-lockfile'}
 Plug 'neoclide/coc-highlight', {'do': 'yarn install --frozen-lockfile'}
 
 " Syntax Highlighting
-Plug 'leafgarland/typescript-vim'
-Plug 'pangloss/vim-javascript'
-Plug 'HerringtonDarkholme/yats.vim' " Necessary for TSX
-Plug 'MaxMEllon/vim-jsx-pretty'
+Plug 'sheerun/vim-polyglot'
+
 " UI Enhancements
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
