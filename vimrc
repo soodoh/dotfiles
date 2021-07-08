@@ -92,7 +92,7 @@ noremap <leader>f :Rg<space>
 let g:rg_command = 'rg --vimgrep -S'
 
 " Git vim-fugitive hotkeys
-noremap <leader>gb :Gblame<CR>
+noremap <leader>gb :Git blame<CR>
 noremap <leader>gd :Gdiff<space>
 
 " NERD commenter settings
