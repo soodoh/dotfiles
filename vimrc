@@ -80,7 +80,7 @@ command! -bang -nargs=? -complete=dir Files
 " Disable default mappings
 let g:nnn#set_default_mappings = 0
 " Start nnn in the current file's directory
-nnoremap <leader>n :NnnPicker %:h<CR>
+nnoremap <leader>n :NnnPicker %:p:h<CR>
 let g:nnn#command = 'nnn -e'
 let g:nnn#action = {
       \ '<c-t>': 'tab split',
