@@ -90,6 +90,8 @@ plugins=(
   # Custom ones
   zsh-syntax-highlighting
   zsh-autosuggestions
+  zsh-vimode-visual
+  vi-mode
 )
 
 source $ZSH/oh-my-zsh.sh
@@ -143,14 +145,9 @@ n ()
     fi
 }
 
-
-
 # Preferred editor for local and remote sessions
 export EDITOR='nvim'
 export VISUAL='nvim'
-
-# Compilation flags
-# export ARCHFLAGS="-arch x86_64"
 
 # Set personal aliases, overriding those provided by oh-my-zsh libs,
 # plugins, and themes. Aliases can be placed here, though oh-my-zsh
