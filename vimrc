@@ -12,19 +12,7 @@ Plug 'junegunn/fzf.vim'
 Plug 'moll/vim-bbye'
 Plug 'christoomey/vim-tmux-navigator'
 Plug 'norcalli/nvim-colorizer.lua'
-
-" Coc Intellisense
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
-Plug 'neoclide/coc-snippets', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-git', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-tsserver', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-eslint', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-css', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-html', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-json', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/jsonc.vim'
-Plug 'neoclide/coc-yaml', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-rls', {'do': 'yarn install --frozen-lockfile'}
 
 " Syntax Highlighting
 Plug 'sheerun/vim-polyglot'
@@ -36,6 +24,19 @@ Plug 'ryanoasis/vim-devicons'
 " Color schemes
 Plug 'arcticicestudio/nord-vim'
 call plug#end()
+
+"""" CoC plugins
+let g:coc_global_extensions = [
+  \'coc-snippets',
+  \'coc-git',
+  \'coc-tsserver',
+  \'coc-eslint',
+  \'coc-css',
+  \'coc-html',
+  \'coc-json',
+  \'coc-yaml',
+  \'coc-rls'
+  \]
 
 """" Regular vim settings
 " fix for mouse in Alacritty
