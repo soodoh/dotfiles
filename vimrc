@@ -1,3 +1,43 @@
+""""" vim-plug manager
+call plug#begin('~/.config/nvim/plugged')
+" Developer Features
+Plug 'tpope/vim-surround'
+Plug 'scrooloose/nerdcommenter'
+Plug 'tpope/vim-fugitive'
+Plug 'mcchrish/nnn.vim'
+Plug 'preservim/nerdtree'
+Plug 'jremmen/vim-ripgrep'
+Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
+Plug 'junegunn/fzf.vim'
+Plug 'moll/vim-bbye'
+Plug 'christoomey/vim-tmux-navigator'
+Plug 'norcalli/nvim-colorizer.lua'
+
+" Coc Intellisense
+Plug 'neoclide/coc.nvim', {'branch': 'release'}
+Plug 'neoclide/coc-snippets', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-git', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-tsserver', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-eslint', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-css', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-html', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-json', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/jsonc.vim'
+Plug 'neoclide/coc-yaml', {'do': 'yarn install --frozen-lockfile'}
+Plug 'neoclide/coc-rls', {'do': 'yarn install --frozen-lockfile'}
+
+" Syntax Highlighting
+Plug 'sheerun/vim-polyglot'
+
+" UI Enhancements
+Plug 'vim-airline/vim-airline'
+Plug 'vim-airline/vim-airline-themes'
+Plug 'ryanoasis/vim-devicons'
+" Color schemes
+Plug 'arcticicestudio/nord-vim'
+call plug#end()
+
+"""" Regular vim settings
 " fix for mouse in Alacritty
 set mouse=a
 " set JSON file type to JSONC (allowing comments)
@@ -41,7 +81,7 @@ set smartcase
 " Also shows ^I instead of tabs
 set list
 
-" Custom mappings begin here
+""""" Custom mappings begin here
 "
 "
 " inoremap jj <ESC>
@@ -100,64 +140,24 @@ let g:NERDSpaceDelims = 1
 " Align line-wise comment delimiters flush left instead of following code indentation
 let g:NERDDefaultAlign = 'left'
 
-" Lightline
-set laststatus=2
-" For Dev Icons
-set encoding=utf8
-
 " Coc.nvim Intellisense Settings
 nmap <silent> gy <Plug>(coc-type-definition)
 nmap <silent> gi <Plug>(coc-definition)
 noremap <leader>ue :CocCommand snippets.editSnippets<CR>
 imap <C-l> <Plug>(coc-snippets-expand-jump)
-" For coc-highlight
-set termguicolors
 
-" air-line
+" air-line Status Line
 let g:airline#extensions#tabline#enabled = 1
 let g:airline_powerline_fonts = 1
-let g:airline_theme='jellybeans'
-
-" vim-plug manager
-call plug#begin('~/.config/nvim/plugged')
-" Developer Features
-Plug 'tpope/vim-surround'
-Plug 'scrooloose/nerdcommenter'
-Plug 'tpope/vim-fugitive'
-Plug 'mcchrish/nnn.vim'
-Plug 'preservim/nerdtree'
-Plug 'jremmen/vim-ripgrep'
-Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
-Plug 'junegunn/fzf.vim'
-Plug 'moll/vim-bbye'
-Plug 'christoomey/vim-tmux-navigator'
-
-" Coc Intellisense
-Plug 'neoclide/coc.nvim', {'branch': 'release'}
-Plug 'neoclide/coc-tsserver', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-tslint-plugin', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-eslint', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-css', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-html', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-json', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-yaml', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-python', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-rls', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-snippets', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-git', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-pairs', {'do': 'yarn install --frozen-lockfile'}
-Plug 'neoclide/coc-highlight', {'do': 'yarn install --frozen-lockfile'}
-
-" Syntax Highlighting
-Plug 'sheerun/vim-polyglot'
-
-" UI Enhancements
-Plug 'vim-airline/vim-airline'
-Plug 'vim-airline/vim-airline-themes'
-Plug 'ryanoasis/vim-devicons'
-" Color schemes
-Plug 'arcticicestudio/nord-vim'
-call plug#end()
 
 " set the theme (must be placed after plugins)
 colorscheme nord
+" For for colorizer
+set termguicolors
+" nvim-colorizer setup (must be placed after plugins)
+lua << EOF
+require 'colorizer'.setup {
+  '*';
+  css = { css = true }
+}
+EOF

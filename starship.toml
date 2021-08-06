@@ -13,7 +13,6 @@ format = "[ $path $read_only]($style)[](bg:bold black fg:cyan)"
 style = "bg:cyan fg:bold black dimmed"
 truncation_length = 3
 truncation_symbol = "…/"
-symbol = "☁️"
 
 [git_branch]
 format = "[$symbol$branch ]($style)[](bg:bold black fg:purple)"
