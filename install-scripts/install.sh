@@ -84,8 +84,7 @@ ln -s $(realpath ./alacritty.yml) ~/.config/alacritty/alacritty.yml
 
 # Symlink lf config
 rm -rf ~/.config/lf
-mkdir -p ~/.config/lf
-ln -s $(realpath ./lfrc) ~/.config/lf/lfrc
+ln -sfn $(realpath ./lf) ~/.config/lf
 
 # Symlink Starship configuration
 rm -r ~/.config/starship.toml
