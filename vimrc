@@ -4,15 +4,13 @@ call plug#begin('~/.config/nvim/plugged')
 Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdcommenter'
 Plug 'tpope/vim-fugitive'
-Plug 'mcchrish/nnn.vim'
 Plug 'preservim/nerdtree'
 Plug 'jremmen/vim-ripgrep'
-Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
-Plug 'junegunn/fzf.vim'
 Plug 'moll/vim-bbye'
 Plug 'christoomey/vim-tmux-navigator'
 Plug 'norcalli/nvim-colorizer.lua'
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
+Plug 'voldikss/vim-floaterm'
 
 " Syntax Highlighting
 Plug 'sheerun/vim-polyglot'
@@ -26,6 +24,7 @@ Plug 'arcticicestudio/nord-vim'
 call plug#end()
 
 """" CoC plugins
+" Using this instead of vim-plug allows CoC to auto-update
 let g:coc_global_extensions = [
   \'coc-snippets',
   \'coc-git',
@@ -37,6 +36,9 @@ let g:coc_global_extensions = [
   \'coc-yaml',
   \'coc-rls'
   \]
+
+" Add fzf from homebrew to vim path
+set rtp+=/usr/local/opt/fzf
 
 """" Regular vim settings
 " fix for mouse in Alacritty
@@ -109,24 +111,12 @@ nnoremap <leader>bd :Bdelete<CR>
 noremap <leader>!s :!sort<CR>
 noremap <leader>s :sort<CR>
 
+" Floaterm settings
+let g:floaterm_opener = 'edit'
 " FZF window binding
-noremap <expr> <leader><space> (len(system('git rev-parse')) ? ':Files' : ':GFiles --exclude-standard --others --cached')."\<cr>"
-" FZF window layout
-let g:fzf_layout = { 'window': '20split enew' }
-" So FZF will have Preview
-command! -bang -nargs=? -complete=dir Files
-  \ call fzf#vim#files(<q-args>, fzf#vim#with_preview('right:50%', 'ctrl-p'), <bang>0)
-
-" nnn
-" Disable default mappings
-let g:nnn#set_default_mappings = 0
-" Start nnn in the current file's directory
-nnoremap <leader>n :NnnPicker %:p:h<CR>
-let g:nnn#command = 'nnn -e'
-let g:nnn#action = {
-      \ '<c-t>': 'tab split',
-      \ '<c-v>': 'vsplit'
-      \ }
+nnoremap <leader><space> :FloatermNew fzf<CR>
+" LF file manager
+nnoremap <leader>n :FloatermNew lf<CR>
 
 " RipGrep
 noremap <leader>f :Rg<space>
