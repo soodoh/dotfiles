@@ -77,6 +77,10 @@ ln -sf $(realpath ./coc-settings.json) ~/.config/nvim/coc-settings.json
 mkdir -p ~/.config/nvim
 ln -s $(realpath ./vimrc) ~/.config/nvim/init.vim
 
+# Symlink custom Neovim fzf wrapper
+mkdir -p ~/.config/nvim/autoload/floaterm/wrapper
+ln -s $(realpath ./fzf.vim) ~/.config/nvim/autoload/floaterm/wrapper/fzf.vim
+
 # Symlink Alacritty folder for both Mac & Linux
 rm -rf ~/.config/alacritty
 mkdir -p ~/.config/alacritty
