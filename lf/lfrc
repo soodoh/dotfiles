@@ -4,6 +4,15 @@ set shell sh
 # Add lines around columns
 set drawbox
 
+# Show hidden files
+set hidden
+
+# Show file icons
+set icons
+
+# Show info
+set info size:time
+
 # Map delete command with trash cli tool
 map x %trash $fx
 

@@ -96,22 +96,19 @@ plugins=(
 
 source $ZSH/oh-my-zsh.sh
 
+# Add LF_ICONS env var for lf icons
+# Strips comments from the file, trims whitespace, then formats for LF
+LF_ICONS=$(cat ~/.config/lf/icons | sed \
+  -e '/^[ \t]*#/d'   \
+  -e '/^[ \s]*$/d'   \
+  -e 's/^[ \s]*//'    \
+  -e 's/[ \s]*$//'    \
+  -e 's/  */=/g'     \
+  -e 's/$/ /')
+LF_ICONS=${LF_ICONS//$'\n'/:}
+export LF_ICONS
+
 # User configuration
-
-# export MANPATH="/usr/local/man:$MANPATH"
-
-# You may need to manually set your language environment
-# export LANG=en_US.UTF-8
-
-# Preferred editor for local and remote sessions
-# if [[ -n $SSH_CONNECTION ]]; then
-#   export EDITOR='vim'
-# else
-#   export EDITOR='mvim'
-# fi
-
-# Compilation flags
-# export ARCHFLAGS="-arch x86_64"
 
 # Preferred editor for local and remote sessions
 export EDITOR='nvim'
@@ -123,8 +120,6 @@ export VISUAL='nvim'
 # For a full list of active aliases, run `alias`.
 alias gsu="git submodule update --init --recursive"
 alias vim="nvim"
-
-DEFAULT_USER=$(whoami)
 
 # Load z
 . /usr/local/etc/profile.d/z.sh
