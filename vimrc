@@ -120,7 +120,7 @@ nnoremap <leader>n :FloatermNew lf<CR>
 
 " RipGrep
 noremap <leader>f :Rg<space>
-let g:rg_command = 'rg --vimgrep -S'
+let g:rg_command = 'rg --hidden --vimgrep -S'
 
 " Git vim-fugitive hotkeys
 noremap <leader>gb :Git blame<CR>
