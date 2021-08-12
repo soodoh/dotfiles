@@ -90,13 +90,12 @@ set list
 " inoremap jj <ESC>
 " so that Ctrl+C triggers InsertLeave autocmd
 inoremap <C-c> <ESC>
+inoremap jk <ESC>
 " so that forward delete works in insert mode
 inoremap <C-d> <Del>
 let mapleader=","
 " other mappings 
 noremap <leader>hl :nohlsearch<CR>
-noremap <leader>e :NERDTreeToggle<CR>
-noremap <leader>ef :NERDTreeFind<CR>
 
 " Quick fix bindings
 noremap [q :cp<CR>
@@ -117,6 +116,9 @@ let g:floaterm_opener = 'edit'
 nnoremap <leader><space> :FloatermNew fzf<CR>
 " LF file manager
 nnoremap <leader>n :FloatermNew lf<CR>
+" NERDTree file manager
+noremap <leader>e :NERDTreeToggle<CR>
+noremap <leader>ef :NERDTreeFind<CR>
 
 " RipGrep
 noremap <leader>f :Rg<space>
