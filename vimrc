@@ -37,6 +37,12 @@ let g:coc_global_extensions = [
   \'coc-rls'
   \]
 
+" Coc.nvim Intellisense Settings
+nmap <silent> gy <Plug>(coc-type-definition)
+nmap <silent> gi <Plug>(coc-definition)
+noremap <leader>ue :CocCommand snippets.editSnippets<CR>
+imap <C-l> <Plug>(coc-snippets-expand-jump)
+
 " Add fzf from homebrew to vim path
 set rtp+=/usr/local/opt/fzf
 
@@ -132,12 +138,6 @@ noremap <leader>gd :Gdiff<space>
 let g:NERDSpaceDelims = 1
 " Align line-wise comment delimiters flush left instead of following code indentation
 let g:NERDDefaultAlign = 'left'
-
-" Coc.nvim Intellisense Settings
-nmap <silent> gy <Plug>(coc-type-definition)
-nmap <silent> gi <Plug>(coc-definition)
-noremap <leader>ue :CocCommand snippets.editSnippets<CR>
-imap <C-l> <Plug>(coc-snippets-expand-jump)
 
 " air-line Status Line
 let g:airline#extensions#tabline#enabled = 1
