@@ -120,6 +120,7 @@ export VISUAL='nvim'
 # For a full list of active aliases, run `alias`.
 alias gsu="git submodule update --init --recursive"
 alias vim="nvim"
+alias gdn="git diff --name-only"
 
 # Load z
 . /usr/local/etc/profile.d/z.sh
