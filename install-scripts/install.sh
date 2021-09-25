@@ -63,15 +63,15 @@ ln -s $(realpath ./zshrc) ~/.zshrc
 rm ~/.tmux.conf
 ln -s $(realpath ./tmux.conf) ~/.tmux.conf
 
+# Symlink Neovim's config
+mkdir -p ~/.config/nvim
+ln -s $(realpath ./vimrc) ~/.config/nvim/init.vim
+
 # Create UltiSnips in .vim folder
 rm -rf ~/.config/coc
 mkdir -p ~/.config/coc
 ln -sfn $(realpath ./ultisnips) ~/.config/coc/ultisnips
 ln -sf $(realpath ./coc-settings.json) ~/.config/nvim/coc-settings.json
-
-# Symlink Neovim's config
-mkdir -p ~/.config/nvim
-ln -s $(realpath ./vimrc) ~/.config/nvim/init.vim
 
 # Symlink custom Neovim fzf wrapper
 mkdir -p ~/.config/nvim/autoload/floaterm/wrapper
