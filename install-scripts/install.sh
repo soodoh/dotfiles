@@ -9,7 +9,6 @@
 # brew update && brew upgrade
 # brew install coreutils \
 #   alacritty \
-#   starship \
 #   trash \
 #   zsh \
 #   tmux \
@@ -24,7 +23,6 @@
 # TODO if Arch
 # pacman -Syu alacritty \
 #   zsh \
-#   starship \
 #   tmux \
 #   neovim \
 #   fzf \
@@ -37,25 +35,25 @@
 # apt-get update && apt-get upgrade
 # apt-get install alacritty \
 #   zsh \
-#   starship \
 #   tmux \
 #   neovim \
 #   fzf \
 #   ripgrep \
 #   z \
 #   lm-sensors \
-#   free
 
+# Install starship
+sh -c "$(curl -fsSL https://starship.rs/install.sh)"
 
 # Install oh-my-zsh
-# TODO check if installed already?
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 # Add custom plugins to oh-my-zsh directory
-git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}
-git clone https://github.com/b4b4r07/zsh-vimode-visual ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-vimode-visual
-git clone https://github.com/nyquase/vi-mode ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/vi-mode
+ZSH_CUSTOM_PLUGINS="${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins"
+git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM_PLUGINS/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM_PLUGINS/zsh-syntax-highlighting
+git clone https://github.com/b4b4r07/zsh-vimode-visual $ZSH_CUSTOM_PLUGINS/zsh-vimode-visual
+git clone https://github.com/nyquase/vi-mode $ZSH_CUSTOM_PLUGINS/vi-mode
 # Installs tmux plugin manager
 git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 # Installs nnn plugins
