@@ -45,7 +45,7 @@
 # Install Nerd Fonts
 # Maintained here: https://github.com/ryanoasis/nerd-fonts
 mkdir -p ~/.local/share/fonts
-wget -P "~/.local/share/fonts/Droid Sans Mono for Powerline Nerd Font Complete.otf" https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/DroidSansMono/complete/Droid%20Sans%20Mono%20Nerd%20Font%20Complete.otf
+wget -P "$HOME/.local/share/fonts/Droid Sans Mono for Powerline Nerd Font Complete.otf" https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/DroidSansMono/complete/Droid%20Sans%20Mono%20Nerd%20Font%20Complete.otf
 
 # Install starship
 sh -c "$(curl -fsSL https://starship.rs/install.sh)"
