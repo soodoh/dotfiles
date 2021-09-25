@@ -47,7 +47,6 @@
 mkdir -p ~/.local/share/fonts
 wget -P "~/.local/share/fonts/Droid Sans Mono for Powerline Nerd Font Complete.otf" https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/DroidSansMono/complete/Droid%20Sans%20Mono%20Nerd%20Font%20Complete.otf
 
-
 # Install starship
 sh -c "$(curl -fsSL https://starship.rs/install.sh)"
 
@@ -62,11 +61,10 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 # sudo mv lf /usr/local/bin
 
 # Add custom plugins to oh-my-zsh directory
-ZSH_CUSTOM_PLUGINS="${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins"
-git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM_PLUGINS/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM_PLUGINS/zsh-syntax-highlighting
-git clone https://github.com/b4b4r07/zsh-vimode-visual $ZSH_CUSTOM_PLUGINS/zsh-vimode-visual
-git clone https://github.com/nyquase/vi-mode $ZSH_CUSTOM_PLUGINS/vi-mode
+git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
+git clone https://github.com/b4b4r07/zsh-vimode-visual $ZSH_CUSTOM/plugins/zsh-vimode-visual
+git clone https://github.com/nyquase/vi-mode $ZSH_CUSTOM/plugins/vi-mode
 # Installs tmux plugin manager
 git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 
