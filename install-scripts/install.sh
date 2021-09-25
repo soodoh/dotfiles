@@ -56,8 +56,6 @@ git clone https://github.com/b4b4r07/zsh-vimode-visual $ZSH_CUSTOM_PLUGINS/zsh-v
 git clone https://github.com/nyquase/vi-mode $ZSH_CUSTOM_PLUGINS/vi-mode
 # Installs tmux plugin manager
 git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-# Installs nnn plugins
-curl -Ls https://raw.githubusercontent.com/jarun/nnn/master/plugins/getplugs | sh
 
 # TODO move these into .config
 rm ~/.zshrc
