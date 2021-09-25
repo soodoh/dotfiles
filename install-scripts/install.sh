@@ -87,7 +87,8 @@ rm -rf ~/.config/lf
 ln -sfn $(realpath ./lf) ~/.config/lf
 
 # Symlink Starship configuration
-rm -r ~/.config/starship.toml
+rm ~/.config/starship.toml
+mkdir -p ~/.config/starship
 ln -s $(realpath ./starship.toml) ~/.config/starship/toml
 
 # Install vim-plug (should work on Mac & Linux)
