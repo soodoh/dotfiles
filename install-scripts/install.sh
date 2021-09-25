@@ -48,6 +48,13 @@ sh -c "$(curl -fsSL https://starship.rs/install.sh)"
 # Install oh-my-zsh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
+# Install LF
+# Grab tarball here: https://github.com/gokcehan/lf/releases
+# wget https://github.com/gokcehan/lf/releases/download/r6/lf-linux-amd64.tar.gz -O lf-linux-amd64.tar.gz
+# tar xvf lf-linux-amd64.tar.gz
+# chmod +x lf
+# sudo mv lf /usr/local/bin
+
 # Add custom plugins to oh-my-zsh directory
 ZSH_CUSTOM_PLUGINS="${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins"
 git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM_PLUGINS/zsh-autosuggestions
