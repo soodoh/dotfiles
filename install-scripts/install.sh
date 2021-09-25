@@ -42,6 +42,10 @@
 #   z \
 #   lm-sensors \
 
+# Set git config
+git config --global user.name "Paul DiLoreto"
+git config --global user.email "paul.diloreto@gmail.com"
+
 # Install Nerd Fonts
 # Maintained here: https://github.com/ryanoasis/nerd-fonts
 mkdir -p ~/.local/share/fonts
