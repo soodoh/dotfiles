@@ -5,10 +5,11 @@
 # - Open Tmux and install tmux plugins (^a + I)
 # - Add Nord theme to Slack
 
-### Mac Install
+#### Mac Install
+
 # Install Homebrew
 # /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-# 
+
 # Install tools
 # brew update && brew upgrade
 # brew install coreutils \
@@ -24,7 +25,8 @@
 #   z
 # brew tap homebrew/command-not-found
 
-### Arch Linux Install
+#### Arch Linux Install
+
 # pacman -Syu alacritty \
 #   zsh \
 #   tmux \
@@ -35,7 +37,8 @@
 #   lm-sensors \
 #   free
 
-### Debian-based Install
+#### Debian-based Install
+
 # apt-get update && apt-get upgrade
 # apt-get install alacritty \
 #   zsh \
@@ -64,10 +67,14 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 
 # Install LF
 # Grab tarball here: https://github.com/gokcehan/lf/releases
-# wget https://github.com/gokcehan/lf/releases/download/r6/lf-linux-amd64.tar.gz -O lf-linux-amd64.tar.gz
-# tar xvf lf-linux-amd64.tar.gz
-# chmod +x lf
-# sudo mv lf /usr/local/bin
+wget https://github.com/gokcehan/lf/releases/download/r6/lf-linux-amd64.tar.gz -O lf-linux-amd64.tar.gz
+tar xvf lf-linux-amd64.tar.gz
+chmod +x lf
+sudo mv lf /usr/local/bin
+rm lf-linux-amd64.tar.gz
+
+# Install NVM
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
 
 # Add custom plugins to oh-my-zsh directory
 git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
