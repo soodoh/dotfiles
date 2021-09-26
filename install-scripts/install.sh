@@ -87,7 +87,7 @@ wget -P "$HOME/.local/share/fonts/Droid Sans Mono for Powerline Nerd Font Comple
 sh -c "$(curl -fsSL https://starship.rs/install.sh)"
 
 # Install oh-my-zsh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+wget https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh -O - | zsh
 
 # Install LF
 # Grab tarball here: https://github.com/gokcehan/lf/releases
@@ -108,7 +108,7 @@ nvm install --lts
 git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 git clone https://github.com/b4b4r07/zsh-vimode-visual $ZSH_CUSTOM/plugins/zsh-vimode-visual
-git clone https://github.com/nyquase/vi-mode $ZSH_CUSTOM/plugins/vi-mode
+# git clone https://github.com/nyquase/vi-mode $ZSH_CUSTOM/plugins/vi-mode
 # Installs tmux plugin manager
 git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 

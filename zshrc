@@ -1,7 +1,8 @@
 # Start Tmux automatically
-if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
-  tmux attach -t default || tmux new -s default
-fi
+# if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
+#   echo "Loading TMUX..."
+#   tmux attach -t default || tmux new -s default
+# fi
 
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
@@ -68,7 +69,6 @@ plugins=(
   docker
   docker-compose
   npm
-  sudo
   colored-man-pages
   command-not-found
   # Custom ones
@@ -77,7 +77,6 @@ plugins=(
   zsh-vimode-visual
   vi-mode
 )
-
 source $ZSH/oh-my-zsh.sh
 
 # Add LF_ICONS env var for lf icons
@@ -107,7 +106,7 @@ alias vim="nvim"
 alias gdn="git diff --name-only"
 
 # Load z
-[ -e ~/.config/z/z.sh ] && . ~/.config/z/z.sh
+[ -f ~/.config/z/z.sh ] && . ~/.config/z/z.sh
 
 # Homebrew command not found
 HB_CNF_HANDLER="$(command -v brew &> /dev/null && brew --repository)/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
