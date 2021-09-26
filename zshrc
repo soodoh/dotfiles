@@ -107,7 +107,7 @@ alias vim="nvim"
 alias gdn="git diff --name-only"
 
 # Load z
-. /usr/local/etc/profile.d/z.sh
+[ -e ~/.config/z/z.sh ] && . ~/.config/z/z.sh
 
 # Homebrew command not found
 HB_CNF_HANDLER="$(command -v brew &> /dev/null && brew --repository)/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
@@ -118,7 +118,7 @@ eval "$(starship init zsh)"
 
 # Stuff for NVM (Node version manager)
 export NVM_DIR="$HOME/.nvm"
-  [ -s "/usr/local/opt/nvm/nvm.sh" ] && . "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
-  [ -s "/usr/local/opt/nvm/etc/bash_completion.d/nvm" ] && . "/usr/local/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 # Set node version
 nvm use --lts

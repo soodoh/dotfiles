@@ -97,6 +97,9 @@ chmod +x lf
 sudo mv lf /usr/local/bin
 rm lf-linux-amd64.tar.gz
 
+# Install Z script
+git clone https://github.com/rupa/z.git ~/.config/z
+
 # Install NVM
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
 nvm install --lts
@@ -109,7 +112,7 @@ git clone https://github.com/nyquase/vi-mode $ZSH_CUSTOM/plugins/vi-mode
 # Installs tmux plugin manager
 git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 
-# ZSH settings
+# ZSH Settings
 [ -e ~/.zshrc ] && rm ~/.zshrc
 ln -s $(realpath ./zshrc) ~/.zshrc
 
@@ -117,19 +120,19 @@ ln -s $(realpath ./zshrc) ~/.zshrc
 [ -e ~/.tmux.conf ] && rm ~/.tmux.conf
 ln -s $(realpath ./tmux.conf) ~/.tmux.conf
 
-# Symlink Neovim's config
+# Neovim Settings
 mkdir -p ~/.config/nvim
 ln -s $(realpath ./vimrc) ~/.config/nvim/init.vim
-
+# Install vim-plug
+curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+# Symlink custom Neovim fzf wrapper
+mkdir -p ~/.config/nvim/autoload/floaterm/wrapper
+ln -s $(realpath ./fzf.vim) ~/.config/nvim/autoload/floaterm/wrapper/fzf.vim
 # Create UltiSnips in .vim folder
 [ -e ~/.config/coc ] && rm -rf ~/.config/coc
 mkdir -p ~/.config/coc
 ln -sfn $(realpath ./ultisnips) ~/.config/coc/ultisnips
 ln -sf $(realpath ./coc-settings.json) ~/.config/nvim/coc-settings.json
-
-# Symlink custom Neovim fzf wrapper
-mkdir -p ~/.config/nvim/autoload/floaterm/wrapper
-ln -s $(realpath ./fzf.vim) ~/.config/nvim/autoload/floaterm/wrapper/fzf.vim
 
 # Symlink Alacritty folder for both Mac & Linux
 [ -e ~/.config/alacritty ] && rm -rf ~/.config/alacritty
@@ -145,6 +148,3 @@ ln -sfn $(realpath ./lf) ~/.config/lf
 mkdir -p ~/.config/starship
 ln -s $(realpath ./starship.toml) ~/.config/starship/toml
 
-# Install vim-plug (should work on Mac & Linux)
-# Neovim
-curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
