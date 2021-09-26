@@ -1,6 +1,6 @@
 # Start Tmux automatically
 if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
-    tmux attach -t default || tmux new -s default
+  tmux attach -t default || tmux new -s default
 fi
 
 # Path to your oh-my-zsh installation.
@@ -57,9 +57,6 @@ export ZSH="$HOME/.oh-my-zsh"
 # see 'man strftime' for details.
 # HIST_STAMPS="mm/dd/yyyy"
 
-# Would you like to use another custom folder than $ZSH/custom?
-# ZSH_CUSTOM=/path/to/new-custom-folder
-
 # Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
@@ -113,12 +110,8 @@ alias gdn="git diff --name-only"
 . /usr/local/etc/profile.d/z.sh
 
 # Homebrew command not found
-if ! type "$brew" > /dev/null; then
-	HB_CNF_HANDLER="$(brew --repository)/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
-	if [ -f "$HB_CNF_HANDLER" ]; then
-	source "$HB_CNF_HANDLER";
-	fi
-fi
+HB_CNF_HANDLER="$(command -v brew &> /dev/null && brew --repository)/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
+[ -f "$HB_CNF_HANDLER" ] && source $HB_CNF_HANDLER
 
 # Use Starship for terminal prompt
 eval "$(starship init zsh)"
@@ -127,3 +120,5 @@ eval "$(starship init zsh)"
 export NVM_DIR="$HOME/.nvm"
   [ -s "/usr/local/opt/nvm/nvm.sh" ] && . "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
   [ -s "/usr/local/opt/nvm/etc/bash_completion.d/nvm" ] && . "/usr/local/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
+# Set node version
+nvm use --lts
