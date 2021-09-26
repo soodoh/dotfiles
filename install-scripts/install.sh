@@ -1,11 +1,15 @@
 #!/bin/bash
 
 # After Install:
-# - Open Neovim and run command to install Tmux plugins
+# - Open Neovim and run :PlugInstall
+# - Open Tmux and install tmux plugins (^a + I)
 # - Add Nord theme to Slack
 
-# TODO if MAC
-# TODO install brew
+### Mac Install
+# Install Homebrew
+# /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# 
+# Install tools
 # brew update && brew upgrade
 # brew install coreutils \
 #   alacritty \
@@ -20,7 +24,7 @@
 #   z
 # brew tap homebrew/command-not-found
 
-# TODO if Arch
+### Arch Linux Install
 # pacman -Syu alacritty \
 #   zsh \
 #   tmux \
@@ -31,7 +35,7 @@
 #   lm-sensors \
 #   free
 
-# TODO if Ubuntu
+### Debian-based Install
 # apt-get update && apt-get upgrade
 # apt-get install alacritty \
 #   zsh \
@@ -42,6 +46,7 @@
 #   z \
 #   lm-sensors \
 
+# I assume git is already installed
 # Set git config
 git config --global user.name "Paul DiLoreto"
 git config --global user.email "paul.diloreto@gmail.com"
