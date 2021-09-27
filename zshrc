@@ -112,12 +112,12 @@ alias gdn="git diff --name-only"
 HB_CNF_HANDLER="$(command -v brew &> /dev/null && brew --repository)/Library/Taps/homebrew/homebrew-command-not-found/handler.sh"
 [ -f "$HB_CNF_HANDLER" ] && source $HB_CNF_HANDLER
 
-# Use Starship for terminal prompt
-eval "$(starship init zsh)"
-
 # Stuff for NVM (Node version manager)
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 # Set node version
 nvm use --lts
+
+# Use Starship for terminal prompt
+eval "$(starship init zsh)"

@@ -87,7 +87,7 @@ wget -P "$HOME/.local/share/fonts/Droid Sans Mono for Powerline Nerd Font Comple
 sh -c "$(curl -fsSL https://starship.rs/install.sh)"
 
 # Install oh-my-zsh
-wget https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh -O - | zsh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
 # Install LF
 # Grab tarball here: https://github.com/gokcehan/lf/releases
