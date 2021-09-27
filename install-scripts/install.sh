@@ -78,6 +78,9 @@ fi
 git config --global user.name "Paul DiLoreto"
 git config --global user.email "paul.diloreto@gmail.com"
 
+# Install oh-my-zsh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
 # Install Nerd Fonts
 # Maintained here: https://github.com/ryanoasis/nerd-fonts
 mkdir -p ~/.local/share/fonts
@@ -86,9 +89,6 @@ wget -P "$HOME/.local/share/fonts/Droid Sans Mono for Powerline Nerd Font Comple
 # Install starship
 sh -c "$(curl -fsSL https://starship.rs/install.sh)"
 
-# Install oh-my-zsh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-
 # Install LF
 # Grab tarball here: https://github.com/gokcehan/lf/releases
 wget https://github.com/gokcehan/lf/releases/download/r6/lf-linux-amd64.tar.gz -O lf-linux-amd64.tar.gz
@@ -96,6 +96,9 @@ tar xvf lf-linux-amd64.tar.gz
 chmod +x lf
 sudo mv lf /usr/local/bin
 rm lf-linux-amd64.tar.gz
+# Symlink lf config
+[ -e ~/.config/lf ] && rm -rf ~/.config/lf
+ln -sfn $(realpath ./lf) ~/.config/lf
 
 # Install Z script
 git clone https://github.com/rupa/z.git ~/.config/z
@@ -104,11 +107,6 @@ git clone https://github.com/rupa/z.git ~/.config/z
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
 nvm install --lts
 
-# Add custom plugins to oh-my-zsh directory
-git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
-git clone https://github.com/b4b4r07/zsh-vimode-visual $ZSH_CUSTOM/plugins/zsh-vimode-visual
-# git clone https://github.com/nyquase/vi-mode $ZSH_CUSTOM/plugins/vi-mode
 # Installs tmux plugin manager
 git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 
@@ -138,10 +136,6 @@ ln -sf $(realpath ./coc-settings.json) ~/.config/nvim/coc-settings.json
 [ -e ~/.config/alacritty ] && rm -rf ~/.config/alacritty
 mkdir -p ~/.config/alacritty
 ln -s $(realpath ./alacritty.yml) ~/.config/alacritty/alacritty.yml
-
-# Symlink lf config
-[ -e ~/.config/lf ] && rm -rf ~/.config/lf
-ln -sfn $(realpath ./lf) ~/.config/lf
 
 # Symlink Starship configuration
 [ -e ~/.config/starship.toml ] && rm ~/.config/starship.toml
