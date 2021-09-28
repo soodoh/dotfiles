@@ -34,6 +34,10 @@ ln -sf $(realpath ./yabairc) ~/.config/yabai/yabairc
 mkdir -p ~/.config/skhd
 ln -sf $(realpath ./skhdrc) ~/.config/skhd/skhdrc
 
+# Start Yabai & SKHD services
+brew services start skhd
+brew services start yabai
+
 # Mac seems to need this for Neovim
 pip3 install neovim
 
