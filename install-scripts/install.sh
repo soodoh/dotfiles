@@ -40,7 +40,8 @@ ln -sf $(realpath ./skhdrc) ~/.config/skhd/skhdrc
 elif [ $OSTYPE =~ linux* ] && command -v apt-get &> /dev/null; then
 
 apt-get update && apt-get upgrade
-apt-get install alacritty \
+apt-get install \
+  alacritty \
   zsh \
   tmux \
   neovim \
@@ -52,7 +53,8 @@ apt-get install alacritty \
 # Arch Linux Install
 elif [ $OSTYPE =~ linux* ] && command -v pacman &> /dev/null; then
 
-pacman -Syu alacritty \
+pacman -Syu \
+  alacritty \
   zsh \
   tmux \
   neovim \
