@@ -13,8 +13,8 @@ if [ $OSTYPE =~ darwin* ]; then
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 # Install tools
 brew update && brew upgrade
+brew install --cask --no-quarantine alacritty
 brew install \
-  alacritty \
   coreutils \
   trash \
   zsh \
