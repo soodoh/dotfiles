@@ -13,14 +13,15 @@ if [ $OSTYPE =~ darwin* ]; then
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 # Install tools
 brew update && brew upgrade
-brew install coreutils \
+brew install \
   alacritty \
+  coreutils \
   trash \
   zsh \
   tmux \
   neovim \
-  yabai \
-  skhd \
+  koekeishiya/formulae/yabai \
+  koekeishiya/formulae/skhd \
   fzf \
   ripgrep \
   z
@@ -90,12 +91,18 @@ wget -P "$HOME/.local/share/fonts/Droid Sans Mono for Powerline Nerd Font Comple
 sh -c "$(curl -fsSL https://starship.rs/install.sh)"
 
 # Install LF
-# Grab tarball here: https://github.com/gokcehan/lf/releases
-wget https://github.com/gokcehan/lf/releases/download/r6/lf-linux-amd64.tar.gz -O lf-linux-amd64.tar.gz
-tar xvf lf-linux-amd64.tar.gz
-chmod +x lf
-sudo mv lf /usr/local/bin
-rm lf-linux-amd64.tar.gz
+if [ $OSTYPE =~ darwin* ]; then
+  # Mac install
+  brew install lf
+else
+  # Linux install
+  # Grab tarball here: https://github.com/gokcehan/lf/releases
+  wget https://github.com/gokcehan/lf/releases/download/r6/lf-linux-amd64.tar.gz -O lf-linux-amd64.tar.gz
+  tar xvf lf-linux-amd64.tar.gz
+  chmod +x lf
+  sudo mv lf /usr/local/bin
+  rm lf-linux-amd64.tar.gz
+fi
 # Symlink lf config
 [ -e ~/.config/lf ] && rm -rf ~/.config/lf
 ln -sfn $(realpath ./lf) ~/.config/lf
