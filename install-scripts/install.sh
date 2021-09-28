@@ -78,6 +78,9 @@ git config --global user.email "paul.diloreto@gmail.com"
 # Install oh-my-zsh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
+# Use ZSH for default shell
+chsh -s $(which zsh)
+
 # Install Nerd Fonts
 # Maintained here: https://github.com/ryanoasis/nerd-fonts
 mkdir -p ~/.local/share/fonts
