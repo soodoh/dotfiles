@@ -23,7 +23,6 @@ brew install \
   koekeishiya/formulae/skhd \
   fzf \
   ripgrep \
-  z
 # Command-not-found functionality like Ubuntu's apt-get
 brew tap homebrew/command-not-found
 
@@ -47,7 +46,6 @@ apt-get install alacritty \
   neovim \
   fzf \
   ripgrep \
-  z \
   lm-sensors \
 
 ##################################################
@@ -60,7 +58,6 @@ pacman -Syu alacritty \
   neovim \
   fzf \
   ripgrep \
-  z \
   lm-sensors \
   free
 
