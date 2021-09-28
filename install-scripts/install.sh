@@ -17,7 +17,6 @@ brew install --cask --no-quarantine alacritty
 brew install \
   coreutils \
   trash \
-  zsh \
   tmux \
   neovim \
   koekeishiya/formulae/yabai \
