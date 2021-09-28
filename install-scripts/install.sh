@@ -34,6 +34,9 @@ ln -sf $(realpath ./yabairc) ~/.config/yabai/yabairc
 mkdir -p ~/.config/skhd
 ln -sf $(realpath ./skhdrc) ~/.config/skhd/skhdrc
 
+# Mac seems to need this for Neovim
+pip3 install neovim
+
 ##################################################
 # Debian-based Install
 elif [ $OSTYPE =~ linux* ] && command -v apt-get &> /dev/null; then
