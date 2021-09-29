@@ -40,11 +40,10 @@ export VISUAL='nvim'
 [ -f ~/.config/z/z.sh ] && . ~/.config/z/z.sh
 
 # Stuff for NVM (Node version manager)
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-# Set node version
-nvm use --lts
+# export NVM_DIR="$HOME/.nvm"
+# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+# nvm use --lts
 
 # Use Starship for terminal prompt
 eval "$(starship init zsh)"
