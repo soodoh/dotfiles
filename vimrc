@@ -26,6 +26,7 @@ call plug#end()
 """" CoC plugins
 " Using this instead of vim-plug allows CoC to auto-update
 let g:coc_global_extensions = [
+  \'coc-flow',
   \'coc-snippets',
   \'coc-git',
   \'coc-tsserver',
