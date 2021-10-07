@@ -139,7 +139,7 @@ git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 
 # ZSH Settings
 [ -e ~/.zshrc ] && rm ~/.zshrc
-ln -s $(realpath ./zshrc) ~/.zshrc
+echo "source ~/dotfiles/zshrc" > ~/.zshrc
 
 # Tmux Settings
 [ -e ~/.tmux.conf ] && rm ~/.tmux.conf
