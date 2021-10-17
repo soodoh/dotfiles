@@ -25,7 +25,7 @@ meh - e : yabai -m window --toggle split
 
 # Equalize window sizes
 # 0x18 is my keycode for '='
-meh - 0x18 : yabai -m space --balance
+meh - q : yabai -m space --balance
 
 # Move focus container to workspace
 hyper - m : yabai -m window --space last && yabai -m space --focus last
