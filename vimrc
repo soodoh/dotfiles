@@ -116,12 +116,7 @@ nnoremap <silent> <C-Left> :TmuxNavigateLeft<CR>
 nnoremap <silent> <C-Down> :TmuxNavigateDown<CR>
 nnoremap <silent> <C-Up> :TmuxNavigateUp<CR>
 nnoremap <silent> <C-Right> :TmuxNavigateRight<CR>
-" Quick fix bindings
-noremap <leader>qj :cp<CR>
-noremap <leader>q' :cn<CR>
 " Buffers
-noremap <leader>bj :bp<CR>
-noremap <leader>b' :bn<CR>
 nnoremap <leader>b :ls<CR>:b<space>
 nnoremap <leader>bd :Bdelete<CR>
 
