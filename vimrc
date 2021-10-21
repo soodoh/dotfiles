@@ -95,7 +95,36 @@ set list
 """"" Custom mappings begin here
 "
 "
-" inoremap jj <ESC>
+""""" This block needs to be update if keyboard layout hjkl directions changes
+" Directional Hotkeys
+noremap h <Nop>
+noremap j h
+noremap k j
+noremap l k
+noremap ' l
+noremap <C-w>j <C-w>h
+noremap <C-w>k <C-w>j
+noremap <C-w>l <C-w>k
+noremap <C-w>' <C-w>l
+noremap <C-w>J <C-w>H
+noremap <C-w>K <C-w>J
+noremap <C-w>L <C-w>K
+noremap <C-w>" <C-w>L
+" Vim-tmux-navigation Directions
+let g:tmux_navigator_no_mappings = 1
+nnoremap <silent> <C-Left> :TmuxNavigateLeft<CR>
+nnoremap <silent> <C-Down> :TmuxNavigateDown<CR>
+nnoremap <silent> <C-Up> :TmuxNavigateUp<CR>
+nnoremap <silent> <C-Right> :TmuxNavigateRight<CR>
+" Quick fix bindings
+noremap <leader>qj :cp<CR>
+noremap <leader>q' :cn<CR>
+" Buffers
+noremap <leader>bj :bp<CR>
+noremap <leader>b' :bn<CR>
+nnoremap <leader>b :ls<CR>:b<space>
+nnoremap <leader>bd :Bdelete<CR>
+
 " so that Ctrl+C triggers InsertLeave autocmd
 inoremap <C-c> <ESC>
 inoremap jk <ESC>
@@ -104,15 +133,6 @@ inoremap <C-d> <Del>
 let mapleader=","
 " other mappings 
 noremap <leader>hl :nohlsearch<CR>
-
-" Quick fix bindings
-noremap [q :cp<CR>
-noremap ]q :cn<CR>
-" Buffers
-noremap [b :bp<CR>
-noremap ]b :bn<CR>
-nnoremap <leader>b :ls<CR>:b<space>
-nnoremap <leader>bd :Bdelete<CR>
 
 " Easier sorting
 noremap <leader>!s :!sort<CR>

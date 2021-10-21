@@ -1,3 +1,10 @@
+# Directions
+map h
+map j updir
+map k down
+map l up
+map "'" open
+
 # interpreter for shell commands
 set shell sh
 
