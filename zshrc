@@ -12,13 +12,15 @@ export ZSH="$HOME/.oh-my-zsh"
 plugins=(
   colored-man-pages
   command-not-found
-  vi-mode
   # Custom ones
   zsh-syntax-highlighting
   zsh-autosuggestions
-  zsh-vimode-visual
+  zsh-vi-mode
 )
 source $ZSH/oh-my-zsh.sh
+
+# Settings for zsh-vi-mode
+ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
 
 # Add LF_ICONS env var for lf icons
 # Strips comments from the file, trims whitespace, then formats for LF

@@ -86,9 +86,12 @@ git config --global user.email "paul.diloreto@gmail.com"
 # Install oh-my-zsh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 # Add custom plugins to oh-my-zsh directory
-git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
-git clone https://github.com/b4b4r07/zsh-vimode-visual $ZSH_CUSTOM/plugins/zsh-vimode-visual
+git clone https://github.com/zsh-users/zsh-autosuggestions \
+  $ZSH_CUSTOM/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
+  $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
+git clone https://github.com/jeffreytse/zsh-vi-mode \
+  $ZSH_CUSTOM/plugins/zsh-vi-mode
 
 # Use ZSH for default shell
 chsh -s $(which zsh)
