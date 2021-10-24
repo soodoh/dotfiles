@@ -95,6 +95,7 @@ set list
 """"" Custom mappings begin here
 "
 "
+let mapleader=","
 """"" This block needs to be update if keyboard layout hjkl directions changes
 " Directional Hotkeys
 noremap h <Nop>
@@ -125,7 +126,6 @@ inoremap <C-c> <ESC>
 inoremap jk <ESC>
 " so that forward delete works in insert mode
 inoremap <C-d> <Del>
-let mapleader=","
 " other mappings 
 noremap <leader>hl :nohlsearch<CR>
 
