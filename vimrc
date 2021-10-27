@@ -79,8 +79,6 @@ filetype indent on
 filetype plugin on
 " highlight matching [{()}]
 set showmatch
-" highlight matches
-set hlsearch
 " search while typing
 set incsearch
 " backspace is stupid in MacOS
@@ -127,7 +125,7 @@ inoremap jk <ESC>
 " so that forward delete works in insert mode
 inoremap <C-d> <Del>
 " other mappings 
-noremap <leader>hl :nohlsearch<CR>
+noremap <leader>h :nohlsearch<CR>
 
 " Easier sorting
 noremap <leader>!s :!sort<CR>
