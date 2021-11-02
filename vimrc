@@ -65,6 +65,8 @@ set shiftwidth=2
 set expandtab
 " show absolute line numbers
 set number
+" don't highlight searches
+set nohlsearch
 " auto toggle between relative/absolute numbers
 augroup numbertoggle
   autocmd!
