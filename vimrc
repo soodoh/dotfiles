@@ -96,7 +96,7 @@ set list
 """"" Custom mappings begin here
 "
 "
-let mapleader=","
+let mapleader=" "
 """"" This block needs to be update if keyboard layout hjkl directions changes
 " Directional Hotkeys
 noremap h <Nop>
@@ -119,8 +119,10 @@ nnoremap <silent> <C-Down> :TmuxNavigateDown<CR>
 nnoremap <silent> <C-Up> :TmuxNavigateUp<CR>
 nnoremap <silent> <C-Right> :TmuxNavigateRight<CR>
 " Buffers
-nnoremap <leader>b :ls<CR>:b<space>
+nnoremap <leader>bl :ls<CR>:b<space>
 nnoremap <leader>bd :Bdelete<CR>
+nnoremap gp :bp<CR>
+nnoremap gn :bn<CR>
 
 " so that Ctrl+C triggers InsertLeave autocmd
 inoremap <C-c> <ESC>
