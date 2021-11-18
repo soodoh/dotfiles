@@ -1,24 +1,93 @@
 """"" vim-plug manager
 call plug#begin('~/.config/nvim/plugged')
-" Developer Features
-Plug 'tpope/vim-surround'
-Plug 'scrooloose/nerdcommenter'
-Plug 'tpope/vim-fugitive'
-Plug 'preservim/nerdtree'
-Plug 'jremmen/vim-ripgrep'
-Plug 'moll/vim-bbye'
-Plug 'christoomey/vim-tmux-navigator'
-Plug 'norcalli/nvim-colorizer.lua'
-Plug 'neoclide/coc.nvim', {'branch': 'release'}
-Plug 'voldikss/vim-floaterm'
+" Better Comments
+" TODO unsure if these are worth the effort
+" Text Navigation 
+" Plug 'unblevable/quick-scope'
+" Easymotion
+" Plug 'easymotion/vim-easymotion'
 
-" Syntax Highlighting
+" TODO after LSP is set up
+" Treesitter (LSP-based syntax highlighting)
+" Plug 'nvim-treesitter/nvim-treesitter'
+" Plug 'p00f/nvim-ts-rainbow'
+
+" Better Syntax Highlighting
 Plug 'sheerun/vim-polyglot'
-
-" UI Enhancements
+" Comment/Uncomment
+" TODO
+" Plug 'tpope/vim-commentary'
+Plug 'scrooloose/nerdcommenter'
+" Useful for React Commenting
+" TODO
+" Plug 'suy/vim-context-commentstring'
+" Auto pairs for ([{
+" TODO
+" Plug 'jiangmiao/auto-pairs'
+" Surround text objects with a character {([])}
+Plug 'tpope/vim-surround'
+" Auto change HTML tags
+" Plug 'AndrewRadev/tagalong.vim'
+" Git Integration
+Plug 'tpope/vim-fugitive'
+" TODO
+" Plug 'airblade/vim-gitgutter'
+" Plug 'tpope/vim-rhubarb'
+" Plug 'junegunn/gv.vim'
+" Plug 'rhysd/git-messenger.vim'
+" Find and Replace across many files
+" TODO
+" Plug 'brooth/far.vim'
+" Fast Grepping
+Plug 'jremmen/vim-ripgrep'
+" Keep Window open when closing buffer
+Plug 'moll/vim-bbye'
+" Tmux Integration
+Plug 'christoomey/vim-tmux-navigator'
+" Snippets
+" TODO
+" Plug 'honza/vim-snippets'
+" Plug 'mattn/emmet-vim'
+" Telescope
+" TODO
+" Plug 'nvim-lua/popup.vim'
+" Plug 'nvim-lua/plenary.nvim'
+" Plug 'nvim-telescope/telescope.nvim'
+" Intellisense
+Plug 'neoclide/coc.nvim', {'branch': 'release'}
+" TODO
+" Plug 'neovim/nvim-lspconfig'
+" Plug 'hrsh7th/nvim-compe'
+" Plug 'glepnir/lspaga.nvim'
+" Plug 'onsails/lspkind-nvim'
+" Plug 'kosayoda/nvim-lightbulb'
+" Plug 'mfussenegger/nvim-jdtls'
+" Plug 'mfussenegger/nvim-dap'
+" Color hex codes
+Plug 'norcalli/nvim-colorizer.lua'
+" File Tree Explorer
+Plug 'preservim/nerdtree'
+" TODO
+" Plug 'kyazdani42/nvim-tree.lua'
+" Floating Terminal for fzf & file explorer
+Plug 'voldikss/vim-floaterm'
+" Smooth Scrolling
+" TODO
+" Plug 'psliwka/vim-smoothie'
+" Markdown Preview
+" TODO
+" Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & npm install' }
+" Cool Icons
+" Plug 'kyazdani42/nvim-web-devicons' "lua
+Plug 'ryanoasis/vim-devicons' " vimscript
+" Status/Buffer Bar
+" TODO
+" Status Line
+" Plug 'glepnir/galaxyline.nvim'
+" Better Tab Line
+" Plug 'romgrk/barbar.nvim'
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
-Plug 'ryanoasis/vim-devicons'
 " Color schemes
 Plug 'arcticicestudio/nord-vim'
 call plug#end()
