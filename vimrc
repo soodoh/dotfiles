@@ -15,25 +15,20 @@ call plug#begin('~/.config/nvim/plugged')
 " Better Syntax Highlighting
 Plug 'sheerun/vim-polyglot'
 " Comment/Uncomment
-" TODO
-" Plug 'tpope/vim-commentary'
-Plug 'scrooloose/nerdcommenter'
+Plug 'tpope/vim-commentary'
 " Useful for React Commenting
-" TODO
-" Plug 'suy/vim-context-commentstring'
+Plug 'suy/vim-context-commentstring'
 " Auto pairs for ([{
-" TODO
-" Plug 'jiangmiao/auto-pairs'
+Plug 'jiangmiao/auto-pairs'
 " Surround text objects with a character {([])}
 Plug 'tpope/vim-surround'
 " Auto change HTML tags
-" Plug 'AndrewRadev/tagalong.vim'
+Plug 'AndrewRadev/tagalong.vim'
 " Git Integration
 Plug 'tpope/vim-fugitive'
+Plug 'junegunn/gv.vim'
 " TODO
 " Plug 'airblade/vim-gitgutter'
-" Plug 'tpope/vim-rhubarb'
-" Plug 'junegunn/gv.vim'
 " Plug 'rhysd/git-messenger.vim'
 " Find and Replace across many files
 " TODO
@@ -72,13 +67,11 @@ Plug 'preservim/nerdtree'
 " Floating Terminal for fzf & file explorer
 Plug 'voldikss/vim-floaterm'
 " Smooth Scrolling
-" TODO
-" Plug 'psliwka/vim-smoothie'
+Plug 'psliwka/vim-smoothie'
 " Markdown Preview
-" TODO
-" Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & npm install' }
+Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & npm install' }
 " Cool Icons
-" Plug 'kyazdani42/nvim-web-devicons' "lua
+Plug 'kyazdani42/nvim-web-devicons' "lua
 Plug 'ryanoasis/vim-devicons' " vimscript
 " Status/Buffer Bar
 " TODO
@@ -108,7 +101,7 @@ let g:coc_global_extensions = [
   \'coc-rls'
   \]
 
-" Coc.nvim Intellisense Settings
+" Intellisense Bindings
 nmap <silent> gy <Plug>(coc-type-definition)
 nmap <silent> gi <Plug>(coc-definition)
 noremap <leader>ue :CocCommand snippets.editSnippets<CR>
