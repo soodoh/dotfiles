@@ -119,8 +119,8 @@ nnoremap <silent> <C-Down> :TmuxNavigateDown<CR>
 nnoremap <silent> <C-Up> :TmuxNavigateUp<CR>
 nnoremap <silent> <C-Right> :TmuxNavigateRight<CR>
 " Buffers
-nnoremap <leader>bl :ls<CR>:b<space>
-nnoremap <leader>bd :Bdelete<CR>
+nnoremap <leader>b :ls<CR>:b<space>
+nnoremap <leader>d :Bdelete<CR>
 nnoremap gp :bp<CR>
 nnoremap gn :bn<CR>
 
