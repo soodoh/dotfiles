@@ -1,3 +1,4 @@
 .DS_Store
-vim/
-.env
+node_modules
+plugged
+plug.vim

@@ -5,7 +5,7 @@ if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
 fi
 
 # Set aliases from a separate file
-source ~/dotfiles/aliases.sh
+source ~/.config/aliases.sh
 
 # Stuff for oh-my-zsh
 export ZSH="$HOME/.oh-my-zsh"
