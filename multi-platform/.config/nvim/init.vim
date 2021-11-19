@@ -27,9 +27,8 @@ Plug 'AndrewRadev/tagalong.vim'
 " Git Integration
 Plug 'tpope/vim-fugitive'
 Plug 'junegunn/gv.vim'
-" TODO
-" Plug 'airblade/vim-gitgutter'
-" Plug 'rhysd/git-messenger.vim'
+Plug 'airblade/vim-gitgutter'
+Plug 'rhysd/git-messenger.vim'
 " Find and Replace across many files
 " TODO
 " Plug 'brooth/far.vim'
@@ -73,8 +72,6 @@ Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & npm install' }
 " Cool Icons
 Plug 'kyazdani42/nvim-web-devicons' "lua
 Plug 'ryanoasis/vim-devicons' " vimscript
-" Status/Buffer Bar
-" TODO
 " Status Line
 " Plug 'glepnir/galaxyline.nvim'
 " Better Tab Line
@@ -89,8 +86,6 @@ call plug#end()
 " Using this instead of vim-plug allows CoC to auto-update
 let g:coc_global_extensions = [
   \'coc-flow',
-  \'coc-snippets',
-  \'coc-git',
   \'coc-tsserver',
   \'coc-prettier',
   \'coc-eslint',
@@ -183,8 +178,8 @@ nnoremap <silent> <C-Right> :TmuxNavigateRight<CR>
 " Buffers
 nnoremap <leader>b :ls<CR>:b<space>
 nnoremap <leader>d :Bdelete<CR>
-nnoremap gp :bp<CR>
-nnoremap gn :bn<CR>
+nnoremap [b :bp<CR>
+nnoremap ]b :bn<CR>
 
 " so that Ctrl+C triggers InsertLeave autocmd
 inoremap <C-c> <ESC>
@@ -215,6 +210,8 @@ let g:rg_command = 'rg --hidden --vimgrep -S'
 " Git vim-fugitive hotkeys
 noremap <leader>gb :Git blame<CR>
 noremap <leader>gd :Gdiff<space>
+" GitGutter
+let g:gitgutter_highlight_linenrs = 1
 
 " NERD commenter settings
 let g:NERDSpaceDelims = 1
