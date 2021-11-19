@@ -39,9 +39,8 @@ Plug 'moll/vim-bbye'
 " Tmux Integration
 Plug 'christoomey/vim-tmux-navigator'
 " Snippets
-" TODO
-" Plug 'honza/vim-snippets'
-" Plug 'mattn/emmet-vim'
+Plug 'mattn/emmet-vim'
+Plug 'mattn/webapi-vim'
 " Telescope
 " TODO
 " Plug 'nvim-lua/popup.vim'
@@ -96,11 +95,11 @@ let g:coc_global_extensions = [
   \'coc-rls'
   \]
 
+" Snippets
+let g:user_emmet_settings = webapi#json#decode(join(readfile(expand('~/.config/nvim/snippets.json')), "\n"))
 " Intellisense Bindings
 nmap <silent> gy <Plug>(coc-type-definition)
 nmap <silent> gi <Plug>(coc-definition)
-noremap <leader>ue :CocCommand snippets.editSnippets<CR>
-imap <C-l> <Plug>(coc-snippets-expand-jump)
 
 " Add fzf from homebrew to vim path
 set rtp+=/usr/local/opt/fzf
