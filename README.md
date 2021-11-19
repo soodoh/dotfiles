@@ -183,7 +183,7 @@
 1. Install tmux plugin manager
 
    ```
-   git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+   git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm
    ```
 
 1. Install vim-plug

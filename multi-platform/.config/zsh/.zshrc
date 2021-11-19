@@ -27,8 +27,8 @@ ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
 LF_ICONS=$(cat ~/.config/lf/icons | sed \
   -e '/^[ \t]*#/d'   \
   -e '/^[ \s]*$/d'   \
-  -e 's/^[ \s]*//'    \
-  -e 's/[ \s]*$//'    \
+  -e 's/^[ \s]*//'   \
+  -e 's/[ \s]*$//'   \
   -e 's/  */=/g'     \
   -e 's/$/ /')
 LF_ICONS=${LF_ICONS//$'\n'/:}
