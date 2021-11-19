@@ -7,18 +7,6 @@ fi
 # Set aliases from a separate file
 source $ZDOTDIR/aliases.sh
 
-# Stuff for oh-my-zsh
-export ZSH="$HOME/.oh-my-zsh"
-plugins=(
-  colored-man-pages
-  command-not-found
-  # Custom ones
-  zsh-syntax-highlighting
-  zsh-autosuggestions
-  zsh-vi-mode
-)
-source $ZSH/oh-my-zsh.sh
-
 # Settings for zsh-vi-mode
 ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
 
@@ -49,3 +37,13 @@ export VISUAL='nvim'
 
 # Use Starship for terminal prompt
 eval "$(starship init zsh)"
+
+# Load ZSH plugins
+[ -f $ZDOTDIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ] &&
+  source $ZDOTDIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+[ -f $ZDOTDIR/plugins/zsh-colored-man-pages/colored-man-pages.plugin.zsh ] &&
+  source $ZDOTDIR/plugins/zsh-colored-man-pages/colored-man-pages.plugin.zsh
+[ -f $ZDOTDIR/plugins/zsh-vi-mode/zsh-vi-mode.zsh ] &&
+  source $ZDOTDIR/plugins/zsh-vi-mode/zsh-vi-mode.zsh
+[ -f $ZDOTDIR/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] &&
+  source $ZDOTDIR/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

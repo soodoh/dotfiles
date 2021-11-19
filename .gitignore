@@ -7,5 +7,5 @@ node_modules
 .oh-my-zsh
 .zsh_history
 .zcompdump*
-# Tmux
+# Tmux & ZSH
 plugins

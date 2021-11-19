@@ -132,21 +132,17 @@
    git config --global user.email "paul.diloreto@gmail.com"
    ```
 
-1. Install oh-my-zsh
-
-   ```
-   sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-   ```
-
-1. Add custom plugins to oh-my-zsh directory
+1. Install ZSH plugins
 
    ```
    git clone https://github.com/zsh-users/zsh-autosuggestions \
-   $ZSH_CUSTOM/plugins/zsh-autosuggestions
+      $ZDOTDIR/plugins/zsh-autosuggestions
    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
-   $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
+      $ZDOTDIR/plugins/zsh-syntax-highlighting
    git clone https://github.com/jeffreytse/zsh-vi-mode \
-   $ZSH_CUSTOM/plugins/zsh-vi-mode
+      $ZDOTDIR/plugins/zsh-vi-mode
+   git clone https://github.com/ael-code/zsh-colored-man-pages.git \
+      $ZDOTDIR/plugins/zsh-colored-man-pages
    ```
 
 1. Set zsh as default shell
