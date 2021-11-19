@@ -5,7 +5,8 @@ if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
 fi
 
 # Set aliases from a separate file
-source $ZDOTDIR/aliases.sh
+ZSH_FILES=$HOME/.config/zsh
+source $ZSH_FILES/aliases.sh
 
 # Settings for zsh-vi-mode
 ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
@@ -39,11 +40,11 @@ export VISUAL='nvim'
 eval "$(starship init zsh)"
 
 # Load ZSH plugins
-[ -f $ZDOTDIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ] &&
-  source $ZDOTDIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
-[ -f $ZDOTDIR/plugins/zsh-colored-man-pages/colored-man-pages.plugin.zsh ] &&
-  source $ZDOTDIR/plugins/zsh-colored-man-pages/colored-man-pages.plugin.zsh
-[ -f $ZDOTDIR/plugins/zsh-vi-mode/zsh-vi-mode.zsh ] &&
-  source $ZDOTDIR/plugins/zsh-vi-mode/zsh-vi-mode.zsh
-[ -f $ZDOTDIR/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] &&
-  source $ZDOTDIR/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+[ -f $ZSH_FILES/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ] &&
+  source $ZSH_FILES/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+[ -f $ZSH_FILES/plugins/zsh-colored-man-pages/colored-man-pages.plugin.zsh ] &&
+  source $ZSH_FILES/plugins/zsh-colored-man-pages/colored-man-pages.plugin.zsh
+[ -f $ZSH_FILES/plugins/zsh-vi-mode/zsh-vi-mode.zsh ] &&
+  source $ZSH_FILES/plugins/zsh-vi-mode/zsh-vi-mode.zsh
+[ -f $ZSH_FILES/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] &&
+  source $ZSH_FILES/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
