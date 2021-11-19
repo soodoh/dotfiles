@@ -1,6 +1,5 @@
 """"" vim-plug manager
 call plug#begin('~/.config/nvim/plugged')
-" Better Comments
 " TODO unsure if these are worth the effort
 " Text Navigation 
 " Plug 'unblevable/quick-scope'
@@ -72,11 +71,9 @@ Plug 'iamcco/markdown-preview.nvim', { 'do': 'cd app & npm install' }
 Plug 'kyazdani42/nvim-web-devicons' "lua
 Plug 'ryanoasis/vim-devicons' " vimscript
 " Status Line
-" Plug 'glepnir/galaxyline.nvim'
+Plug 'nvim-lualine/lualine.nvim'
 " Better Tab Line
-" Plug 'romgrk/barbar.nvim'
-Plug 'vim-airline/vim-airline'
-Plug 'vim-airline/vim-airline-themes'
+Plug 'romgrk/barbar.nvim'
 " Color schemes
 Plug 'arcticicestudio/nord-vim'
 call plug#end()
@@ -152,7 +149,6 @@ set list
 """"" Custom mappings begin here
 "
 "
-let mapleader=" "
 """"" This block needs to be update if keyboard layout hjkl directions changes
 " Directional Hotkeys
 noremap h <Nop>
@@ -174,26 +170,24 @@ nnoremap <silent> <C-Left> :TmuxNavigateLeft<CR>
 nnoremap <silent> <C-Down> :TmuxNavigateDown<CR>
 nnoremap <silent> <C-Up> :TmuxNavigateUp<CR>
 nnoremap <silent> <C-Right> :TmuxNavigateRight<CR>
-" Buffers
-nnoremap <leader>b :ls<CR>:b<space>
-nnoremap <leader>d :Bdelete<CR>
-nnoremap [b :bp<CR>
-nnoremap ]b :bn<CR>
 
 " so that Ctrl+C triggers InsertLeave autocmd
 inoremap <C-c> <ESC>
 inoremap jk <ESC>
 " so that forward delete works in insert mode
 inoremap <C-d> <Del>
-" other mappings 
-noremap <leader>h :nohlsearch<CR>
-
-" Easier sorting
-noremap <leader>!s :!sort<CR>
-noremap <leader>s :sort<CR>
 
 " Floaterm settings
 let g:floaterm_opener = 'edit'
+
+let mapleader=" "
+" Buffers
+nnoremap <leader>b :ls<CR>:b<space>
+nnoremap <silent> <leader>d :Bdelete<CR>
+nnoremap <silent> <leader>, :bp<CR>
+nnoremap <silent> <leader>. :bn<CR>
+nnoremap <silent> <leader>< :BufferMovePrevious<CR>
+nnoremap <silent> <leader>> :BufferMoveNext<CR>
 " FZF window binding
 nnoremap <leader><space> :FloatermNew fzf<CR>
 " LF file manager
@@ -201,34 +195,28 @@ nnoremap <leader>n :FloatermNew lf<CR>
 " NERDTree file manager
 noremap <leader>e :NERDTreeToggle<CR>
 noremap <leader>ef :NERDTreeFind<CR>
-
 " RipGrep
 noremap <leader>f :Rg<space>
 let g:rg_command = 'rg --hidden --vimgrep -S'
-
 " Git vim-fugitive hotkeys
 noremap <leader>gb :Git blame<CR>
 noremap <leader>gd :Gdiff<space>
 " GitGutter
 let g:gitgutter_highlight_linenrs = 1
 
-" NERD commenter settings
-let g:NERDSpaceDelims = 1
-" Align line-wise comment delimiters flush left instead of following code indentation
-let g:NERDDefaultAlign = 'left'
-
-" air-line Status Line
-let g:airline#extensions#tabline#enabled = 1
-let g:airline_powerline_fonts = 1
-
 " set the theme (must be placed after plugins)
 colorscheme nord
 " For for colorizer
 set termguicolors
-" nvim-colorizer setup (must be placed after plugins)
+
+" lua init
 lua << EOF
+-- nvim-colorizer setup (must be placed after plugins)
 require 'colorizer'.setup {
   '*';
   css = { css = true }
 }
+
+-- lualine status line setup
+require'lualine'.setup()
 EOF
