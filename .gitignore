@@ -1,4 +1,9 @@
 .DS_Store
-node_modules
+# Vim dependencies
 plugged
 plug.vim
+node_modules
+# ZSH
+.oh-my-zsh
+.zsh_history
+.zcompdump*
