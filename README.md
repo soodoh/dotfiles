@@ -21,7 +21,6 @@
     neovim \
     koekeishiya/formulae/yabai \
     koekeishiya/formulae/skhd \
-    fzf \
     ripgrep \
     stow \
    ```
@@ -72,7 +71,6 @@
      zsh \
      tmux \
      neovim \
-     fzf \
      ripgrep \
      lm-sensors \
      stow \
@@ -86,7 +84,6 @@
      zsh \
      tmux \
      neovim \
-     fzf \
      ripgrep \
      lm-sensors \
      free \

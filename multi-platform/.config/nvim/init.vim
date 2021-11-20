@@ -28,11 +28,6 @@ Plug 'tpope/vim-fugitive'
 Plug 'junegunn/gv.vim'
 Plug 'airblade/vim-gitgutter'
 Plug 'rhysd/git-messenger.vim'
-" Find and Replace across many files
-" TODO
-" Plug 'brooth/far.vim'
-" Fast Grepping
-Plug 'jremmen/vim-ripgrep'
 " Keep Window open when closing buffer
 Plug 'moll/vim-bbye'
 " Tmux Integration
@@ -41,10 +36,8 @@ Plug 'christoomey/vim-tmux-navigator'
 Plug 'mattn/emmet-vim'
 Plug 'mattn/webapi-vim'
 " Telescope
-" TODO
-" Plug 'nvim-lua/popup.vim'
-" Plug 'nvim-lua/plenary.nvim'
-" Plug 'nvim-telescope/telescope.nvim'
+Plug 'nvim-lua/plenary.nvim'
+Plug 'nvim-telescope/telescope.nvim'
 " Intellisense
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 " TODO
@@ -59,7 +52,7 @@ Plug 'neoclide/coc.nvim', {'branch': 'release'}
 Plug 'norcalli/nvim-colorizer.lua'
 " File Tree Explorer
 Plug 'kyazdani42/nvim-tree.lua'
-" Floating Terminal for fzf & file explorer
+" Floating Terminal for file explorer
 Plug 'voldikss/vim-floaterm'
 " Smooth Scrolling
 Plug 'psliwka/vim-smoothie'
@@ -95,9 +88,6 @@ let g:user_emmet_settings = webapi#json#decode(join(readfile(expand('~/.config/n
 " Intellisense Bindings
 nmap <silent> gy <Plug>(coc-type-definition)
 nmap <silent> gi <Plug>(coc-definition)
-
-" Add fzf from homebrew to vim path
-set rtp+=/usr/local/opt/fzf
 
 """" Regular vim settings
 " fix for mouse in Alacritty
@@ -138,8 +128,7 @@ set incsearch
 " backspace is stupid in MacOS
 set backspace=indent,eol,start
 " searches are case insensitive unless capital letter is used
-set ignorecase
-set smartcase
+set ignorecase smartcase
 " Show - instead of whitespace at end of line
 " Also shows ^I instead of tabs
 set list
@@ -180,21 +169,20 @@ let g:floaterm_opener = 'edit'
 
 let mapleader=" "
 " Buffers
-nnoremap <leader>b :ls<CR>:b<space>
 nnoremap <silent> <leader>d :Bdelete<CR>
 nnoremap <silent> <leader>, :bp<CR>
 nnoremap <silent> <leader>. :bn<CR>
 nnoremap <silent> <leader>< :BufferMovePrevious<CR>
 nnoremap <silent> <leader>> :BufferMoveNext<CR>
-" FZF window binding
-nnoremap <leader><space> :FloatermNew fzf<CR>
+" Telescope bindings
+nnoremap <leader>ff <cmd>lua require('telescope.builtin').git_files()<CR>
+nnoremap <leader>fg <cmd>lua require('telescope.builtin').live_grep()<CR>
+nnoremap <leader>b <cmd>lua require('telescope.builtin').buffers()<CR>
 " LF file manager
 nnoremap <leader>e :FloatermNew lf<CR>
 " NvimTree file manager
 noremap <leader>nn :NvimTreeToggle<CR>
 noremap <leader>nf :NvimTreeFindFile<CR>
-" RipGrep
-noremap <leader>f :Rg<space>
 let g:rg_command = 'rg --hidden --vimgrep -S'
 " Git vim-fugitive hotkeys
 noremap <leader>gb :Git blame<CR>
@@ -215,4 +203,19 @@ require'colorizer'.setup {
 }
 require'lualine'.setup()
 require'nvim-tree'.setup()
+require'telescope'.setup {
+  defaults = {
+    file_ignore_patterns = { 'node_modules', '.git' },
+    vimgrep_arguments = {
+      'rg',
+      '--color=never',
+      '--no-heading',
+      '--with-filename',
+      '--line-number',
+      '--column',
+      '--smart-case',
+      '--hidden'
+    }
+  }
+}
 EOF
