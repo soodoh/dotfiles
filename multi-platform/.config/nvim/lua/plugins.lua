@@ -18,7 +18,7 @@ Plug 'tpope/vim-commentary'
 " Useful for React Commenting
 Plug 'suy/vim-context-commentstring'
 " Auto pairs for ([{
-Plug 'jiangmiao/auto-pairs'
+Plug 'windwp/nvim-autopairs'
 " Surround text objects with a character {([])}
 Plug 'tpope/vim-surround'
 " Auto change HTML tags
@@ -72,6 +72,7 @@ call plug#end()
 
 require'lualine'.setup()
 require'nvim-tree'.setup()
+require'nvim-autopairs'.setup()
 require'telescope'.setup {
   defaults = {
     file_ignore_patterns = { 'node_modules', '.git' },
@@ -87,7 +88,6 @@ require'telescope'.setup {
     }
   }
 }
-
 vim.opt.termguicolors = true -- so colorizer works
 require'colorizer'.setup {
   '*';
