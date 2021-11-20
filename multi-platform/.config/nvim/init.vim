@@ -58,9 +58,7 @@ Plug 'neoclide/coc.nvim', {'branch': 'release'}
 " Color hex codes
 Plug 'norcalli/nvim-colorizer.lua'
 " File Tree Explorer
-Plug 'preservim/nerdtree'
-" TODO
-" Plug 'kyazdani42/nvim-tree.lua'
+Plug 'kyazdani42/nvim-tree.lua'
 " Floating Terminal for fzf & file explorer
 Plug 'voldikss/vim-floaterm'
 " Smooth Scrolling
@@ -191,10 +189,10 @@ nnoremap <silent> <leader>> :BufferMoveNext<CR>
 " FZF window binding
 nnoremap <leader><space> :FloatermNew fzf<CR>
 " LF file manager
-nnoremap <leader>n :FloatermNew lf<CR>
-" NERDTree file manager
-noremap <leader>e :NERDTreeToggle<CR>
-noremap <leader>ef :NERDTreeFind<CR>
+nnoremap <leader>e :FloatermNew lf<CR>
+" NvimTree file manager
+noremap <leader>nn :NvimTreeToggle<CR>
+noremap <leader>nf :NvimTreeFindFile<CR>
 " RipGrep
 noremap <leader>f :Rg<space>
 let g:rg_command = 'rg --hidden --vimgrep -S'
@@ -211,12 +209,10 @@ set termguicolors
 
 " lua init
 lua << EOF
--- nvim-colorizer setup (must be placed after plugins)
-require 'colorizer'.setup {
+require'colorizer'.setup {
   '*';
   css = { css = true }
 }
-
--- lualine status line setup
 require'lualine'.setup()
+require'nvim-tree'.setup()
 EOF
