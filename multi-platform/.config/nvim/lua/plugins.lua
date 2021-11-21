@@ -1,4 +1,8 @@
-vim.cmd([[
+local cmd = vim.cmd
+local g = vim.g
+local opt = vim.opt
+
+cmd([[
 call plug#begin('~/.config/nvim/plugged')
 " TODO unsure if these are worth the effort
 " Text Navigation 
@@ -88,7 +92,7 @@ require'telescope'.setup {
     }
   }
 }
-vim.opt.termguicolors = true -- so colorizer works
+opt.termguicolors = true -- so colorizer works
 require'colorizer'.setup {
   '*';
   css = { css = true }
@@ -96,7 +100,7 @@ require'colorizer'.setup {
 
 -- CoC plugins
 -- this instead of vim-plug allows CoC to auto-update
-vim.g.coc_global_extensions = {
+g.coc_global_extensions = {
   'coc-flow',
   'coc-tsserver',
   'coc-prettier',
@@ -109,11 +113,10 @@ vim.g.coc_global_extensions = {
 }
 
 -- Snippets
-vim.cmd([[
+cmd([[
   let g:user_emmet_settings = webapi#json#decode(join(readfile(expand('~/.config/nvim/snippets.json')), "\n"))
 ]])
 -- Floaterm for LF file explorer
-vim.g.floaterm_opener = 'edit'
+g.floaterm_opener = 'edit'
 -- GitGutter
-vim.g.gitgutter_highlight_linenrs = 1
-
+g.gitgutter_highlight_linenrs = 1

@@ -1,54 +1,58 @@
-vim.g.mapleader = " "
+local g = vim.g
+local map = vim.api.nvim_set_keymap
+local default_opts = { noremap = true, silent = true }
+
+g.mapleader = " "
 
 -- LSP bindings
-vim.api.nvim_set_keymap('n', 'gy', '<Plug>(coc-type-definition)', { noremap = false, silent = true })
-vim.api.nvim_set_keymap('n', 'gi', '<Plug>(coc-definition)', { noremap = false, silent = true })
+map('n', 'gy', '<Plug>(coc-type-definition)', { silent = true })
+map('n', 'gi', '<Plug>(coc-definition)', { silent = true })
 
 -- Directional Hotkeys
-vim.api.nvim_set_keymap('', 'h', '<Nop>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', 'j', 'h', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', 'k', 'j', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', 'l', 'k', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', "'", 'l', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', 'h', '<Nop>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', 'h', '<Nop>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', 'h', '<Nop>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', '<C-w>j', '<C-w>h', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', '<C-w>k', '<C-w>j', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', '<C-w>l', '<C-w>k', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', "<C-w>'", '<C-w>l', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', '<C-w>J', '<C-w>H', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', '<C-w>K', '<C-w>J', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', '<C-w>L', '<C-w>K', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('', '<C-w>"', '<C-w>L', { noremap = true, silent = true })
+map('', 'h', '<Nop>', default_opts)
+map('', 'j', 'h', default_opts)
+map('', 'k', 'j', default_opts)
+map('', 'l', 'k', default_opts)
+map('', "'", 'l', default_opts)
+map('', 'h', '<Nop>', default_opts)
+map('', 'h', '<Nop>', default_opts)
+map('', 'h', '<Nop>', default_opts)
+map('', '<C-w>j', '<C-w>h', default_opts)
+map('', '<C-w>k', '<C-w>j', default_opts)
+map('', '<C-w>l', '<C-w>k', default_opts)
+map('', "<C-w>'", '<C-w>l', default_opts)
+map('', '<C-w>J', '<C-w>H', default_opts)
+map('', '<C-w>K', '<C-w>J', default_opts)
+map('', '<C-w>L', '<C-w>K', default_opts)
+map('', '<C-w>"', '<C-w>L', default_opts)
 -- Vim-tmux-navigation Directions
-vim.g.tmux_navigator_no_mappings = 1
-vim.api.nvim_set_keymap('n', '<C-Left>', ':TmuxNavigateLeft<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<C-Down>', ':TmuxNavigateDown<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<C-Up>', ':TmuxNavigateUp<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<C-Right>', ':TmuxNavigateRight<CR>', { noremap = true, silent = true })
+g.tmux_navigator_no_mappings = 1
+map('n', '<C-Left>', ':TmuxNavigateLeft<CR>', default_opts)
+map('n', '<C-Down>', ':TmuxNavigateDown<CR>', default_opts)
+map('n', '<C-Up>', ':TmuxNavigateUp<CR>', default_opts)
+map('n', '<C-Right>', ':TmuxNavigateRight<CR>', default_opts)
 
 -- so that Ctrl+C triggers InsertLeave autocmd
-vim.api.nvim_set_keymap('i', '<C-c>', '<ESC>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('i', 'jk', '<ESC>', { noremap = true, silent = true })
+map('i', '<C-c>', '<ESC>', default_opts)
+map('i', 'jk', '<ESC>', default_opts)
 -- so that forward delete works in insert mode
-vim.api.nvim_set_keymap('i', '<C-d>', '<Del>', { noremap = true, silent = true })
+map('i', '<C-d>', '<Del>', default_opts)
 
 -- Buffers
-vim.api.nvim_set_keymap('n', '<leader>d', ':Bdelete<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>,', ':bp<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>.', ':bn<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader><', ':BufferMovePrevious<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>>', ':BufferMoveNext<CR>', { noremap = true, silent = true })
+map('n', '<leader>d', ':Bdelete<CR>', default_opts)
+map('n', '<leader>,', ':bp<CR>', default_opts)
+map('n', '<leader>.', ':bn<CR>', default_opts)
+map('n', '<leader><', ':BufferMovePrevious<CR>', default_opts)
+map('n', '<leader>>', ':BufferMoveNext<CR>', default_opts)
 -- Telescope bindings
-vim.api.nvim_set_keymap('n', '<leader>ff', "<cmd>lua require('telescope.builtin').git_files()<CR>", { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>fg', "<cmd>lua require('telescope.builtin').live_grep()<CR>", { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>b', "<cmd>lua require('telescope.builtin').buffers()<CR>", { noremap = true, silent = true })
+map('n', '<leader>ff', "<cmd>lua require('telescope.builtin').git_files()<CR>", default_opts)
+map('n', '<leader>fg', "<cmd>lua require('telescope.builtin').live_grep()<CR>", default_opts)
+map('n', '<leader>b', "<cmd>lua require('telescope.builtin').buffers()<CR>", default_opts)
 -- LF file manager
-vim.api.nvim_set_keymap('n', '<leader>e', ':FloatermNew lf<CR>', { noremap = true, silent = true })
+map('n', '<leader>e', ':FloatermNew lf<CR>', default_opts)
 -- NvimTree file manager
-vim.api.nvim_set_keymap('n', '<leader>nn', ':NvimTreeToggle<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>nf', ':NvimTreeFindFile<CR>', { noremap = true, silent = true })
+map('n', '<leader>nn', ':NvimTreeToggle<CR>', default_opts)
+map('n', '<leader>nf', ':NvimTreeFindFile<CR>', default_opts)
 -- Git vim-fugitive hotkeys
-vim.api.nvim_set_keymap('n', '<leader>gb', ':Git blame<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>gd', ':Gdiff<space>', { noremap = true, silent = true })
+map('n', '<leader>gb', ':Git blame<CR>', default_opts)
+map('n', '<leader>gd', ':Gdiff<space>', default_opts)
