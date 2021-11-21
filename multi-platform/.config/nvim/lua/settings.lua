@@ -8,6 +8,7 @@ opt.mouse = 'a' -- fix for mouse in Alacritty
 cmd('autocmd BufNewFile,BufRead *.json setl ft=jsonc') -- Treat JSON as JSONC
 
 -- Display
+opt.termguicolors = true
 opt.background = 'dark'
 opt.showmatch  = true -- show matching brackets
 opt.hlsearch = false

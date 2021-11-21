@@ -31,9 +31,9 @@ return packer.startup(function(use)
   use 'kyazdani42/nvim-web-devicons' -- Cool icons
   -- Better buffer tab line
   use {
-    'romgrk/barbar.nvim',
+    'akinsho/bufferline.nvim',
     config = function()
-      require('configs.barbar-config')
+      require('bufferline').setup()
     end
   }
   use {
@@ -94,7 +94,6 @@ return packer.startup(function(use)
   use {
     'norcalli/nvim-colorizer.lua',
     config = function()
-      vim.opt.termguicolors = true
       require('colorizer').setup {
         '*';
         css = { css = true }
@@ -141,7 +140,7 @@ return packer.startup(function(use)
   use {
     'NLKNguyen/papercolor-theme',
     config = function()
-      vim.cmd('colorscheme papercolor') 
+      vim.cmd('colorscheme papercolor')
     end
   }
 
