@@ -50,9 +50,12 @@ return packer.startup(function(use)
   use 'junegunn/gv.vim'
   use 'rhysd/git-messenger.vim'
   use {
-    'airblade/vim-gitgutter',
-    setup = function()
-      vim.g.gitgutter_highlight_linenrs = 1
+    'lewis6991/gitsigns.nvim',
+    requires = { 'nvim-lua/plenary.nvim' },
+    config = function()
+      require('gitsigns').setup({
+        current_line_blame = true,
+      })
     end
   }
 
