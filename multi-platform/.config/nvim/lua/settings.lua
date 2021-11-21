@@ -29,6 +29,7 @@ opt.smartcase = true -- case insentive unless capitals used in search
 opt.autoindent = true
 opt.smartindent = true
 opt.tabstop = 2 -- 1 tab = 2 spaces
+opt.softtabstop = 2
 opt.shiftwidth = 2 -- indentation rule
 opt.expandtab = true -- expand tab to spaces
 opt.formatoptions = 'qnj1' -- q  - comment formatting; n - numbered lists; j - remove comment when joining lines; 1 - don't break after one-letter word

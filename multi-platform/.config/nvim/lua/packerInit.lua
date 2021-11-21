@@ -101,9 +101,12 @@ return packer.startup(function(use)
     end
   }
   use {
-    'hrsh7th/nvim-compe',
+    'hrsh7th/nvim-cmp',
+    requires = {
+      'hrsh7th/cmp-nvim-lsp'
+    },
     config = function()
-      require'compe'.setup {}
+      require('configs.cmp-config')
     end
   }
   -- use 'glepnir/lspaga.nvim'
@@ -119,12 +122,12 @@ return packer.startup(function(use)
   }
   -- Status Line
   use {
-  'nvim-lualine/lualine.nvim',
-  requires = { 'kyazdani42/nvim-web-devicons' },
-  config = function()
-    require'lualine'.setup()
-  end
-}
+    'nvim-lualine/lualine.nvim',
+    requires = { 'kyazdani42/nvim-web-devicons' },
+    config = function()
+      require'lualine'.setup()
+    end
+  }
   -- Color schemes
   use {
     'arcticicestudio/nord-vim',
