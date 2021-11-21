@@ -15,11 +15,6 @@ return packer.startup(function(use)
   -- Easymotion
   -- use 'easymotion/vim-easymotion'
 
-  -- TODO after LSP is set up
-  -- Treesitter (LSP-based syntax highlighting)
-  -- use 'nvim-treesitter/nvim-treesitter'
-  -- use 'p00f/nvim-ts-rainbow'
-
   use 'sheerun/vim-polyglot' -- Better syntax highlighing
   use 'suy/vim-context-commentstring' -- Useful for React commenting
   use 'tpope/vim-commentary' -- Better commenting
@@ -100,6 +95,12 @@ return packer.startup(function(use)
       }
     end
   }
+  -- Treesitter (LSP-based syntax highlighting)
+  use {
+    'nvim-treesitter/nvim-treesitter',
+    run = ':TSUpdate'
+  }
+
   -- Intellisense
   use {
     'neovim/nvim-lspconfig',
