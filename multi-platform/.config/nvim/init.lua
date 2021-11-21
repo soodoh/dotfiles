@@ -1,3 +1,3 @@
-require('plugins')
+require('packerInit')
 require('settings')
 require('mappings')

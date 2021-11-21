@@ -11,6 +11,7 @@ cmd('autocmd BufNewFile,BufRead *.json setl ft=jsonc') -- Treat JSON as JSONC
 opt.showmatch  = true -- show matching brackets
 opt.hlsearch = false
 opt.cursorline = true
+opt.completeopt = "menuone,noselect"
 
 -- Sidebar
 opt.number = true -- line number on the left

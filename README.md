@@ -181,4 +181,18 @@
 
 1. Open Neovim and run `:PackerInstall`
 
+1. Install LSPs in Neovim
+   ```
+   :LspInstall bash
+   :LspInstall css
+   :LspInstall dockerfile
+   :LspInstall html
+   :LspInstall lua
+   :LspInstall python
+   :LspInstall rust
+   :LspInstall terraform
+   :LspInstall typescript
+   :LspInstall yaml
+   ```
+
 1. Open Tmux and install tmux plugins (\<prefix\> + I)

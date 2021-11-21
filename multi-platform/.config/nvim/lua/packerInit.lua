@@ -8,7 +8,7 @@ end
 vim.cmd([[packadd packer.nvim]])
 local packer = require'packer'
 
-return packer.startup(function()
+return packer.startup(function(use)
   -- TODO unsure if this is worth the effort
   -- Text Navigation 
   -- use 'unblevable/quick-scope'
@@ -21,7 +21,6 @@ return packer.startup(function()
   -- use 'p00f/nvim-ts-rainbow'
 
   use 'sheerun/vim-polyglot' -- Better syntax highlighing
-  use 'windwp/nvim-autopairs'
   use 'suy/vim-context-commentstring' -- Useful for React commenting
   use 'tpope/vim-commentary' -- Better commenting
   use 'tpope/vim-surround' -- Surround text objects with {[()]}
@@ -31,6 +30,12 @@ return packer.startup(function()
   use 'psliwka/vim-smoothie' -- Smooth scrolling
   use 'kyazdani42/nvim-web-devicons' -- Cool icons
   use 'romgrk/barbar.nvim' -- Better tab line
+  use {
+    'windwp/nvim-autopairs',
+    config = {
+      require'nvim-autopairs'.setup()
+    }
+  }
   -- Floating terminal for LF file explorer
   use {
     'voldikss/vim-floaterm',
@@ -60,7 +65,6 @@ return packer.startup(function()
       ]])
     end
   }
-  use 'mattn/webapi-vim'
 
   -- Telescope
   use {
@@ -71,7 +75,10 @@ return packer.startup(function()
   -- Nvim Tree file explorer
   use {
     'kyazdani42/nvim-tree.lua',
-    requires = { 'kyazdani42/nvim-web-devicons' }
+    requires = { 'kyazdani42/nvim-web-devicons' },
+    config = function()
+      require'nvim-tree'.setup {}
+    end
   }
 
   -- Color hex codes
@@ -87,25 +94,18 @@ return packer.startup(function()
   }
   -- Intellisense
   use {
-    'neoclide/coc.nvim',
-    branch = 'release',
+    'neovim/nvim-lspconfig',
+    requires = { 'williamboman/nvim-lsp-installer' },
     config = function()
-      vim.g.coc_global_extensions = {
-        'coc-flow',
-        'coc-tsserver',
-        'coc-prettier',
-        'coc-eslint',
-        'coc-css',
-        'coc-html',
-        'coc-json',
-        'coc-yaml',
-        'coc-rls'
-      }
+      require('configs.lsp-config')
     end
   }
-  -- TODO
-  -- use 'neovim/nvim-lspconfig'
-  -- use 'hrsh7th/nvim-compe'
+  use {
+    'hrsh7th/nvim-compe',
+    config = function()
+      require'compe'.setup {}
+    end
+  }
   -- use 'glepnir/lspaga.nvim'
   -- use 'onsails/lspkind-nvim'
   -- use 'kosayoda/nvim-lightbulb'
@@ -120,7 +120,10 @@ return packer.startup(function()
   -- Status Line
   use {
   'nvim-lualine/lualine.nvim',
-  requires = { 'kyazdani42/nvim-web-devicons' }
+  requires = { 'kyazdani42/nvim-web-devicons' },
+  config = function()
+    require'lualine'.setup()
+  end
 }
   -- Color schemes
   use {
