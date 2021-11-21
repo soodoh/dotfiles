@@ -1,11 +1,8 @@
 .DS_Store
-# Vim dependencies
-plugged
-plug.vim
-node_modules
 # ZSH
 .oh-my-zsh
 .zsh_history
 .zcompdump*
-# Tmux & ZSH
-plugins
+**/zsh/plugins
+# Vim
+packer_compiled.lua

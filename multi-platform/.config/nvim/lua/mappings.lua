@@ -25,6 +25,7 @@ map('', '<C-w>J', '<C-w>H', default_opts)
 map('', '<C-w>K', '<C-w>J', default_opts)
 map('', '<C-w>L', '<C-w>K', default_opts)
 map('', '<C-w>"', '<C-w>L', default_opts)
+
 -- Vim-tmux-navigation Directions
 g.tmux_navigator_no_mappings = 1
 map('n', '<C-Left>', ':TmuxNavigateLeft<CR>', default_opts)

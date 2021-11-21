@@ -179,12 +179,6 @@
    git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm
    ```
 
-1. Install vim-plug
-
-   ```
-   curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-   ```
-
-1. Open Neovim and run `:PlugInstall`
+1. Open Neovim and run `:PackerInstall`
 
 1. Open Tmux and install tmux plugins (\<prefix\> + I)

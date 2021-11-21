@@ -32,9 +32,6 @@ opt.shiftwidth = 2 -- indentation rule
 opt.expandtab = true -- expand tab to spaces
 opt.formatoptions = 'qnj1' -- q  - comment formatting; n - numbered lists; j - remove comment when joining lines; 1 - don't break after one-letter word
 
--- set the theme (must be placed after plugins)
-cmd('colorscheme nord')
-
 -- Switch between relative/absolute numbers
 -- cmd([[
 --  auto toggle between relative/absolute numbers
