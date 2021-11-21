@@ -6,7 +6,7 @@ if fn.empty(fn.glob(install_path)) > 0 then
 end
 
 vim.cmd([[packadd packer.nvim]])
-local packer = require'packer'
+local packer = require('packer')
 
 return packer.startup(function(use)
   -- TODO unsure if this is worth the effort
@@ -29,11 +29,17 @@ return packer.startup(function(use)
   use 'christoomey/vim-tmux-navigator' -- Tmux Integration
   use 'psliwka/vim-smoothie' -- Smooth scrolling
   use 'kyazdani42/nvim-web-devicons' -- Cool icons
-  use 'romgrk/barbar.nvim' -- Better tab line
+  -- Better buffer tab line
+  use {
+    'romgrk/barbar.nvim',
+    config = function()
+      require('configs.barbar-config')
+    end
+  }
   use {
     'windwp/nvim-autopairs',
     config = {
-      require'nvim-autopairs'.setup()
+      require('nvim-autopairs').setup()
     }
   }
   -- Floating terminal for LF file explorer
@@ -69,7 +75,10 @@ return packer.startup(function(use)
   -- Telescope
   use {
     'nvim-telescope/telescope.nvim',
-    requires = { 'nvim-lua/plenary.nvim' }
+    requires = { 'nvim-lua/plenary.nvim' },
+    config = function()
+      require('configs.telescope-config')
+    end
   }
 
   -- Nvim Tree file explorer
@@ -77,7 +86,7 @@ return packer.startup(function(use)
     'kyazdani42/nvim-tree.lua',
     requires = { 'kyazdani42/nvim-web-devicons' },
     config = function()
-      require'nvim-tree'.setup {}
+      require('nvim-tree').setup {}
     end
   }
 
@@ -86,7 +95,7 @@ return packer.startup(function(use)
     'norcalli/nvim-colorizer.lua',
     config = function()
       vim.opt.termguicolors = true
-      require'colorizer'.setup {
+      require('colorizer').setup {
         '*';
         css = { css = true }
       }
@@ -125,7 +134,7 @@ return packer.startup(function(use)
     'nvim-lualine/lualine.nvim',
     requires = { 'kyazdani42/nvim-web-devicons' },
     config = function()
-      require'lualine'.setup()
+      require('lualine').setup()
     end
   }
   -- Color schemes

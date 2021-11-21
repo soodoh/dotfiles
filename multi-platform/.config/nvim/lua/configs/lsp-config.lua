@@ -18,4 +18,4 @@ lsp_installer.on_server_ready(function(server)
 end)
 
 -- Not included in nvim-lsp-installer
-require'lspconfig'.flow.setup{}
+require('lspconfig').flow.setup{}
