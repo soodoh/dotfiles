@@ -2,16 +2,17 @@ local cmd = vim.cmd
 local opt = vim.opt
 
 -- basic settings
-opt.backspace = "indent,eol,start" -- backspace works on every char in insert mode
+opt.backspace = 'indent,eol,start' -- backspace works on every char in insert mode
 opt.history = 1000
 opt.mouse = 'a' -- fix for mouse in Alacritty
 cmd('autocmd BufNewFile,BufRead *.json setl ft=jsonc') -- Treat JSON as JSONC
 
 -- Display
+opt.background = 'dark'
 opt.showmatch  = true -- show matching brackets
 opt.hlsearch = false
 opt.cursorline = true
-opt.completeopt = "menuone,noselect"
+opt.completeopt = 'menu,menuone,noselect'
 
 -- Sidebar
 opt.number = true -- line number on the left

@@ -130,9 +130,9 @@ return packer.startup(function(use)
   }
   -- Color schemes
   use {
-    'arcticicestudio/nord-vim',
+    'NLKNguyen/papercolor-theme',
     config = function()
-      vim.cmd('colorscheme nord') 
+      vim.cmd('colorscheme papercolor') 
     end
   }
 
