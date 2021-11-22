@@ -16,6 +16,13 @@ lsp_installer.on_server_ready(function(server)
                 }
             }
         }
+    elseif server.name == 'eslint' then
+        opts.settings = {
+            codeActionOnSave = {
+                enable = true,
+                mode = "all"
+            },
+        }
     end
 
     -- This setup() function is exactly the same as lspconfig's setup function.
