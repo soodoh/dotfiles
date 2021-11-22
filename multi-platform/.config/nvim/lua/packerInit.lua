@@ -10,7 +10,7 @@ local packer = require('packer')
 
 return packer.startup(function(use)
   -- TODO unsure if this is worth the effort
-  -- Text Navigation 
+  -- Text Navigation
   -- use 'unblevable/quick-scope'
   -- Easymotion
   -- use 'easymotion/vim-easymotion'
