@@ -115,14 +115,14 @@ return packer.startup(function(use)
   use {
     'hrsh7th/nvim-cmp',
     requires = {
-      'hrsh7th/cmp-nvim-lsp'
+      'hrsh7th/cmp-nvim-lsp',
+      'onsails/lspkind-nvim', -- Adds icons to autocompletion menu
     },
     config = function()
       require('configs.cmp-config')
     end
   }
   -- use 'glepnir/lspaga.nvim'
-  -- use 'onsails/lspkind-nvim'
   -- use 'kosayoda/nvim-lightbulb'
   -- use 'mfussenegger/nvim-jdtls'
   -- use 'mfussenegger/nvim-dap'
