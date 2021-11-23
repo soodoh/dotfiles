@@ -9,20 +9,17 @@ lsp_installer.on_server_ready(function(server)
 
     -- Specific server settings
     if server.name == 'sumneko_lua' then
-        opts.settings = {
-            Lua = {
-                diagnostics = {
-                    globals = { 'vim' }
-                }
-            }
-        }
-    elseif server.name == 'eslint' then
-        opts.settings = {
-            codeActionOnSave = {
-                enable = true,
-                mode = "all"
-            },
-        }
+        opts = vim.tbl_deep_extend('force', opts, require('configs.lsp_providers.lua'))
+    elseif server.name == 'jsonls' then
+        opts = vim.tbl_deep_extend('force', opts, require('configs.lsp_providers.json'))
+    -- elseif server.name == 'eslint' then
+    --     opts.settings = {
+    --         codeActionOnSave = {
+    --             enable = true,
+    --             mode = "all"
+    --         },
+    --         format = true,
+    --     }
     end
 
     -- This setup() function is exactly the same as lspconfig's setup function.

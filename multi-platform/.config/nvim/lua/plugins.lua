@@ -75,7 +75,7 @@ return packer.startup(function(use)
     'nvim-telescope/telescope.nvim',
     requires = { 'nvim-lua/plenary.nvim' },
     config = function()
-      require('configs.telescope-config')
+      require('configs._telescope')
     end
   }
 
@@ -109,7 +109,7 @@ return packer.startup(function(use)
     'neovim/nvim-lspconfig',
     requires = { 'williamboman/nvim-lsp-installer' },
     config = function()
-      require('configs.lsp-config')
+      require('configs._lspconfig')
     end
   }
   use {
@@ -132,7 +132,7 @@ return packer.startup(function(use)
       -- use 'dcampos/cmp-snippy',
     },
     config = function()
-      require('configs.cmp-config')
+      require('configs.autocomplete')
     end
   }
   -- use 'glepnir/lspaga.nvim'
