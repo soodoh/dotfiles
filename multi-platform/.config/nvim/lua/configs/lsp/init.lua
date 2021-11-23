@@ -26,15 +26,15 @@ end
 return function()
     local lsp_installer = require('nvim-lsp-installer')
     local lspconfig = require('lspconfig')
+    -- Setup lspconfig with cmp (auto complete)
+    local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
+    local opts = {
+        capabilities = capabilities,
+        on_attach = common_on_attach,
+    }
 
     -- Register a handler that will be called for all installed servers.
     lsp_installer.on_server_ready(function(server)
-        -- Setup lspconfig with cmp (auto complete)
-        local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
-        local opts = {
-            capabilities = capabilities,
-            on_attach = common_on_attach,
-        }
 
         -- Specific server settings
         if server.name == 'sumneko_lua' then
@@ -43,6 +43,8 @@ return function()
             opts = vim.tbl_deep_extend('force', opts, require('configs.lsp.json'))
         elseif server.name == 'tsserver' then
             opts = vim.tbl_deep_extend('force', opts, require('configs.lsp.tsserver'))
+        elseif server.name == 'eslint' then
+            opts = vim.tbl_deep_extend('force', opts, require('configs.lsp.eslint'))
         end
 
         -- This setup() function is exactly the same as lspconfig's setup function.
@@ -51,7 +53,10 @@ return function()
     end)
 
     -- Not included in nvim-lsp-installer
-    lspconfig.flow.setup({})
-    -- Null-ls for linting/formatting
-    require('configs.lsp.null').setup(common_on_attach)
+    lspconfig.flow.setup({
+        -- default command doesn't work on Work computer because Node 12 is in the $PATH
+        cmd = { '/usr/local/bin/npx', '--no-install', 'flow', 'lsp' },
+        capabilities = capabilities,
+        on_attach = common_on_attach,
+    })
 end

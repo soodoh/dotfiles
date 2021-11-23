@@ -103,8 +103,6 @@ return packer.startup(function(use)
     'neovim/nvim-lspconfig',
     requires = {
       'williamboman/nvim-lsp-installer',
-      'jose-elias-alvarez/null-ls.nvim',
-      'jose-elias-alvarez/nvim-lsp-ts-utils'
     },
     config = require('configs.lsp')
   }
