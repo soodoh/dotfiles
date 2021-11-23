@@ -9,17 +9,11 @@ lsp_installer.on_server_ready(function(server)
 
     -- Specific server settings
     if server.name == 'sumneko_lua' then
-        opts = vim.tbl_deep_extend('force', opts, require('configs.lsp_providers.lua'))
+        opts = vim.tbl_deep_extend('force', opts, require('configs.lsp.lua'))
     elseif server.name == 'jsonls' then
-        opts = vim.tbl_deep_extend('force', opts, require('configs.lsp_providers.json'))
-    -- elseif server.name == 'eslint' then
-    --     opts.settings = {
-    --         codeActionOnSave = {
-    --             enable = true,
-    --             mode = "all"
-    --         },
-    --         format = true,
-    --     }
+        opts = vim.tbl_deep_extend('force', opts, require('configs.lsp.json'))
+    elseif server.name == 'eslint' then
+        opts = vim.tbl_deep_extend('force', opts, require('configs.lsp.eslint'))
     end
 
     -- This setup() function is exactly the same as lspconfig's setup function.
@@ -28,4 +22,4 @@ lsp_installer.on_server_ready(function(server)
 end)
 
 -- Not included in nvim-lsp-installer
-require('lspconfig').flow.setup{}
+require('lspconfig').flow.setup({})

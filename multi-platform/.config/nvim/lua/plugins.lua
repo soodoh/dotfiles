@@ -84,7 +84,7 @@ return packer.startup(function(use)
     'kyazdani42/nvim-tree.lua',
     requires = { 'kyazdani42/nvim-web-devicons' },
     config = function()
-      require('nvim-tree').setup {}
+      require('nvim-tree').setup({})
     end
   }
 
@@ -92,16 +92,16 @@ return packer.startup(function(use)
   use {
     'norcalli/nvim-colorizer.lua',
     config = function()
-      require('colorizer').setup {
-        '*';
-        css = { css = true }
-      }
+      require('configs._colorizer')
     end
   }
   -- Treesitter (LSP-based syntax highlighting)
   use {
     'nvim-treesitter/nvim-treesitter',
-    run = ':TSUpdate'
+    run = ':TSUpdate',
+    config = function()
+      require('configs.treesitter')
+    end
   }
 
   -- Intellisense
@@ -119,17 +119,17 @@ return packer.startup(function(use)
       'onsails/lspkind-nvim', -- Adds icons to autocompletion menu
       -- cmp requires a snippet engine
       -- For vsnip users.
-      use 'hrsh7th/cmp-vsnip',
-      use 'hrsh7th/vim-vsnip',
+      'hrsh7th/cmp-vsnip',
+      'hrsh7th/vim-vsnip',
       -- For luasnip users.
-      -- use 'L3MON4D3/LuaSnip',
-      -- use 'saadparwaiz1/cmp_luasnip',
+      -- 'L3MON4D3/LuaSnip',
+      -- 'saadparwaiz1/cmp_luasnip',
       -- For ultisnips users.
-      -- use 'SirVer/ultisnips',
-      -- use 'quangnguyen30192/cmp-nvim-ultisnips',
+      -- 'SirVer/ultisnips',
+      -- 'quangnguyen30192/cmp-nvim-ultisnips',
       -- For snippy users.
-      -- use 'dcampos/nvim-snippy',
-      -- use 'dcampos/cmp-snippy',
+      -- 'dcampos/nvim-snippy',
+      -- 'dcampos/cmp-snippy',
     },
     config = function()
       require('configs.autocomplete')
