@@ -101,8 +101,12 @@ return packer.startup(function(use)
   -- Intellisense
   use {
     'neovim/nvim-lspconfig',
-    requires = { 'williamboman/nvim-lsp-installer' },
-    config = require('configs._lspconfig')
+    requires = {
+      'williamboman/nvim-lsp-installer',
+      'jose-elias-alvarez/null-ls.nvim',
+      'jose-elias-alvarez/nvim-lsp-ts-utils'
+    },
+    config = require('configs.lsp')
   }
   use {
     'hrsh7th/nvim-cmp',
