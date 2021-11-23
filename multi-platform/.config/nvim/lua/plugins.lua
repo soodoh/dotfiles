@@ -1,6 +1,7 @@
 -- Automatically install Packer, if not already
 local fn = vim.fn
 local install_path = fn.stdpath('data')..'/site/pack/packer/start/packer.nvim'
+local packer_bootstrap = false
 if fn.empty(fn.glob(install_path)) > 0 then
   packer_bootstrap = fn.system({'git', 'clone', '--depth', '1', 'https://github.com/wbthomason/packer.nvim', install_path})
 end
@@ -33,9 +34,9 @@ return packer.startup(function(use)
   }
   use {
     'windwp/nvim-autopairs',
-    config = {
+    config = function()
       require('nvim-autopairs').setup()
-    }
+    end
   }
   -- Floating terminal for LF file explorer
   use {
@@ -74,43 +75,34 @@ return packer.startup(function(use)
   use {
     'nvim-telescope/telescope.nvim',
     requires = { 'nvim-lua/plenary.nvim' },
-    config = function()
-      require('configs._telescope')
-    end
+    config = require('configs._telescope')
   }
 
   -- Nvim Tree file explorer
   use {
     'kyazdani42/nvim-tree.lua',
     requires = { 'kyazdani42/nvim-web-devicons' },
-    config = function()
-      require('nvim-tree').setup({})
-    end
+    config = require('nvim-tree').setup({})
   }
 
   -- Color hex codes
   use {
     'norcalli/nvim-colorizer.lua',
-    config = function()
-      require('configs._colorizer')
-    end
+    config = require('configs._colorizer')
   }
   -- Treesitter (LSP-based syntax highlighting)
   use {
     'nvim-treesitter/nvim-treesitter',
     run = ':TSUpdate',
-    config = function()
-      require('configs.treesitter')
-    end
+    requires = { 'p00f/nvim-ts-rainbow' },
+    config = require('configs.treesitter')
   }
 
   -- Intellisense
   use {
     'neovim/nvim-lspconfig',
     requires = { 'williamboman/nvim-lsp-installer' },
-    config = function()
-      require('configs._lspconfig')
-    end
+    config = require('configs._lspconfig')
   }
   use {
     'hrsh7th/nvim-cmp',
