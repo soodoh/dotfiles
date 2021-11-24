@@ -1,11 +1,12 @@
--- Automatically install Packer, if not already
 local fn = vim.fn
+
+-- Bootstrap packer, if not already installed
 local install_path = fn.stdpath('data')..'/site/pack/packer/start/packer.nvim'
 local packer_bootstrap = false
 if fn.empty(fn.glob(install_path)) > 0 then
   packer_bootstrap = fn.system({'git', 'clone', '--depth', '1', 'https://github.com/wbthomason/packer.nvim', install_path})
 end
-
+-- Set up package manager
 vim.cmd([[packadd packer.nvim]])
 local packer = require('packer')
 
@@ -21,8 +22,25 @@ return packer.startup(function(use)
   use 'tpope/vim-commentary' -- Better commenting
   use 'tpope/vim-surround' -- Surround text objects with {[()]}
   use 'AndrewRadev/tagalong.vim' -- Auto change HTML tags
-  use 'moll/vim-bbye' -- Keep windows open when closing buffer
-  use 'christoomey/vim-tmux-navigator' -- Tmux Integration
+  -- Keep windows open when closing buffer
+  use {
+    'moll/vim-bbye',
+    config = function()
+      local keymap = require('utils').keymap
+      keymap('n', '<leader>d', ':Bdelete<CR>')
+    end
+  }
+  use {
+    'christoomey/vim-tmux-navigator',
+    config = function()
+      vim.g.tmux_navigator_no_mappings = 1
+      local keymap = require('utils').keymap
+      keymap('n', '<C-Left>', ':TmuxNavigateLeft<CR>')
+      keymap('n', '<C-Down>', ':TmuxNavigateDown<CR>')
+      keymap('n', '<C-Up>', ':TmuxNavigateUp<CR>')
+      keymap('n', '<C-Right>', ':TmuxNavigateRight<CR>')
+    end
+  }
   use 'psliwka/vim-smoothie' -- Smooth scrolling
   use 'kyazdani42/nvim-web-devicons' -- Cool icons
   -- Better buffer tab line
@@ -44,10 +62,22 @@ return packer.startup(function(use)
     setup = function()
       vim.g.floaterm_opener = 'edit'
     end,
+    config = function()
+    --   -- LF file manager
+      local keymap = require('utils').keymap
+      keymap('n', '<leader>e', ':FloatermNew lf<CR>')
+    end
   }
 
   -- Git Integration
-  use 'tpope/vim-fugitive'
+  use {
+    'tpope/vim-fugitive',
+    -- config = function()
+    --   local keymap = require('utils').keymap
+    --   keymap('n', '<leader>gb', ':Git blame<CR>')
+    --   keymap('n', '<leader>gd', ':Gdiff<space>')
+    -- end
+  }
   use 'junegunn/gv.vim'
   use 'rhysd/git-messenger.vim'
   use {
@@ -72,9 +102,13 @@ return packer.startup(function(use)
   }
 
   -- Telescope
+  use { 'nvim-telescope/telescope-fzf-native.nvim', run = 'make' }
   use {
     'nvim-telescope/telescope.nvim',
-    requires = { 'nvim-lua/plenary.nvim' },
+    requires = {
+      'nvim-lua/plenary.nvim',
+      'nvim-telescope/telescope-fzf-native.nvim',
+    },
     config = require('configs._telescope')
   }
 
@@ -82,7 +116,12 @@ return packer.startup(function(use)
   use {
     'kyazdani42/nvim-tree.lua',
     requires = { 'kyazdani42/nvim-web-devicons' },
-    config = require('nvim-tree').setup({})
+    config = function()
+      require('nvim-tree').setup({})
+      local keymap = require('utils').keymap
+      keymap('n', '<leader>nn', ':NvimTreeToggle<CR>')
+      keymap('n', '<leader>nf', ':NvimTreeFindFile<CR>')
+    end
   }
 
   -- Color hex codes
