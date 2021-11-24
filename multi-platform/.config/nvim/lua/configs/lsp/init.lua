@@ -38,7 +38,7 @@ return function()
 
         -- Specific server settings
         if server.name == 'sumneko_lua' then
-            opts = vim.tbl_deep_extend('force', opts, require('configs.lsp.lua'))
+            opts = require('configs.lsp.lua')
         elseif server.name == 'jsonls' then
             opts = vim.tbl_deep_extend('force', opts, require('configs.lsp.json'))
         elseif server.name == 'tsserver' then
