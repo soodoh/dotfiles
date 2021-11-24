@@ -1,6 +1,6 @@
 return function()
-    require('colorizer').setup({
-            '*';
-            css = { css = true }
-        })
+    require("colorizer").setup({
+        "*",
+        css = { css = true },
+    })
 end

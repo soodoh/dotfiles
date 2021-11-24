@@ -2,23 +2,23 @@ local cmd = vim.cmd
 local opt = vim.opt
 
 -- basic settings
-opt.backspace = 'indent,eol,start' -- backspace works on every char in insert mode
+opt.backspace = "indent,eol,start" -- backspace works on every char in insert mode
 opt.history = 1000
-opt.mouse = 'a' -- fix for mouse in Alacritty
-cmd('autocmd BufNewFile,BufRead *.json setl ft=jsonc') -- Treat JSON as JSONC
+opt.mouse = "a" -- fix for mouse in Alacritty
+cmd("autocmd BufNewFile,BufRead *.json setl ft=jsonc") -- Treat JSON as JSONC
 
 -- Display
 opt.termguicolors = true
-opt.background = 'dark'
-opt.showmatch  = true -- show matching brackets
+opt.background = "dark"
+opt.showmatch = true -- show matching brackets
 opt.hlsearch = false
 opt.cursorline = true
-opt.completeopt = 'menu,menuone,noselect'
+opt.completeopt = "menu,menuone,noselect"
 
 -- Sidebar
 opt.number = true -- line number on the left
 opt.numberwidth = 3 -- always reserve 3 spaces for line number
-opt.signcolumn = 'yes' -- keep 1 column for coc.vim  check
+opt.signcolumn = "yes" -- keep 1 column for coc.vim  check
 opt.modelines = 0
 opt.showcmd = true -- display command in bottom bar
 
@@ -34,7 +34,7 @@ opt.tabstop = 2 -- 1 tab = 2 spaces
 opt.softtabstop = 2
 opt.shiftwidth = 2 -- indentation rule
 opt.expandtab = true -- expand tab to spaces
-opt.formatoptions = 'qnj1' -- q  - comment formatting; n - numbered lists; j - remove comment when joining lines; 1 - don't break after one-letter word
+opt.formatoptions = "qnj1" -- q  - comment formatting; n - numbered lists; j - remove comment when joining lines; 1 - don't break after one-letter word
 
 -- Switch between relative/absolute numbers
 -- cmd([[
