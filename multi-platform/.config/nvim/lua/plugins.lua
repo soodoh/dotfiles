@@ -81,8 +81,8 @@ return packer.startup(function(use)
         "tpope/vim-fugitive",
         config = function()
             local keymap = require("utils").keymap
-            keymap("n", "<leader>gb", ":Git blame<CR>")
-            keymap("n", "<leader>gd", ":Gdiff<space>")
+            keymap("n", "<leader>gb", ":Git blame<CR>", { noremap = true })
+            keymap("n", "<leader>gd", ":Gdiff<space>", { noremap = true })
         end,
     })
     use("junegunn/gv.vim")

@@ -1,5 +1,0 @@
-return function ()
-    require('formatter').setup({
-
-    })
-end

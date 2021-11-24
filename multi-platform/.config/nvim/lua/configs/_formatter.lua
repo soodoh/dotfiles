@@ -1,9 +1,9 @@
 return function()
-    local filename = vim.fn.fnameescape(vim.api.nvim_buf_get_name(0))
+    local filename = vim.fn.shellescape(vim.api.nvim_buf_get_name(0))
     local eslint = function()
         return {
             exe = "npx eslint",
-            args = { "--stdin-filename", filename, "--fix", "--cache" },
+            args = { "--stdin-filename", filename, "--fix" },
             stdin = false,
         }
     end
@@ -21,6 +21,12 @@ return function()
             javascriptreact = { eslint, prettier },
             typescript = { eslint, prettier },
             typescriptreact = { eslint, prettier },
+            css = { prettier },
+            scss = { prettier },
+            html = { prettier },
+            markdown = { prettier },
+            json = { prettier },
+            jsonc = { prettier },
             lua = {
                 function()
                     return {
@@ -43,7 +49,7 @@ return function()
         [[
 augroup FormatAutogroup
   autocmd!
-  autocmd BufWritePost *.js,*.ts,*.jsx,*.tsx,*.lua FormatWrite
+  autocmd BufWritePost *.js,*.ts,*.jsx,*.tsx,*.css,*.scss,*.html,*.md,*.json,*.jsonc,*.lua FormatWrite
 augroup END
 ]],
         true
