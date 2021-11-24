@@ -48,3 +48,6 @@ eval "$(starship init zsh)"
   source $ZSH_FILES/plugins/zsh-vi-mode/zsh-vi-mode.zsh
 [ -f $ZSH_FILES/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] &&
   source $ZSH_FILES/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# Include Cargo files in $PATH
+export PATH=$HOME/.cargo/bin:$PATH
