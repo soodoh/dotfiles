@@ -1,29 +1,29 @@
-local common_on_attach = require('configs.lsp.on_attach')
-
-local requested_servers = {
-    'sumneko_lua',
-    'tsserver',
-    'html',
-    'cssls',
-    'jsonls',
-    'yamlls',
-    'bashls',
-    'pyright',
-    'dockerls',
-    'graphql'
-}
--- go through requested_servers and ensure installation
-local lsp_installer_servers = require('nvim-lsp-installer.servers')
-for _, requested_server in pairs(requested_servers) do
-  local ok, server = lsp_installer_servers.get_server(requested_server)
-  if ok then
-    if not server:is_installed() then
-      server:install()
-    end
-  end
-end
-
 return function()
+    local common_on_attach = require('configs.lsp.on_attach')
+
+    local requested_servers = {
+        'sumneko_lua',
+        'tsserver',
+        'html',
+        'cssls',
+        'jsonls',
+        'yamlls',
+        'bashls',
+        'pyright',
+        'dockerls',
+        'graphql'
+}
+    -- go through requested_servers and ensure installation
+    local lsp_installer_servers = require('nvim-lsp-installer.servers')
+    for _, requested_server in pairs(requested_servers) do
+        local ok, server = lsp_installer_servers.get_server(requested_server)
+        if ok then
+            if not server:is_installed() then
+                server:install()
+            end
+        end
+    end
+
     local lsp_installer = require('nvim-lsp-installer')
     local lspconfig = require('lspconfig')
     -- Setup lspconfig with cmp (auto complete)
@@ -59,4 +59,12 @@ return function()
         capabilities = capabilities,
         on_attach = common_on_attach,
     })
+
+    -- Format the diagnostic messages
+   vim.lsp.handlers["textDocument/publishDiagnostics"] =
+        vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
+            underline = true,
+            update_in_insert = false,
+            virtual_text = false
+        })
 end

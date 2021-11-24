@@ -151,24 +151,17 @@ return packer.startup(function(use)
       'hrsh7th/cmp-nvim-lsp',
       'onsails/lspkind-nvim', -- Adds icons to autocompletion menu
       -- cmp requires a snippet engine
-      -- For vsnip users.
       'hrsh7th/cmp-vsnip',
       'hrsh7th/vim-vsnip',
-      -- For luasnip users.
-      -- 'L3MON4D3/LuaSnip',
-      -- 'saadparwaiz1/cmp_luasnip',
-      -- For ultisnips users.
-      -- 'SirVer/ultisnips',
-      -- 'quangnguyen30192/cmp-nvim-ultisnips',
-      -- For snippy users.
-      -- 'dcampos/nvim-snippy',
-      -- 'dcampos/cmp-snippy',
     },
     config = function()
       require('configs.autocomplete')
     end
   }
-  -- use 'glepnir/lspaga.nvim'
+  use {
+    'glepnir/lspsaga.nvim',
+    config = require('configs._lspsaga')
+  }
   -- use 'mfussenegger/nvim-dap'
 
   -- Markdown Preview
