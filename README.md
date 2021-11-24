@@ -23,6 +23,7 @@
     koekeishiya/formulae/skhd \
     ripgrep \
     stow \
+    fzf \
    ```
 
 1. Install command-not-found functionality (like Ubunut's apt-get)
@@ -74,6 +75,7 @@
      ripgrep \
      lm-sensors \
      stow \
+     fzf \
    ```
 
    b. (Arch-based)
@@ -88,6 +90,7 @@
      lm-sensors \
      free \
      stow \
+     fzf \
    ```
 
 1. Symlink Linux specific dotfiles
