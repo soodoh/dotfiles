@@ -18,6 +18,8 @@ return function()
             command = ":Telescope colorscheme",
         },
     }
+
+    vim.g.dashboard_custom_footer = { "Happy coding!" }
     vim.g.dashboard_custom_header = {
         "                                   ",
         "                                   ",

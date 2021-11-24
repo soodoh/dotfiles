@@ -1,6 +1,6 @@
 return function()
-    local filename = vim.fn.shellescape(vim.api.nvim_buf_get_name(0))
     local eslint = function()
+        local filename = vim.fn.shellescape(vim.api.nvim_buf_get_name(0))
         return {
             exe = "npx eslint",
             args = { "--stdin-filename", filename, "--fix" },
@@ -8,10 +8,22 @@ return function()
         }
     end
     local prettier = function()
+        local filename = vim.fn.shellescape(vim.api.nvim_buf_get_name(0))
         return {
             exe = "npx prettier",
             args = { "--stdin-filepath", filename },
             stdin = true,
+        }
+    end
+    local stylua = function()
+        local filename = vim.fn.shellescape(vim.api.nvim_buf_get_name(0))
+        return {
+            exe = "stylua",
+            args = {
+                "--search-parent-directories",
+                filename,
+            },
+            stdin = false,
         }
     end
 
@@ -27,18 +39,7 @@ return function()
             markdown = { prettier },
             json = { prettier },
             jsonc = { prettier },
-            lua = {
-                function()
-                    return {
-                        exe = "stylua",
-                        args = {
-                            "--search-parent-directories",
-                            filename,
-                        },
-                        stdin = false,
-                    }
-                end,
-            },
+            lua = { stylua },
         },
     })
 
