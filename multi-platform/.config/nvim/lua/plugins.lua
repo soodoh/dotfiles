@@ -72,22 +72,18 @@ return packer.startup(function(use)
   -- Git Integration
   use {
     'tpope/vim-fugitive',
-    -- config = function()
-    --   local keymap = require('utils').keymap
-    --   keymap('n', '<leader>gb', ':Git blame<CR>')
-    --   keymap('n', '<leader>gd', ':Gdiff<space>')
-    -- end
+    config = function()
+      local keymap = require('utils').keymap
+      keymap('n', '<leader>gb', ':Git blame<CR>')
+      keymap('n', '<leader>gd', ':Gdiff<space>')
+    end
   }
   use 'junegunn/gv.vim'
   use 'rhysd/git-messenger.vim'
   use {
     'lewis6991/gitsigns.nvim',
     requires = { 'nvim-lua/plenary.nvim' },
-    config = function()
-      require('gitsigns').setup({
-        current_line_blame = true,
-      })
-    end
+    config = require('configs._gitsigns')
   }
 
   -- Emmet/Snippets
