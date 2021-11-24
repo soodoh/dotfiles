@@ -158,6 +158,10 @@ return packer.startup(function(use)
     'glepnir/lspsaga.nvim',
     config = require('configs._lspsaga')
   }
+  use {
+    'mhartington/formatter.nvim',
+    config = require('configs._formatter')
+  }
   -- use 'mfussenegger/nvim-dap'
 
   -- Markdown Preview

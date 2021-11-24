@@ -4,9 +4,6 @@ local common_on_attach = require('configs.lsp.on_attach')
 return {
   on_attach = function(client, bufnr)
     common_on_attach(client, bufnr)
-
-    -- Overwrite format command
-    buf_map(bufnr, 'n', '<leader>f', ':EslintFixAll<CR>')
   end,
   -- default command doesn't work on Work computer because Node 12 is in the $PATH
   cmd = {
