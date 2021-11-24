@@ -3,6 +3,7 @@ return function()
     keymap("n", "<leader>ff", "<cmd>lua require('telescope.builtin').git_files()<CR>")
     keymap("n", "<leader>fg", "<cmd>lua require('telescope.builtin').live_grep()<CR>")
     keymap("n", "<leader>b", "<cmd>lua require('telescope.builtin').buffers()<CR>")
+    keymap("n", "<leader>fh", "<cmd>lua require('telescope.builtin').oldfiles()<CR>")
 
     require("telescope").setup({
         extensions = {

@@ -169,6 +169,10 @@ return packer.startup(function(use)
         "mhartington/formatter.nvim",
         config = require("configs._formatter"),
     })
+    use({
+        "glepnir/dashboard-nvim",
+        setup = require("configs.dashboard"),
+    })
     -- use 'mfussenegger/nvim-dap'
 
     -- Markdown Preview
@@ -185,10 +189,13 @@ return packer.startup(function(use)
         end,
     })
     -- Color schemes
+    use("folke/tokyonight.nvim")
+    vim.g.tokyonight_style = "night"
     use({
         "NLKNguyen/papercolor-theme",
         config = function()
-            vim.cmd("colorscheme papercolor")
+            vim.g.tokyonight_style = "night"
+            vim.cmd("colorscheme tokyonight")
         end,
     })
 
