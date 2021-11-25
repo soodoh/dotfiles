@@ -28,13 +28,21 @@ return function()
     local lspconfig = require("lspconfig")
     -- Setup lspconfig with cmp (auto complete)
     local capabilities = require("cmp_nvim_lsp").update_capabilities(vim.lsp.protocol.make_client_capabilities())
-    local opts = {
+
+    -- Not included in nvim-lsp-installer
+    lspconfig.flow.setup({
+        -- default command doesn't work on Work computer because Node 12 is in the $PATH
+        cmd = { "/usr/local/bin/npx", "--no-install", "flow", "lsp" },
         capabilities = capabilities,
         on_attach = common_on_attach,
-    }
+    })
 
     -- Register a handler that will be called for all installed servers.
     lsp_installer.on_server_ready(function(server)
+        local opts = {
+            capabilities = capabilities,
+            on_attach = common_on_attach,
+        }
         -- Specific server settings
         if server.name == "sumneko_lua" then
             opts = require("configs.lsp.lua")
@@ -50,14 +58,6 @@ return function()
         -- Refer to https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md
         server:setup(opts)
     end)
-
-    -- Not included in nvim-lsp-installer
-    lspconfig.flow.setup({
-        -- default command doesn't work on Work computer because Node 12 is in the $PATH
-        cmd = { "/usr/local/bin/npx", "--no-install", "flow", "lsp" },
-        capabilities = capabilities,
-        on_attach = common_on_attach,
-    })
 
     -- Format the diagnostic messages
     vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
