@@ -24,6 +24,7 @@
     ripgrep \
     stow \
     fzf \
+    rust \
    ```
 
 1. Install command-not-found functionality (like Ubunut's apt-get)
@@ -76,6 +77,7 @@
      lm-sensors \
      stow \
      fzf \
+     rust \
    ```
 
    b. (Arch-based)
@@ -91,6 +93,7 @@
      free \
      stow \
      fzf \
+     rust \
    ```
 
 1. Symlink Linux specific dotfiles
@@ -185,6 +188,13 @@
 1. Open Neovim and run `:PackerInstall`
 
 1. Install LSPs in Neovim
+
+   ```
+   cargo install stylua
+   ```
+
+   These `LspInstall` calls should run automatically.
+
    ```
    :LspInstall bash
    :LspInstall css
