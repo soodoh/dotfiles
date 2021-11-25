@@ -130,6 +130,9 @@ return packer.startup(function(use)
     -- Color hex codes
     use({
         "norcalli/nvim-colorizer.lua",
+        setup = function()
+            vim.o.termguicolors = true
+        end,
         config = require("configs._colorizer"),
     })
     -- Treesitter (LSP-based syntax highlighting)
@@ -189,14 +192,9 @@ return packer.startup(function(use)
         end,
     })
     -- Color schemes
-    use("folke/tokyonight.nvim")
-    vim.g.tokyonight_style = "night"
     use({
-        "NLKNguyen/papercolor-theme",
-        config = function()
-            vim.g.tokyonight_style = "night"
-            vim.cmd("colorscheme tokyonight")
-        end,
+        "folke/tokyonight.nvim",
+        config = require("configs.colorscheme"),
     })
 
     use("wbthomason/packer.nvim") -- Packer manages itself!
