@@ -185,6 +185,27 @@
    git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm
    ```
 
+1. Install dependencies for [tmux-temp plugin](https://github.com/kolach/tmux-temp) for status bar CPU temperature.
+
+   1. Mac dependency
+      It uses [lavoiesl/osx-cpu-temp](https://github.com/lavoiesl/osx-cpu-temp)
+      ```
+      git clone https://github.com/lavoiesl/osx-cpu-temp /tmp/osx-cpu-temp
+      (cd /tmp/osx-cpu-temp && make && sudo make install)
+      rm -rf /tmp/osx-cpu-temp
+      ```
+   1. Linux dependency
+
+      ```
+      sudo apt-get install lm-sensors
+
+      # After installation type the following in terminal
+      sudo sensors-detect
+
+      # You may also need to run
+      sudo service kmod start
+      ```
+
 1. Open Neovim and run `:PackerInstall`
 
 1. Install LSPs in Neovim
