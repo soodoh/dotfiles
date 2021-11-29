@@ -1,5 +1,5 @@
 return function()
-    local common_on_attach = function(client, bufnr)
+    local common_on_attach = function(_, bufnr)
         local buf_map = require("utils").buf_map
         buf_map(bufnr, "n", "gD", "<cmd>lua vim.lsp.buf.declaration()<CR>")
         buf_map(bufnr, "n", "gd", "<cmd>lua vim.lsp.buf.definition()<CR>")

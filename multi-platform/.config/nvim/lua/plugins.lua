@@ -55,6 +55,9 @@ return packer.startup(function(use)
         "akinsho/bufferline.nvim",
         config = function()
             require("bufferline").setup()
+            local keymap = require("utils").keymap
+            keymap("n", "<leader><gt>", ":BufferLineMoveNext<CR>")
+            keymap("n", "<leader><lt>", ":BufferLineMovePrev<CR>")
         end,
     })
     use({
