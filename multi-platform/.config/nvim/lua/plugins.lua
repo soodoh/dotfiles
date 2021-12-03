@@ -56,8 +56,8 @@ return packer.startup(function(use)
         config = function()
             require("bufferline").setup()
             local keymap = require("utils").keymap
-            keymap("n", "<leader><gt>", ":BufferLineMoveNext<CR>")
-            keymap("n", "<leader><lt>", ":BufferLineMovePrev<CR>")
+            keymap("n", "<leader>k", ":BufferLineMovePrev<CR>")
+            keymap("n", "<leader>l", ":BufferLineMoveNext<CR>")
         end,
     })
     use({

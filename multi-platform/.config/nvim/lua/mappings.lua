@@ -28,5 +28,8 @@ keymap("i", "jk", "<ESC>")
 keymap("i", "<C-d>", "<Del>")
 
 -- Buffers
-keymap("n", "<leader>,", ":bp<CR>")
-keymap("n", "<leader>.", ":bn<CR>")
+keymap("n", "<leader>j", ":bp<CR>")
+keymap("n", "<leader>'", ":bn<CR>")
+-- Quickfix Menu
+keymap("n", "<leader>,", ":cp<CR>")
+keymap("n", "<leader>.", ":cn<CR>")
