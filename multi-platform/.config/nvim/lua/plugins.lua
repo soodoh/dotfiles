@@ -28,6 +28,13 @@ return packer.startup(function(use)
     use("suy/vim-context-commentstring") -- Useful for React commenting
     use("tpope/vim-commentary") -- Better commenting
     use("tpope/vim-surround") -- Surround text objects with {[()]}
+    -- Show line indents
+    use({
+        "Yggdroot/indentLine",
+        config = function()
+            vim.g.indentLine_fileTypeExclude = { "dashboard" }
+        end,
+    })
     use("AndrewRadev/tagalong.vim") -- Auto change HTML tags
     -- Keep windows open when closing buffer
     use({
