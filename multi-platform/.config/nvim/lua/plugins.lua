@@ -60,12 +60,7 @@ return packer.startup(function(use)
     -- Better buffer tab line
     use({
         "akinsho/bufferline.nvim",
-        config = function()
-            require("bufferline").setup()
-            local keymap = require("utils").keymap
-            keymap("n", "<leader>k", ":BufferLineMovePrev<CR>")
-            keymap("n", "<leader>l", ":BufferLineMoveNext<CR>")
-        end,
+        config = require("configs._bufferline"),
     })
     use({
         "windwp/nvim-autopairs",

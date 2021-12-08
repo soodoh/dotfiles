@@ -27,9 +27,6 @@ keymap("i", "jk", "<ESC>")
 -- so that forward delete works in insert mode
 keymap("i", "<C-d>", "<Del>")
 
--- Buffers
-keymap("n", "<leader>j", ":bp<CR>")
-keymap("n", "<leader>'", ":bn<CR>")
 -- Quickfix Menu
 keymap("n", "<leader>,", ":cp<CR>")
 keymap("n", "<leader>.", ":cn<CR>")
