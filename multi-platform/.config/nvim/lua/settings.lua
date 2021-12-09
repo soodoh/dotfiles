@@ -13,6 +13,9 @@ opt.hlsearch = false
 opt.cursorline = true
 opt.completeopt = "menu,menuone,noselect"
 opt.termguicolors = true
+-- Keep cursor in view
+opt.scrolloff = 8
+opt.sidescrolloff = 8
 
 -- Sidebar
 opt.number = true -- line number on the left
@@ -38,10 +41,3 @@ opt.formatoptions = "qnj1" -- q  - comment formatting; n - numbered lists; j - r
 -- Switch between relative/absolute numbers
 opt.relativenumber = true
 opt.number = true
--- cmd([[
---  augroup numbertoggle
---    autocmd!
---    autocmd BufEnter,FocusGained,InsertLeave * set relativenumber
---    autocmd BufLeave,FocusLost,InsertEnter   * set norelativenumber
---  augroup END
--- ]])

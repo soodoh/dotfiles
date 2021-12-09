@@ -33,3 +33,7 @@ keymap("n", "<leader>.", ":cn<CR>")
 
 -- Toggle relative number
 keymap("n", "<leader>r", ":exec &rnu == 1 ? 'set nornu!' : 'set rnu!'<CR>")
+
+-- Reselect visual selection after indenting
+keymap("v", ">", ">gv")
+keymap("v", "<", "<gv")
