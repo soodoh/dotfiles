@@ -12,6 +12,7 @@ opt.showmatch = true -- show matching brackets
 opt.hlsearch = false
 opt.cursorline = true
 opt.completeopt = "menu,menuone,noselect"
+opt.termguicolors = true
 
 -- Sidebar
 opt.number = true -- line number on the left
@@ -28,15 +29,16 @@ opt.smartcase = true -- case insentive unless capitals used in search
 -- White space
 opt.autoindent = true
 opt.smartindent = true
-opt.tabstop = 2 -- 1 tab = 2 spaces
 opt.softtabstop = 2
 opt.shiftwidth = 2 -- indentation rule
+opt.tabstop = 2 -- 1 tab = 2 spaces
 opt.expandtab = true -- expand tab to spaces
 opt.formatoptions = "qnj1" -- q  - comment formatting; n - numbered lists; j - remove comment when joining lines; 1 - don't break after one-letter word
 
 -- Switch between relative/absolute numbers
+opt.relativenumber = true
+opt.number = true
 -- cmd([[
---  auto toggle between relative/absolute numbers
 --  augroup numbertoggle
 --    autocmd!
 --    autocmd BufEnter,FocusGained,InsertLeave * set relativenumber

@@ -135,9 +135,6 @@ return packer.startup(function(use)
     -- Color hex codes
     use({
         "norcalli/nvim-colorizer.lua",
-        setup = function()
-            vim.o.termguicolors = true
-        end,
         config = require("configs._colorizer"),
     })
     -- Treesitter (LSP-based syntax highlighting)
