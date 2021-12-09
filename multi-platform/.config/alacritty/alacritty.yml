@@ -546,6 +546,9 @@ background_opacity: 0.9
 key_bindings:
   # (Fixes Vim Ctrl+6 hotkey for MacOS)
   - { key: Key6,      mods: Control,       chars: "\x1e"            }
+  # Keep MacOS shortcut for clearing screen
+  - { key: K,         mods: Command|Super,         chars: "\x0c"    }
+
   # (Windows, Linux, and BSD only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
   #- { key: C,        mods: Control|Shift, action: Copy             }
