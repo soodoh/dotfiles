@@ -1,9 +1,9 @@
 # Directions
-map h
-map j updir
-map k down
-map l up
-map "'" open
+# map h
+# map j updir
+# map k down
+# map l up
+# map "'" open
 
 # Quit
 map <esc> quit

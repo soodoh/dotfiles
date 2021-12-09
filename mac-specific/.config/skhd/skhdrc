@@ -2,16 +2,16 @@
 meh - return : open -a alacritty
 
 # Navigation
-meh - j : yabai -m window --focus west
-meh - k : yabai -m window --focus south
-meh - l : yabai -m window --focus north
-meh - 0x27 : yabai -m window --focus east
+meh - h : yabai -m window --focus west
+meh - j : yabai -m window --focus south
+meh - k : yabai -m window --focus north
+meh - l : yabai -m window --focus east
 
 # Moving windows
-hyper - j : yabai -m window --warp west
-hyper - k : yabai -m window --warp south
-hyper - l : yabai -m window --warp north
-hyper - 0x27: yabai -m window --warp east
+hyper - h : yabai -m window --warp west
+hyper - j : yabai -m window --warp south
+hyper - k : yabai -m window --warp north
+hyper - l: yabai -m window --warp east
 
 # Float / Unfloat window
 meh - space : yabai -m window --toggle float
@@ -24,13 +24,8 @@ hyper - f : yabai -m window --toggle native-fullscreen
 meh - d : yabai -m window --toggle split
 
 # Equalize window sizes
-# 0x18 is my keycode for '='
 meh - q : yabai -m space --balance
 
-# Move focused window to a workspace
-# hyper - m : yabai -m window --space last && yabai -m space --focus last
-# hyper - p : yabai -m window --space prev && yabai -m space --focus prev
-# hyper - n : yabai -m window --space next && yabai -m space --focus next
 # Move focused window to specific workspace
 hyper - w : yabai -m window --space 1 && yabai -m space --focus 1
 hyper - e : yabai -m window --space 2 && yabai -m space --focus 2
@@ -38,18 +33,18 @@ hyper - r : yabai -m window --space 3 && yabai -m space --focus 3
 hyper - t : yabai -m window --space 4 && yabai -m space --focus 4
 
 # Resize windows
-meh - u : \
+meh - y : \
     yabai -m window --resize left:-100:0 ; \
     yabai -m window --resize right:-100:0
 
-meh - i : \
+meh - u : \
     yabai -m window --resize bottom:0:100 ; \
     yabai -m window --resize top:0:100
 
-meh - o : \
+meh - i : \
     yabai -m window --resize top:0:-100 ; \
     yabai -m window --resize bottom:0:-100
 
-meh - p : \
+meh - o : \
     yabai -m window --resize right:100:0 ; \
     yabai -m window --resize left:100:0

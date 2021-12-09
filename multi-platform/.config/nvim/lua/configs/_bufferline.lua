@@ -8,8 +8,8 @@ return function()
 
     local keymap = require("utils").keymap
     keymap("n", "<leader>b", ":BufferLinePick<CR>")
-    keymap("n", "<leader>k", ":BufferLineMovePrev<CR>")
-    keymap("n", "<leader>l", ":BufferLineMoveNext<CR>")
+    keymap("n", "<leader>J", ":BufferLineMovePrev<CR>")
+    keymap("n", "<leader>K", ":BufferLineMoveNext<CR>")
     keymap("n", "<leader>j", ":BufferLineCyclePrev<CR>")
-    keymap("n", "<leader>'", ":BufferLineCycleNext<CR>")
+    keymap("n", "<leader>k", ":BufferLineCycleNext<CR>")
 end
