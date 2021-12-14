@@ -16,6 +16,8 @@ opt.termguicolors = true
 -- Keep cursor in view
 opt.scrolloff = 8
 opt.sidescrolloff = 8
+-- Git diff
+opt.diffopt = "vertical"
 
 -- Sidebar
 opt.number = true -- line number on the left
@@ -30,6 +32,7 @@ opt.ignorecase = true -- ignore letter case when searching
 opt.smartcase = true -- case insentive unless capitals used in search
 
 -- White space
+opt.wrap = true
 opt.autoindent = true
 opt.smartindent = true
 opt.softtabstop = 2
