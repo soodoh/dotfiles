@@ -9,8 +9,10 @@ return function()
     keymap("n", "<leader>cc", "<cmd>lua require('lspsaga.diagnostic').show_cursor_diagnostics()<CR>")
     keymap("n", "<leader>cd", "<cmd>lua require('lspsaga.diagnostic').show_line_diagnostics()<CR>")
 
-    keymap("n", "[e", "<cmd>lua require('lspsaga.diagnostic').lsp_jump_diagnostic_prev()<CR>")
-    keymap("n", "]e", "<cmd>lua require('lspsaga.diagnostic').lsp_jump_diagnostic_next()<CR>")
+    -- keymap("n", "[e", "<cmd>lua require('lspsaga.diagnostic').lsp_jump_diagnostic_prev()<CR>")
+    -- keymap("n", "]e", "<cmd>lua require('lspsaga.diagnostic').lsp_jump_diagnostic_next()<CR>")
+    keymap("n", "[e", "<cmd>lua require('lspsaga.diagnostic').navigate('prev')()<CR>")
+    keymap("n", "]e", "<cmd>lua require('lspsaga.diagnostic').navigate('next')()<CR>")
 
     require("lspsaga").init_lsp_saga({
         code_action_prompt = {

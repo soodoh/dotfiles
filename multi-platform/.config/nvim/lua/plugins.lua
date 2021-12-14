@@ -171,7 +171,8 @@ return packer.startup(function(use)
         config = require("configs.autocomplete"),
     })
     use({
-        "glepnir/lspsaga.nvim",
+        -- "glepnir/lspsaga.nvim",
+        "tami5/lspsaga.nvim",
         config = require("configs._lspsaga"),
     })
     use({
