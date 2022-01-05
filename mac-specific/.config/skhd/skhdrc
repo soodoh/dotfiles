@@ -1,5 +1,5 @@
 # Open Terminal
-meh - return : open -a alacritty
+meh - return : open -a kitty
 
 # Navigation
 meh - h : yabai -m window --focus west
