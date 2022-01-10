@@ -12,19 +12,19 @@
 
    ```
    brew update && brew upgrade
-   brew install --cask --no-quarantine alacritty
    brew install \
-    lf \
-    coreutils \
-    trash \
-    tmux \
-    neovim \
-    koekeishiya/formulae/yabai \
-    koekeishiya/formulae/skhd \
-    ripgrep \
-    stow \
-    fzf \
-    rust \
+      kitty \
+      lf \
+      coreutils \
+      trash \
+      tmux \
+      neovim \
+      koekeishiya/formulae/yabai \
+      koekeishiya/formulae/skhd \
+      ripgrep \
+      stow \
+      fzf \
+      rust \
    ```
 
 1. Install command-not-found functionality (like Ubunut's apt-get)
@@ -55,7 +55,7 @@
 1. Install NERD fonts
 
    - Maintained here: https://github.com/ryanoasis/nerd-fonts
-   - Alacritty.yml uses `DroidSansMono`
+   - Alacritty.yml/Kitty.conf uses `DroidSansMono`
    - Install manually: https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/DroidSansMono/complete/Droid%20Sans%20Mono%20Nerd%20Font%20Complete.otf
 
 1. Follow [platform agnostic](#platform-agnostic-install) steps
@@ -69,31 +69,31 @@
    ```
    apt-get update && apt-get upgrade
    apt-get install \
-     alacritty \
-     zsh \
-     tmux \
-     neovim \
-     ripgrep \
-     lm-sensors \
-     stow \
-     fzf \
-     rust \
+      kitty \
+      zsh \
+      tmux \
+      neovim \
+      ripgrep \
+      lm-sensors \
+      stow \
+      fzf \
+      rust \
    ```
 
    b. (Arch-based)
 
    ```
    pacman -Syu \
-     alacritty \
-     zsh \
-     tmux \
-     neovim \
-     ripgrep \
-     lm-sensors \
-     free \
-     stow \
-     fzf \
-     rust \
+      kitty \
+      zsh \
+      tmux \
+      neovim \
+      ripgrep \
+      lm-sensors \
+      free \
+      stow \
+      fzf \
+      rust \
    ```
 
 1. Symlink Linux specific dotfiles
