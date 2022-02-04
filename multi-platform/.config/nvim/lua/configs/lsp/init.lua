@@ -13,7 +13,7 @@ return function()
         "cssmodules_ls",
         -- "denols",
         "dockerls",
-        "eslint",
+        -- "eslint", -- Using null-ls for this
         -- "gopls",
         "graphql",
         "html",

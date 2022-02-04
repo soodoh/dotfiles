@@ -171,13 +171,14 @@ return packer.startup(function(use)
         config = require("configs.nvim-cmp-config"),
     })
     use({
+        "jose-elias-alvarez/null-ls.nvim",
+        requires = { "nvim-lua/plenary.nvim" },
+        config = require("configs.lsp.null-ls-config"),
+    })
+    use({
         -- "glepnir/lspsaga.nvim",
         "tami5/lspsaga.nvim",
         config = require("configs.lspsaga-config"),
-    })
-    use({
-        "mhartington/formatter.nvim",
-        config = require("configs.formatter-config"),
     })
     use({
         "glepnir/dashboard-nvim",
