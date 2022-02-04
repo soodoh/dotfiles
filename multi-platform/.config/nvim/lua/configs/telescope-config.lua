@@ -16,7 +16,7 @@ return function()
             },
         },
         defaults = {
-            file_ignore_patterns = { "node_modules", ".git" },
+            -- file_ignore_patterns = { "node_modules", ".git" },
             vimgrep_arguments = {
                 "rg",
                 "--color=never",

@@ -24,7 +24,7 @@ return packer.startup(function(use)
     -- Easymotion
     -- use 'easymotion/vim-easymotion'
 
-    use("sheerun/vim-polyglot") -- Better syntax highlighing
+    use("sheerun/vim-polyglot") -- Better syntax highlighing (fallback for treesitter)
     use("suy/vim-context-commentstring") -- Useful for React commenting
     use("tpope/vim-commentary") -- Better commenting
     use("tpope/vim-surround") -- Surround text objects with {[()]}
@@ -60,7 +60,7 @@ return packer.startup(function(use)
     -- Better buffer tab line
     use({
         "akinsho/bufferline.nvim",
-        config = require("configs._bufferline"),
+        config = require("configs.bufferline-config"),
     })
     use({
         "windwp/nvim-autopairs",
@@ -95,7 +95,7 @@ return packer.startup(function(use)
     use({
         "lewis6991/gitsigns.nvim",
         requires = { "nvim-lua/plenary.nvim" },
-        config = require("configs._gitsigns"),
+        config = require("configs.gitsigns-config"),
     })
 
     -- Emmet/Snippets
@@ -117,7 +117,7 @@ return packer.startup(function(use)
             "nvim-lua/plenary.nvim",
             "nvim-telescope/telescope-fzf-native.nvim",
         },
-        config = require("configs._telescope"),
+        config = require("configs.telescope-config"),
     })
 
     -- Nvim Tree file explorer
@@ -135,14 +135,14 @@ return packer.startup(function(use)
     -- Color hex codes
     use({
         "norcalli/nvim-colorizer.lua",
-        config = require("configs._colorizer"),
+        config = require("configs.colorizer-config"),
     })
     -- Treesitter (LSP-based syntax highlighting)
     use({
         "nvim-treesitter/nvim-treesitter",
         run = ":TSUpdate",
         requires = { "p00f/nvim-ts-rainbow" },
-        config = require("configs.treesitter"),
+        config = require("configs.treesitter-config"),
     })
 
     -- Intellisense
@@ -168,20 +168,20 @@ return packer.startup(function(use)
             "hrsh7th/cmp-vsnip",
             "hrsh7th/vim-vsnip",
         },
-        config = require("configs.autocomplete"),
+        config = require("configs.nvim-cmp-config"),
     })
     use({
         -- "glepnir/lspsaga.nvim",
         "tami5/lspsaga.nvim",
-        config = require("configs._lspsaga"),
+        config = require("configs.lspsaga-config"),
     })
     use({
         "mhartington/formatter.nvim",
-        config = require("configs._formatter"),
+        config = require("configs.formatter-config"),
     })
     use({
         "glepnir/dashboard-nvim",
-        setup = require("configs.dashboard"),
+        setup = require("configs.dashboard-config"),
     })
     -- use 'mfussenegger/nvim-dap'
 
@@ -201,7 +201,7 @@ return packer.startup(function(use)
     -- Color schemes
     use({
         "folke/tokyonight.nvim",
-        config = require("configs.colorscheme"),
+        config = require("configs.colorscheme-config"),
     })
 
     use("wbthomason/packer.nvim") -- Packer manages itself!

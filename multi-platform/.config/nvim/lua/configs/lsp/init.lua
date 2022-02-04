@@ -7,16 +7,23 @@ return function()
     end
 
     local requested_servers = {
+        -- "awk_ls",
+        "bashls",
+        "cssls",
+        "cssmodules_ls",
+        -- "denols",
+        "dockerls",
+        "eslint",
+        -- "gopls",
+        "graphql",
+        "html",
+        "intelephense",
+        "jsonls",
+        "pyright",
+        -- "rust_analyzer",
         "sumneko_lua",
         "tsserver",
-        "html",
-        "cssls",
-        "jsonls",
         "yamlls",
-        "bashls",
-        "pyright",
-        "dockerls",
-        "graphql",
     }
     -- go through requested_servers and ensure installation
     local lsp_installer_servers = require("nvim-lsp-installer.servers")
