@@ -210,23 +210,27 @@
 
 1. Install LSPs in Neovim
 
-   ```
-   cargo install stylua
-   ```
+These are used in the null-ls config:
 
-   These `LspInstall` calls should run automatically.
+```
+cargo install stylua
+pip3 install black
+npm install -g eslint_d prettier
+```
 
-   ```
-   :LspInstall bash
-   :LspInstall css
-   :LspInstall dockerfile
-   :LspInstall html
-   :LspInstall lua
-   :LspInstall python
-   :LspInstall rust
-   :LspInstall terraform
-   :LspInstall typescript
-   :LspInstall yaml
-   ```
+These `LspInstall` calls should run automatically.
+
+```
+:LspInstall bash
+:LspInstall css
+:LspInstall dockerfile
+:LspInstall html
+:LspInstall lua
+:LspInstall python
+:LspInstall rust
+:LspInstall terraform
+:LspInstall typescript
+:LspInstall yaml
+```
 
 1. Open Tmux and install tmux plugins (\<prefix\> + I)
