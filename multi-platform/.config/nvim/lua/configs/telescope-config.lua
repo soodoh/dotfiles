@@ -5,6 +5,7 @@ return function()
     keymap("n", "<leader>fb", "<cmd>lua require('telescope.builtin').buffers()<CR>")
     keymap("n", "<leader>fh", "<cmd>lua require('telescope.builtin').oldfiles()<CR>")
 
+    local actions = require("telescope.actions")
     require("telescope").setup({
         extensions = {
             fzf = {
@@ -15,8 +16,21 @@ return function()
                 -- the default case_mode is "smart_case"
             },
         },
+        pickers = {
+            -- git_files = {
+            --     theme = "dropdown",
+            -- },
+            -- live_grep = {
+            --     theme = "get_ivy",
+            -- },
+            -- buffers = {
+            --     theme = "dropdown",
+            -- },
+            -- oldfiles = {
+            --     theme = "dropdown",
+            -- },
+        },
         defaults = {
-            -- file_ignore_patterns = { "node_modules", ".git" },
             vimgrep_arguments = {
                 "rg",
                 "--color=never",
@@ -25,7 +39,15 @@ return function()
                 "--line-number",
                 "--column",
                 "--smart-case",
-                "--hidden",
+                "--trim",
+            },
+            mappings = {
+                i = {
+                    ["<esc>"] = actions.close,
+                },
+                n = {
+                    ["<C-c>"] = actions.close,
+                },
             },
         },
     })
