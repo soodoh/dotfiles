@@ -87,7 +87,7 @@ return packer.startup(function(use)
         config = function()
             local keymap = require("utils").keymap
             keymap("n", "<leader>gb", ":Git blame<CR>", { noremap = true })
-            keymap("n", "<leader>gd", ":Gdiff<space>", { noremap = true })
+            keymap("n", "<leader>gd", ":Gdiff HEAD^<CR>", { noremap = true })
         end,
     })
     use("junegunn/gv.vim")
