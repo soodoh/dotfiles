@@ -62,8 +62,6 @@ return function()
             opts = vim.tbl_deep_extend("force", opts, require("configs.lsp.json"))
         elseif server.name == "tsserver" then
             opts = vim.tbl_deep_extend("force", opts, require("configs.lsp.tsserver"))
-        elseif server.name == "eslint" then
-            opts = vim.tbl_deep_extend("force", opts, require("configs.lsp.eslint"))
         end
 
         -- This setup() function is exactly the same as lspconfig's setup function.
