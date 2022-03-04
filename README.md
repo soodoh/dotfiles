@@ -215,7 +215,10 @@ These are used in the null-ls config:
 ```
 cargo install stylua
 pip3 install black
-npm install -g eslint_d prettier
+npm install -g \
+   eslint_d \
+   prettier \
+   @fsouza/prettierd
 ```
 
 These `LspInstall` calls should run automatically.
