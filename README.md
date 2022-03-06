@@ -80,8 +80,9 @@
       ripgrep \
       lm-sensors \
       stow \
-      fzf \
-      rust \
+      fzf
+
+   curl https://sh.rustup.rs -sSf | sh
    ```
 
    b. (Arch-based)
@@ -142,26 +143,31 @@
 1. Symlink platform-agnostic dotfiles
 
    ```
+   mkdir ~/.config
    stow multi-platform
    ```
 
-1. Setup `~/.zshenv` to be:
+1. Setup `~/.zshrc` to be:
 
 ```
-export ZDOTDIR="~/.config/zsh"
+source $HOME/.config/zsh/.zshrc
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 ```
 
 1. Install ZSH plugins
 
    ```
    git clone https://github.com/zsh-users/zsh-autosuggestions \
-      $ZDOTDIR/plugins/zsh-autosuggestions
+      $HOME/.config/zsh/plugins/zsh-autosuggestions
    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
-      $ZDOTDIR/plugins/zsh-syntax-highlighting
+      $HOME/.config/zsh/plugins/zsh-syntax-highlighting
    git clone https://github.com/jeffreytse/zsh-vi-mode \
-      $ZDOTDIR/plugins/zsh-vi-mode
+      $HOME/.config/zsh/plugins/zsh-vi-mode
    git clone https://github.com/ael-code/zsh-colored-man-pages.git \
-      $ZDOTDIR/plugins/zsh-colored-man-pages
+      $HOME/.config/zsh/plugins/zsh-colored-man-pages
    ```
 
 1. Set zsh as default shell
