@@ -32,7 +32,7 @@ return packer.startup(function(use)
     use({
         "Yggdroot/indentLine",
         config = function()
-            vim.g.indentLine_fileTypeExclude = { "dashboard" }
+            vim.g.indentLine_fileTypeExclude = { "dashboard", "markdown" }
         end,
     })
     use("AndrewRadev/tagalong.vim") -- Auto change HTML tags
@@ -186,11 +186,6 @@ return packer.startup(function(use)
     })
     -- use 'mfussenegger/nvim-dap'
 
-    -- Markdown Preview
-    use({
-        "iamcco/markdown-preview.nvim",
-        run = "cd app && npm install",
-    })
     -- Status Line
     use({
         "nvim-lualine/lualine.nvim",

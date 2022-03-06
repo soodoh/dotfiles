@@ -62,6 +62,10 @@
 
 ## Linux Install
 
+1. Add custom repositories (Debian)
+
+`add-apt-repository ppa:neovim-ppa/unstable`
+
 1. Install tools
 
    a. (Debian-based)
