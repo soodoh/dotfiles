@@ -135,6 +135,18 @@
    git config --global user.email "paul.diloreto@gmail.com"
    ```
 
+1. Symlink platform-agnostic dotfiles
+
+   ```
+   stow multi-platform
+   ```
+
+1. Setup `~/.zshenv` to be:
+
+```
+export ZDOTDIR="~/.config/zsh"
+```
+
 1. Install ZSH plugins
 
    ```
@@ -171,12 +183,6 @@
    ```
    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
    nvm install --lts
-   ```
-
-1. Symlink platform-agnostic dotfiles
-
-   ```
-   stow multi-platform
    ```
 
 1. Install tmux plugin manager
