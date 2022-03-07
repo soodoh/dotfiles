@@ -1,8 +1,4 @@
 .DS_Store
-# ZSH
-.oh-my-zsh
-.zsh_history
-.zcompdump*
+**/tmux/plugins
 **/zsh/plugins
-# Vim
 packer_compiled.lua
