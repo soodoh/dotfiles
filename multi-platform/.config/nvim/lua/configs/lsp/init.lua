@@ -18,7 +18,7 @@ return function()
         "graphql",
         "html",
         "intelephense",
-        "jsonls",
+        -- "jsonls",
         "pyright",
         -- "rust_analyzer",
         "sumneko_lua",
