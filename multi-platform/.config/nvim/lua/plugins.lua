@@ -21,6 +21,11 @@ return packer.startup(function(use)
     use("sheerun/vim-polyglot") -- Better syntax highlighing (fallback for treesitter)
     use("tpope/vim-surround") -- Surround text objects with {[()]}
     use({
+        "phaazon/hop.nvim",
+        branch = "v1", -- optional but strongly recommended
+        config = require("configs.hop-config"),
+    })
+    use({
         "numToStr/Comment.nvim",
         config = require("configs.comment-config"),
     })

@@ -42,5 +42,5 @@ opt.expandtab = true -- expand tab to spaces
 opt.formatoptions = "qnj1" -- q  - comment formatting; n - numbered lists; j - remove comment when joining lines; 1 - don't break after one-letter word
 
 -- Switch between relative/absolute numbers
-opt.relativenumber = true
+opt.relativenumber = false
 opt.number = true

@@ -121,7 +121,7 @@
 
    ```
    wget https://github.com/gokcehan/lf/releases/download/r6/lf-linux-amd64.tar.gz -O lf-linux-amd64.tar.gz
-   tar xvf lf-linux-amd64.tar.gz
+   tar -xvf lf-linux-amd64.tar.gz
    chmod +x lf
    sudo mv lf /usr/local/bin
    rm lf-linux-amd64.tar.gz
