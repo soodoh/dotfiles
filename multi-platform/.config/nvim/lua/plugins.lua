@@ -105,6 +105,11 @@ return packer.startup(function(use)
         end,
     })
 
+    use({
+        "folke/trouble.nvim",
+        requires = "kyazdani42/nvim-web-devicons",
+        config = require("configs.trouble-config"),
+    })
     -- Telescope
     use({ "nvim-telescope/telescope-fzf-native.nvim", run = "make" })
     use({
@@ -112,6 +117,7 @@ return packer.startup(function(use)
         requires = {
             "nvim-lua/plenary.nvim",
             "nvim-telescope/telescope-fzf-native.nvim",
+            "folke/trouble.nvim",
         },
         config = require("configs.telescope-config"),
     })
