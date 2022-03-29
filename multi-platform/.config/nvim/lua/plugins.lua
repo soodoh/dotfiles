@@ -18,16 +18,12 @@ vim.cmd([[packadd packer.nvim]])
 local packer = require("packer")
 
 return packer.startup(function(use)
-    -- TODO unsure if this is worth the effort
-    -- Text Navigation
-    -- use 'unblevable/quick-scope'
-    -- Easymotion
-    -- use 'easymotion/vim-easymotion'
-
     use("sheerun/vim-polyglot") -- Better syntax highlighing (fallback for treesitter)
-    use("suy/vim-context-commentstring") -- Useful for React commenting
-    use("tpope/vim-commentary") -- Better commenting
     use("tpope/vim-surround") -- Surround text objects with {[()]}
+    use({
+        "numToStr/Comment.nvim",
+        config = require("configs.comment-config"),
+    })
     -- Show line indents
     use({
         "Yggdroot/indentLine",
