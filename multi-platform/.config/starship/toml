@@ -43,6 +43,9 @@ format = "[ $time ]($style)[](bg:bold black fg:green)"
 style = "bg:green fg:bold black dimmed"
 disabled = false
 
+[container]
+disabled = true
+
 # Format of prompt
 # format = "$all"
 # format = """
