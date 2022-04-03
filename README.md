@@ -156,19 +156,6 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 ```
 
-1. Install ZSH plugins
-
-   ```
-   git clone https://github.com/zsh-users/zsh-autosuggestions \
-      $HOME/.config/zsh/plugins/zsh-autosuggestions
-   git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
-      $HOME/.config/zsh/plugins/zsh-syntax-highlighting
-   git clone https://github.com/jeffreytse/zsh-vi-mode \
-      $HOME/.config/zsh/plugins/zsh-vi-mode
-   git clone https://github.com/ael-code/zsh-colored-man-pages.git \
-      $HOME/.config/zsh/plugins/zsh-colored-man-pages
-   ```
-
 1. Set zsh as default shell
 
    ```
