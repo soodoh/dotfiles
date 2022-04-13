@@ -6,7 +6,6 @@ return function()
 
     null_ls.setup({
         sources = {
-            formatting.stylua,
             formatting.eslint_d, -- Faster for formatting on save
             diagnostics.eslint_d,
             code_actions.eslint_d,
@@ -21,7 +20,7 @@ return function()
                 autocmd! * <buffer>
                 autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_sync()
             augroup END
-            ]])
+            ]]   )
             end
         end,
     })

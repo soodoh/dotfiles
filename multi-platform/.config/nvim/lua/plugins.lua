@@ -61,6 +61,8 @@ return packer.startup(function(use)
     -- Better buffer tab line
     use({
         "akinsho/bufferline.nvim",
+        tag = "*",
+        requires = "kyazdani42/nvim-web-devicons",
         config = require("configs.bufferline-config"),
     })
     use({
