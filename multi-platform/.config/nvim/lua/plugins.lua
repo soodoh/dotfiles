@@ -123,6 +123,7 @@ return packer.startup(function(use)
         "nvim-telescope/telescope.nvim",
         requires = {
             "nvim-lua/plenary.nvim",
+            "nvim-telescope/telescope-live-grep-raw.nvim",
             "nvim-telescope/telescope-fzf-native.nvim",
             "folke/trouble.nvim",
         },

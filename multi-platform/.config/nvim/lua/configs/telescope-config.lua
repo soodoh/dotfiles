@@ -1,7 +1,7 @@
 return function()
     local keymap = require("utils").keymap
     keymap("n", "<leader>ff", "<cmd>lua require('telescope.builtin').git_files()<CR>")
-    keymap("n", "<leader>fg", "<cmd>lua require('telescope.builtin').live_grep()<CR>")
+    keymap("n", "<leader>fg", "<cmd>lua require('telescope').extensions.live_grep_raw.live_grep_raw()<CR>")
     keymap("n", "<leader>fb", "<cmd>lua require('telescope.builtin').buffers()<CR>")
     keymap("n", "<leader>fh", "<cmd>lua require('telescope.builtin').oldfiles()<CR>")
 
