@@ -2,7 +2,7 @@ return function()
     local treesitter = require("nvim-treesitter.configs")
 
     treesitter.setup({
-        ensure_installed = "maintained",
+        ensure_installed = "all",
         highlight = {
             enable = true, -- false will disable the whole extension
             disable = { "json" }, -- list of language that will be disabled
