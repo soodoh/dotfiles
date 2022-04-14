@@ -32,6 +32,7 @@ eval "$(starship init zsh)"
 # ZSH plugin manager
 source "$HOME/.config/zgenom/zgenom.zsh"
 if ! zgenom saved; then
+  zgenom compdef
   zgenom ohmyzsh plugins/git
   zgenom ohmyzsh plugins/tmux
   zgenom ohmyzsh plugins/docker-compose
