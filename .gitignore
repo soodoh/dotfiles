@@ -2,3 +2,5 @@
 **/tmux/plugins
 **/zsh/plugins
 packer_compiled.lua
+z/
+zgenom/

@@ -161,6 +161,11 @@ export NVM_DIR="$HOME/.nvm"
    ```
    chsh -s $(which zsh)
    ```
+1. Install zgenom zsh plugin manager
+
+   ```
+   git clone https://github.com/jandamm/zgenom.git "$HOME/zgenom"
+   ```
 
 1. Install starship
 
