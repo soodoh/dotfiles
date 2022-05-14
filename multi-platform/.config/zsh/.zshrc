@@ -39,7 +39,12 @@ if ! zgenom saved; then
   zgenom ohmyzsh plugins/colored-man-pages
   zgenom load zsh-users/zsh-syntax-highlighting
   zgenom load zsh-users/zsh-autosuggestions
+  zgenom load zsh-users/zsh-completions
   zgenom load jeffreytse/zsh-vi-mode
+
+  zgenom save
+  zgenom compile "$HOME/.zshrc"
+  zgenom compile $ZDOTDIR
 fi
 # Settings for zsh-vi-mode
 ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
