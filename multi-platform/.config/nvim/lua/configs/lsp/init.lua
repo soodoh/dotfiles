@@ -43,8 +43,7 @@ return function()
 
     -- Not included in nvim-lsp-installer
     lspconfig.flow.setup({
-        -- default command doesn't work on Work computer because Node 12 is in the $PATH
-        cmd = { "/usr/local/bin/npx", "--no-install", "flow", "lsp" },
+        cmd = { "npx", "--no-install", "flow", "lsp" },
         capabilities = capabilities,
         on_attach = common_on_attach,
     })
