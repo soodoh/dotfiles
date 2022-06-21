@@ -49,5 +49,8 @@ fi
 # Settings for zsh-vi-mode
 ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
 
-# Include Cargo files in $PATH
-export PATH=$HOME/.cargo/bin:$PATH
+# Include Cargo packages in $PATH
+PATH=$HOME/.cargo/bin:$PATH
+# Include Go packages in $PATH
+export GOPATH=$HOME/go
+PATH=$GOPATH/bin:$PATH
