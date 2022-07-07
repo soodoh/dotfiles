@@ -31,7 +31,8 @@ return function()
             },
             mappings = {
                 i = {
-                    ["<esc>"] = actions.close,
+                    -- ["<esc>"] = actions.close,
+                    ["<C-c>"] = actions.close,
                     ["<C-x>"] = trouble.open_with_trouble,
                 },
                 n = {
