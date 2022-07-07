@@ -29,6 +29,15 @@ export VISUAL='nvim'
 # Use Starship for terminal prompt
 eval "$(starship init zsh)"
 
+# Include Cargo packages in $PATH
+PATH=$HOME/.cargo/bin:$PATH
+# Include Go packages in $PATH
+export GOPATH=$HOME/go
+PATH=$GOPATH/bin:$PATH
+
+# Settings for zsh-vi-mode
+ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
+
 # ZSH plugins
 ZSH_PLUGINS=$HOME/.config/zsh-plugins
 load () {
@@ -51,14 +60,5 @@ load 'ohmyzsh/ohmyzsh' 'plugins/docker-compose/docker-compose.plugin.zsh'
 load 'ohmyzsh/ohmyzsh' 'plugins/colored-man-pages/colored-man-pages.plugin.zsh'
 load 'zsh-users/zsh-autosuggestions' 'zsh-autosuggestions.plugin.zsh'
 load 'zsh-users/zsh-completions' 'zsh-completions.plugin.zsh'
-load 'zsh-users/zsh-syntax-highlighting' 'zsh-syntax-highlighting.plugin.zsh'
 load 'jeffreytse/zsh-vi-mode' 'zsh-vi-mode.plugin.zsh'
-
-# Settings for zsh-vi-mode
-ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
-
-# Include Cargo packages in $PATH
-PATH=$HOME/.cargo/bin:$PATH
-# Include Go packages in $PATH
-export GOPATH=$HOME/go
-PATH=$GOPATH/bin:$PATH
+load 'zdharma-continuum/fast-syntax-highlighting' 'fast-syntax-highlighting.plugin.zsh'
