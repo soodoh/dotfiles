@@ -22,6 +22,7 @@ return function()
         "pyright",
         -- "rust_analyzer",
         "sumneko_lua",
+        "terraformls",
         "tsserver",
         "yamlls",
     }
