@@ -27,7 +27,7 @@
       rust \
    ```
 
-1. Install command-not-found functionality (like Ubunut's apt-get)
+1. Install command-not-found functionality (like Ubuntu's apt-get)
 
    ```
    brew tap homebrew/command-not-found
@@ -36,7 +36,7 @@
 1. Symlink Mac dotfiles
 
    ```
-   stow mac-specific
+   stow -v -R -t $HOME mac-specific
    ```
 
 1. Start Yabai & SKHD services
@@ -104,7 +104,7 @@
 1. Symlink Linux specific dotfiles
 
    ```
-   stow linux-specific
+   stow -v -R -t $HOME linux-specific
    ```
 
 1. Install NERD fonts
@@ -143,7 +143,7 @@
 
    ```
    mkdir ~/.config
-   stow multi-platform
+   stow -v -R -t $HOME multi-platform
    ```
 
 1. Setup `~/.zshrc` to be:
