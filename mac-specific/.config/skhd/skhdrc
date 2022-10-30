@@ -32,6 +32,13 @@ hyper - u : yabai -m window --space 2 && yabai -m space --focus 2
 hyper - i : yabai -m window --space 3 && yabai -m space --focus 3
 hyper - o : yabai -m window --space 4 && yabai -m space --focus 4
 
+# Second monitor
+# 0x27 is hex for apostrophe character
+hyper - p : yabai -m window --display 1
+hyper - 0x27 : yabai -m window --display 2
+meh - p : yabai -m display --focus 1
+meh - 0x27 : yabai -m display --focus 2
+
 # Resize windows
 # meh - y : \
 #     yabai -m window --resize left:-100:0 ; \
