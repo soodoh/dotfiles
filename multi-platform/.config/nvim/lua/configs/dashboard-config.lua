@@ -1,6 +1,7 @@
 return function()
-    vim.g.dashboard_default_executive = "telescope"
-    vim.g.dashboard_custom_section = {
+    local db = require("dashboard")
+    db.dashboard_default_executive = "telescope"
+    db.dashboard_custom_section = {
         a = {
             description = { "  Recently opened files                        <Space> f h" },
             command = ":Telescope oldfiles",
@@ -19,12 +20,12 @@ return function()
         },
     }
 
-    -- vim.g.dashboard_preview_command = "cat"
-    -- vim.g.dashboard_preview_pipeline = "lolcat -p 3 -S 40"
-    -- vim.g.dashboard_preview_file = "~/.config/nvim/dashboard.cat"
-    -- vim.g.dashboard_preview_file_height = 22
-    -- vim.g.dashboard_preview_file_width = 55
-    vim.g.dashboard_custom_header = {
+    -- db.dashboard_preview_command = "cat"
+    -- db.dashboard_preview_pipeline = "lolcat -p 3 -S 40"
+    -- db.dashboard_preview_file = "~/.config/nvim/dashboard.cat"
+    -- db.dashboard_preview_file_height = 22
+    -- db.dashboard_preview_file_width = 55
+    db.dashboard_custom_header = {
         "███╗   ██╗ ███████╗ ██████╗  ██╗   ██╗ ██╗ ███╗   ███╗",
         "████╗  ██║ ██╔════╝██╔═══██╗ ██║   ██║ ██║ ████╗ ████║",
         "██╔██╗ ██║ █████╗  ██║   ██║ ██║   ██║ ██║ ██╔████╔██║",
@@ -48,5 +49,5 @@ return function()
         -- "              ⠀⠀⠀⠈⠻⣿⣦⣈⣧⡀⠀⠀⢸⣿⣿⠀⠀⢀⣼⡀⣨⣿⡿⠁⠀⠀⠀⠀⠀⠀",
         -- "              ⠀⠀⠀⠀⠀⠈⠻⠿⠿⠓⠄⠤⠘⠉⠙⠤⢀⠾⠿⣿⠟⠋",
     }
-    vim.g.dashboard_custom_footer = { "Happy coding!" }
+    db.dashboard_custom_footer = { "Happy coding!" }
 end

@@ -14,13 +14,13 @@ return function()
             formatting.black, -- Python formatter
         },
         on_attach = function(client)
-            if client.resolved_capabilities.document_formatting then
+            if client.server_capabilities.documentFormattingProvider then
                 vim.cmd([[
             augroup LspFormatting
                 autocmd! * <buffer>
-                autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_sync()
+                autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_seq_sync()
             augroup END
-            ]]   )
+            ]])
             end
         end,
     })

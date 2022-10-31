@@ -13,12 +13,11 @@ return function()
         "cssmodules_ls",
         -- "denols",
         "dockerls",
-        -- "eslint", -- Using null-ls for this
         -- "gopls",
         "graphql",
         "html",
         "intelephense",
-        -- "jsonls",
+        "jsonls",
         "pyright",
         -- "rust_analyzer",
         "sumneko_lua",
@@ -40,7 +39,7 @@ return function()
     local lsp_installer = require("nvim-lsp-installer")
     local lspconfig = require("lspconfig")
     -- Setup lspconfig with cmp (auto complete)
-    local capabilities = require("cmp_nvim_lsp").update_capabilities(vim.lsp.protocol.make_client_capabilities())
+    local capabilities = require("cmp_nvim_lsp").default_capabilities()
 
     -- Not included in nvim-lsp-installer
     lspconfig.flow.setup({

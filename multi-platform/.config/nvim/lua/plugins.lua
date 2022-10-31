@@ -190,10 +190,10 @@ return packer.startup(function(use)
         "tami5/lspsaga.nvim",
         config = require("configs.lspsaga-config"),
     })
-    use({
-        "glepnir/dashboard-nvim",
-        setup = require("configs.dashboard-config"),
-    })
+    -- use({
+    --     "glepnir/dashboard-nvim",
+    --     config = require("configs.dashboard-config"),
+    -- })
     -- use 'mfussenegger/nvim-dap'
 
     -- Status Line

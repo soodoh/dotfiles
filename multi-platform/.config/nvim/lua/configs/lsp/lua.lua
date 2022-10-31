@@ -1,10 +1,8 @@
 return {
-    on_attach = function(client)
-        client.resolved_capabilities.document_formatting = false
-        client.resolved_capabilities.document_range_formatting = false
-    end,
     settings = {
         Lua = {
+            -- Disable this in favour of stylua
+            format = { enable = false },
             diagnostics = {
                 -- Get the language server to recognize the `vim` global
                 globals = { "vim" },
