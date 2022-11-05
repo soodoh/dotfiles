@@ -135,7 +135,16 @@ return packer.startup(function(use)
         "kyazdani42/nvim-tree.lua",
         requires = { "kyazdani42/nvim-web-devicons" },
         config = function()
-            require("nvim-tree").setup({})
+            require("nvim-tree").setup({
+                sort_by = "case_insensitive",
+                filters = {
+                    dotfiles = true,
+                },
+                git = {
+                    enable = true,
+                    ignore = false,
+                },
+            })
             local keymap = require("utils").keymap
             keymap("n", "<leader>nn", ":NvimTreeToggle<CR>")
             keymap("n", "<leader>nf", ":NvimTreeFindFile<CR>")
