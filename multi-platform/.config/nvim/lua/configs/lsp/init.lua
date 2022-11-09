@@ -21,6 +21,7 @@ return function()
         "pyright",
         -- "rust_analyzer",
         "sumneko_lua",
+        "svelte",
         "terraformls",
         "tsserver",
         "yamlls",
@@ -37,16 +38,8 @@ return function()
     end
 
     local lsp_installer = require("nvim-lsp-installer")
-    local lspconfig = require("lspconfig")
     -- Setup lspconfig with cmp (auto complete)
     local capabilities = require("cmp_nvim_lsp").default_capabilities()
-
-    -- Not included in nvim-lsp-installer
-    lspconfig.flow.setup({
-        cmd = { "npx", "--no-install", "flow", "lsp" },
-        capabilities = capabilities,
-        on_attach = common_on_attach,
-    })
 
     -- Register a handler that will be called for all installed servers.
     lsp_installer.on_server_ready(function(server)

@@ -9,7 +9,26 @@ return function()
             formatting.eslint_d, -- Faster for formatting on save
             diagnostics.eslint_d,
             code_actions.eslint_d,
-            formatting.prettierd,
+            formatting.prettierd.with({
+                -- Custom filetypes to enable for svelte
+                filetypes = {
+                    "javascript",
+                    "javascriptreact",
+                    "typescript",
+                    "typescriptreact",
+                    "vue",
+                    "css",
+                    "scss",
+                    "less",
+                    "html",
+                    "json",
+                    "jsonc",
+                    "yaml",
+                    "markdown",
+                    "graphql",
+                    "svelte",
+                },
+            }),
             formatting.stylua,
             formatting.black, -- Python formatter
         },
