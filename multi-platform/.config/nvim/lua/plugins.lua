@@ -31,10 +31,7 @@ return packer.startup(function(use)
     })
     -- Show line indents
     use({
-        "Yggdroot/indentLine",
-        config = function()
-            vim.g.indentLine_fileTypeExclude = { "dashboard", "markdown" }
-        end,
+        "lukas-reineke/indent-blankline.nvim",
     })
     use("AndrewRadev/tagalong.vim") -- Auto change HTML tags
     -- Keep windows open when closing buffer
