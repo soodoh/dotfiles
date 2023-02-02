@@ -23,6 +23,9 @@ export LF_ICONS
 export EDITOR='nvim'
 export VISUAL='nvim'
 
+# GPG can use stdin
+export GPG_TTY="$(tty)"
+
 # Load z
 [ -f ~/.config/z/z.sh ] && . ~/.config/z/z.sh
 
