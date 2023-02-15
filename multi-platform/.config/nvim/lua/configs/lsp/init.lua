@@ -20,7 +20,7 @@ return function()
         "jsonls",
         "pyright",
         -- "rust_analyzer",
-        "sumneko_lua",
+        "lua_ls",
         "svelte",
         "terraformls",
         "tsserver",
@@ -48,7 +48,7 @@ return function()
             on_attach = common_on_attach,
         }
         -- Specific server settings
-        if server.name == "sumneko_lua" then
+        if server.name == "lua_ls" then
             opts = require("configs.lsp.lua")
         elseif server.name == "jsonls" then
             opts = vim.tbl_deep_extend("force", opts, require("configs.lsp.json"))

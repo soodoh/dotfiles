@@ -135,7 +135,7 @@ return packer.startup(function(use)
             require("nvim-tree").setup({
                 sort_by = "case_insensitive",
                 filters = {
-                    dotfiles = true,
+                    dotfiles = false,
                 },
                 git = {
                     enable = true,
