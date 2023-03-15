@@ -163,6 +163,9 @@ return packer.startup(function(use)
 
     -- Intellisense
     use({
+        "github/copilot.vim",
+    })
+    use({
         "neovim/nvim-lspconfig",
         requires = {
             "williamboman/nvim-lsp-installer",
