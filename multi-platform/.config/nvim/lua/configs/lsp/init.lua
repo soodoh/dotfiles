@@ -3,7 +3,12 @@ return function()
         local buf_map = require("utils").buf_map
         buf_map(bufnr, "n", "gD", "<cmd>lua vim.lsp.buf.declaration()<CR>")
         buf_map(bufnr, "n", "gd", "<cmd>lua vim.lsp.buf.definition()<CR>")
-        buf_map(bufnr, "n", "gi", "<cmd>lua vim.lsp.buf.implementation()<CR>")
+        buf_map(
+            bufnr,
+            "n",
+            "gi",
+            "<cmd>lua vim.lsp.buf.implementation()<CR>"
+        )
     end
 
     -- Setup lspconfig with cmp (auto complete)
@@ -16,7 +21,13 @@ return function()
     -- Unix
     lspconfig.awk_ls.setup(default_opts)
     lspconfig.bashls.setup(default_opts)
-    lspconfig.jsonls.setup(vim.tbl_deep_extend("force", default_opts, require("configs.lsp.json")))
+    lspconfig.jsonls.setup(
+        vim.tbl_deep_extend(
+            "force",
+            default_opts,
+            require("configs.lsp.json")
+        )
+    )
     lspconfig.taplo.setup(default_opts)
     lspconfig.yamlls.setup(default_opts)
     -- Web
@@ -28,7 +39,13 @@ return function()
     lspconfig.marksman.setup(default_opts)
     lspconfig.svelte.setup(default_opts)
     lspconfig.tailwindcss.setup(default_opts)
-    lspconfig.tsserver.setup(vim.tbl_deep_extend("force", default_opts, require("configs.lsp.tsserver")))
+    lspconfig.tsserver.setup(
+        vim.tbl_deep_extend(
+            "force",
+            default_opts,
+            require("configs.lsp.tsserver")
+        )
+    )
     -- Server
     lspconfig.clangd.setup(default_opts)
     -- lspconfig.omnisharp.setup(default_opts)
@@ -41,9 +58,10 @@ return function()
     lspconfig.terraformls.setup(default_opts)
 
     -- Format the diagnostic messages
-    vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
-        underline = true,
-        update_in_insert = false,
-        virtual_text = false,
-    })
+    vim.lsp.handlers["textDocument/publishDiagnostics"] =
+        vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
+            underline = true,
+            update_in_insert = false,
+            virtual_text = false,
+        })
 end
