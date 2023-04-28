@@ -6,60 +6,39 @@ return function()
         buf_map(bufnr, "n", "gi", "<cmd>lua vim.lsp.buf.implementation()<CR>")
     end
 
-    local requested_servers = {
-        -- "awk_ls",
-        "bashls",
-        "cssls",
-        "cssmodules_ls",
-        -- "denols",
-        "dockerls",
-        -- "gopls",
-        "graphql",
-        "html",
-        "intelephense",
-        "jsonls",
-        "pyright",
-        -- "rust_analyzer",
-        "lua_ls",
-        "svelte",
-        "terraformls",
-        "tsserver",
-        "yamlls",
-    }
-    -- go through requested_servers and ensure installation
-    local lsp_installer_servers = require("nvim-lsp-installer.servers")
-    for _, requested_server in pairs(requested_servers) do
-        local ok, server = lsp_installer_servers.get_server(requested_server)
-        if ok then
-            if not server:is_installed() then
-                server:install()
-            end
-        end
-    end
-
-    local lsp_installer = require("nvim-lsp-installer")
     -- Setup lspconfig with cmp (auto complete)
     local capabilities = require("cmp_nvim_lsp").default_capabilities()
-
-    -- Register a handler that will be called for all installed servers.
-    lsp_installer.on_server_ready(function(server)
-        local opts = {
-            capabilities = capabilities,
-            on_attach = common_on_attach,
-        }
-        -- Specific server settings
-        if server.name == "lua_ls" then
-            opts = require("configs.lsp.lua")
-        elseif server.name == "jsonls" then
-            opts = vim.tbl_deep_extend("force", opts, require("configs.lsp.json"))
-        elseif server.name == "tsserver" then
-            opts = vim.tbl_deep_extend("force", opts, require("configs.lsp.tsserver"))
-        end
-
-        -- This setup() function is exactly the same as lspconfig's setup function.
-        -- Refer to https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md
-        server:setup(opts)
-    end)
+    local lspconfig = require("lspconfig")
+    local default_opts = {
+        capabilities = capabilities,
+        on_attach = common_on_attach,
+    }
+    -- Unix
+    lspconfig.awk_ls.setup(default_opts)
+    lspconfig.bashls.setup(default_opts)
+    lspconfig.jsonls.setup(vim.tbl_deep_extend("force", default_opts, require("configs.lsp.json")))
+    lspconfig.taplo.setup(default_opts)
+    lspconfig.yamlls.setup(default_opts)
+    -- Web
+    lspconfig.cssls.setup(default_opts)
+    lspconfig.cssmodules_ls.setup(default_opts)
+    lspconfig.graphql.setup(default_opts)
+    lspconfig.html.setup(default_opts)
+    lspconfig.intelephense.setup(default_opts)
+    lspconfig.marksman.setup(default_opts)
+    lspconfig.svelte.setup(default_opts)
+    lspconfig.tailwindcss.setup(default_opts)
+    lspconfig.tsserver.setup(vim.tbl_deep_extend("force", default_opts, require("configs.lsp.tsserver")))
+    -- Server
+    lspconfig.clangd.setup(default_opts)
+    -- lspconfig.omnisharp.setup(default_opts)
+    lspconfig.dockerls.setup(default_opts)
+    lspconfig.docker_compose_language_service.setup(default_opts)
+    -- lspconfig.gopls.setup(default_opts)
+    lspconfig.lua_ls.setup(require("configs.lsp.lua"))
+    lspconfig.pyright.setup(default_opts)
+    lspconfig.rust_analyzer.setup(default_opts)
+    lspconfig.terraformls.setup(default_opts)
 
     -- Format the diagnostic messages
     vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {

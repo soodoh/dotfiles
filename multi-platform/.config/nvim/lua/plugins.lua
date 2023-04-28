@@ -19,7 +19,7 @@ local packer = require("packer")
 
 return packer.startup(function(use)
     use("sheerun/vim-polyglot") -- Better syntax highlighing (fallback for treesitter)
-    use("tpope/vim-surround")   -- Surround text objects with {[()]}
+    use("tpope/vim-surround") -- Surround text objects with {[()]}
     use({
         "phaazon/hop.nvim",
         branch = "v1", -- optional but strongly recommended
@@ -53,7 +53,7 @@ return packer.startup(function(use)
             keymap("n", "<C-l>", ":TmuxNavigateRight<CR>")
         end,
     })
-    use("psliwka/vim-smoothie")         -- Smooth scrolling
+    use("psliwka/vim-smoothie") -- Smooth scrolling
     use("kyazdani42/nvim-web-devicons") -- Cool icons
     -- Better buffer tab line
     use({
@@ -175,9 +175,25 @@ return packer.startup(function(use)
         },
     })
     use({
+        "williamboman/mason.nvim",
+        run = ":MasonUpdate",
+        config = function()
+            require("mason").setup()
+        end,
+    })
+    use({
+        "williamboman/mason-lspconfig.nvim",
+        after = "mason.nvim",
+        config = function()
+            require("mason-lspconfig").setup({
+                automatic_installation = true,
+            })
+        end,
+    })
+    use({
         "neovim/nvim-lspconfig",
+        after = "mason-lspconfig.nvim",
         requires = {
-            "williamboman/nvim-lsp-installer",
             -- Autocomplete stuff
             "hrsh7th/nvim-cmp",
             "hrsh7th/cmp-nvim-lsp",
