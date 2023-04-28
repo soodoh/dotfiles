@@ -1,33 +1,26 @@
 return function()
-    local common_on_attach = function(_, bufnr)
-        local buf_map = require("utils").buf_map
-        buf_map(bufnr, "n", "gD", "<cmd>lua vim.lsp.buf.declaration()<CR>")
-        buf_map(bufnr, "n", "gd", "<cmd>lua vim.lsp.buf.definition()<CR>")
-        buf_map(
-            bufnr,
-            "n",
-            "gi",
-            "<cmd>lua vim.lsp.buf.implementation()<CR>"
-        )
-    end
+    -- Use LspAttach autocommand to only map the following keys
+    -- after the language server attaches to the current buffer
+    vim.api.nvim_create_autocmd("LspAttach", {
+        group = vim.api.nvim_create_augroup("UserLspConfig", {}),
+        callback = function(ev)
+            local opts = { buffer = ev.buf }
+            vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
+            vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+            vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
+        end,
+    })
 
     -- Setup lspconfig with cmp (auto complete)
     local capabilities = require("cmp_nvim_lsp").default_capabilities()
     local lspconfig = require("lspconfig")
     local default_opts = {
         capabilities = capabilities,
-        on_attach = common_on_attach,
     }
     -- Unix
     lspconfig.awk_ls.setup(default_opts)
     lspconfig.bashls.setup(default_opts)
-    lspconfig.jsonls.setup(
-        vim.tbl_deep_extend(
-            "force",
-            default_opts,
-            require("configs.lsp.json")
-        )
-    )
+    lspconfig.jsonls.setup(require("configs.lsp.json"))
     lspconfig.taplo.setup(default_opts)
     lspconfig.yamlls.setup(default_opts)
     -- Web
@@ -39,13 +32,7 @@ return function()
     lspconfig.marksman.setup(default_opts)
     lspconfig.svelte.setup(default_opts)
     lspconfig.tailwindcss.setup(default_opts)
-    lspconfig.tsserver.setup(
-        vim.tbl_deep_extend(
-            "force",
-            default_opts,
-            require("configs.lsp.tsserver")
-        )
-    )
+    lspconfig.tsserver.setup(require("configs.lsp.tsserver"))
     -- Server
     lspconfig.clangd.setup(default_opts)
     -- lspconfig.omnisharp.setup(default_opts)

@@ -1,4 +1,5 @@
 return {
+    capabilities = require("cmp_nvim_lsp").default_capabilities(),
     settings = {
         json = {
             -- Schemas https://www.schemastore.org
@@ -24,7 +25,11 @@ return {
                     url = "https://json.schemastore.org/eslintrc.json",
                 },
                 {
-                    fileMatch = { ".babelrc", ".babelrc.json", "babel.config.json" },
+                    fileMatch = {
+                        ".babelrc",
+                        ".babelrc.json",
+                        "babel.config.json",
+                    },
                     url = "https://json.schemastore.org/babelrc.json",
                 },
                 {

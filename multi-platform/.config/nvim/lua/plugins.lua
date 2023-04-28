@@ -1,7 +1,8 @@
 local fn = vim.fn
 
 -- Bootstrap packer, if not already installed
-local install_path = fn.stdpath("data") .. "/site/pack/packer/start/packer.nvim"
+local install_path = fn.stdpath("data")
+    .. "/site/pack/packer/start/packer.nvim"
 local packer_bootstrap = false
 if fn.empty(fn.glob(install_path)) > 0 then
     packer_bootstrap = fn.system({
@@ -19,7 +20,7 @@ local packer = require("packer")
 
 return packer.startup(function(use)
     use("sheerun/vim-polyglot") -- Better syntax highlighing (fallback for treesitter)
-    use("tpope/vim-surround") -- Surround text objects with {[()]}
+    use("tpope/vim-surround")   -- Surround text objects with {[()]}
     use({
         "phaazon/hop.nvim",
         branch = "v1", -- optional but strongly recommended
@@ -53,7 +54,7 @@ return packer.startup(function(use)
             keymap("n", "<C-l>", ":TmuxNavigateRight<CR>")
         end,
     })
-    use("psliwka/vim-smoothie") -- Smooth scrolling
+    use("psliwka/vim-smoothie")         -- Smooth scrolling
     use("kyazdani42/nvim-web-devicons") -- Cool icons
     -- Better buffer tab line
     use({
@@ -87,7 +88,12 @@ return packer.startup(function(use)
         config = function()
             local keymap = require("utils").keymap
             keymap("n", "<leader>gb", ":Git blame<CR>", { noremap = true })
-            keymap("n", "<leader>gd", ":Gdiff HEAD^<CR>", { noremap = true })
+            keymap(
+                "n",
+                "<leader>gd",
+                ":Gdiff HEAD^<CR>",
+                { noremap = true }
+            )
         end,
     })
     use("junegunn/gv.vim")

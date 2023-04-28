@@ -1,11 +1,9 @@
-local lspconfig = require("lspconfig")
+local capabilities = require("cmp_nvim_lsp").default_capabilities()
+capabilities.document_formatting = false
+capabilities.document_formatting = false
 
 return {
-    capabilities = {
-        document_formatting = false,
-        document_range_formatting = false,
-    },
-    -- Disable for JS since we use flow
+    capabilities = capabilities,
     filetypes = {
         "javascript",
         "javascriptreact",
