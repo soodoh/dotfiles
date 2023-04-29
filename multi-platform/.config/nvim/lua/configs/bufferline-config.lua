@@ -6,10 +6,34 @@ return function()
         },
     })
 
-    local keymap = require("utils").keymap
-    keymap("n", "<leader>b", ":BufferLinePick<CR>")
-    keymap("n", "<leader>J", ":BufferLineMovePrev<CR>")
-    keymap("n", "<leader>K", ":BufferLineMoveNext<CR>")
-    keymap("n", "<leader>j", ":BufferLineCyclePrev<CR>")
-    keymap("n", "<leader>k", ":BufferLineCycleNext<CR>")
+    vim.keymap.set(
+        "n",
+        "<leader>b",
+        ":BufferLinePick<CR>",
+        { silent = true }
+    )
+    vim.keymap.set(
+        "n",
+        "<leader>J",
+        ":BufferLineMovePrev<CR>",
+        { silent = true }
+    )
+    vim.keymap.set(
+        "n",
+        "<leader>K",
+        ":BufferLineMoveNext<CR>",
+        { silent = true }
+    )
+    vim.keymap.set(
+        "n",
+        "<leader>j",
+        ":BufferLineCyclePrev<CR>",
+        { silent = true }
+    )
+    vim.keymap.set(
+        "n",
+        "<leader>k",
+        ":BufferLineCycleNext<CR>",
+        { silent = true }
+    )
 end

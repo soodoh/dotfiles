@@ -11,8 +11,7 @@ return function()
         -- },
     })
 
-    local keymap = require("utils").keymap
-    keymap("n", "<leader>fc", ":ChatGPT<CR>")
-    keymap("n", "<leader>fe", ":ChatGPTEditWithInstructions<CR>")
-    keymap("n", "<leader>fr", ":ChatGPTRun ")
+    vim.keymap.set("n", "<leader>fc", ":ChatGPT<CR>", {silent=true})
+    vim.keymap.set("n", "<leader>fe", ":ChatGPTEditWithInstructions<CR>", {silent=true})
+    vim.keymap.set("n", "<leader>fr", ":ChatGPTRun ")
 end

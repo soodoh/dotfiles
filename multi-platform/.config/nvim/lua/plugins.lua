@@ -39,20 +39,43 @@ return packer.startup(function(use)
     use({
         "moll/vim-bbye",
         config = function()
-            local keymap = require("utils").keymap
-            keymap("n", "<leader>d", ":Bdelete<CR>")
+            vim.keymap.set(
+                "n",
+                "<leader>d",
+                ":Bdelete<CR>",
+                { silent = true }
+            )
         end,
     })
     use({
         "alexghergh/nvim-tmux-navigation",
         config = function()
-            require('nvim-tmux-navigation').setup({})
+            require("nvim-tmux-navigation").setup({})
 
-            local keymap = require("utils").keymap
-            keymap("n", "<C-h>", ":NvimTmuxNavigateLeft<CR>")
-            keymap("n", "<C-j>", ":NvimTmuxNavigateDown<CR>")
-            keymap("n", "<C-k>", ":NvimTmuxNavigateUp<CR>")
-            keymap("n", "<C-l>", ":NvimTmuxNavigateRight<CR>")
+            vim.keymap.set(
+                "n",
+                "<C-h>",
+                ":NvimTmuxNavigateLeft<CR>",
+                { silent = true }
+            )
+            vim.keymap.set(
+                "n",
+                "<C-j>",
+                ":NvimTmuxNavigateDown<CR>",
+                { silent = true }
+            )
+            vim.keymap.set(
+                "n",
+                "<C-k>",
+                ":NvimTmuxNavigateUp<CR>",
+                { silent = true }
+            )
+            vim.keymap.set(
+                "n",
+                "<C-l>",
+                ":NvimTmuxNavigateRight<CR>",
+                { silent = true }
+            )
         end,
     })
     use("psliwka/vim-smoothie")         -- Smooth scrolling
@@ -78,8 +101,12 @@ return packer.startup(function(use)
         end,
         config = function()
             --   -- LF file manager
-            local keymap = require("utils").keymap
-            keymap("n", "<leader>e", ":FloatermNew lf<CR>")
+            vim.keymap.set(
+                "n",
+                "<leader>e",
+                ":FloatermNew lf<CR>",
+                { silent = true }
+            )
         end,
     })
 
@@ -87,9 +114,13 @@ return packer.startup(function(use)
     use({
         "tpope/vim-fugitive",
         config = function()
-            local keymap = require("utils").keymap
-            keymap("n", "<leader>gb", ":Git blame<CR>", { noremap = true })
-            keymap(
+            vim.keymap.set(
+                "n",
+                "<leader>gb",
+                ":Git blame<CR>",
+                { noremap = true }
+            )
+            vim.keymap.set(
                 "n",
                 "<leader>gd",
                 ":Gdiff HEAD^<CR>",
@@ -149,9 +180,18 @@ return packer.startup(function(use)
                     ignore = false,
                 },
             })
-            local keymap = require("utils").keymap
-            keymap("n", "<leader>nn", ":NvimTreeToggle<CR>")
-            keymap("n", "<leader>nf", ":NvimTreeFindFile<CR>")
+            vim.keymap.set(
+                "n",
+                "<leader>nn",
+                ":NvimTreeToggle<CR>",
+                { silent = true }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>nf",
+                ":NvimTreeFindFile<CR>",
+                { silent = true }
+            )
         end,
     })
 

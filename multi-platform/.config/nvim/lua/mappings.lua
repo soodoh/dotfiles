@@ -1,21 +1,25 @@
 local g = vim.g
-local keymap = require("utils").keymap
 
 g.mapleader = " "
 
 -- so that Ctrl+C triggers InsertLeave autocmd
-keymap("i", "<C-c>", "<ESC>")
-keymap("i", "jk", "<ESC>")
+vim.keymap.set("i", "<C-c>", "<ESC>", { silent = true })
+vim.keymap.set("i", "jk", "<ESC>", { silent = true })
 -- so that forward delete works in insert mode
-keymap("i", "<C-d>", "<Del>")
+vim.keymap.set("i", "<C-d>", "<Del>", { silent = true })
 
 -- Quickfix Menu
-keymap("n", "<leader>,", ":cp<CR>")
-keymap("n", "<leader>.", ":cn<CR>")
+vim.keymap.set("n", "<leader>,", ":cp<CR>", { silent = true })
+vim.keymap.set("n", "<leader>.", ":cn<CR>", { silent = true })
 
 -- Toggle relative number
-keymap("n", "<leader>r", ":exec &rnu == 1 ? 'set nornu!' : 'set rnu!'<CR>")
+vim.keymap.set(
+    "n",
+    "<leader>r",
+    ":exec &rnu == 1 ? 'set nornu!' : 'set rnu!'<CR>",
+    { silent = true }
+)
 
 -- Reselect visual selection after indenting
-keymap("v", ">", ">gv")
-keymap("v", "<", "<gv")
+vim.keymap.set("v", ">", ">gv", { silent = true })
+vim.keymap.set("v", "<", "<gv", { silent = true })

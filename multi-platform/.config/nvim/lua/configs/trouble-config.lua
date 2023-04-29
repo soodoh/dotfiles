@@ -1,8 +1,27 @@
 return function()
-    local keymap = require("utils").keymap
-    keymap("n", "<leader>xx", "<cmd>Trouble<CR>")
-    keymap("n", "<leader>xw", "<cmd>Trouble workspace_diagnostics<CR>")
-    keymap("n", "<leader>xd", "<cmd>Trouble document_diagnostics<CR>")
-    keymap("n", "<leader>xq", "<cmd>Trouble quickfix<CR>")
-    keymap("n", "<leader>xl", "<cmd>Trouble lsp_references<CR>")
+    vim.keymap.set("n", "<leader>xx", ":Trouble<CR>", { silent = true })
+    vim.keymap.set(
+        "n",
+        "<leader>xw",
+        ":Trouble workspace_diagnostics<CR>",
+        { silent = true }
+    )
+    vim.keymap.set(
+        "n",
+        "<leader>xd",
+        ":Trouble document_diagnostics<CR>",
+        { silent = true }
+    )
+    vim.keymap.set(
+        "n",
+        "<leader>xq",
+        ":Trouble quickfix<CR>",
+        { silent = true }
+    )
+    vim.keymap.set(
+        "n",
+        "<leader>xl",
+        ":Trouble lsp_references<CR>",
+        { silent = true }
+    )
 end
