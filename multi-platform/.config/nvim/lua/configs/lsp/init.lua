@@ -12,10 +12,9 @@ return function()
     })
 
     -- Setup lspconfig with cmp (auto complete)
-    local capabilities = require("cmp_nvim_lsp").default_capabilities()
     local lspconfig = require("lspconfig")
     local default_opts = {
-        capabilities = capabilities,
+        capabilities = require("cmp_nvim_lsp").default_capabilities(),
     }
     -- Unix
     lspconfig.awk_ls.setup(default_opts)
@@ -38,7 +37,7 @@ return function()
     -- lspconfig.omnisharp.setup(default_opts)
     lspconfig.dockerls.setup(default_opts)
     lspconfig.docker_compose_language_service.setup(default_opts)
-    -- lspconfig.gopls.setup(default_opts)
+    lspconfig.gopls.setup(default_opts)
     lspconfig.lua_ls.setup(require("configs.lsp.lua"))
     lspconfig.pyright.setup(default_opts)
     lspconfig.rust_analyzer.setup(default_opts)
