@@ -44,14 +44,15 @@ return packer.startup(function(use)
         end,
     })
     use({
-        "christoomey/vim-tmux-navigator",
+        "alexghergh/nvim-tmux-navigation",
         config = function()
-            vim.g.tmux_navigator_no_mappings = 1
+            require('nvim-tmux-navigation').setup({})
+
             local keymap = require("utils").keymap
-            keymap("n", "<C-h>", ":TmuxNavigateLeft<CR>")
-            keymap("n", "<C-j>", ":TmuxNavigateDown<CR>")
-            keymap("n", "<C-k>", ":TmuxNavigateUp<CR>")
-            keymap("n", "<C-l>", ":TmuxNavigateRight<CR>")
+            keymap("n", "<C-h>", ":NvimTmuxNavigateLeft<CR>")
+            keymap("n", "<C-j>", ":NvimTmuxNavigateDown<CR>")
+            keymap("n", "<C-k>", ":NvimTmuxNavigateUp<CR>")
+            keymap("n", "<C-l>", ":NvimTmuxNavigateRight<CR>")
         end,
     })
     use("psliwka/vim-smoothie")         -- Smooth scrolling
