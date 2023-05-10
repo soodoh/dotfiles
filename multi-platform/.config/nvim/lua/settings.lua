@@ -1,46 +1,40 @@
-local cmd = vim.cmd
-local opt = vim.opt
-
 -- basic settings
-opt.backspace = "indent,eol,start" -- backspace works on every char in insert mode
-opt.history = 1000
-opt.mouse = "a" -- fix for mouse in Alacritty
-cmd("autocmd BufNewFile,BufRead *.json setl ft=jsonc") -- Treat JSON as JSONC
+vim.opt.backspace = "indent,eol,start"                     -- backspace works on every char in insert mode
+vim.opt.history = 1000
+vim.opt.mouse = "a"                                        -- fix for mouse in Alacritty
+vim.cmd("autocmd BufNewFile,BufRead *.json setl ft=jsonc") -- Treat JSON as JSONC
 
 -- Display
-opt.showmatch = true -- show matching brackets
-opt.hlsearch = false
-opt.cursorline = true
-opt.completeopt = "menu,menuone,noselect"
-opt.termguicolors = true
+vim.opt.showmatch = true -- show matching brackets
+vim.opt.hlsearch = false
+vim.opt.cursorline = true
+vim.opt.completeopt = "menu,menuone,noselect"
+vim.opt.termguicolors = true
 -- Keep cursor in view
-opt.scrolloff = 8
-opt.sidescrolloff = 8
+vim.opt.scrolloff = 8
+vim.opt.sidescrolloff = 8
 -- Git diff
-opt.diffopt = "vertical"
+vim.opt.diffopt = "vertical"
 
 -- Sidebar
-opt.number = true -- line number on the left
-opt.numberwidth = 3 -- always reserve 3 spaces for line number
-opt.signcolumn = "yes" -- keep 1 column for coc.vim  check
-opt.modelines = 0
-opt.showcmd = true -- display command in bottom bar
+vim.opt.relativenumber = false
+vim.opt.number = true
+vim.opt.numberwidth = 3 -- always reserve 3 spaces for line number
+vim.opt.modelines = 0
+vim.opt.showcmd = true  -- display command in bottom bar
 
 -- Search
-opt.incsearch = true -- starts searching as soon as typing, without enter needed
-opt.ignorecase = true -- ignore letter case when searching
-opt.smartcase = true -- case insentive unless capitals used in search
+vim.opt.incsearch = true  -- starts searching as soon as typing, without enter needed
+vim.opt.ignorecase = true -- ignore letter case when searching
+vim.opt.smartcase = true  -- case insentive unless capitals used in search
 
 -- White space
-opt.wrap = true
-opt.autoindent = true
-opt.smartindent = true
-opt.softtabstop = 2
-opt.shiftwidth = 2 -- indentation rule
-opt.tabstop = 2 -- 1 tab = 2 spaces
-opt.expandtab = true -- expand tab to spaces
-opt.formatoptions = "qnj1" -- q  - comment formatting; n - numbered lists; j - remove comment when joining lines; 1 - don't break after one-letter word
-
--- Switch between relative/absolute numbers
-opt.relativenumber = false
-opt.number = true
+vim.opt.wrap = true
+vim.opt.autoindent = true
+vim.opt.smartindent = true
+vim.opt.softtabstop = 2
+vim.opt.shiftwidth = 2   -- indentation rule
+vim.opt.tabstop = 2      -- 1 tab = 2 spaces
+vim.opt.expandtab = true -- expand tab to spaces
+-- q  - comment formatting; n - numbered lists; j - remove comment when joining lines; 1 - don't break after one-letter word
+vim.opt.formatoptions = "qnj1"

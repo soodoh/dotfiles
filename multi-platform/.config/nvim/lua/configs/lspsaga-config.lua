@@ -40,11 +40,11 @@ return function()
         { silent = true }
     )
 
-    require("lspsaga").init_lsp_saga({
-        code_action_prompt = {
-            enable = true,
-            sign = false,
-            sign_priority = 20,
+    require("lspsaga").setup({
+        code_action = {
+            extend_gitsigns = false,
+        },
+        lightbulb = {
             virtual_text = false,
         },
     })

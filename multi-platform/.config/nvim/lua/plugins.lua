@@ -78,13 +78,13 @@ return packer.startup(function(use)
             )
         end,
     })
-    use("psliwka/vim-smoothie")         -- Smooth scrolling
-    use("kyazdani42/nvim-web-devicons") -- Cool icons
+    use("psliwka/vim-smoothie")        -- Smooth scrolling
+    use("nvim-tree/nvim-web-devicons") -- Cool icons
     -- Better buffer tab line
     use({
         "akinsho/bufferline.nvim",
         tag = "*",
-        requires = "kyazdani42/nvim-web-devicons",
+        requires = "nvim-tree/nvim-web-devicons",
         config = require("configs.bufferline-config"),
     })
     use({
@@ -149,7 +149,7 @@ return packer.startup(function(use)
 
     use({
         "folke/trouble.nvim",
-        requires = "kyazdani42/nvim-web-devicons",
+        requires = "nvim-tree/nvim-web-devicons",
         config = require("configs.trouble-config"),
     })
     -- Telescope
@@ -167,8 +167,8 @@ return packer.startup(function(use)
 
     -- Nvim Tree file explorer
     use({
-        "kyazdani42/nvim-tree.lua",
-        requires = { "kyazdani42/nvim-web-devicons" },
+        "nvim-tree/nvim-tree.lua",
+        requires = { "nvim-tree/nvim-web-devicons" },
         config = function()
             require("nvim-tree").setup({
                 sort_by = "case_insensitive",
@@ -267,20 +267,24 @@ return packer.startup(function(use)
         config = require("configs.lsp.null-ls-config"),
     })
     use({
-        -- "glepnir/lspsaga.nvim",
-        "tami5/lspsaga.nvim",
+        "nvimdev/lspsaga.nvim",
         config = require("configs.lspsaga-config"),
+        requires = {
+            { "nvim-tree/nvim-web-devicons" },
+            { "nvim-treesitter/nvim-treesitter" },
+        },
     })
     use({
-        "glepnir/dashboard-nvim",
+        "nvimdev/dashboard-nvim",
         config = require("configs.dashboard-config"),
+        requires = { "nvim-tree/nvim-web-devicons" },
     })
     -- use("mfussenegger/nvim-dap")
 
     -- Status Line
     use({
         "nvim-lualine/lualine.nvim",
-        requires = { "kyazdani42/nvim-web-devicons" },
+        requires = { "nvim-tree/nvim-web-devicons" },
         config = function()
             require("lualine").setup()
         end,
