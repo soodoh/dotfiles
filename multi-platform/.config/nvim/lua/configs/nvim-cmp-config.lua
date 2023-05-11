@@ -44,25 +44,12 @@ return function()
                     fallback()
                 end
             end, { "i", "s" }),
-            -- ["<Tab>"] = cmp.mapping.select_next_item({
-            --     behavior = cmp.SelectBehavior.Insert,
-            -- }),
-            -- ["<S-Tab>"] = cmp.mapping.select_prev_item({
-            --     behavior = cmp.SelectBehavior.Insert,
-            -- }),
-            -- ["<Down>"] = cmp.mapping.select_next_item({
-            --     behavior = cmp.SelectBehavior.Select,
-            -- }),
-            -- ["<Up>"] = cmp.mapping.select_prev_item({
-            --     behavior = cmp.SelectBehavior.Select,
-            -- }),
             ["<C-b>"] = cmp.mapping.scroll_docs(-4),
             ["<C-f>"] = cmp.mapping.scroll_docs(4),
             -- ["<C-s>"] = cmp.mapping.complete(),
             -- ["<C-e>"] = cmp.mapping.close(),
             ["<CR>"] = cmp.mapping.confirm({
                 behavior = cmp.ConfirmBehavior.Replace,
-                select = true,
             }),
         },
         sources = cmp.config.sources({
@@ -80,7 +67,7 @@ return function()
                 ellipsis_char = "...",
                 menu = {
                     buffer = "Buffer",
-                    vsnip = "Snip",
+                    luasnip = "Snip",
                     nvim_lua = "Lua",
                     path = "Path",
                     copilot = "Copilot",

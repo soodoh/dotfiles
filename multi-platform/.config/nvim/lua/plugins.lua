@@ -250,6 +250,14 @@ return packer.startup(function(use)
     use({
         "L3MON4D3/LuaSnip",
         run = "make install_jsregexp",
+        config = function()
+            vim.keymap.set(
+                { "i", "s" },
+                "<C-e>",
+                "luasnip#choice_active() ? '<Plug>luasnip-next-choice' : '<C-E>'",
+                { silent = true }
+            )
+        end,
     })
     use({
         "hrsh7th/nvim-cmp",
@@ -262,8 +270,8 @@ return packer.startup(function(use)
             "hrsh7th/cmp-nvim-lua",
             "onsails/lspkind-nvim", -- Adds icons to autocompletion menu
             -- cmp requires a snippet engine
-            'L3MON4D3/LuaSnip',
-            'saadparwaiz1/cmp_luasnip'
+            "L3MON4D3/LuaSnip",
+            "saadparwaiz1/cmp_luasnip",
         },
         config = require("configs.nvim-cmp-config"),
     })
