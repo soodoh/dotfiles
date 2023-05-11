@@ -10,10 +10,10 @@ return function()
             end,
         },
         mapping = {
-            ["<C-n>"] = cmp.mapping.select_next_item({
+            ["<Tab>"] = cmp.mapping.select_next_item({
                 behavior = cmp.SelectBehavior.Insert,
             }),
-            ["<C-p>"] = cmp.mapping.select_prev_item({
+            ["<S-Tab>"] = cmp.mapping.select_prev_item({
                 behavior = cmp.SelectBehavior.Insert,
             }),
             ["<Down>"] = cmp.mapping.select_next_item({
@@ -24,7 +24,7 @@ return function()
             }),
             ["<C-b>"] = cmp.mapping.scroll_docs(-4),
             ["<C-f>"] = cmp.mapping.scroll_docs(4),
-            ["<C-Space>"] = cmp.mapping.complete(),
+            ["<C-s>"] = cmp.mapping.complete(),
             ["<C-e>"] = cmp.mapping.close(),
             ["<CR>"] = cmp.mapping.confirm({
                 behavior = cmp.ConfirmBehavior.Replace,
