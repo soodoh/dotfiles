@@ -1,5 +1,6 @@
 return function()
     local cmp = require("cmp")
+    local lspkind = require("lspkind")
 
     cmp.setup({
         snippet = {
@@ -34,13 +35,23 @@ return function()
             { name = "nvim_lsp" },
             { name = "vsnip" },
         }, {
-            { name = "buffer" },
+            { name = "nvim_lua" },
+            { name = "copilot" },
+            { name = "path" },
         }),
         formatting = {
-            format = require("lspkind").cmp_format({
+            format = lspkind.cmp_format({
                 mode = "symbol_text",
                 maxwidth = 50,
                 ellipsis_char = "...",
+                menu = {
+                    buffer = "Buffer",
+                    vsnip = "Snip",
+                    nvim_lua = "Lua",
+                    path = "Path",
+                    copilot = "Copilot",
+                    nvim_lsp = "LSP",
+                },
             }),
         },
     })
@@ -66,5 +77,10 @@ return function()
                 },
             },
         }),
+        formatting = {
+            format = lspkind.cmp_format({
+                mode = "symbol",
+            }),
+        },
     })
 end

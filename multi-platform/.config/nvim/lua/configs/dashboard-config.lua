@@ -1,6 +1,17 @@
 return function()
     require("dashboard").setup({
-        theme = "hyper",
+        config = {
+            week_header = {
+                enable = true,
+            },
+            theme = "hyper",
+            project = {
+                enable = true,
+                limit = 5,
+                action = "Telescope git_files cwd=",
+            },
+            footer = { "Happy Coding!" },
+        },
     })
     -- db.default_executive = "telescope"
     -- db.custom_center = {
@@ -46,6 +57,4 @@ return function()
     -- "              ⠀⠀⠀⠈⠻⣿⣦⣈⣧⡀⠀⠀⢸⣿⣿⠀⠀⢀⣼⡀⣨⣿⡿⠁⠀⠀⠀⠀⠀⠀",
     -- "              ⠀⠀⠀⠀⠀⠈⠻⠿⠿⠓⠄⠤⠘⠉⠙⠤⢀⠾⠿⣿⠟⠋",
     -- }
-
-    -- db.custom_footer = { "Happy coding!" }
 end

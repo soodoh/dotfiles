@@ -210,7 +210,20 @@ return packer.startup(function(use)
 
     -- Intellisense
     use({
-        "github/copilot.vim",
+        "zbirenbaum/copilot.lua",
+        config = function()
+            require("copilot").setup({
+                suggestion = { enabled = false },
+                panel = { enabled = false },
+            })
+        end,
+    })
+    use({
+        "zbirenbaum/copilot-cmp",
+        after = { "copilot.lua" },
+        config = function()
+            require("copilot_cmp").setup({})
+        end,
     })
     use({
         "jackMort/ChatGPT.nvim",
@@ -243,7 +256,6 @@ return packer.startup(function(use)
         requires = {
             -- Autocomplete stuff
             "hrsh7th/nvim-cmp",
-            "hrsh7th/cmp-nvim-lsp",
         },
         config = require("configs.lsp"),
     })
@@ -254,6 +266,8 @@ return packer.startup(function(use)
             "hrsh7th/cmp-buffer",
             "hrsh7th/cmp-path",
             "hrsh7th/cmp-cmdline",
+            "zbirenbaum/copilot-cmp",
+            "hrsh7th/cmp-nvim-lua",
             "onsails/lspkind-nvim", -- Adds icons to autocompletion menu
             -- cmp requires a snippet engine
             "hrsh7th/cmp-vsnip",
