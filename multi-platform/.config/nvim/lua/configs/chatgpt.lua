@@ -7,11 +7,6 @@ return function()
         openai_params = {
             model = "gpt-3.5-turbo",
         },
-        -- chat = {
-        --     keymaps = {
-        --         yank_last_code = "<C-y>",
-        --     },
-        -- },
     })
 
     vim.keymap.set("n", "<leader>fc", ":ChatGPT<CR>", { silent = true })
