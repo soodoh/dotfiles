@@ -57,22 +57,15 @@ return function()
             { name = "luasnip" },
         }, {
             { name = "nvim_lua" },
-            -- { name = "copilot" },
             { name = "path" },
+            { name = "emoji" },
+            { name = "nerdfont" },
         }),
         formatting = {
             format = lspkind.cmp_format({
                 mode = "symbol_text",
                 maxwidth = 50,
                 ellipsis_char = "...",
-                menu = {
-                    buffer = "Buffer",
-                    luasnip = "Snip",
-                    nvim_lua = "Lua",
-                    path = "Path",
-                    -- copilot = "Copilot",
-                    nvim_lsp = "LSP",
-                },
             }),
         },
     })

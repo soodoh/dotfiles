@@ -1,6 +1,5 @@
 local fn = vim.fn
 
--- Bootstrap packer, if not already installed
 local install_path = fn.stdpath("data")
     .. "/site/pack/packer/start/packer.nvim"
 local packer_bootstrap = false
@@ -197,22 +196,6 @@ return packer.startup(function(use)
     })
 
     -- Intellisense
-    -- use({
-    --     "zbirenbaum/copilot.lua",
-    --     config = function()
-    --         require("copilot").setup({
-    --             suggestion = { enabled = false },
-    --             panel = { enabled = false },
-    --         })
-    --     end,
-    -- })
-    -- use({
-    --     "zbirenbaum/copilot-cmp",
-    --     after = { "copilot.lua" },
-    --     config = function()
-    --         require("copilot_cmp").setup({})
-    --     end,
-    -- })
     use({
         "jackMort/ChatGPT.nvim",
         config = require("configs.chatgpt"),
@@ -266,8 +249,9 @@ return packer.startup(function(use)
             "hrsh7th/cmp-buffer",
             "hrsh7th/cmp-path",
             "hrsh7th/cmp-cmdline",
-            -- "zbirenbaum/copilot-cmp",
             "hrsh7th/cmp-nvim-lua",
+            "hrsh7th/cmp-emoji",
+            "chrisgrieser/cmp-nerdfont",
             "onsails/lspkind-nvim", -- Adds icons to autocompletion menu
             -- cmp requires a snippet engine
             "L3MON4D3/LuaSnip",
