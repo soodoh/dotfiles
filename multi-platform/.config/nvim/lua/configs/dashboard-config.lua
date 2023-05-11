@@ -5,33 +5,20 @@ return function()
                 enable = true,
             },
             theme = "hyper",
+            packages = {
+                enable = false,
+            },
             project = {
                 enable = true,
-                limit = 5,
+                limit = 2,
                 action = "Telescope git_files cwd=",
             },
-            footer = { "Happy Coding!" },
+            mru = {
+                limit = 5,
+            },
+            footer = { "", "", "Happy Coding!" },
         },
     })
-    -- db.default_executive = "telescope"
-    -- db.custom_center = {
-    --     {
-    --         icon = " ",
-    --         desc = "Recently opened files                        <Space> f h",
-    --         action = "Telescope oldfiles",
-    --     },
-    --     {
-    --         icon = " ",
-    --         desc = "Find file                                    <Space> f f",
-    --         action = "Telescope find_files",
-    --     },
-    --     {
-    --         icon = " ",
-    --         desc = "Search text                                  <Space> f g",
-    --         action = "Telescope live_grep",
-    --     },
-    -- }
-
     -- db.custom_header = {
     --     "███╗   ██╗ ███████╗ ██████╗  ██╗   ██╗ ██╗ ███╗   ███╗",
     --     "████╗  ██║ ██╔════╝██╔═══██╗ ██║   ██║ ██║ ████╗ ████║",
