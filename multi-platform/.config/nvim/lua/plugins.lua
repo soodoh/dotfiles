@@ -248,6 +248,10 @@ return packer.startup(function(use)
         config = require("configs.lsp"),
     })
     use({
+        "L3MON4D3/LuaSnip",
+        run = "make install_jsregexp",
+    })
+    use({
         "hrsh7th/nvim-cmp",
         requires = {
             "hrsh7th/cmp-nvim-lsp",
@@ -258,8 +262,8 @@ return packer.startup(function(use)
             "hrsh7th/cmp-nvim-lua",
             "onsails/lspkind-nvim", -- Adds icons to autocompletion menu
             -- cmp requires a snippet engine
-            "hrsh7th/cmp-vsnip",
-            "hrsh7th/vim-vsnip",
+            'L3MON4D3/LuaSnip',
+            'saadparwaiz1/cmp_luasnip'
         },
         config = require("configs.nvim-cmp-config"),
     })
@@ -276,11 +280,7 @@ return packer.startup(function(use)
             { "nvim-treesitter/nvim-treesitter" },
         },
     })
-    use({
-        "nvimdev/dashboard-nvim",
-        config = require("configs.dashboard-config"),
-        requires = { "nvim-tree/nvim-web-devicons" },
-    })
+
     -- use("mfussenegger/nvim-dap")
 
     -- Status Line
@@ -290,6 +290,11 @@ return packer.startup(function(use)
         config = function()
             require("lualine").setup()
         end,
+    })
+    use({
+        "nvimdev/dashboard-nvim",
+        config = require("configs.dashboard-config"),
+        requires = { "nvim-tree/nvim-web-devicons" },
     })
     -- Color schemes
     use({

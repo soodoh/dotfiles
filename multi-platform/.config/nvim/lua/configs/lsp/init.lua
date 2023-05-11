@@ -25,6 +25,7 @@ return function()
     -- Web
     lspconfig.cssls.setup(default_opts)
     lspconfig.cssmodules_ls.setup(default_opts)
+    lspconfig.emmet_ls.setup(default_opts)
     lspconfig.graphql.setup(default_opts)
     lspconfig.html.setup(default_opts)
     lspconfig.intelephense.setup(default_opts)
