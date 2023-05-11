@@ -57,7 +57,7 @@ return function()
             { name = "luasnip" },
         }, {
             { name = "nvim_lua" },
-            { name = "copilot" },
+            -- { name = "copilot" },
             { name = "path" },
         }),
         formatting = {
@@ -70,7 +70,7 @@ return function()
                     luasnip = "Snip",
                     nvim_lua = "Lua",
                     path = "Path",
-                    copilot = "Copilot",
+                    -- copilot = "Copilot",
                     nvim_lsp = "LSP",
                 },
             }),
