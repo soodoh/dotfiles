@@ -135,18 +135,6 @@ return packer.startup(function(use)
         requires = { "nvim-lua/plenary.nvim" },
         config = require("configs.gitsigns-config"),
     })
-
-    -- Emmet/Snippets
-    use({
-        "mattn/emmet-vim",
-        requires = { "mattn/webapi-vim" },
-        config = function()
-            vim.cmd([[
-        let g:user_emmet_settings = webapi#json#decode(join(readfile(expand('~/.config/nvim/snippets.json')), "\n"))
-      ]])
-        end,
-    })
-
     use({
         "folke/trouble.nvim",
         requires = "nvim-tree/nvim-web-devicons",
