@@ -32,6 +32,9 @@ return packer.startup(function(use)
     -- Show line indents
     use({
         "lukas-reineke/indent-blankline.nvim",
+        config = function()
+            vim.g.indent_blankline_filetype_exclude = { "dashboard" }
+        end,
     })
     use("AndrewRadev/tagalong.vim") -- Auto change HTML tags
     -- Keep windows open when closing buffer
