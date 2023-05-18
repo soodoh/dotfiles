@@ -7,6 +7,7 @@
    ```
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
+   Then run caveat command so that `brew` is in the `$PATH`. Once we symlink the `.zprofile`, this will happen automatically.
 
 1. Install tools
 
@@ -42,8 +43,11 @@
 1. Start Yabai & SKHD services
 
    ```
-   brew services start skhd
-   brew services start yabai
+   # This may be necessary
+   mkdir /Users/{USERNAME}/Library/LaunchAgents
+
+   skhd --start-service
+   yabai --start-service
    ```
 
 1. Install Neovim dependencies
@@ -55,8 +59,8 @@
 1. Install NERD fonts
 
    - Maintained here: https://github.com/ryanoasis/nerd-fonts
-   - Alacritty.yml/Kitty.conf uses `DroidSansMono`
-   - Install manually: https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/DroidSansMono/complete/Droid%20Sans%20Mono%20Nerd%20Font%20Complete.otf
+   - Alacritty.yml/Kitty.conf uses `FiraCode Nerd Font Mono`
+   - Install corresponding `*.otf` file manually: https://github.com/ryanoasis/nerd-fonts/
 
 1. Follow [platform agnostic](#platform-agnostic-install) steps
 
@@ -156,6 +160,8 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 ```
 
+1. Add environment variables to `~/.zshenv` (i.e. OPENAI_API_KEY)
+
 1. Set zsh as default shell
 
    ```
@@ -174,7 +180,7 @@ export NVM_DIR="$HOME/.nvm"
    git clone https://github.com/rupa/z.git ~/.config/z
    ```
 
-1. Install nvm (skip on work computer)
+1. Install nvm
 
    ```
    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
@@ -221,21 +227,6 @@ npm install -g \
    eslint_d \
    prettier \
    @fsouza/prettierd
-```
-
-These `LspInstall` calls should run automatically.
-
-```
-:LspInstall bash
-:LspInstall css
-:LspInstall dockerfile
-:LspInstall html
-:LspInstall lua
-:LspInstall python
-:LspInstall rust
-:LspInstall terraform
-:LspInstall typescript
-:LspInstall yaml
 ```
 
 1. Open Tmux and install tmux plugins (\<prefix\> + I)

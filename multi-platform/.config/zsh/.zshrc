@@ -6,8 +6,6 @@ fi
 
 # Set aliases from a separate file
 source $HOME/.config/zsh/aliases.sh
-# Environment variables
-source $HOME/.config/env.zsh
 
 # Add LF_ICONS env var for lf icons
 # Strips comments from the file, trims whitespace, then formats for LF
