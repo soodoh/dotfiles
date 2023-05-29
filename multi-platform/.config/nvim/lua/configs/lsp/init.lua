@@ -31,7 +31,7 @@ return function()
     lspconfig.intelephense.setup(default_opts)
     lspconfig.marksman.setup(default_opts)
     lspconfig.svelte.setup(default_opts)
-    lspconfig.tailwindcss.setup(default_opts)
+    -- lspconfig.tailwindcss.setup(default_opts)
     lspconfig.tsserver.setup(require("configs.lsp.tsserver"))
     -- Server
     lspconfig.clangd.setup(default_opts)
