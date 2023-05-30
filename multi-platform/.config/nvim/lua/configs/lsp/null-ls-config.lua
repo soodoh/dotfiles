@@ -10,7 +10,11 @@ return function()
             formatting.eslint_d, -- Faster for formatting on save
             diagnostics.eslint_d,
             code_actions.eslint_d,
-            formatting.prettier,
+            formatting.prettier.with({
+                extra_filetypes = {
+                    "svelte",
+                },
+            }),
             formatting.stylua,
             formatting.black, -- Python formatter
         },
