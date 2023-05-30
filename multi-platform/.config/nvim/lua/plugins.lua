@@ -229,6 +229,22 @@ return packer.startup(function(use)
         end,
     })
     use({
+        "WhoIsSethDaniel/mason-tool-installer.nvim",
+        after = "mason-lspconfig.nvim",
+        config = function()
+            require("mason-tool-installer").setup({
+                ensure_installed = {
+                    "black",
+                    "stylua",
+                    "eslint_d",
+                    "prettier",
+                    "prettierd",
+                },
+                auto_update = true,
+            })
+        end,
+    })
+    use({
         "neovim/nvim-lspconfig",
         after = "mason-lspconfig.nvim",
         requires = {
