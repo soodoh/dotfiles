@@ -7,10 +7,10 @@ return function()
 
     null_ls.setup({
         sources = {
-            formatting.eslint_d, -- Faster for formatting on save
+            formatting.eslint_d,
             diagnostics.eslint_d,
             code_actions.eslint_d,
-            formatting.prettier.with({
+            formatting.prettierd.with({
                 extra_filetypes = {
                     "svelte",
                 },
@@ -28,7 +28,12 @@ return function()
                     group = augroup,
                     buffer = bufnr,
                     callback = function()
-                        vim.lsp.buf.format({ async = false })
+                        vim.lsp.buf.format({
+                            async = false,
+                            filter = function(filter_client)
+                                return filter_client.name ~= "tsserver"
+                            end,
+                        })
                     end,
                 })
             end
