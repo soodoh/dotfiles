@@ -1,5 +1,5 @@
 return {
-    capabilities = require("cmp_nvim_lsp").default_capabilities(),
+    capabilities = require("configs.lsp.default-capabilities"),
     settings = {
         json = {
             -- Schemas https://www.schemastore.org

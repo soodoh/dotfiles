@@ -14,7 +14,7 @@ return function()
     -- Setup lspconfig with cmp (auto complete)
     local lspconfig = require("lspconfig")
     local default_opts = {
-        capabilities = require("cmp_nvim_lsp").default_capabilities(),
+        capabilities = require("configs.lsp.default-capabilities"),
     }
     -- Unix
     lspconfig.awk_ls.setup(default_opts)
@@ -31,11 +31,9 @@ return function()
     lspconfig.intelephense.setup(default_opts)
     lspconfig.marksman.setup(default_opts)
     lspconfig.svelte.setup(default_opts)
-    -- lspconfig.tailwindcss.setup(default_opts)
     lspconfig.tsserver.setup(require("configs.lsp.tsserver"))
     -- Server
     lspconfig.clangd.setup(default_opts)
-    -- lspconfig.omnisharp.setup(default_opts)
     lspconfig.dockerls.setup(default_opts)
     lspconfig.docker_compose_language_service.setup(default_opts)
     lspconfig.gopls.setup(default_opts)
