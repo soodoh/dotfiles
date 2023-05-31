@@ -258,7 +258,8 @@ return packer.startup(function(use)
         requires = "kevinhwang91/promise-async",
         config = function()
             local ufo = require("ufo")
-            vim.o.fillchars = [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
+            vim.o.fillchars =
+            [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
             vim.o.foldcolumn = "1"
             vim.o.foldlevel = 99
             vim.o.foldlevelstart = 99
@@ -266,6 +267,37 @@ return packer.startup(function(use)
             vim.keymap.set("n", "zR", ufo.openAllFolds)
             vim.keymap.set("n", "zM", ufo.closeAllFolds)
             ufo.setup()
+        end,
+    })
+    use({
+        "luukvbaal/statuscol.nvim",
+        config = function()
+            local builtin = require("statuscol.builtin")
+            require("statuscol").setup({
+                relculright = true,
+                segments = {
+                    {
+                        sign = {
+                            name = { "Diagnostic" },
+                            maxwidth = 1,
+                            auto = true,
+                        },
+                        click = "v:lua.ScSa",
+                    },
+                    { text = { builtin.lnumfunc }, click = "v:lua.ScLa" },
+                    {
+                        sign = {
+                            name = { ".*" },
+                            maxwidth = 2,
+                            colwidth = 1,
+                            auto = true,
+                            wrap = true,
+                        },
+                        click = "v:lua.ScSa",
+                    },
+                    { text = { builtin.foldfunc }, click = "v:lua.ScFa" },
+                },
+            })
         end,
     })
     use({
