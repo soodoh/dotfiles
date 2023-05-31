@@ -23,11 +23,11 @@ return packer.startup(function(use)
     use({
         "phaazon/hop.nvim",
         branch = "v1", -- optional but strongly recommended
-        config = require("configs.hop-config"),
+        config = require("configs.hop"),
     })
     use({
         "numToStr/Comment.nvim",
-        config = require("configs.comment-config"),
+        config = require("configs.comment"),
     })
     -- Show line indents
     use({
@@ -135,12 +135,12 @@ return packer.startup(function(use)
     use({
         "lewis6991/gitsigns.nvim",
         requires = { "nvim-lua/plenary.nvim" },
-        config = require("configs.gitsigns-config"),
+        config = require("configs.gitsigns"),
     })
     use({
         "folke/trouble.nvim",
         requires = "nvim-tree/nvim-web-devicons",
-        config = require("configs.trouble-config"),
+        config = require("configs.trouble"),
     })
     -- Telescope
     use({ "nvim-telescope/telescope-fzf-native.nvim", run = "make" })
@@ -152,7 +152,7 @@ return packer.startup(function(use)
             "nvim-telescope/telescope-fzf-native.nvim",
             "folke/trouble.nvim",
         },
-        config = require("configs.telescope-config"),
+        config = require("configs.telescope"),
     })
 
     -- Nvim Tree file explorer
@@ -188,14 +188,14 @@ return packer.startup(function(use)
     -- Color hex codes
     use({
         "norcalli/nvim-colorizer.lua",
-        config = require("configs.colorizer-config"),
+        config = require("configs.colorizer"),
     })
     -- Treesitter (LSP-based syntax highlighting)
     use({
         "nvim-treesitter/nvim-treesitter",
         run = ":TSUpdate",
         requires = { "p00f/nvim-ts-rainbow" },
-        config = require("configs.treesitter-config"),
+        config = require("configs.treesitter"),
     })
 
     -- Intellisense
@@ -256,49 +256,11 @@ return packer.startup(function(use)
     use({
         "kevinhwang91/nvim-ufo",
         requires = "kevinhwang91/promise-async",
-        config = function()
-            local ufo = require("ufo")
-            vim.o.fillchars =
-            [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
-            vim.o.foldcolumn = "1"
-            vim.o.foldlevel = 99
-            vim.o.foldlevelstart = 99
-            vim.o.foldenable = true
-            vim.keymap.set("n", "zR", ufo.openAllFolds)
-            vim.keymap.set("n", "zM", ufo.closeAllFolds)
-            ufo.setup()
-        end,
+        config = require("configs.nvim-ufo"),
     })
     use({
         "luukvbaal/statuscol.nvim",
-        config = function()
-            local builtin = require("statuscol.builtin")
-            require("statuscol").setup({
-                relculright = true,
-                segments = {
-                    {
-                        sign = {
-                            name = { "Diagnostic" },
-                            maxwidth = 1,
-                            auto = true,
-                        },
-                        click = "v:lua.ScSa",
-                    },
-                    { text = { builtin.lnumfunc }, click = "v:lua.ScLa" },
-                    {
-                        sign = {
-                            name = { ".*" },
-                            maxwidth = 2,
-                            colwidth = 1,
-                            auto = true,
-                            wrap = true,
-                        },
-                        click = "v:lua.ScSa",
-                    },
-                    { text = { builtin.foldfunc }, click = "v:lua.ScFa" },
-                },
-            })
-        end,
+        config = require("configs.statuscol"),
     })
     use({
         "L3MON4D3/LuaSnip",
@@ -327,7 +289,7 @@ return packer.startup(function(use)
             "L3MON4D3/LuaSnip",
             "saadparwaiz1/cmp_luasnip",
         },
-        config = require("configs.nvim-cmp-config"),
+        config = require("configs.nvim-cmp"),
     })
     use({
         "jose-elias-alvarez/null-ls.nvim",
@@ -336,7 +298,7 @@ return packer.startup(function(use)
     })
     use({
         "nvimdev/lspsaga.nvim",
-        config = require("configs.lspsaga-config"),
+        config = require("configs.lspsaga"),
         requires = {
             { "nvim-tree/nvim-web-devicons" },
             { "nvim-treesitter/nvim-treesitter" },
@@ -355,13 +317,13 @@ return packer.startup(function(use)
     })
     use({
         "nvimdev/dashboard-nvim",
-        config = require("configs.dashboard-config"),
+        config = require("configs.dashboard"),
         requires = { "nvim-tree/nvim-web-devicons" },
     })
     -- Color schemes
     use({
         "folke/tokyonight.nvim",
-        config = require("configs.colorscheme-config"),
+        config = require("configs.colorscheme"),
     })
 
     use("wbthomason/packer.nvim") -- Packer manages itself!
