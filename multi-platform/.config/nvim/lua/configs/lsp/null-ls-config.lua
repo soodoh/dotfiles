@@ -10,7 +10,7 @@ return function()
             formatting.eslint_d,
             diagnostics.eslint_d,
             code_actions.eslint_d,
-            formatting.prettierd.with({
+            formatting.prettier.with({
                 extra_filetypes = {
                     "svelte",
                 },
