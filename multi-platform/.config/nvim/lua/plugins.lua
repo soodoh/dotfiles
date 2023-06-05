@@ -322,7 +322,8 @@ return packer.startup(function(use)
     })
     -- Color schemes
     use({
-        "folke/tokyonight.nvim",
+        -- "folke/tokyonight.nvim",
+        "marko-cerovac/material.nvim",
         config = require("configs.colorscheme"),
     })
 
