@@ -56,6 +56,7 @@ load () {
 }
 
 autoload -U +X compinit && compinit
+load 'ohmyzsh/ohmyzsh' 'lib/git.zsh'
 load 'ohmyzsh/ohmyzsh' 'plugins/git/git.plugin.zsh'
 load 'ohmyzsh/ohmyzsh' 'plugins/git-auto-fetch/git-auto-fetch.plugin.zsh'
 load 'ohmyzsh/ohmyzsh' 'plugins/tmux/tmux.plugin.zsh'
