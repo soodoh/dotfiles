@@ -39,12 +39,18 @@ return packer.startup(function(use)
     use("AndrewRadev/tagalong.vim") -- Auto change HTML tags
     -- Keep windows open when closing buffer
     use({
-        "moll/vim-bbye",
+        "famiu/bufdelete.nvim",
         config = function()
             vim.keymap.set(
                 "n",
                 "<leader>d",
                 ":Bdelete<CR>",
+                { silent = true }
+            )
+            vim.keymap.set(
+                "n",
+                "<leader>w",
+                ":Bwipeout<CR>",
                 { silent = true }
             )
         end,
