@@ -101,41 +101,13 @@ return packer.startup(function(use)
             require("nvim-autopairs").setup()
         end,
     })
-    -- Floating terminal for LF file explorer
+    -- Floating terminal
     use({
-        "voldikss/vim-floaterm",
-        setup = function()
-            vim.g.floaterm_opener = "edit"
-        end,
-        config = function()
-            --   -- LF file manager
-            vim.keymap.set(
-                "n",
-                "<leader>e",
-                ":FloatermNew lf<CR>",
-                { silent = true }
-            )
-        end,
+        "akinsho/toggleterm.nvim",
+        config = require("configs.toggleterm"),
     })
 
     -- Git Integration
-    use({
-        "tpope/vim-fugitive",
-        config = function()
-            vim.keymap.set(
-                "n",
-                "<leader>gb",
-                ":Git blame<CR>",
-                { noremap = true }
-            )
-            vim.keymap.set(
-                "n",
-                "<leader>gd",
-                ":Gdiff HEAD^<CR>",
-                { noremap = true }
-            )
-        end,
-    })
     use("junegunn/gv.vim")
     use("rhysd/git-messenger.vim")
     use({
