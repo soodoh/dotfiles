@@ -172,7 +172,7 @@ return packer.startup(function(use)
     use({
         "nvim-treesitter/nvim-treesitter",
         run = ":TSUpdate",
-        requires = { "p00f/nvim-ts-rainbow" },
+        requires = { "HiPhish/rainbow-delimiters.nvim" },
         config = require("configs.treesitter"),
     })
 
