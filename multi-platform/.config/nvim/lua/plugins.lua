@@ -108,8 +108,6 @@ return packer.startup(function(use)
     })
 
     -- Git Integration
-    use("junegunn/gv.vim")
-    use("rhysd/git-messenger.vim")
     use({
         "lewis6991/gitsigns.nvim",
         requires = { "nvim-lua/plenary.nvim" },
