@@ -19,7 +19,13 @@ local packer = require("packer")
 
 return packer.startup(function(use)
     use("sheerun/vim-polyglot") -- Better syntax highlighing (fallback for treesitter)
-    use("tpope/vim-surround")   -- Surround text objects with {[()]}
+    use({
+        "kylechui/nvim-surround",
+        tag = "*", -- Use for stability; omit to use `main` branch for latest features
+        config = function()
+            require("nvim-surround").setup()
+        end,
+    })
     use({
         "phaazon/hop.nvim",
         branch = "v2", -- optional but strongly recommended
@@ -41,7 +47,6 @@ return packer.startup(function(use)
             vim.g.indent_blankline_filetype_exclude = { "dashboard" }
         end,
     })
-    use("AndrewRadev/tagalong.vim") -- Auto change HTML tags
     -- Keep windows open when closing buffer
     use({
         "famiu/bufdelete.nvim",
