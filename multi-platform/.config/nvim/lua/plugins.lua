@@ -22,8 +22,13 @@ return packer.startup(function(use)
     use("tpope/vim-surround")   -- Surround text objects with {[()]}
     use({
         "phaazon/hop.nvim",
-        branch = "v1", -- optional but strongly recommended
-        config = require("configs.hop"),
+        branch = "v2", -- optional but strongly recommended
+        config = function()
+            -- require("hop").setup({ keys = "etovxqpdygfblzhckisuran" })
+            require("hop").setup()
+            vim.keymap.set("n", "s", "<cmd>HopChar2<CR>")
+            vim.keymap.set("n", "gl", "<cmd>HopLineStart<CR>")
+        end,
     })
     use({
         "numToStr/Comment.nvim",
