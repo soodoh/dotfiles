@@ -96,8 +96,17 @@ return packer.startup(function(use)
             )
         end,
     })
-    use("psliwka/vim-smoothie")        -- Smooth scrolling
-    use("nvim-tree/nvim-web-devicons") -- Cool icons
+    use({
+        "karb94/neoscroll.nvim",
+        config = function()
+            require("neoscroll").setup({
+                hide_cursor = true,
+                respect_scrolloff = true,
+                cursor_scrolls_alone = true,
+            })
+        end,
+    })
+    use("nvim-tree/nvim-web-devicons")
     -- Better buffer tab line
     use({
         "akinsho/bufferline.nvim",
