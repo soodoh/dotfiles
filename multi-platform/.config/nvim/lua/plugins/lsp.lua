@@ -13,8 +13,8 @@ return function(use)
         after = "nvim-lspconfig",
         config = require("configs.lspsaga"),
         requires = {
-            { "nvim-tree/nvim-web-devicons" },
-            { "nvim-treesitter/nvim-treesitter" },
+            "nvim-tree/nvim-web-devicons",
+            "nvim-treesitter/nvim-treesitter",
         },
     })
 
@@ -119,6 +119,8 @@ return function(use)
         requires = {
             -- Autocomplete stuff
             "hrsh7th/nvim-cmp",
+            -- Format on save
+            "lukas-reineke/lsp-format.nvim",
         },
         config = require("configs.lsp"),
     })
