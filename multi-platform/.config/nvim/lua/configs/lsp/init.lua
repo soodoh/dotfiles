@@ -27,9 +27,7 @@ return function()
 
     -- Setup lspconfig with cmp (auto complete)
     local lspconfig = require("lspconfig")
-    local default_opts = {
-        capabilities = require("configs.lsp.default-capabilities"),
-    }
+    local default_opts = require("configs.lsp.default-setup")()
     -- Unix
     lspconfig.awk_ls.setup(default_opts)
     lspconfig.bashls.setup(default_opts)
@@ -45,7 +43,7 @@ return function()
     lspconfig.intelephense.setup(default_opts)
     lspconfig.marksman.setup(default_opts)
     lspconfig.svelte.setup(default_opts)
-    lspconfig.tsserver.setup(require("configs.lsp.tsserver"))
+    lspconfig.tsserver.setup(default_opts)
     -- Server
     lspconfig.clangd.setup(default_opts)
     lspconfig.dockerls.setup(default_opts)
