@@ -67,7 +67,7 @@ return function(use)
     use({
         "jose-elias-alvarez/null-ls.nvim",
         requires = { "nvim-lua/plenary.nvim" },
-        config = require("configs.lsp.null-ls-config"),
+        config = require("configs.lsp.null-ls"),
     })
 
     -- Package manager for LSP/DAP/Linters/Formatters
