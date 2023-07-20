@@ -1,0 +1,180 @@
+keybinds clear-defaults=true {
+  shared_except "locked" {
+    bind "Ctrl q" { Detach; }
+    bind "Ctrl Q" { Quit; }
+  }
+
+  // Escape
+  shared_except "normal" "locked" "search" "scroll" {
+    bind "Enter" "Esc" { SwitchToMode "Normal"; }
+  }
+  shared_among "search" "scroll" {
+    bind "Esc" { ScrollToBottom; SwitchToMode "Normal"; }
+  }
+
+  // Modes
+  shared_except "locked" "pane"   {
+    bind "Ctrl g" { SwitchToMode "Locked"; }
+  }
+  locked {
+    bind "Ctrl g" { SwitchToMode "Normal"; }
+  }
+  shared_except "locked" "pane"   {
+    bind "Ctrl p" { SwitchToMode "Pane"; }
+  }
+  shared_except "locked" "resize" {
+    bind "Ctrl r" { SwitchToMode "Resize"; }
+  }
+  shared_except "entersearch" "locked" {
+    bind "Ctrl f" { SwitchToMode "EnterSearch"; SearchInput 0; }
+  }
+  shared_except "locked" "scroll" {
+    bind "Ctrl s" { SwitchToMode "Scroll"; }
+  }
+
+  resize {
+    bind "h" "Left" { Resize "Increase Left"; }
+    bind "j" "Down" { Resize "Increase Down"; }
+    bind "k" "Up" { Resize "Increase Up"; }
+    bind "l" "Right" { Resize "Increase Right"; }
+    bind "H" { Resize "Decrease Left"; }
+    bind "J" { Resize "Decrease Down"; }
+    bind "K" { Resize "Decrease Up"; }
+    bind "L" { Resize "Decrease Right"; }
+    bind "+" { Resize "Increase"; }
+    bind "-" { Resize "Decrease"; }
+  }
+
+  pane {
+    bind "Ctrl h" "Left" { MoveFocusOrTab "Left"; }
+    bind "Ctrl l" "Right" { MoveFocusOrTab "Right"; }
+    bind "Ctrl j" "Down" { MoveFocus "Down"; }
+    bind "Ctrl k" "Up" { MoveFocus "Up"; }
+    bind "g" { SwitchFocus; }
+    bind "H" { MovePane "Left"; }
+    bind "J" { MovePane "Down"; }
+    bind "K" { MovePane "Up"; }
+    bind "L" { MovePane "Right"; }
+    bind "x" { CloseFocus; SwitchToMode "Normal"; }
+    bind "f" { ToggleFocusFullscreen; SwitchToMode "Normal"; }
+    bind "w" { ToggleFloatingPanes; SwitchToMode "Normal"; }
+    // bind "z" { TogglePaneFrames; SwitchToMode "Normal"; }
+    // bind "e" { TogglePaneEmbedOrFloating; SwitchToMode "Normal"; }
+    // bind "c" { SwitchToMode "RenamePane"; PaneNameInput 0;}
+  }
+
+  move {
+    // bind "Ctrl h" { SwitchToMode "Normal"; }
+    // bind "n" "Tab" { MovePane; }
+    // bind "h" "Left" { MovePane "Left"; }
+    // bind "j" "Down" { MovePane "Down"; }
+    // bind "k" "Up" { MovePane "Up"; }
+    // bind "l" "Right" { MovePane "Right"; }
+  }
+
+  tab {
+    bind "n" { NewTab; SwitchToMode "Normal"; }
+    bind "Ctrl t" { SwitchToMode "Normal"; }
+    bind "r" { SwitchToMode "RenameTab"; TabNameInput 0; }
+    bind "h" { GoToPreviousTab; }
+    bind "l" { GoToNextTab; }
+    bind "x" { CloseTab; SwitchToMode "Normal"; }
+    // bind "s" { ToggleActiveSyncTab; SwitchToMode "Normal"; }
+    // bind "Tab" { ToggleTab; }
+  }
+
+  scroll {
+    // bind "e" { EditScrollback; SwitchToMode "Normal"; }
+    // bind "s" { SwitchToMode "EnterSearch"; SearchInput 0; }
+    bind "g" { ScrollToTop; SwitchToMode "Normal"; }
+    bind "G" { ScrollToBottom; SwitchToMode "Normal"; }
+    bind "k" { ScrollUp; }
+    bind "j" { ScrollDown; }
+    bind "Ctrl u" { HalfPageScrollUp; }
+    bind "Ctrl d" { HalfPageScrollDown; }
+    // bind "Ctrl f" "PageDown" "Right" "l" { PageScrollDown; }
+    // bind "Ctrl b" "PageUp" "Left" "h" { PageScrollUp; }
+    // uncomment this and adjust key if using copy_on_select=false
+    // bind "Alt c" { Copy; }
+  }
+
+  search {
+    bind "Ctrl c" { ScrollToBottom; SwitchToMode "Normal"; }
+    bind "k" { ScrollUp; }
+    bind "j" { ScrollDown; }
+    bind "Up" { HalfPageScrollUp; }
+    bind "Down" { HalfPageScrollDown; }
+    bind "Ctrl f" "PageDown" "Right" "l" { PageScrollDown; }
+    bind "Ctrl b" "PageUp" "Left" "h" { PageScrollUp; }
+    bind "n" { Search "down"; }
+    bind "N" { Search "up"; }
+    bind "c" { SearchToggleOption "CaseSensitivity"; }
+    bind "w" { SearchToggleOption "Wrap"; }
+    bind "o" { SearchToggleOption "WholeWord"; }
+  }
+
+  entersearch {
+    bind "Ctrl c" "Esc" { SwitchToMode "Normal"; }
+    bind "Enter" { SwitchToMode "Search"; SearchToggleOption "CaseSensitivity"; }
+  }
+  renametab {
+    // bind "Ctrl c" { SwitchToMode "Normal"; }
+    // bind "Esc" { UndoRenameTab; SwitchToMode "Tab"; }
+  }
+  renamepane {
+    // bind "Ctrl c" { SwitchToMode "Normal"; }
+    // bind "Esc" { UndoRenamePane; SwitchToMode "Pane"; }
+  }
+  session {
+    // bind "Ctrl o" { SwitchToMode "Normal"; }
+    // bind "Ctrl s" { SwitchToMode "Scroll"; }
+    // bind "d" { Detach; }
+  }
+  tmux {
+    // bind "[" { SwitchToMode "Scroll"; }
+    // bind "Ctrl b" { Write 2; SwitchToMode "Normal"; }
+    // bind "\"" { NewPane "Down"; SwitchToMode "Normal"; }
+    // bind "%" { NewPane "Right"; SwitchToMode "Normal"; }
+    // bind "z" { ToggleFocusFullscreen; SwitchToMode "Normal"; }
+    // bind "c" { NewTab; SwitchToMode "Normal"; }
+    // bind "," { SwitchToMode "RenameTab"; }
+    // bind "p" { GoToPreviousTab; SwitchToMode "Normal"; }
+    // bind "n" { GoToNextTab; SwitchToMode "Normal"; }
+    // bind "Left" { MoveFocus "Left"; SwitchToMode "Normal"; }
+    // bind "Right" { MoveFocus "Right"; SwitchToMode "Normal"; }
+    // bind "Down" { MoveFocus "Down"; SwitchToMode "Normal"; }
+    // bind "Up" { MoveFocus "Up"; SwitchToMode "Normal"; }
+    // bind "h" { MoveFocus "Left"; SwitchToMode "Normal"; }
+    // bind "l" { MoveFocus "Right"; SwitchToMode "Normal"; }
+    // bind "j" { MoveFocus "Down"; SwitchToMode "Normal"; }
+    // bind "k" { MoveFocus "Up"; SwitchToMode "Normal"; }
+    // bind "o" { FocusNextPane; }
+    // bind "d" { Detach; }
+  }
+
+  shared_except "resize" "locked" {
+    // bind "Ctrl n" { SwitchToMode "Resize"; }
+  }
+  shared_except "session" "locked" {
+    // bind "Ctrl o" { SwitchToMode "Session"; }
+  }
+  shared_except "tab" "locked" {
+    // bind "Ctrl t" { SwitchToMode "Tab"; }
+  }
+  shared_except "move" "locked" {
+    // bind "Ctrl h" { SwitchToMode "Move"; }
+  }
+  shared_except "tmux" "locked" {
+    // bind "Ctrl b" { SwitchToMode "Tmux"; }
+  }
+}
+
+on_force_close "detach"
+pane_frames true
+theme "default"
+default_layout "terminal"
+default_mode "normal"
+mouse_mode true
+copy_command "pbcopy"
+copy_clipboard "system"
+copy_on_select true
