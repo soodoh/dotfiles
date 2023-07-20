@@ -1,9 +1,3 @@
-# Start Tmux automatically
-if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
-  echo "Loading TMUX..."
-  tmux attach -t default || tmux new -s default
-fi
-
 # Set aliases from a separate file
 source $HOME/.config/zsh/aliases.sh
 
@@ -59,7 +53,6 @@ autoload -U +X compinit && compinit
 load 'ohmyzsh/ohmyzsh' 'lib/git.zsh'
 load 'ohmyzsh/ohmyzsh' 'plugins/git/git.plugin.zsh'
 load 'ohmyzsh/ohmyzsh' 'plugins/git-auto-fetch/git-auto-fetch.plugin.zsh'
-load 'ohmyzsh/ohmyzsh' 'plugins/tmux/tmux.plugin.zsh'
 load 'ohmyzsh/ohmyzsh' 'plugins/docker-compose/docker-compose.plugin.zsh'
 load 'ohmyzsh/ohmyzsh' 'plugins/colored-man-pages/colored-man-pages.plugin.zsh'
 load 'zsh-users/zsh-autosuggestions' 'zsh-autosuggestions.plugin.zsh'
