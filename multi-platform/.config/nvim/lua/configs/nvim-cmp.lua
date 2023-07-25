@@ -44,8 +44,8 @@ return function()
                     fallback()
                 end
             end, { "i", "s" }),
-            ["<C-b>"] = cmp.mapping.scroll_docs(-4),
-            ["<C-f>"] = cmp.mapping.scroll_docs(4),
+            -- ["<C-b>"] = cmp.mapping.scroll_docs(-4),
+            -- ["<C-f>"] = cmp.mapping.scroll_docs(4),
             -- ["<C-s>"] = cmp.mapping.complete(),
             -- ["<C-e>"] = cmp.mapping.close(),
             ["<CR>"] = cmp.mapping.confirm({
