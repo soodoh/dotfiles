@@ -1,4 +1,9 @@
 {
+    "workspace": {
+        "ignoreDir": [
+            "**/plugin/**"
+        ]
+    },
     "diagnostics.globals": [
         "vim"
     ]

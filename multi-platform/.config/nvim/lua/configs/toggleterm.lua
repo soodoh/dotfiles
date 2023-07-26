@@ -15,11 +15,11 @@ return function()
     local lf =
         Terminal:new({ cmd = "lf", direction = "float", hidden = true })
 
-    function lazygit_toggle()
+    function ToggleLazygit()
         lazygit:toggle()
     end
 
-    function lf_toggle()
+    function ToggleLf()
         lf:toggle()
     end
 
@@ -27,7 +27,7 @@ return function()
     vim.keymap.set(
         "n",
         "<leader>gg",
-        "<cmd>lua lazygit_toggle()<CR>",
+        ":lua ToggleLazygit()<CR>",
         { noremap = true, silent = true }
     )
 
@@ -35,7 +35,7 @@ return function()
     vim.keymap.set(
         "n",
         "<leader>e",
-        "<cmd>lua lf_toggle()<CR>",
+        ":lua ToggleLf()<CR>",
         { silent = true }
     )
 end
