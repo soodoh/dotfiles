@@ -41,6 +41,18 @@ return function(use)
         "sindrets/diffview.nvim",
         config = function()
             require("diffview").setup()
+            vim.keymap.set(
+                "n",
+                "<leader>gc",
+                ":tabclose<CR>",
+                { silent = true }
+            )
+            -- Current file
+            vim.keymap.set("n", "<leader>gd", ":DiffviewOpen HEAD<CR>")
+            vim.keymap.set("n", "<leader>gf", ":DiffviewFileHistory %<CR>")
+            -- Extras
+            vim.keymap.set("n", "<leader>go", ":DiffviewOpen ")
+            vim.keymap.set("n", "<leader>gh", ":DiffviewFileHistory<CR>")
         end,
     })
 
@@ -87,8 +99,8 @@ return function(use)
         config = function()
             -- require("hop").setup({ keys = "etovxqpdygfblzhckisuran" })
             require("hop").setup()
-            vim.keymap.set("n", "s", "<cmd>HopChar2<CR>")
-            vim.keymap.set("n", "gl", "<cmd>HopLineStart<CR>")
+            vim.keymap.set("n", "s", ":HopChar2<CR>")
+            vim.keymap.set("n", "gl", ":HopLineStart<CR>")
         end,
     })
 
@@ -108,12 +120,7 @@ return function(use)
                 ":Bdelete<CR>",
                 { silent = true }
             )
-            vim.keymap.set(
-                "n",
-                "<leader>w",
-                ":Bwipeout<CR>",
-                { silent = true }
-            )
+            vim.keymap.set("n", "<leader>w", ":bd<CR>", { silent = true })
         end,
     })
 

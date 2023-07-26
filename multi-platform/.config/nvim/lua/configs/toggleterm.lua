@@ -15,27 +15,13 @@ return function()
     local lf =
         Terminal:new({ cmd = "lf", direction = "float", hidden = true })
 
-    function ToggleLazygit()
-        lazygit:toggle()
-    end
-
-    function ToggleLf()
-        lf:toggle()
-    end
-
     -- Lazygit
-    vim.keymap.set(
-        "n",
-        "<leader>gg",
-        ":lua ToggleLazygit()<CR>",
-        { noremap = true, silent = true }
-    )
+    vim.keymap.set("n", "<leader>gg", function()
+        lazygit:toggle()
+    end, { noremap = true, silent = true })
 
     -- LF file manager
-    vim.keymap.set(
-        "n",
-        "<leader>e",
-        ":lua ToggleLf()<CR>",
-        { silent = true }
-    )
+    vim.keymap.set("n", "<leader>e", function()
+        lf:toggle()
+    end, { silent = true })
 end

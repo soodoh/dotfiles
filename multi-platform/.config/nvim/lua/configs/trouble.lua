@@ -1,5 +1,22 @@
 return function()
-    vim.keymap.set("n", "<leader>xx", ":Trouble<CR>", { silent = true })
+    local trouble = require("trouble")
+    -- Quickfix-like navigation
+    vim.keymap.set("n", "<leader>,", function()
+        trouble.previous({ skip_groups = true, jump = true })
+    end, { silent = true })
+    vim.keymap.set("n", "<leader>.", function()
+        trouble.next({ skip_groups = true, jump = true })
+    end, { silent = true })
+
+    -- Toggle
+    vim.keymap.set(
+        "n",
+        "<leader>xx",
+        ":TroubleToggle<CR>",
+        { silent = true }
+    )
+
+    -- Open specific items
     vim.keymap.set(
         "n",
         "<leader>xw",
