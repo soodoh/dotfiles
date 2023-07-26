@@ -1,12 +1,12 @@
-return function()
+return function(should_attach)
     local lsp_opts = {}
 
     -- Format on save
-    require("lsp-format").setup({
-        exclude = { "tsserver" },
-    })
-    lsp_opts.on_attach = function(client)
-        require("lsp-format").on_attach(client)
+    if should_attach then
+        require("lsp-format").setup({})
+        lsp_opts.on_attach = function(client)
+            require("lsp-format").on_attach(client)
+        end
     end
 
     -- The nvim-cmp almost supports LSP's capabilities, so you should advertise it to LSP servers

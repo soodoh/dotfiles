@@ -4,7 +4,8 @@ return function()
     local diagnostics = null_ls.builtins.diagnostics
     local code_actions = null_ls.builtins.code_actions
 
-    local null_ls_opts = require("configs.lsp.default-setup")()
+    local get_setup = require("configs.lsp.default-setup")
+    local null_ls_opts = get_setup(true)
     null_ls_opts.sources = {
         formatting.eslint_d,
         diagnostics.eslint_d,
