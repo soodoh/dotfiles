@@ -26,3 +26,6 @@ vim.keymap.set("v", "<", "<gv", { silent = true })
 
 -- Sort
 vim.keymap.set("v", "<leader>s", ":sort<CR>", { silent = true })
+
+-- Convenience
+vim.keymap.set("n", "ZZ", ":wqa<CR>")
