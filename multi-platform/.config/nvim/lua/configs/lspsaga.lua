@@ -1,6 +1,11 @@
 return function()
     vim.keymap.set("n", "gr", ":Lspsaga rename<CR>", { silent = true })
-    -- vim.keymap.set('n', 'k', ":Lspsaga hover_doc<CR>", {silent=true})
+    vim.keymap.set(
+        "n",
+        "<leader>ch",
+        ":Lspsaga hover_doc<CR>",
+        { silent = true }
+    )
     vim.keymap.set(
         "n",
         "<leader>ca",
