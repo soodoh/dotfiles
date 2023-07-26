@@ -36,6 +36,14 @@ return function(use)
         config = require("configs.gitsigns"),
     })
 
+    -- Git diff viewer
+    use({
+        "sindrets/diffview.nvim",
+        config = function()
+            require("diffview").setup()
+        end,
+    })
+
     -- Pretty quickfix menu for LSP/Telescope/etc
     use({
         "folke/trouble.nvim",
