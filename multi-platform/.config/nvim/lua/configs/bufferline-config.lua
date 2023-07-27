@@ -8,8 +8,14 @@ return function()
 
     vim.keymap.set(
         "n",
-        "<leader>b",
+        "<leader>bp",
         ":BufferLinePick<CR>",
+        { silent = true }
+    )
+    vim.keymap.set(
+        "n",
+        "<leader>bo",
+        ":BufferLineCloseOthers<CR>",
         { silent = true }
     )
     vim.keymap.set(
