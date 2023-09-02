@@ -24,4 +24,4 @@ vim.keymap.set("v", "<", "<gv", { silent = true })
 vim.keymap.set("v", "<leader>s", ":sort<CR>", { silent = true })
 
 -- Convenience
-vim.keymap.set("n", "ZZ", ":wqa<CR>")
+vim.keymap.set("n", "ZZ", ":qa<CR>")
