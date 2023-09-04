@@ -42,14 +42,7 @@ return function(use)
     use({
         "L3MON4D3/LuaSnip",
         run = "make install_jsregexp",
-        config = function()
-            vim.keymap.set(
-                { "i", "s" },
-                "<C-e>",
-                "luasnip#choice_active() ? '<Plug>luasnip-next-choice' : '<C-E>'",
-                { silent = true }
-            )
-        end,
+        config = require("configs.luasnip"),
     })
 
     -- ChatGPT integration
