@@ -112,9 +112,11 @@ return function(use)
         requires = {
             -- Autocomplete stuff
             "hrsh7th/nvim-cmp",
-            -- Format on save
-            "lukas-reineke/lsp-format.nvim",
         },
         config = require("configs.lsp"),
+    })
+    use({
+        "elentok/format-on-save.nvim",
+        config = require("configs.format-on-save"),
     })
 end
