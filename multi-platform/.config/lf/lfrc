@@ -27,18 +27,18 @@ set info size:time
 # Map delete command with trash cli tool
 map x %trash $fx
 
-# set '-eu' options for shell commands
-# These options are used to have safer shell commands. Option '-e' is used to
-# exit on error and option '-u' is used to give error for unset variables.
-# Option '-f' disables pathname expansion which can be useful when $f, $fs, and
-# $fx variables contain names with '*' or '?' characters. However, this option
+# set "-eu" options for shell commands
+# These options are used to have safer shell commands. Option "-e" is used to
+# exit on error and option "-u" is used to give error for unset variables.
+# Option "-f" disables pathname expansion which can be useful when $f, $fs, and
+# $fx variables contain names with "*" or "?" characters. However, this option
 # is used selectively within individual commands as it can be limiting at
 # times.
-set shellopts '-eu'
+set shellopts "-eu"
 
 # set internal field separator (IFS) to "\n" for shell commands
 # This is useful to automatically split file names in $fs and $fx properly
-# since default file separator used in these variables (i.e. 'filesep' option)
+# since default file separator used in these variables (i.e. "filesep" option)
 # is newline. You need to consider the values of these options and create your
 # commands accordingly.
 set ifs "\n"
@@ -53,7 +53,7 @@ map <enter> open
 map o &mimeopen $f
 map O $mimeopen --ask $f
 
-# define a custom 'open' command
+# define a custom "open" command
 # This command is called when current file is not a directory. You may want to
 # use either file extensions and/or mime types here. Below uses an editor for
 # text files and a file opener for the rest.
@@ -73,8 +73,8 @@ cmd bulk-rename ${{
     new="$(mktemp)"
     # [ -n "$fs" ] && fs="$(ls)"
     fs="$(ls)"
-    printf '%s\n' "$fs" >"$old"
-    printf '%s\n' "$fs" >"$new"
+    printf "%s\n" "$fs" >"$old"
+    printf "%s\n" "$fs" >"$new"
     $EDITOR "$new"
     [ "$(wc -l "$new")" -ne "$(wc -l "$old")" ] && exit
     paste "$old" "$new" | while IFS= read -r names; do

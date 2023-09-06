@@ -1,5 +1,5 @@
-alias vim='nvim'
-alias l='ls -lAFh'
+alias vim="nvim"
+alias l="ls -lAFh"
 
 # Personal git aliases
 alias gdn="git diff --name-only"

@@ -1,4 +1,4 @@
-separator='   |   '
+separator="   |   "
 
 # Date and time
 ###############################
@@ -14,12 +14,12 @@ if [ $battery_status = "Discharging" ];
 then
   if [ $battery_charge -lt 15 ]
   then
-    battery_icon='⚠'
+    battery_icon="⚠"
   else
-    battery_icon='🔋'
+    battery_icon="🔋"
   fi
 else
-    battery_icon='⚡'
+    battery_icon="⚡"
 fi
 battery_content="$battery_icon $battery_charge%"
 
@@ -30,12 +30,12 @@ media_song=$(playerctl metadata title)
 player_status=$(playerctl status)
 if [ $player_status = "Playing" ]
 then
-    song_status='▶'
+    song_status="▶"
 elif [ $player_status = "Paused" ]
 then
-    song_status='⏸'
+    song_status="⏸"
 else
-    song_status='⏹'
+    song_status="⏹"
 fi
 if [ $media_artist ]
 then
@@ -48,19 +48,19 @@ audio_volume=$(pamixer --get-volume)
 audio_is_muted=$(pamixer --get-mute)
 if [ $audio_is_muted = "true" ]
 then
-    audio_active='🔇'
+    audio_active="🔇"
 else
-    audio_active='🔊'
+    audio_active="🔊"
 fi
 audio_content="$audio_active  $audio_volume%"
 
 # Network
 ###############################
-network=$(ip route get 1.1.1.1 | grep -Po '(?<=dev\s)\w+' | cut -f1 -d ' ')
-ping=$(ping -c 1 www.google.com | tail -1| awk '{print $4}' | cut -d '/' -f 2 | cut -d '.' -f 1)
-if [ $network = 'ens1' ];
+network=$(ip route get 1.1.1.1 | grep -Po "(?<=dev\s)\w+" | cut -f1 -d " ")
+ping=$(ping -c 1 www.google.com | tail -1| awk "{print $4}" | cut -d "/" -f 2 | cut -d "." -f 1)
+if [ $network = "ens1" ];
 then
-  interface_content='Ethernet'
+  interface_content="Ethernet"
 else
   interface_content="  $(nmcli -f in-use,ssid d wifi list | grep ^\* | sed  's/^\*\s*//' | sed 's/\s*$//')"
 fi

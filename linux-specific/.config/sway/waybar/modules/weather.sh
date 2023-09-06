@@ -12,14 +12,14 @@ fi
 # Save current IFS
 SAVEIFS=$IFS
 # Change IFS to new line.
-IFS=$'\n'
+IFS=$"\n"
 
-cacheage=$(($(date +%s) - $(stat -c '%Y' "$cachedir/$cachefile")))
+cacheage=$(($(date +%s) - $(stat -c "%Y" "$cachedir/$cachefile")))
 if [ $cacheage -gt 1740 ] || [ ! -s $cachedir/$cachefile ]; then
     data=($(curl -s https://en.wttr.in/$1\?0qnT 2>&1))
     echo ${data[0]} | cut -f1 -d, > $cachedir/$cachefile
-    echo ${data[1]} | sed -E 's/^.{15}//' >> $cachedir/$cachefile
-    echo ${data[2]} | sed -E 's/^.{15}//' >> $cachedir/$cachefile
+    echo ${data[1]} | sed -E "s/^.{15}//" >> $cachedir/$cachefile
+    echo ${data[2]} | sed -E "s/^.{15}//" >> $cachedir/$cachefile
 fi
 
 weather=($(cat $cachedir/$cachefile))
@@ -27,12 +27,12 @@ weather=($(cat $cachedir/$cachefile))
 # Restore IFSClear
 IFS=$SAVEIFS
 
-temperature=$(echo ${weather[2]} | sed -E 's/([[:digit:]])+\.\./\1 to /g')
+temperature=$(echo ${weather[2]} | sed -E "s/([[:digit:]])+\.\./\1 to /g")
 
 #echo ${weather[1]##*,}
 
 # https://fontawesome.com/icons?s=solid&c=weather
-case $(echo ${weather[1]##*,} | tr '[:upper:]' '[:lower:]') in
+case $(echo ${weather[1]##*,} | tr "[:upper:]" "[:lower:]") in
 "clear" | "sunny")
     condition=""
     ;;

@@ -4,18 +4,18 @@ source $HOME/.config/zsh/aliases.sh
 # Add LF_ICONS env var for lf icons
 # Strips comments from the file, trims whitespace, then formats for LF
 LF_ICONS=$(cat ~/.config/lf/icons | sed \
-  -e '/^[ \t]*#/d'   \
-  -e '/^[ \s]*$/d'   \
-  -e 's/^[ \s]*//'   \
-  -e 's/[ \s]*$//'   \
-  -e 's/  */=/g'     \
-  -e 's/$/ /')
-LF_ICONS=${LF_ICONS//$'\n'/:}
+  -e "/^[ \t]*#/d"   \
+  -e "/^[ \s]*$/d"   \
+  -e "s/^[ \s]*//"   \
+  -e "s/[ \s]*$//"   \
+  -e "s/  */=/g"     \
+  -e "s/$/ /")
+LF_ICONS=${LF_ICONS//$"\n"/:}
 export LF_ICONS
 
 # Preferred editor for local and remote sessions
-export EDITOR='nvim'
-export VISUAL='nvim'
+export EDITOR="nvim"
+export VISUAL="nvim"
 
 # Preserve history across multiple shells
 export HISTCONTROL=ignoredups:erasedups
@@ -55,12 +55,12 @@ load () {
 }
 
 autoload -U +X compinit && compinit
-load 'ohmyzsh/ohmyzsh' 'lib/git.zsh'
-load 'ohmyzsh/ohmyzsh' 'plugins/git/git.plugin.zsh'
-load 'ohmyzsh/ohmyzsh' 'plugins/git-auto-fetch/git-auto-fetch.plugin.zsh'
-load 'ohmyzsh/ohmyzsh' 'plugins/docker-compose/docker-compose.plugin.zsh'
-load 'ohmyzsh/ohmyzsh' 'plugins/colored-man-pages/colored-man-pages.plugin.zsh'
-load 'zsh-users/zsh-autosuggestions' 'zsh-autosuggestions.plugin.zsh'
-load 'zsh-users/zsh-completions' 'zsh-completions.plugin.zsh'
-load 'jeffreytse/zsh-vi-mode' 'zsh-vi-mode.plugin.zsh'
-load 'zdharma-continuum/fast-syntax-highlighting' 'fast-syntax-highlighting.plugin.zsh'
+load "ohmyzsh/ohmyzsh" "lib/git.zsh"
+load "ohmyzsh/ohmyzsh" "plugins/git/git.plugin.zsh"
+load "ohmyzsh/ohmyzsh" "plugins/git-auto-fetch/git-auto-fetch.plugin.zsh"
+load "ohmyzsh/ohmyzsh" "plugins/docker-compose/docker-compose.plugin.zsh"
+load "ohmyzsh/ohmyzsh" "plugins/colored-man-pages/colored-man-pages.plugin.zsh"
+load "zsh-users/zsh-autosuggestions" "zsh-autosuggestions.plugin.zsh"
+load "zsh-users/zsh-completions" "zsh-completions.plugin.zsh"
+load "jeffreytse/zsh-vi-mode" "zsh-vi-mode.plugin.zsh"
+load "zdharma-continuum/fast-syntax-highlighting" "fast-syntax-highlighting.plugin.zsh"

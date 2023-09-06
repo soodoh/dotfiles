@@ -80,7 +80,7 @@
 
 #scrolling:
 # Maximum number of lines in the scrollback buffer.
-# Specifying '0' will disable scrolling.
+# Specifying "0" will disable scrolling.
 #history: 10000
 
 # Number of lines the viewport will move for every line scrolled when
@@ -113,41 +113,41 @@ font:
     # The `style` can be specified to pick a specific face.
     #style: Regular
 
-  # Bold font face
-  #bold:
-  # Font family
-  #
-  # If the bold family is not specified, it will fall back to the
-  # value specified for the normal font.
-  #family: monospace
+    # Bold font face
+    #bold:
+    # Font family
+    #
+    # If the bold family is not specified, it will fall back to the
+    # value specified for the normal font.
+    #family: monospace
 
-  # The `style` can be specified to pick a specific face.
-  #style: Bold
+    # The `style` can be specified to pick a specific face.
+    #style: Bold
 
-  # Italic font face
-  #italic:
-  # Font family
-  #
-  # If the italic family is not specified, it will fall back to the
-  # value specified for the normal font.
-  #family: monospace
+    # Italic font face
+    #italic:
+    # Font family
+    #
+    # If the italic family is not specified, it will fall back to the
+    # value specified for the normal font.
+    #family: monospace
 
-  # The `style` can be specified to pick a specific face.
-  #style: Italic
+    # The `style` can be specified to pick a specific face.
+    #style: Italic
 
-  # Bold italic font face
-  #bold_italic:
-  # Font family
-  #
-  # If the bold italic family is not specified, it will fall back to the
-  # value specified for the normal font.
-  #family: monospace
+    # Bold italic font face
+    #bold_italic:
+    # Font family
+    #
+    # If the bold italic family is not specified, it will fall back to the
+    # value specified for the normal font.
+    #family: monospace
 
-  # The `style` can be specified to pick a specific face.
-  #style: Bold Italic
+    # The `style` can be specified to pick a specific face.
+    #style: Bold Italic
 
-  # Point size
-  # TODO on Linux, this is too big
+    # Point size
+    # TODO on Linux, this is too big
   size: 20
 
   # Offset is the extra space around each character. `offset.y` can be thought of
@@ -155,7 +155,6 @@ font:
   offset:
     x: 0
     y: 10
-
   # Glyph offset determines the locations of the glyphs within their cells with
   # the default being at the bottom. Increasing `x` moves the glyph to the right,
   # increasing `y` moves the glyph upwards.
@@ -179,14 +178,16 @@ font:
   # effect.
   #use_thin_strokes: true
 
-# If `true`, bold text is drawn using the bright color variants.
-#draw_bold_text_with_bright_colors: true
+  # If `true`, bold text is drawn using the bright color variants.
+  #draw_bold_text_with_bright_colors: true
 
 schemes:
   # Tokyo Night theme, based on both:
   #   https://github.com/ghifarit53/tokyonight-vim
   #   https://github.com/enkia/tokyo-night-vscode-theme
-  tokyo-night: &tokyo-night # Default colors
+  tokyo-night:
+    # Default colors
+    &tokyo-night
     primary:
       background: "0x1a1b26"
       foreground: "0xa9b1d6"
@@ -213,7 +214,9 @@ schemes:
       cyan: "0x0db9d7"
       white: "0xacb0d0"
 
-  tokyo-night-storm: &tokyo-night-storm # Default colors
+  tokyo-night-storm:
+    # Default colors
+    &tokyo-night-storm
     primary:
       background: "0x24283b"
       foreground: "0xa9b1d6"
@@ -294,7 +297,7 @@ colors: *tokyo-night
 #visual_bell:
 #  animation: EaseOutExpo
 #  duration: 0
-#  color: '0xffffff'
+#  color: "0xffffff"
 
 # Background opacity
 #
@@ -544,8 +547,7 @@ key_bindings:
   # (Fixes Vim Ctrl+6 hotkey for MacOS)
   - { key: Key6, mods: Control, chars: "\x1e" }
   # Keep MacOS shortcut for clearing screen
-  - { key: K, mods: Command|Super, chars: "\x0c" }
-
+  - { key: K, mods: Command|Super, chars: "\f" }
   # (Windows, Linux, and BSD only)
   #- { key: V,        mods: Control|Shift, action: Paste            }
   #- { key: C,        mods: Control|Shift, action: Copy             }

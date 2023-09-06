@@ -33,9 +33,9 @@ gaps outer 8
 bindsym $mod+c exec chromium
 
 # Pulseaudio Controls
-bindsym XF86AudioRaiseVolume exec pactl set-sink-volume $(pacmd list-sinks |awk '/* index:/{print $3}') +5%
-bindsym XF86AudioLowerVolume exec pactl set-sink-volume $(pacmd list-sinks |awk '/* index:/{print $3}') -5%
-bindsym XF86AudioMute exec pactl set-sink-mute $(pacmd list-sinks |awk '/* index:/{print $3}') toggle
+bindsym XF86AudioRaiseVolume exec pactl set-sink-volume $(pacmd list-sinks |awk "/* index:/{print $3}") +5%
+bindsym XF86AudioLowerVolume exec pactl set-sink-volume $(pacmd list-sinks |awk "/* index:/{print $3}") -5%
+bindsym XF86AudioMute exec pactl set-sink-mute $(pacmd list-sinks |awk "/* index:/{print $3}") toggle
 
 # Screen brightness controls
 # bindsym XF86MonBrightnessUp exec sh ~/.bright.sh Up
@@ -52,7 +52,7 @@ bindsym XF86AudioPrev exec playerctl previous
 # Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
 output * bg `find $wallpapers -maxdepth 1 -type f | shuf -n 1` fill
 # HiDPI Monitor
-output 'Unknown 0xA029 0x00000000' scale 2 bg `find $wallpapers -maxdepth 1 -type f | shuf -n 1` fill position 0,0
+output "Unknown 0xA029 0x00000000" scale 2 bg `find $wallpapers -maxdepth 1 -type f | shuf -n 1` fill position 0,0
 
 #
 # Example configuration:
@@ -66,10 +66,10 @@ output 'Unknown 0xA029 0x00000000' scale 2 bg `find $wallpapers -maxdepth 1 -typ
 # Example configuration:
 #
 # exec swayidle -w \
-#          timeout 300 'swaylock -f -c 000000' \
-#          timeout 600 'swaymsg "output * dpms off"' \
-#               resume 'swaymsg "output * dpms on"' \
-#          before-sleep 'swaylock -f -c 000000'
+#          timeout 300 "swaylock -f -c 000000" \
+#          timeout 600 "swaymsg 'output * dpms off'" \
+#               resume "swaymsg 'output * dpms on'" \
+#          before-sleep "swaylock -f -c 000000"
 #
 # This will lock your screen after 300 seconds of inactivity, then turn off
 # your displays after another 300 seconds, and turn your screens back on when
