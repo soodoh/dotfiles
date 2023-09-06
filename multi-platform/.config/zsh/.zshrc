@@ -17,6 +17,11 @@ export LF_ICONS
 export EDITOR='nvim'
 export VISUAL='nvim'
 
+# Preserve history across multiple shells
+export HISTCONTROL=ignoredups:erasedups
+shopt -s histappend
+export PROMPT_COMMAND="history -a; history -c; history -r; $PROMPT_COMMAND"
+
 # GPG can use stdin
 export GPG_TTY="$(tty)"
 
