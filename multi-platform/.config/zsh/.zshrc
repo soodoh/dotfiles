@@ -1,5 +1,5 @@
-# Set aliases from a separate file
-source $HOME/.config/zsh/aliases.sh
+source $HOME/.config/zsh/aliases.zsh
+source $HOME/.config/zsh/opts.zsh
 
 # Add LF_ICONS env var for lf icons
 # Strips comments from the file, trims whitespace, then formats for LF
@@ -16,11 +16,6 @@ export LF_ICONS
 # Preferred editor for local and remote sessions
 export EDITOR="nvim"
 export VISUAL="nvim"
-
-# Preserve history across multiple shells
-export HISTCONTROL=ignoredups:erasedups
-shopt -s histappend
-export PROMPT_COMMAND="history -a; history -c; history -r; $PROMPT_COMMAND"
 
 # GPG can use stdin
 export GPG_TTY="$(tty)"
