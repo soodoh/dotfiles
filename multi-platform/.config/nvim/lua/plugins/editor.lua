@@ -3,30 +3,7 @@ return function(use)
     use({
         "nvim-tree/nvim-tree.lua",
         requires = { "nvim-tree/nvim-web-devicons" },
-        config = function()
-            require("nvim-tree").setup({
-                sort_by = "case_insensitive",
-                filters = {
-                    dotfiles = false,
-                },
-                git = {
-                    enable = true,
-                    ignore = false,
-                },
-            })
-            vim.keymap.set(
-                "n",
-                "<leader>nn",
-                ":NvimTreeToggle<CR>",
-                { silent = true }
-            )
-            vim.keymap.set(
-                "n",
-                "<leader>nf",
-                ":NvimTreeFindFile<CR>",
-                { silent = true }
-            )
-        end,
+        config = require("configs.nvim-tree"),
     })
 
     -- Git status in column
