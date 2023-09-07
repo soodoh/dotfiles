@@ -7,6 +7,7 @@
    ```
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
+
    Then run caveat command so that `brew` is in the `$PATH`. Once we symlink the `.zprofile`, this will happen automatically.
 
 1. Install tools
@@ -215,18 +216,5 @@ export NVM_DIR="$HOME/.nvm"
       ```
 
 1. Open Neovim and run `:PackerInstall`
-
-1. Install LSPs in Neovim
-
-These are used in the null-ls config:
-
-```
-cargo install stylua
-pip3 install black
-npm install -g \
-   eslint_d \
-   prettier \
-   @fsouza/prettierd
-```
 
 1. Open Tmux and install tmux plugins (\<prefix\> + I)

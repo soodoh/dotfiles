@@ -56,13 +56,6 @@ return function(use)
         },
     })
 
-    -- LSP provider for diagnostics, formatting & code actions
-    use({
-        "jose-elias-alvarez/null-ls.nvim",
-        requires = { "nvim-lua/plenary.nvim" },
-        config = require("configs.lsp.null-ls"),
-    })
-
     -- Package manager for LSP/DAP/Linters/Formatters
     use({
         "williamboman/mason.nvim",
@@ -96,9 +89,7 @@ return function(use)
                 ensure_installed = {
                     "black",
                     "stylua",
-                    "eslint_d",
                     "prettier",
-                    "prettierd",
                 },
                 auto_update = true,
             })
@@ -116,7 +107,8 @@ return function(use)
         config = require("configs.lsp"),
     })
     use({
-        "elentok/format-on-save.nvim",
-        config = require("configs.format-on-save"),
+        "creativenull/efmls-configs-nvim",
+       requires  = {'neovim/nvim-lspconfig'},
+        -- config = require('configs.lsp.efm')
     })
 end

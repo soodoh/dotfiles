@@ -1,19 +1,24 @@
 return function()
-    -- Use LspAttach autocommand to only map the following keys
-    -- after the language server attaches to the current buffer
     vim.api.nvim_create_autocmd("LspAttach", {
         group = vim.api.nvim_create_augroup("UserLspConfig", {}),
         callback = function(ev)
-            -- Buffer local mappings.
-            -- See `:help vim.lsp.*` for documentation on any of the below functions
             local opts = { buffer = ev.buf }
             vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
             vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
             vim.keymap.set("n", "gy", vim.lsp.buf.type_definition, opts)
             vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
             vim.keymap.set("n", "gf", function()
-                vim.lsp.buf.format({ async = true })
+                vim.lsp.buf.format({ async = false })
             end, opts)
+        end,
+    })
+    -- Format on save
+    local augroup = vim.api.nvim_create_augroup("AutoFormatting", {})
+    vim.api.nvim_clear_autocmds({ group = augroup })
+    vim.api.nvim_create_autocmd("BufWritePre", {
+        group = augroup,
+        callback = function()
+            vim.lsp.buf.format({ async = false })
         end,
     })
 
@@ -28,32 +33,38 @@ return function()
     -- Setup lspconfig with cmp (auto complete)
     local lspconfig = require("lspconfig")
     local get_setup = require("configs.lsp.default-setup")
-    local default_opts = get_setup(true)
     -- Unix
-    lspconfig.awk_ls.setup(default_opts)
-    lspconfig.bashls.setup(default_opts)
+    lspconfig.awk_ls.setup(get_setup())
+    lspconfig.bashls.setup(get_setup())
     lspconfig.jsonls.setup(require("configs.lsp.json"))
-    lspconfig.taplo.setup(default_opts)
-    lspconfig.yamlls.setup(default_opts)
+    lspconfig.taplo.setup(get_setup())
+    lspconfig.yamlls.setup(get_setup())
     -- Web
-    lspconfig.cssls.setup(default_opts)
-    lspconfig.cssmodules_ls.setup(default_opts)
-    lspconfig.emmet_ls.setup(default_opts)
-    lspconfig.graphql.setup(default_opts)
-    lspconfig.html.setup(default_opts)
-    lspconfig.intelephense.setup(default_opts)
-    lspconfig.marksman.setup(default_opts)
-    lspconfig.svelte.setup(default_opts)
-    lspconfig.tsserver.setup(get_setup())
+    lspconfig.cssls.setup(get_setup())
+    lspconfig.cssmodules_ls.setup(get_setup())
+    lspconfig.efm.setup(require("configs.lsp.efm"))
+    lspconfig.emmet_ls.setup(get_setup())
+    lspconfig.eslint.setup(get_setup({
+        -- Annoying hacky fix required, seen in these threads:
+        -- https://neovim.discourse.group/t/using-eslint-language-server-as-a-formatter-fix-all-eslint-errors/1966/8
+        -- https://www.reddit.com/r/neovim/comments/ultmx0/how_to_setup_eslint_to_format_on_save_with_nvims/
+        format = true,
+    }))
+    lspconfig.graphql.setup(get_setup())
+    lspconfig.html.setup(get_setup())
+    lspconfig.intelephense.setup(get_setup())
+    lspconfig.marksman.setup(get_setup())
+    lspconfig.svelte.setup(get_setup())
+    lspconfig.tsserver.setup(get_setup({ format = false }))
     -- Server
-    lspconfig.clangd.setup(default_opts)
-    lspconfig.dockerls.setup(default_opts)
-    lspconfig.docker_compose_language_service.setup(default_opts)
-    lspconfig.gopls.setup(default_opts)
-    lspconfig.lua_ls.setup(default_opts)
-    lspconfig.pyright.setup(default_opts)
-    lspconfig.rust_analyzer.setup(default_opts)
-    lspconfig.terraformls.setup(default_opts)
+    lspconfig.clangd.setup(get_setup())
+    lspconfig.dockerls.setup(get_setup())
+    lspconfig.docker_compose_language_service.setup(get_setup())
+    lspconfig.gopls.setup(get_setup())
+    lspconfig.lua_ls.setup(get_setup())
+    lspconfig.pyright.setup(get_setup())
+    lspconfig.rust_analyzer.setup(get_setup())
+    lspconfig.terraformls.setup(get_setup())
 
     -- Format the diagnostic messages
     vim.lsp.handlers["textDocument/publishDiagnostics"] =

@@ -1,5 +1,5 @@
 local get_setup = require("configs.lsp.default-setup")
-local json_opts = get_setup(true)
+local json_opts = get_setup()
 
 json_opts.settings = {
     json = {
