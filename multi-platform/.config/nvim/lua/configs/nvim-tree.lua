@@ -22,7 +22,6 @@ return function()
     })
 
     require("nvim-tree").setup({
-        sort_by = "case_insensitive",
         filters = {
             dotfiles = false,
         },
