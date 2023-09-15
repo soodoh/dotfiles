@@ -45,12 +45,6 @@ return function()
     lspconfig.cssmodules_ls.setup(get_setup())
     lspconfig.efm.setup(require("configs.lsp.efm"))
     lspconfig.emmet_ls.setup(get_setup())
-    lspconfig.eslint.setup(get_setup({
-        -- Annoying hacky fix required, seen in these threads:
-        -- https://neovim.discourse.group/t/using-eslint-language-server-as-a-formatter-fix-all-eslint-errors/1966/8
-        -- https://www.reddit.com/r/neovim/comments/ultmx0/how_to_setup_eslint_to_format_on_save_with_nvims/
-        format = true,
-    }))
     lspconfig.graphql.setup(get_setup())
     lspconfig.html.setup(get_setup())
     lspconfig.intelephense.setup(get_setup())
