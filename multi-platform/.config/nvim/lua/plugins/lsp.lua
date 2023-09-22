@@ -107,8 +107,8 @@ return function(use)
         config = require("configs.lsp"),
     })
     use({
-        "creativenull/efmls-configs-nvim",
-       requires  = {'neovim/nvim-lspconfig'},
-        -- config = require('configs.lsp.efm')
+        "jose-elias-alvarez/null-ls.nvim",
+        requires = { "nvim-lua/plenary.nvim" },
+        config = require("configs.lsp.null-ls"),
     })
 end
