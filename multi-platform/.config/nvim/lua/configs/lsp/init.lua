@@ -25,7 +25,7 @@ return function()
 
     -- Diagnostic icons
     local signs =
-        { Error = "", Warn = "", Hint = "", Info = "" }
+    { Error = "", Warn = "", Hint = "", Info = "" }
     for type, icon in pairs(signs) do
         local hl = "DiagnosticSign" .. type
         vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
@@ -49,7 +49,7 @@ return function()
     lspconfig.intelephense.setup(get_setup())
     lspconfig.marksman.setup(get_setup())
     lspconfig.svelte.setup(get_setup())
-    lspconfig.tsserver.setup(get_setup())
+    lspconfig.tsserver.setup(get_setup({ format = false }))
     -- Server
     lspconfig.clangd.setup(get_setup())
     lspconfig.dockerls.setup(get_setup())
