@@ -7,10 +7,10 @@ return function()
     local get_setup = require("configs.lsp.default-setup")
     local null_ls_opts = get_setup()
     null_ls_opts.sources = {
-        formatting.eslint_d,
-        diagnostics.eslint_d,
-        code_actions.eslint_d,
-        formatting.prettier.with({
+        formatting.eslint,
+        diagnostics.eslint,
+        code_actions.eslint,
+        formatting.prettierd.with({
             extra_filetypes = {
                 "svelte",
             },
