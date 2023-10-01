@@ -1,27 +1,26 @@
-return function(use)
+return {
     -- Treesitter (LSP-based syntax highlighting)
-    use({
+    {
         "nvim-treesitter/nvim-treesitter",
-        run = ":TSUpdate",
-        requires = { "HiPhish/rainbow-delimiters.nvim" },
+        build = ":TSUpdate",
+        dependencies = "HiPhish/rainbow-delimiters.nvim",
         config = require("configs.treesitter"),
-    })
+    },
 
     -- Better UI for LSP (code actions, diagnostics)
-    use({
+    {
         "nvimdev/lspsaga.nvim",
-        after = "nvim-lspconfig",
-        config = require("configs.lspsaga"),
-        requires = {
+        dependencies = {
             "nvim-tree/nvim-web-devicons",
             "nvim-treesitter/nvim-treesitter",
         },
-    })
+        config = require("configs.lspsaga"),
+    },
 
     -- Autocomplete
-    use({
+    {
         "hrsh7th/nvim-cmp",
-        requires = {
+        dependencies = {
             "hrsh7th/cmp-nvim-lsp",
             "hrsh7th/cmp-buffer",
             "hrsh7th/cmp-path",
@@ -36,30 +35,31 @@ return function(use)
             "saadparwaiz1/cmp_luasnip",
         },
         config = require("configs.nvim-cmp"),
-    })
+    },
 
     -- Snippet Engine (used by nvim-cmp)
-    use({
+    {
         "L3MON4D3/LuaSnip",
-        run = "make install_jsregexp",
+        version = "2.*",
+        build = "make install_jsregexp",
         config = require("configs.luasnip"),
-    })
+    },
 
     -- ChatGPT integration
-    use({
+    {
         "jackMort/ChatGPT.nvim",
-        config = require("configs.chatgpt"),
-        requires = {
+        dependencies = {
             "MunifTanjim/nui.nvim",
             "nvim-lua/plenary.nvim",
             "nvim-telescope/telescope.nvim",
         },
-    })
+        config = require("configs.chatgpt"),
+    },
 
     -- Package manager for LSP/DAP/Linters/Formatters
-    use({
+    {
         "williamboman/mason.nvim",
-        run = ":MasonUpdate",
+        build = ":MasonUpdate",
         config = function()
             require("mason").setup({
                 ui = {
@@ -67,23 +67,20 @@ return function(use)
                 },
             })
         end,
-    })
+    },
 
     -- Closes gaps between mason.nvim & lspconfig
-    use({
+    {
         "williamboman/mason-lspconfig.nvim",
-        after = "mason.nvim",
         config = function()
             require("mason-lspconfig").setup({
                 automatic_installation = true,
             })
         end,
-    })
-
+    },
     -- Automatically installs 3rd party tools
-    use({
+    {
         "WhoIsSethDaniel/mason-tool-installer.nvim",
-        after = "mason-lspconfig.nvim",
         config = function()
             require("mason-tool-installer").setup({
                 ensure_installed = {
@@ -94,10 +91,10 @@ return function(use)
                 auto_update = true,
             })
         end,
-    })
+    },
 
     -- Configs for nvim LSP client
-    use({
+    {
         "neovim/nvim-lspconfig",
         after = "mason-lspconfig.nvim",
         requires = {
@@ -105,10 +102,10 @@ return function(use)
             "hrsh7th/nvim-cmp",
         },
         config = require("configs.lsp"),
-    })
-    use({
+    },
+    {
         "jose-elias-alvarez/null-ls.nvim",
         requires = { "nvim-lua/plenary.nvim" },
         config = require("configs.lsp.null-ls"),
-    })
-end
+    },
+}
