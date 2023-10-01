@@ -9,23 +9,14 @@ return function()
             vim.keymap.set("n", "gy", vim.lsp.buf.type_definition, opts)
             vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
             vim.keymap.set("n", "gf", function()
-                vim.lsp.buf.format({ async = false })
+                vim.cmd("GuardFmt")
             end, opts)
-        end,
-    })
-    -- Format on save
-    local augroup = vim.api.nvim_create_augroup("AutoFormatting", {})
-    vim.api.nvim_clear_autocmds({ group = augroup })
-    vim.api.nvim_create_autocmd("BufWritePre", {
-        group = augroup,
-        callback = function()
-            vim.lsp.buf.format({ async = false })
         end,
     })
 
     -- Diagnostic icons
     local signs =
-    { Error = "", Warn = "", Hint = "", Info = "" }
+        { Error = "", Warn = "", Hint = "", Info = "" }
     for type, icon in pairs(signs) do
         local hl = "DiagnosticSign" .. type
         vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
@@ -44,6 +35,7 @@ return function()
     lspconfig.cssls.setup(get_setup())
     lspconfig.cssmodules_ls.setup(get_setup())
     lspconfig.emmet_ls.setup(get_setup())
+    -- lspconfig.eslint.setup(get_setup({ format = true }))
     lspconfig.graphql.setup(get_setup())
     lspconfig.html.setup(get_setup())
     lspconfig.intelephense.setup(get_setup())
