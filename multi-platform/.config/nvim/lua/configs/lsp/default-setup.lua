@@ -1,10 +1,10 @@
 return function(opts)
     local lsp_opts = {}
 
-    -- On attach, used for formatting logic
-    lsp_opts.on_attach = function(client, bufnr)
-        -- Explicitly enable/disable formatting per LSP provider
-        if opts ~= nil and opts.format ~= nil then
+    -- Explicitly enable/disable formatting per LSP provider
+    if opts ~= nil and opts.format ~= nil then
+        -- On attach, used for formatting logic
+        lsp_opts.on_attach = function(client, bufnr)
             client.server_capabilities.documentFormattingProvider =
                 opts.format
         end

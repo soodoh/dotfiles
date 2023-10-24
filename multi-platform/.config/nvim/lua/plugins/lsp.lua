@@ -103,11 +103,5 @@ return {
         },
         config = require("configs.lsp"),
     },
-    {
-        "nvimdev/guard.nvim",
-        dependencies = {
-            "nvimdev/guard-collection",
-        },
-        config = require("configs.lsp.guard"),
-    },
+    "creativenull/efmls-configs-nvim",
 }
