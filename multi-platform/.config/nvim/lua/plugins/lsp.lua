@@ -1,4 +1,6 @@
 return {
+  -- Zip plugin (needed for Yarn PnP compatibility)
+  "lbrayner/vim-rzip",
   -- Treesitter (LSP-based syntax highlighting)
   {
     "nvim-treesitter/nvim-treesitter",

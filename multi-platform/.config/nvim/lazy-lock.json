@@ -48,5 +48,6 @@
   "telescope-live-grep-raw.nvim": { "branch": "master", "commit": "731a046da7dd3adff9de871a42f9b7fb85f60f47" },
   "telescope.nvim": { "branch": "master", "commit": "f336f8cfab38a82f9f00df380d28f0c2a572f862" },
   "toggleterm.nvim": { "branch": "main", "commit": "91be5f327e42aa016da13b277540de8dba0b14e3" },
-  "trouble.nvim": { "branch": "main", "commit": "f1168feada93c0154ede4d1fe9183bf69bac54ea" }
+  "trouble.nvim": { "branch": "main", "commit": "f1168feada93c0154ede4d1fe9183bf69bac54ea" },
+  "vim-rzip": { "branch": "master", "commit": "f65400fed27b27c7cff7ef8d428c4e5ff749bf28" }
 }
