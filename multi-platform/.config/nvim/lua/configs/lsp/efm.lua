@@ -13,8 +13,13 @@ local prettier = {
   },
 }
 local eslint = {
-  formatCommand = "eslint_d --fix-to-stdout --stdin-filename '${INPUT}' --stdin",
-  formatStdin = true,
+  formatCommand = "eslint --fix '${INPUT}'",
+  formatStdin = false,
+  rootMarkers = {
+    ".eslintrc",
+    ".eslintrc.js",
+    ".eslintrc.json",
+  },
 }
 local stylua = {
   formatCanRange = true,
@@ -25,10 +30,10 @@ local stylua = {
 
 local languages = {
   lua = { stylua },
-  typescript = { prettier, eslint },
-  javascript = { prettier, eslint },
-  typescriptreact = { prettier, eslint },
-  javascriptreact = { prettier, eslint },
+  typescript = { prettier },
+  javascript = { prettier },
+  typescriptreact = { prettier },
+  javascriptreact = { prettier },
   css = { prettier },
   graphql = { prettier },
   html = { prettier },
