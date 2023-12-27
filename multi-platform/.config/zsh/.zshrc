@@ -31,6 +31,8 @@ PATH=$HOME/.cargo/bin:$PATH
 # Include Go packages in $PATH
 export GOPATH=$HOME/go
 PATH=$GOPATH/bin:$PATH
+# Include Ruby in $PATH
+PATH="/opt/homebrew/opt/ruby/bin:$PATH"
 
 # Settings for zsh-vi-mode
 ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
