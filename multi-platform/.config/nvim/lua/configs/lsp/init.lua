@@ -4,6 +4,7 @@ return function()
     group = vim.api.nvim_create_augroup("UserLspConfig", {}),
     callback = function(ev)
       local opts = { buffer = ev.buf }
+      vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
       vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
       vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
       vim.keymap.set("n", "gf", function()
@@ -48,6 +49,7 @@ return function()
   lspconfig.gopls.setup(get_setup())
   lspconfig.lua_ls.setup(get_setup())
   lspconfig.pyright.setup(get_setup())
+  lspconfig.ruby_ls.setup(get_setup())
   lspconfig.rust_analyzer.setup(get_setup())
   lspconfig.terraformls.setup(get_setup())
 
