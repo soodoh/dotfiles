@@ -1,6 +1,3 @@
-local get_setup = require("configs.lsp.default-setup")
-local efm_opts = get_setup()
-
 local prettier = {
   formatCanRange = true,
   formatCommand =
@@ -10,15 +7,6 @@ local prettier = {
     ".prettierrc",
     ".prettierrc.json",
     ".prettierrc.yml",
-  },
-}
-local eslint = {
-  formatCommand = "eslint --fix '${INPUT}'",
-  formatStdin = false,
-  rootMarkers = {
-    ".eslintrc",
-    ".eslintrc.js",
-    ".eslintrc.json",
   },
 }
 local stylua = {
@@ -42,6 +30,7 @@ local languages = {
   python = { prettier },
 }
 
+local efm_opts = require("plugins.lsp.lsp_opts")()
 efm_opts.filetypes = vim.tbl_keys(languages)
 efm_opts.init_options = {
   documentFormatting = true,

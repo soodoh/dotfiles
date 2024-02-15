@@ -31,23 +31,6 @@ return {
     end,
   },
 
-  -- Welcome dashboard
-  {
-    "nvimdev/dashboard-nvim",
-    config = require("configs.dashboard"),
-    dependencies = { "nvim-tree/nvim-web-devicons" },
-  },
-
-  -- Show line indents
-  {
-    "lukas-reineke/indent-blankline.nvim",
-    config = require("configs.indent-blankline"),
-    dependencies = {
-      "HiPhish/rainbow-delimiters.nvim",
-      "nvim-treesitter/nvim-treesitter",
-    },
-  },
-
   -- Smooth scrolling
   {
     "karb94/neoscroll.nvim",
@@ -59,14 +42,6 @@ return {
         performance_mode = true,
       })
     end,
-  },
-
-  -- Better buffer tab line
-  {
-    "akinsho/bufferline.nvim",
-    version = "*",
-    dependencies = "nvim-tree/nvim-web-devicons",
-    config = require("configs.bufferline-config"),
   },
 
   -- Status Line
@@ -87,11 +62,5 @@ return {
         css = { css = true },
       })
     end,
-  },
-
-  -- Custom number/folds/gitsigns column
-  {
-    "luukvbaal/statuscol.nvim",
-    config = require("configs.statuscol"),
   },
 }

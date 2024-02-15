@@ -1,5 +1,3 @@
-require("lsp-format").setup()
-
 return function(opts)
   local lsp_opts = {}
 
