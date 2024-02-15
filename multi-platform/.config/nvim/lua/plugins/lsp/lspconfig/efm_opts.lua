@@ -30,7 +30,7 @@ local languages = {
   python = { prettier },
 }
 
-local efm_opts = require("plugins.lsp.lsp_opts")()
+local efm_opts = require("plugins.lsp.lspconfig.default_opts")()
 efm_opts.filetypes = vim.tbl_keys(languages)
 efm_opts.init_options = {
   documentFormatting = true,

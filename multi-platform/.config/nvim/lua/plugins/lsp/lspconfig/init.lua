@@ -44,7 +44,7 @@ return {
       end
 
       -- Setup lspconfig with cmp (auto complete)
-      local get_opts = require("plugins.lsp.lsp_opts")
+      local get_opts = require("plugins.lsp.lspconfig.default_opts")
       local lspconfig = require("lspconfig")
       -- Unix
       lspconfig.awk_ls.setup(get_opts())
@@ -57,7 +57,7 @@ return {
       lspconfig.cssmodules_ls.setup(get_opts())
       lspconfig.emmet_ls.setup(get_opts())
       lspconfig.eslint.setup(get_opts({ format = true }))
-      lspconfig.efm.setup(require("plugins.lsp.efm_opts"))
+      lspconfig.efm.setup(require("plugins.lsp.lspconfig.efm_opts"))
       lspconfig.graphql.setup(get_opts())
       lspconfig.html.setup(get_opts())
       lspconfig.intelephense.setup(get_opts())

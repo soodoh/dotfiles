@@ -1,17 +1,4 @@
 return {
-  -- Get github URL to current line
-  {
-    "ruifm/gitlinker.nvim",
-    dependencies = "nvim-lua/plenary.nvim",
-    config = function()
-      require("gitlinker").setup({
-        callbacks = {
-          ["github%..+%.com"] = require("gitlinker.hosts").get_github_type_url,
-        },
-      })
-    end,
-  },
-
   -- Hotkeys for surrounding brackets/functions/HTML tags
   {
     "kylechui/nvim-surround",
