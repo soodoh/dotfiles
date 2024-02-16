@@ -1,4 +1,15 @@
 return {
+  -- Displays popup with possible key bindings of the command being typed
+  {
+    "folke/which-key.nvim",
+    event = "VeryLazy",
+    init = function()
+      vim.o.timeout = true
+      vim.o.timeoutlen = 300
+    end,
+    opts = {},
+  },
+
   -- Hotkeys for surrounding brackets/functions/HTML tags
   {
     "kylechui/nvim-surround",
