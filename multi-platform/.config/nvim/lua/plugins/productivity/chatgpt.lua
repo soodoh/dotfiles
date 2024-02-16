@@ -8,29 +8,36 @@ return {
       "nvim-telescope/telescope.nvim",
     },
     config = function()
-      require("chatgpt").setup({
+      local chatgpt = require("chatgpt")
+      chatgpt.setup({
         yank_register = "*",
         popup_input = {
           submit = "<C-s>",
         },
         openai_params = {
-          model = "gpt-3.5-turbo",
+          model = "gpt-4-turbo-preview",
         },
       })
 
       vim.keymap.set(
         "n",
-        "<leader>fc",
+        "<leader>vv",
         ":ChatGPT<CR>",
         { silent = true }
       )
       vim.keymap.set(
         "n",
-        "<leader>fe",
+        "<leader>va",
+        ":ChatGPTActAs<CR>",
+        { silent = true }
+      )
+      vim.keymap.set(
+        { "n", "v" },
+        "<leader>ve",
         ":ChatGPTEditWithInstructions<CR>",
         { silent = true }
       )
-      vim.keymap.set("n", "<leader>fr", ":ChatGPTRun ")
+      vim.keymap.set({ "n", "v" }, "<leader>vw", ":ChatGPTRun ")
     end,
   },
 }
