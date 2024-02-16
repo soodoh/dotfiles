@@ -6,5 +6,10 @@ return {
   "lbrayner/vim-rzip",
 
   -- Setup init.lua/plugin development with better LSP & completion
-  "folke/neodev.nvim",
+  {
+    "folke/neodev.nvim",
+    config = function()
+      require("neodev").setup()
+    end,
+  },
 }

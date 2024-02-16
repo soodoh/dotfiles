@@ -10,10 +10,10 @@ vim.keymap.set("i", "<C-d>", "<Del>", { silent = true })
 
 -- Toggle relative number
 vim.keymap.set(
-    "n",
-    "<leader>r",
-    ":exec &rnu == 1 ? 'set nornu!' : 'set rnu!'<CR>",
-    { silent = true }
+  "n",
+  "<leader>r",
+  ":exec &rnu == 1 ? 'set nornu!' : 'set rnu!'<CR>",
+  { silent = true }
 )
 
 -- Reselect visual selection after indenting

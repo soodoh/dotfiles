@@ -2,7 +2,7 @@ return {
   -- Configs for nvim LSP client
   {
     "neovim/nvim-lspconfig",
-    after = "mason-lspconfig.nvim",
+    after = { "mason-lspconfig.nvim", "folke/neodev.nvim" },
     dependencies = {
       "hrsh7th/nvim-cmp",       -- Better autocomplete
       "lukas-reineke/lsp-format.nvim",

@@ -79,14 +79,22 @@ return {
         },
         sources = cmp.config.sources({
           { name = "nvim_lsp" },
-          { name = "luasnip" },
+          {
+            name = "luasnip",
+            option = {
+              show_autosnippets = true,
+              use_show_condition = false,
+            },
+          },
           { name = "nvim_lua" },
           { name = "emoji" },
           { name = "nerdfont" },
-        }, {
           { name = "path" },
-          { name = "buffer" },
+          { name = "buffer",  group_index = 2 },
         }),
+        sorting = {
+          priority_weight = 1.0,
+        },
         formatting = {
           format = lspkind.cmp_format({
             mode = "symbol_text",
@@ -109,7 +117,6 @@ return {
         mapping = cmp.mapping.preset.cmdline(),
         sources = cmp.config.sources({
           { name = "path" },
-        }, {
           {
             name = "cmdline",
             option = {
