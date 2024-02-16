@@ -1,8 +1,6 @@
 -- basic settings
-vim.opt.backspace = "indent,eol,start"                     -- backspace works on every char in insert mode
+vim.opt.backspace = "indent,eol,start" -- backspace works on every char in insert mode
 vim.opt.history = 1000
-vim.opt.mouse = "a"                                        -- fix for mouse in Alacritty
-vim.cmd("autocmd BufNewFile,BufRead *.json setl ft=jsonc") -- Treat JSON as JSONC
 
 -- Display
 vim.opt.showmatch = true -- show matching brackets

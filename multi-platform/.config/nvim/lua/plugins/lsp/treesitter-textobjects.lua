@@ -12,7 +12,16 @@ return {
             floating_preview_opts = {},
             peek_definition_code = {
               ["<leader>df"] = "@function.outer",
-              ["<leader>dF"] = "@class.outer",
+              -- ["<leader>dF"] = "@class.outer",
+            },
+          },
+          swap = {
+            enable = true,
+            swap_next = {
+              ["<leader>ss"] = "@parameter.inner",
+            },
+            swap_previous = {
+              ["<leader>sa"] = "@parameter.inner",
             },
           },
           select = {
@@ -20,6 +29,8 @@ return {
             keymaps = {
               ["af"] = "@function.outer",
               ["if"] = "@function.inner",
+              ["ac"] = "@call.outer",
+              ["ic"] = "@call.inner",
               -- Map both just to avoid confusion with "sentence" text object
               ["is"] = "@scope",
               ["as"] = "@scope",
