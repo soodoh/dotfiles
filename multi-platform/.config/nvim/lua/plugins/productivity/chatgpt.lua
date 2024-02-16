@@ -2,6 +2,7 @@ return {
   -- ChatGPT integration
   {
     "jackMort/ChatGPT.nvim",
+    event = "VeryLazy",
     dependencies = {
       "MunifTanjim/nui.nvim",
       "nvim-lua/plenary.nvim",
@@ -16,6 +17,7 @@ return {
         },
         openai_params = {
           model = "gpt-4-turbo-preview",
+          max_tokens = 500,
         },
       })
 
