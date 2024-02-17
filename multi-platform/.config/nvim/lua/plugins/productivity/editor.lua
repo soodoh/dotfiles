@@ -1,23 +1,10 @@
 return {
-  -- Displays popup with possible key bindings of the command being typed
-  {
-    "folke/which-key.nvim",
-    event = "VeryLazy",
-    init = function()
-      vim.o.timeout = true
-      vim.o.timeoutlen = 300
-    end,
-    opts = {},
-  },
-
   -- Hotkeys for surrounding brackets/functions/HTML tags
   {
     "kylechui/nvim-surround",
     version = "*",
     event = "VeryLazy",
-    config = function()
-      require("nvim-surround").setup()
-    end,
+    opts = {},
   },
 
   -- Hotkeys to move in buffer
@@ -27,8 +14,10 @@ return {
     config = function()
       -- require("hop").setup({ keys = "etovxqpdygfblzhckisuran" })
       require("hop").setup()
-      vim.keymap.set("n", "s", ":HopChar2<CR>")
-      vim.keymap.set("n", "gl", ":HopLineStart<CR>")
+      require("which-key").register({
+        s = { ":HopChar2<CR>", "Go to (Hop)" },
+        gl = { ":HopLineStart<CR>", "Go to line (Hop)" },
+      })
     end,
   },
 
@@ -36,21 +25,22 @@ return {
   {
     "famiu/bufdelete.nvim",
     config = function()
-      vim.keymap.set(
-        "n",
-        "<leader>d",
-        ":Bdelete<CR>",
-        { silent = true }
-      )
-      vim.keymap.set("n", "<leader>w", ":bd<CR>", { silent = true })
+      require("which-key").register({
+        ["<leader>d"] = {
+          name = "BufDelete",
+          d = {
+            ":Bdelete<CR>",
+            "Close buffer (keep window open)",
+          },
+          w = { ":bd<CR>", "Close buffer & window" },
+        },
+      })
     end,
   },
 
   -- Automatically enter (){}[] while typing
   {
     "windwp/nvim-autopairs",
-    config = function()
-      require("nvim-autopairs").setup()
-    end,
+    opts = {},
   },
 }

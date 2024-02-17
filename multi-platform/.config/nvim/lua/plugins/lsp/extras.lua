@@ -8,8 +8,6 @@ return {
   -- Setup init.lua/plugin development with better LSP & completion
   {
     "folke/neodev.nvim",
-    config = function()
-      require("neodev").setup()
-    end,
+    opts = {},
   },
 }

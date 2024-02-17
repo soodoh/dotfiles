@@ -1,4 +1,5 @@
--- basic settings
+-- Basic settings
+vim.g.mapleader = " "
 vim.opt.backspace = "indent,eol,start" -- backspace works on every char in insert mode
 vim.opt.history = 1000
 
@@ -14,8 +15,8 @@ vim.opt.sidescrolloff = 8
 -- Git diff
 vim.opt.diffopt = "vertical"
 
--- Sidebar
-vim.opt.relativenumber = false
+-- Status column
+vim.opt.relativenumber = true
 vim.opt.number = true
 vim.opt.numberwidth = 3 -- always reserve 3 spaces for line number
 vim.opt.modelines = 0

@@ -16,21 +16,15 @@ return {
         direction = "float",
         hidden = true,
       })
-      local lf = Terminal:new({
-        cmd = "lf",
-        direction = "float",
-        hidden = true,
+
+      require("which-key").register({
+        ["<leader>gg"] = {
+          function()
+            lazygit:toggle()
+          end,
+          "Toggle (LazyGit)",
+        },
       })
-
-      -- Lazygit
-      vim.keymap.set("n", "<leader>gg", function()
-        lazygit:toggle()
-      end, { noremap = true, silent = true })
-
-      -- LF file manager
-      vim.keymap.set("n", "<leader>e", function()
-        lf:toggle()
-      end, { silent = true })
     end,
   },
 }

@@ -36,30 +36,24 @@ return {
         end
       end
 
-      vim.keymap.set(
-        "n",
-        "<leader>ff",
-        project_files,
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>fg",
-        ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>fb",
-        ":Telescope buffers<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>fh",
-        ":Telescope oldfiles<CR>",
-        { silent = true }
-      )
+      require("which-key").register({
+        ["<leader>f"] = {
+          name = "Telescope",
+          f = { project_files, "Find files (Telescope)" },
+          g = {
+            ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>",
+            "Grep files (Telescope)",
+          },
+          b = {
+            ":Telescope buffers<CR>",
+            "Find buffer (Telescope)",
+          },
+          h = {
+            ":Telescope oldfiles<CR>",
+            "Find old files (Telescope)",
+          },
+        },
+      })
 
       local actions = require("telescope.actions")
       local trouble = require("trouble.providers.telescope")

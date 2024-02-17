@@ -11,43 +11,34 @@ return {
           diagnostics = "nvim_lsp",
         },
       })
-
-      vim.keymap.set(
-        "n",
-        "<leader>bp",
-        ":BufferLinePick<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>bo",
-        ":BufferLineCloseOthers<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>J",
-        ":BufferLineMovePrev<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>K",
-        ":BufferLineMoveNext<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>j",
-        ":BufferLineCyclePrev<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>k",
-        ":BufferLineCycleNext<CR>",
-        { silent = true }
-      )
+      require("which-key").register({
+        ["<leader>"] = {
+          b = {
+            name = "Buffers",
+            p = { ":BufferLinePick<CR>", "Go to (BufferLine)" },
+            o = {
+              ":BufferLineCloseOthers<CR>",
+              "Close all (BufferLine)",
+            },
+          },
+          j = {
+            ":BufferLineCyclePrev<CR>",
+            "Go left (BufferLine)",
+          },
+          k = {
+            ":BufferLineCycleNext<CR>",
+            "Go right (BufferLine)",
+          },
+          J = {
+            ":BufferLineMovePrev<CR>",
+            "Move left (BufferLine)",
+          },
+          K = {
+            ":BufferLineMoveNext<CR>",
+            "Move right (BufferLine)",
+          },
+        },
+      })
     end,
   },
 }

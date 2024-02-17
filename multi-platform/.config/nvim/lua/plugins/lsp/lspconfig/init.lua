@@ -13,22 +13,29 @@ return {
         group = vim.api.nvim_create_augroup("UserLspConfig", {}),
         callback = function(ev)
           local opts = { buffer = ev.buf }
-          vim.keymap.set(
-            "n",
-            "gi",
-            vim.lsp.buf.implementation,
-            opts
-          )
-          vim.keymap.set(
-            "n",
-            "gD",
-            vim.lsp.buf.declaration,
-            opts
-          )
-          vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
-          vim.keymap.set("n", "gf", function()
-            vim.lsp.buf.format({ async = true })
-          end, opts)
+          require("which-key").register({
+            gi = {
+              vim.lsp.buf.implementation,
+              "Go to implementation (LSP)",
+              buffer = ev.buf,
+            },
+            gD = {
+              vim.lsp.buf.declaration,
+              "Go to declaration (LSP)",
+              buffer = ev.buf,
+            },
+            gd = {
+              vim.lsp.buf.definition,
+              "Go to definition (LSP)",
+              buffer = ev.buf,
+            },
+            gf = {
+              function()
+                vim.lsp.buf.format({ async = true })
+              end,
+              "Format buffer (LSP)",
+            },
+          })
         end,
       })
 

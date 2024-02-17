@@ -6,9 +6,7 @@ return {
       "nvim-lua/plenary.nvim",
       "nvim-tree/nvim-tree.lua",
     },
-    config = function()
-      require("lsp-file-operations").setup({})
-    end,
+    opts = {},
   },
 
   -- Nvim Tree file explorer
@@ -58,18 +56,21 @@ return {
           ignore = false,
         },
       })
-      vim.keymap.set(
-        "n",
-        "<leader>nn",
-        ":NvimTreeToggle<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>nf",
-        ":NvimTreeFindFile<CR>",
-        { silent = true }
-      )
+
+      require("which-key").register({
+        ["<leader>"] = {
+          n = {
+            n = {
+              ":NvimTreeToggle<CR>",
+              "Toggle (NvimTree)",
+            },
+            f = {
+              ":NvimTreeFindFile<CR>",
+              "Open to file (NvimTree)",
+            },
+          },
+        },
+      })
     end,
   },
 }

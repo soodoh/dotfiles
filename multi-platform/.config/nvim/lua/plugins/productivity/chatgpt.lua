@@ -11,7 +11,7 @@ return {
     config = function()
       local chatgpt = require("chatgpt")
       chatgpt.setup({
-        yank_register = "*",
+        yank_register = '"',
         popup_input = {
           submit = "<C-s>",
         },
@@ -21,25 +21,47 @@ return {
         },
       })
 
-      vim.keymap.set(
-        "n",
-        "<leader>vv",
-        ":ChatGPT<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>va",
-        ":ChatGPTActAs<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        { "n", "v" },
-        "<leader>ve",
-        ":ChatGPTEditWithInstructions<CR>",
-        { silent = true }
-      )
-      vim.keymap.set({ "n", "v" }, "<leader>vw", ":ChatGPTRun ")
+      require("which-key").register({
+        ["<leader>v"] = {
+          name = "ChatGPT",
+          v = {
+            ":ChatGPT<CR>",
+            "Toggle (ChatGPT)",
+          },
+          s = {
+            ":ChatGPTActAs<CR>",
+            "ActAs (ChatGPT)",
+          },
+          e = {
+            ":ChatGPTEditWithInstructions<CR>",
+            "Edit (ChatGPT)",
+            mode = { "n", "v" },
+          },
+          a = {
+            name = "Actions (ChatGPT)",
+            c = {
+              ":ChatGPTRun complete_code<CR>",
+              "Complete code",
+              mode = { "n", "v" },
+            },
+            d = {
+              ":ChatGPTRun docstring<CR>",
+              "Docstring for func",
+              mode = { "n", "v" },
+            },
+            t = {
+              ":ChatGPTRun add_tests<CR>",
+              "Docstring for func",
+              mode = { "n", "v" },
+            },
+            b = {
+              ":ChatGPTRun fix_bugs<CR>",
+              "Fix bugs",
+              mode = { "n", "v" },
+            },
+          },
+        },
+      })
     end,
   },
 }

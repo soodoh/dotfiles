@@ -4,6 +4,41 @@ return {
     after = "nvim-treesitter",
     dependencies = "nvim-treesitter/nvim-treesitter",
     config = function()
+      local goto_start = {
+        f = "@function.outer",
+        b = "@block.outer",
+        c = "@call.outer",
+        a = "@assignment.outer",
+      }
+
+      local goto_end = {
+        F = "@function.outer",
+        B = "@block.outer",
+        C = "@call.outer",
+        A = "@assignment.outer",
+      }
+
+      local move = {
+        enable = true,
+        set_jumps = true,
+        goto_next_start = {},             -- table to store the mappings for going to the next start
+        goto_previous_start = {},         -- table to store the mappings for going to the previous start
+        goto_next_end = {},               -- table to store the mappings for going to the next end
+        goto_previous_end = {},           -- table to store the mappings for going to the previous end
+      }
+
+      -- Loop through the goto_start table and add mappings to goto_next_start table
+      for key, value in pairs(goto_start) do
+        move.goto_next_start["]" .. key] = value
+        move.goto_previous_start["[" .. key] = value         -- add mappings to goto_previous_start table
+      end
+
+      -- Loop through the goto_end table and add mappings to respective tables
+      for key, value in pairs(goto_end) do
+        move.goto_next_end["]" .. key] = value             -- add mappings to goto_next_end table
+        move.goto_previous_end["[" .. key] = value         -- add mappings to goto_previous_end table
+      end
+
       require("nvim-treesitter.configs").setup({
         textobjects = {
           lsp_interop = {
@@ -11,8 +46,7 @@ return {
             border = "none",
             floating_preview_opts = {},
             peek_definition_code = {
-              ["<leader>df"] = "@function.outer",
-              -- ["<leader>dF"] = "@class.outer",
+              ["<leader>sf"] = "@function.outer",
             },
           },
           swap = {
@@ -21,7 +55,7 @@ return {
               ["<leader>ss"] = "@parameter.inner",
             },
             swap_previous = {
-              ["<leader>sa"] = "@parameter.inner",
+              ["<leader>sS"] = "@parameter.inner",
             },
           },
           select = {
@@ -31,49 +65,14 @@ return {
               ["if"] = "@function.inner",
               ["ac"] = "@call.outer",
               ["ic"] = "@call.inner",
+              ["aa"] = "@assignment.outer",
+              ["ia"] = "@assignment.inner",
               -- Map both just to avoid confusion with "sentence" text object
-              ["is"] = "@scope",
-              ["as"] = "@scope",
+              ["is"] = "@statement.outer",
+              ["as"] = "@statement.outer",
             },
           },
-          move = {
-            enable = true,
-            set_jumps = true,
-            goto_next = {
-              ["]m"] = "@function.outer",
-              ["]]"] = {
-                query = "@class.outer",
-                desc = "Next class start",
-              },
-              ["]s"] = {
-                query = "@scope",
-                query_group = "locals",
-                desc = "Next scope",
-              },
-              ["]z"] = {
-                query = "@fold",
-                query_group = "folds",
-                desc = "Next fold",
-              },
-            },
-            goto_previous = {
-              ["[m"] = "@function.outer",
-              ["[["] = {
-                query = "@class.outer",
-                desc = "Previous class start",
-              },
-              ["[s"] = {
-                query = "@scope",
-                query_group = "locals",
-                desc = "Previous scope",
-              },
-              ["[z"] = {
-                query = "@fold",
-                query_group = "folds",
-                desc = "Previous fold",
-              },
-            },
-          },
+          move = move,
         },
       })
     end,

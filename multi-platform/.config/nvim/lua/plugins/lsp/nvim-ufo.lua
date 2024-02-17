@@ -7,15 +7,24 @@ return {
     },
     config = function()
       local ufo = require("ufo")
+      ufo.setup()
       vim.o.fillchars =
       [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
       vim.o.foldcolumn = "1"
       vim.o.foldlevel = 99
       vim.o.foldlevelstart = 99
       vim.o.foldenable = true
-      vim.keymap.set("n", "zR", ufo.openAllFolds)
-      vim.keymap.set("n", "zM", ufo.closeAllFolds)
-      ufo.setup()
+
+      require("which-key").register({
+        zR = {
+          ufo.openAllFolds,
+          "Open all folds",
+        },
+        zM = {
+          ufo.closeAllFolds,
+          "Close all folds",
+        },
+      })
     end,
   },
 }

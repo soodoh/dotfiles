@@ -5,47 +5,47 @@ return {
     dependencies = "nvim-tree/nvim-web-devicons",
     config = function()
       local trouble = require("trouble")
-      -- Quickfix-like navigation
-      vim.keymap.set("n", "<leader>,", function()
-        trouble.previous({ skip_groups = true, jump = true })
-      end, { silent = true })
-      vim.keymap.set("n", "<leader>.", function()
-        trouble.next({ skip_groups = true, jump = true })
-      end, { silent = true })
 
-      -- Toggle
-      vim.keymap.set(
-        "n",
-        "<leader>xx",
-        ":TroubleToggle<CR>",
-        { silent = true }
-      )
-
-      -- Open specific items
-      vim.keymap.set(
-        "n",
-        "<leader>xw",
-        ":Trouble workspace_diagnostics<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>xd",
-        ":Trouble document_diagnostics<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>xq",
-        ":Trouble quickfix<CR>",
-        { silent = true }
-      )
-      vim.keymap.set(
-        "n",
-        "<leader>xl",
-        ":Trouble lsp_references<CR>",
-        { silent = true }
-      )
+      require("which-key").register({
+        ["<leader>,"] = {
+          function()
+            trouble.previous({
+              skip_groups = true,
+              jump = true,
+            })
+          end,
+          "Go to previous (Trouble)",
+        },
+        ["<leader>."] = {
+          function()
+            trouble.next({ skip_groups = true, jump = true })
+          end,
+          "Go to next (Trouble)",
+        },
+        ["<leader>x"] = {
+          name = "Trouble",
+          x = {
+            ":TroubleToggle<CR>",
+            "Toggle (Trouble)",
+          },
+          w = {
+            ":Trouble workspace_diagnostics<CR>",
+            "Workspace diagnostics (Trouble)",
+          },
+          d = {
+            ":Trouble document_diagnostics<CR>",
+            "Document diagnostics (Trouble)",
+          },
+          q = {
+            ":Trouble quickfix<CR>",
+            "Quickfix menu (Trouble)",
+          },
+          l = {
+            ":Trouble lsp_references<CR>",
+            "LSP references (Trouble)",
+          },
+        },
+      })
     end,
   },
 }
