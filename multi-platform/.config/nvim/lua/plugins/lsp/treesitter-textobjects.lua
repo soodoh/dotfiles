@@ -4,41 +4,6 @@ return {
     after = "nvim-treesitter",
     dependencies = "nvim-treesitter/nvim-treesitter",
     config = function()
-      local goto_start = {
-        f = "@function.outer",
-        b = "@block.outer",
-        c = "@call.outer",
-        a = "@assignment.outer",
-      }
-
-      local goto_end = {
-        F = "@function.outer",
-        B = "@block.outer",
-        C = "@call.outer",
-        A = "@assignment.outer",
-      }
-
-      local move = {
-        enable = true,
-        set_jumps = true,
-        goto_next_start = {},             -- table to store the mappings for going to the next start
-        goto_previous_start = {},         -- table to store the mappings for going to the previous start
-        goto_next_end = {},               -- table to store the mappings for going to the next end
-        goto_previous_end = {},           -- table to store the mappings for going to the previous end
-      }
-
-      -- Loop through the goto_start table and add mappings to goto_next_start table
-      for key, value in pairs(goto_start) do
-        move.goto_next_start["]" .. key] = value
-        move.goto_previous_start["[" .. key] = value         -- add mappings to goto_previous_start table
-      end
-
-      -- Loop through the goto_end table and add mappings to respective tables
-      for key, value in pairs(goto_end) do
-        move.goto_next_end["]" .. key] = value             -- add mappings to goto_next_end table
-        move.goto_previous_end["[" .. key] = value         -- add mappings to goto_previous_end table
-      end
-
       require("nvim-treesitter.configs").setup({
         textobjects = {
           lsp_interop = {
@@ -60,6 +25,7 @@ return {
           },
           select = {
             enable = true,
+            lookahead = true,
             keymaps = {
               ["af"] = "@function.outer",
               ["if"] = "@function.inner",
@@ -72,7 +38,39 @@ return {
               ["as"] = "@statement.outer",
             },
           },
-          move = move,
+          move = {
+            enable = true,
+            set_jumps = true,
+            goto_next_start = {
+              ["]f"] = "@function.outer",
+              ["]b"] = "@block.outer",
+              ["]c"] = "@call.outer",
+              ["]a"] = "@assignment.outer",
+              ["]z"] = {
+                query = "@fold",
+                query_group = "folds",
+                desc = "Next fold",
+              },
+            },
+            goto_previous_start = {
+              ["[f"] = "@function.outer",
+              ["[b"] = "@block.outer",
+              ["[c"] = "@call.outer",
+              ["[a"] = "@assignment.outer",
+            },
+            goto_next_end = {
+              ["]F"] = "@function.outer",
+              ["]B"] = "@block.outer",
+              ["]C"] = "@call.outer",
+              ["]A"] = "@assignment.outer",
+            },
+            goto_previous_end = {
+              ["[F"] = "@function.outer",
+              ["[B"] = "@block.outer",
+              ["[C"] = "@call.outer",
+              ["[A"] = "@assignment.outer",
+            },
+          },
         },
       })
     end,
