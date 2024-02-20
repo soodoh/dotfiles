@@ -4,7 +4,13 @@ return {
     "ruifm/gitlinker.nvim",
     dependencies = "nvim-lua/plenary.nvim",
     config = function()
-      require("gitlinker").setup({
+      local gitlinker = require("gitlinker")
+      gitlinker.setup({
+        opts = {
+          add_current_line_on_normal_mode = true,
+          action_callback = require("gitlinker.actions").copy_to_cliboard,
+          print_url = true,
+        },
         callbacks = {
           ["github%..+%.com"] = require("gitlinker.hosts").get_github_type_url,
         },
@@ -12,7 +18,7 @@ return {
       require("which-key").register({
         ["<leader>"] = {
           gy = {
-            '<cmd>lua require"gitlinker".get_buf_range_url("n", {action_callback = require"gitlinker.actions".open_in_browser})<cr>',
+            gitlinker.get_buf_range_url,
             "Copy Git URL (Git)",
             mode = { "n", "v" },
           },
