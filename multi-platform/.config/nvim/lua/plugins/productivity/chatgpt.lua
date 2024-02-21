@@ -22,9 +22,9 @@ return {
       })
 
       require("which-key").register({
-        ["<leader>v"] = {
+        ["<leader>c"] = {
           name = "ChatGPT",
-          v = {
+          c = {
             ":ChatGPT<CR>",
             "Toggle (ChatGPT)",
           },
@@ -51,7 +51,7 @@ return {
             },
             t = {
               ":ChatGPTRun add_tests<CR>",
-              "Docstring for func",
+              "Add tests",
               mode = { "n", "v" },
             },
             b = {
