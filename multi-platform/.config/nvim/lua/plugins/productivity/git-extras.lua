@@ -16,12 +16,21 @@ return {
         },
       })
       require("which-key").register({
-        ["<leader>"] = {
-          gy = {
-            gitlinker.get_buf_range_url,
-            "Copy Git URL (Git)",
-            mode = { "n", "v" },
-          },
+        ["<leader>gy"] = {
+          function()
+            gitlinker.get_buf_range_url("n")
+          end,
+          "Copy Git URL (Git)",
+          mode = "n",
+        },
+      })
+      require("which-key").register({
+        ["<leader>gy"] = {
+          function()
+            gitlinker.get_buf_range_url("v")
+          end,
+          "Copy Git URL (Git)",
+          mode = "v",
         },
       })
     end,
