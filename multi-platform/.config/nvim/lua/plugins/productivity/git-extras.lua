@@ -15,24 +15,31 @@ return {
           ["github%..+%.com"] = require("gitlinker.hosts").get_github_type_url,
         },
       })
-      require("which-key").register({
-        ["<leader>gy"] = {
-          function()
-            gitlinker.get_buf_range_url("n")
-          end,
-          "Copy Git URL (Git)",
-          mode = "n",
+      local wk = require("which-key")
+      -- Normal mode key bindings
+      wk.register({
+        ["<leader>g"] = {
+          name = "Git",
+          y = {
+            function()
+              gitlinker.get_buf_range_url("n")
+            end,
+            "Copy Git URL (Git)",
+          },
         },
-      })
-      require("which-key").register({
-        ["<leader>gy"] = {
-          function()
-            gitlinker.get_buf_range_url("v")
-          end,
-          "Copy Git URL (Git)",
-          mode = "v",
+      }, { mode = "n" })
+      -- Visual mode key bindings
+      wk.register({
+        ["<leader>g"] = {
+          name = "Git",           -- So that group is named in visual mode too
+          y = {
+            function()
+              gitlinker.get_buf_range_url("v")
+            end,
+            "Copy Git URL (Git)",
+          },
         },
-      })
+      }, { mode = "v" })
     end,
   },
 
@@ -43,7 +50,6 @@ return {
       require("diffview").setup()
       require("which-key").register({
         ["<leader>g"] = {
-          name = "Git",
           c = { ":tabclose<CR>", "Close (Tab)" },
           d = {
             ":DiffviewOpen HEAD<CR>",

@@ -21,7 +21,13 @@ return {
         },
       })
 
-      require("which-key").register({
+      local wk = require("which-key")
+      wk.register({
+        ["<leader>c"] = {
+          name = "ChatGPT",
+        },
+      }, { mode = "v" })
+      wk.register({
         ["<leader>c"] = {
           name = "ChatGPT",
           c = {
