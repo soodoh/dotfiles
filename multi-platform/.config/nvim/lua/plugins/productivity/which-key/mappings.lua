@@ -3,15 +3,13 @@ return function(_, opts)
   wk.setup(opts)
   -- Native neovim actions
   wk.register({
-    ["<leader>"] = {
-      ["r"] = {
-        ":exec &rnu == 1 ? 'set nornu!' : 'set rnu!'<CR>",
-        "Toggle rel num",
-        silent = true,
-        mode = { "n", "v" },
-      },
-      ["s"] = { ":sort<CR>", "Sort", mode = { "v" } },
+    ["<leader>r"] = {
+      ":exec &rnu == 1 ? 'set nornu!' : 'set rnu!'<CR>",
+      "Toggle rel num",
+      silent = true,
+      mode = { "n", "v" },
     },
+    ["<leader>S"] = { ":sort<CR>", "Sort", mode = { "v" } },
     ["ZZ"] = { ":qa<CR>", "Quit" },
   })
 end

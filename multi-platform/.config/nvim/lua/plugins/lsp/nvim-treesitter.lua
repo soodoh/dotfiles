@@ -41,5 +41,14 @@ return {
         },
       }
     end,
+    -- Key bindings
+    require("which-key").register({
+      ["<leader>s"] = {
+        i = {
+          ":InspectTree<CR>",
+          "Inpsect AST (Treesitter)",
+        },
+      },
+    }),
   },
 }

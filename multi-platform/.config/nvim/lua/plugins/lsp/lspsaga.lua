@@ -30,7 +30,7 @@ return {
       require("lspsaga").setup(opts)
       require("which-key").register({
         ["<leader>s"] = {
-          name = "LSP",
+          name = "LSP Actions",
           r = {
             ":Lspsaga rename<CR>",
             "Rename (Lspsaga)",
@@ -43,20 +43,20 @@ return {
             ":Lspsaga code_action<CR>",
             "Code actions (Lspsaga)",
           },
-          d = {
+          l = {
             ":Lspsaga show_line_diagnostics<CR>",
             "Show line diagnostics (Lspsaga)",
           },
         },
-        ["[e"] = {
+        [",,e"] = {
           ":Lspsaga diagnostic_jump_prev<CR>",
           "Go to previous diagnostics (Lspsaga)",
         },
-        ["]e"] = {
+        [",e"] = {
           ":Lspsaga diagnostic_jump_next<CR>",
           "Go to next diagnostics (Lspsaga)",
         },
-      })
+      }, { mode = { "n", "v" } })
     end,
   },
 }

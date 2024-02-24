@@ -50,6 +50,7 @@ return {
       require("diffview").setup()
       require("which-key").register({
         ["<leader>g"] = {
+          name = "Git",
           c = { ":tabclose<CR>", "Close (Tab)" },
           d = {
             ":DiffviewOpen HEAD<CR>",

@@ -26,11 +26,12 @@ return {
         },
         on_attach = function(bufnr)
           local gs = package.loaded.gitsigns
-          require("which-key").register({
-            ["]h"] = {
+          local wk = require("which-key")
+          wk.register({
+            [",h"] = {
               function()
                 if vim.wo.diff then
-                  return "]h"
+                  return ",h"
                 end
                 vim.schedule(function()
                   gs.next_hunk()
@@ -39,10 +40,10 @@ return {
               end,
               "Go to next hunk (Gitsigns)",
             },
-            ["[h"] = {
+            [",,h"] = {
               function()
                 if vim.wo.diff then
-                  return "[h"
+                  return ",,h"
                 end
                 vim.schedule(function()
                   gs.prev_hunk()
@@ -51,6 +52,8 @@ return {
               end,
               "Go to previous hunk (Gitsigns)",
             },
+          }, { mode = { "n", "v" } })
+          wk.register({
             ["<leader>h"] = {
               name = "Gitsigns",
               s = { gs.stage_hunk, "Stage hunk (Gitsigns)" },
