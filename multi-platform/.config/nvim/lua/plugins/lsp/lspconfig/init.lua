@@ -26,6 +26,10 @@ return {
                 end,
                 "Format buffer (LSP)",
               },
+              R = {
+                ":LspRestart<CR>",
+                "Restart LSP Sources",
+              },
             },
           })
         end,

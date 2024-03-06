@@ -57,18 +57,33 @@ return {
               [",,b"] = "@block.outer",
               [",,c"] = "@call.outer",
               [",,a"] = "@assignment.outer",
+              [",,z"] = {
+                query = "@fold",
+                query_group = "folds",
+                desc = "Next fold",
+              },
             },
             goto_next_end = {
               [",F"] = "@function.outer",
               [",B"] = "@block.outer",
               [",C"] = "@call.outer",
               [",A"] = "@assignment.outer",
+              [",Z"] = {
+                query = "@fold",
+                query_group = "folds",
+                desc = "Next fold",
+              },
             },
             goto_previous_end = {
               [",,F"] = "@function.outer",
               [",,B"] = "@block.outer",
               [",,C"] = "@call.outer",
               [",,A"] = "@assignment.outer",
+              [",,Z"] = {
+                query = "@fold",
+                query_group = "folds",
+                desc = "Next fold",
+              },
             },
           },
         },
