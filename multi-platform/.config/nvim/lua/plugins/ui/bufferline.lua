@@ -17,7 +17,7 @@ return {
             name = "Buffers",
             p = { ":BufferLinePick<CR>", "Go to (BufferLine)" },
             o = {
-              "<C-w>o<CR>:BufferLineCloseOthers<CR>",
+              ":BufferLineCloseOthers<CR>",
               "Close all (BufferLine)",
             },
           },
