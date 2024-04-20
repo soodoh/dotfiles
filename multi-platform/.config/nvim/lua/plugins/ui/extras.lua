@@ -42,11 +42,11 @@ return {
   },
 
   -- Status Line
-  {
-    "nvim-lualine/lualine.nvim",
-    dependencies = { "nvim-tree/nvim-web-devicons" },
-    opts = {},
-  },
+  -- {
+  --   "nvim-lualine/lualine.nvim",
+  --   dependencies = { "nvim-tree/nvim-web-devicons" },
+  --   opts = {},
+  -- },
 
   -- Color hex codes
   {
