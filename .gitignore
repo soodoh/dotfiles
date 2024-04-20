@@ -1,6 +1,7 @@
 .DS_Store
 **/tmux/plugins
 **/zsh/plugins
+**/nvim/lazy-lock.json
 packer_compiled.lua
 z/
 zgenom/
