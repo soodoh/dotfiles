@@ -44,10 +44,10 @@ export NVM_DIR="$HOME/.nvm"
     sh -c "$(curl -fsSL https://starship.rs/install.sh)"
     ```
 
-1. Install Z script
+1. Install zoxide
 
     ```
-    git clone https://github.com/rupa/z.git ~/.config/z
+    cargo install zoxide --locked
     ```
 
 1. Install nvm + global npm dependencies
@@ -108,7 +108,8 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
        koekeishiya/formulae/skhd \
        ripgrep \
        stow \
-       fzf
+       fzf \
+       zoxide
     ```
 
 1. Install command-not-found functionality (like Ubuntu's apt-get)

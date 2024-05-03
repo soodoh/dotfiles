@@ -20,9 +20,8 @@ export VISUAL="nvim"
 # GPG can use stdin
 export GPG_TTY="$(tty)"
 
-# Load z
-[ -f ~/.config/z/z.sh ] && . ~/.config/z/z.sh
-
+# Use zoxide
+eval "$(zoxide init zsh)"
 # Use Starship for terminal prompt
 eval "$(starship init zsh)"
 
