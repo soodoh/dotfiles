@@ -33,6 +33,8 @@ export GOPATH=$HOME/go
 PATH=$GOPATH/bin:$PATH
 # Include Ruby in $PATH
 PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+# For ImageMagick + Nvim
+export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
 
 # Settings for zsh-vi-mode
 ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
