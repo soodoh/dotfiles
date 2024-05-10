@@ -30,27 +30,28 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 ```
 
-1. Add environment variables to `~/.zshenv` (i.e. OPENAI_API_KEY)
+1.  Add environment variables to `~/.zshenv` (i.e. OPENAI_API_KEY)
 
-1. Set zsh as default shell
+1.  Set zsh as default shell
 
     ```
     chsh -s $(which zsh)
     ```
 
-1. Install starship
+1.  Install starship
 
     ```
     sh -c "$(curl -fsSL https://starship.rs/install.sh)"
     ```
 
-1. Install zoxide
+1.  Install zoxide
+    Note: On Linux, this can be more easily installed via `apt install zoxide`.
 
-    ```
-    cargo install zoxide --locked
-    ```
+        ```
+        cargo install zoxide --locked
+        ```
 
-1. Install nvm + global npm dependencies
+1.  Install nvm + global npm dependencies
 
     ```
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
@@ -58,17 +59,17 @@ export NVM_DIR="$HOME/.nvm"
     npm i -g yarn neovim
     ```
 
-1. Install tmux plugin manager
+1.  Install tmux plugin manager
 
     ```
     git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm
     ```
 
-1. Open Neovim and run `:Lazy`
+1.  Open Neovim and run `:Lazy`
 
-1. Open Tmux and install tmux plugins (\<prefix\> + I)
+1.  Open Tmux and install tmux plugins (\<prefix\> + I)
 
-1. Download NERD fonts
+1.  Download NERD fonts
 
 [Patched fonts](https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts)
 
@@ -161,18 +162,22 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
        ripgrep \
        stow \
        fzf \
-       lua5.1 \
-       liblua5.1-dev
     ```
 
 1. Install neovim dependencies
+   Optional: install Rust, see official docs
 
     ```
     apt-get install \
         cmake \
         python3-venv \
         python3-neovim \
-        unzip
+        unzip \
+        lua5.1 \
+        liblua5.1-dev \
+        ruby \
+        ruby-dev \
+        golang
     ```
 
 1. Symlink Linux specific dotfiles
