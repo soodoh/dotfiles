@@ -160,7 +160,9 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
        tmux \
        ripgrep \
        stow \
-       fzf
+       fzf \
+       lua5.1 \
+       liblua5.1-dev
     ```
 
 1. Install neovim dependencies
