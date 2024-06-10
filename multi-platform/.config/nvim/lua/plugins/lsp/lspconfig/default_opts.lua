@@ -11,6 +11,11 @@ return function(opts)
     require("lsp-format").on_attach(client, bufnr)
   end
 
+  -- Optional settings
+  if opts ~= nil and opts.settings ~= nil then
+    lsp_opts.settings = opts.settings
+  end
+
   -- The nvim-cmp almost supports LSP's capabilities, so you should advertise it to LSP servers
   lsp_opts.capabilities = require("cmp_nvim_lsp").default_capabilities()
 
