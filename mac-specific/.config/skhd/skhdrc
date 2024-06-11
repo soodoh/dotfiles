@@ -1,6 +1,6 @@
 # Open Terminal
 meh - return : open -a "Kitty"
-hyper - return : open -a "Google Chrome"
+hyper - return : open -a "Brave Browser"
 
 # Navigation
 meh - h : yabai -m window --focus west
