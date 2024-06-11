@@ -56,7 +56,7 @@ return {
       })
 
       local actions = require("telescope.actions")
-      local trouble = require("trouble.providers.telescope")
+      local trouble = require("trouble.sources.telescope")
 
       telescope.setup({
         extensions = {
@@ -83,11 +83,11 @@ return {
             i = {
               -- ["<esc>"] = actions.close,
               ["<C-c>"] = actions.close,
-              ["<C-x>"] = trouble.open_with_trouble,
+              ["<C-x>"] = trouble.open,
             },
             n = {
               ["<C-c>"] = actions.close,
-              ["<C-x>"] = trouble.open_with_trouble,
+              ["<C-x>"] = trouble.open,
             },
           },
         },
