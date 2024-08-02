@@ -56,6 +56,9 @@ load () {
   source $ZSH_PLUGINS/$GITHUB/$SOURCE
 }
 
+# Variables for plugins
+GIT_AUTO_FETCH_INTERVAL=1200 # in seconds
+
 autoload -U +X compinit && compinit
 load "ohmyzsh/ohmyzsh" "lib/git.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/git/git.plugin.zsh"
