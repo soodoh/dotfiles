@@ -3,50 +3,61 @@ return {
   {
     "folke/trouble.nvim",
     dependencies = "nvim-tree/nvim-web-devicons",
-    opts = {},
-    cmd = "Trouble",
-    keys = {
-      {
-        "<leader>xx",
-        "<cmd>Trouble diagnostics toggle<CR>",
-        desc = "Toggle (Trouble)",
-      },
-      {
-        "<leader>xd",
-        "<cmd>Trouble document_diagnostics<CR>",
-        desc = "Document diagnostics (Trouble)",
-      },
-      {
-        "<leader>xq",
-        "<cmd>Trouble qflist toggle<CR>",
-        desc = "Quickfix List (Trouble)",
-      },
-      {
-        "<leader>xl",
-        "<cmd>Trouble lsp toggle focus=false win.position=right<CR>",
-        desc = "LSP references (Trouble)",
-      },
-    },
+    branch = "dev",
+    opts = function()
+      local trouble = require("trouble")
+      require("which-key").add({
+        { "<leader>x", group = "Trouble" },
+        {
+          "<leader>xt",
+          function()
+            trouble.toggle('telescope')
+          end,
+          desc = "Telescope results (Trouble)",
+        },
+        {
+          "<leader>xT",
+          function()
+            trouble.toggle('telescope_files')
+          end,
+          desc = "Telescope files (Trouble)",
+        },
+        {
+          "<leader>xl",
+          function()
+            trouble.toggle('lsp')
+          end,
+          desc = "LSP references (Trouble)",
+        },
+        {
+          "<leader>xq",
+          function()
+            trouble.toggle('qflist')
+          end,
+          desc = "Quickfix List (Trouble)",
+        },
+      })
+    end,
   },
   -- config = function()
-    --   local trouble = require("trouble")
-    --
-    --   require("which-key").register({
-        --     ["<leader>,"] = {
-        --       function()
-        --         trouble.previous({
-            --           skip_groups = true,
-            --           jump = true,
-            --         })
-        --       end,
-        --       "Go to previous (Trouble)",
-        --     },
-        --     ["<leader>."] = {
-        --       function()
-        --         trouble.next({ skip_groups = true, jump = true })
-        --       end,
-        --       "Go to next (Trouble)",
-        --     },
-        --   })
-    -- end,
+  --   local trouble = require("trouble")
+  --
+  --   require("which-key").register({
+  --     ["<leader>,"] = {
+  --       function()
+  --         trouble.previous({
+  --           skip_groups = true,
+  --           jump = true,
+  --         })
+  --       end,
+  --       "Go to previous (Trouble)",
+  --     },
+  --     ["<leader>."] = {
+  --       function()
+  --         trouble.next({ skip_groups = true, jump = true })
+  --       end,
+  --       "Go to next (Trouble)",
+  --     },
+  --   })
+  -- end,
 };

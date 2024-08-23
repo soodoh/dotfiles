@@ -61,9 +61,9 @@ return {
       telescope.setup({
         extensions = {
           fzf = {
-            fuzzy = true,                               -- false will only do exact matching
-            override_generic_sorter = true,             -- override the generic sorter
-            override_file_sorter = true,                -- override the file sorter
+            fuzzy = true,                   -- false will only do exact matching
+            override_generic_sorter = true, -- override the generic sorter
+            override_file_sorter = true,    -- override the file sorter
           },
         },
         defaults = {
@@ -84,10 +84,12 @@ return {
               -- ["<esc>"] = actions.close,
               ["<C-c>"] = actions.close,
               ["<C-x>"] = trouble.open,
+              ["<C-X>"] = trouble.add,
             },
             n = {
               ["<C-c>"] = actions.close,
               ["<C-x>"] = trouble.open,
+              ["<C-X>"] = trouble.add,
             },
           },
         },
