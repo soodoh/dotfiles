@@ -21,9 +21,7 @@ return {
           delay = 100,
           ignore_whitespace = false,
         },
-        current_line_blame_formatter_opts = {
-          relative_time = true,
-        },
+        current_line_blame_formatter = '<author>, <author_time:%R> - <summary>',
         on_attach = function(bufnr)
           local gs = package.loaded.gitsigns
           local wk = require("which-key")
