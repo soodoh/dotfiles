@@ -9,15 +9,16 @@ local prettier = {
     ".prettierrc.yml",
   },
 }
-local stylua = {
-  formatCanRange = true,
-  formatCommand = "stylua --color Never ${--range-start:charStart} ${--range-end:charEnd} -",
-  formatStdin = true,
-  rootMarkers = { "stylua.toml", ".stylua.toml" },
-}
+-- local stylua = {
+--   formatCanRange = false,
+--   formatCommand = "stylua --color Never ${--range-start:charStart} ${--range-end:charEnd} -",
+--   formatStdin = true,
+--   rootMarkers = { "stylua.toml", ".stylua.toml" },
+-- }
+-- local stylua = require('efmls-configs.formatters.stylua')
 
 local languages = {
-  lua = { stylua },
+  -- lua = { stylua },
   typescript = { prettier },
   javascript = { prettier },
   typescriptreact = { prettier },
