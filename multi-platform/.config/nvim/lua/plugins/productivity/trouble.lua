@@ -3,49 +3,50 @@ return {
   {
     "folke/trouble.nvim",
     dependencies = "nvim-tree/nvim-web-devicons",
-    config = function()
-      local trouble = require("trouble")
-
-      require("which-key").register({
-        ["<leader>,"] = {
-          function()
-            trouble.previous({
-              skip_groups = true,
-              jump = true,
-            })
-          end,
-          "Go to previous (Trouble)",
-        },
-        ["<leader>."] = {
-          function()
-            trouble.next({ skip_groups = true, jump = true })
-          end,
-          "Go to next (Trouble)",
-        },
-        ["<leader>x"] = {
-          name = "Trouble",
-          x = {
-            ":TroubleToggle<CR>",
-            "Toggle (Trouble)",
-          },
-          w = {
-            ":Trouble workspace_diagnostics<CR>",
-            "Workspace diagnostics (Trouble)",
-          },
-          d = {
-            ":Trouble document_diagnostics<CR>",
-            "Document diagnostics (Trouble)",
-          },
-          q = {
-            ":Trouble quickfix<CR>",
-            "Quickfix menu (Trouble)",
-          },
-          l = {
-            ":Trouble lsp_references<CR>",
-            "LSP references (Trouble)",
-          },
-        },
-      })
-    end,
+    opts = {},
+    cmd = "Trouble",
+    keys = {
+      {
+        "<leader>xx",
+        "<cmd>Trouble diagnostics toggle<CR>",
+        desc = "Toggle (Trouble)",
+      },
+      {
+        "<leader>xd",
+        "<cmd>Trouble document_diagnostics<CR>",
+        desc = "Document diagnostics (Trouble)",
+      },
+      {
+        "<leader>xq",
+        "<cmd>Trouble qflist toggle<CR>",
+        desc = "Quickfix List (Trouble)",
+      },
+      {
+        "<leader>xl",
+        "<cmd>Trouble lsp toggle focus=false win.position=right<CR>",
+        desc = "LSP references (Trouble)",
+      },
+    },
   },
-}
+  -- config = function()
+    --   local trouble = require("trouble")
+    --
+    --   require("which-key").register({
+        --     ["<leader>,"] = {
+        --       function()
+        --         trouble.previous({
+            --           skip_groups = true,
+            --           jump = true,
+            --         })
+        --       end,
+        --       "Go to previous (Trouble)",
+        --     },
+        --     ["<leader>."] = {
+        --       function()
+        --         trouble.next({ skip_groups = true, jump = true })
+        --       end,
+        --       "Go to next (Trouble)",
+        --     },
+        --   })
+    -- end,
+};
