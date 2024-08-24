@@ -28,35 +28,40 @@ return {
     },
     config = function(_, opts)
       require("lspsaga").setup(opts)
-      require("which-key").register({
-        ["<leader>s"] = {
-          name = "LSP Actions",
-          r = {
-            ":Lspsaga rename<CR>",
-            "Rename (Lspsaga)",
-          },
-          h = {
-            ":Lspsaga hover_doc<CR>",
-            "Hover docs (Lspsaga)",
-          },
-          a = {
-            ":Lspsaga code_action<CR>",
-            "Code actions (Lspsaga)",
-          },
-          l = {
-            ":Lspsaga show_line_diagnostics<CR>",
-            "Show line diagnostics (Lspsaga)",
-          },
+      require("which-key").add({
+        mode = { "n", "v" },
+        { "<leader>s", group = "LSP" },
+        {
+          "<leader>sr",
+          ":Lspsaga rename<CR>",
+          desc = "Rename (Lspsaga)",
         },
-        [",,e"] = {
+        {
+          "<leader>sh",
+          ":Lspsaga hover_doc<CR>",
+          desc = "Hover docs (Lspsaga)",
+        },
+        {
+          "<leader>sa",
+          ":Lspsaga code_action<CR>",
+          desc = "Code actions (Lspsaga)",
+        },
+        {
+          "<leader>sl",
+          ":Lspsaga show_line_diagnostics<CR>",
+          desc = "Show line diagnostics (Lspsaga)",
+        },
+        {
+          ",,e",
           ":Lspsaga diagnostic_jump_prev<CR>",
-          "Go to previous diagnostics (Lspsaga)",
+          desc = "Go to prev diagnostics (Lspsaga)",
         },
-        [",e"] = {
+        {
+          ",e",
           ":Lspsaga diagnostic_jump_next<CR>",
-          "Go to next diagnostics (Lspsaga)",
+          desc = "Go to next diagnostics (Lspsaga)",
         },
-      }, { mode = { "n", "v" } })
+      })
     end,
   },
 }

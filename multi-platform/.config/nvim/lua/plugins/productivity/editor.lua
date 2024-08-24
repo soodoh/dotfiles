@@ -10,13 +10,21 @@ return {
   -- Hotkeys to move in buffer
   {
     "phaazon/hop.nvim",
-    branch = "v2",     -- optional but strongly recommended
+    branch = "v2", -- optional but strongly recommended
     config = function()
       -- require("hop").setup({ keys = "etovxqpdygfblzhckisuran" })
       require("hop").setup()
-      require("which-key").register({
-        s = { ":HopChar2<CR>", "Go to (Hop)" },
-        gl = { ":HopLineStart<CR>", "Go to line (Hop)" },
+      require("which-key").add({
+        {
+          "s",
+          ":HopChar2<CR>",
+          desc = "Go to (Hop)",
+        },
+        {
+          "gl",
+          ":HopLineStart<CR>",
+          desc = "Go to line (Hop)",
+        },
       })
     end,
   },
@@ -25,14 +33,17 @@ return {
   {
     "famiu/bufdelete.nvim",
     config = function()
-      require("which-key").register({
-        ["<leader>d"] = {
-          name = "BufDelete",
-          d = {
-            ":Bdelete<CR>",
-            "Close buffer (keep window open)",
-          },
-          w = { ":bd<CR>", "Close buffer & window" },
+      require("which-key").add({
+        { "<leader>d", group = "BufDelete" },
+        {
+          "<leader>dd",
+          ":Bdelete<CR>",
+          desc = "Close buffer (keep window open)",
+        },
+        {
+          "<leader>dw",
+          ":bd<CR>",
+          desc = "Close buffer & window",
         },
       })
     end,

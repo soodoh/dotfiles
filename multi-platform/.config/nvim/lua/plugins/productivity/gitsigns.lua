@@ -14,19 +14,19 @@ return {
           untracked = { text = "┆" },
         },
         signcolumn = true,
-        current_line_blame = true,         -- Toggle with `:Gitsigns toggle_current_line_blame`
+        current_line_blame = true, -- Toggle with `:Gitsigns toggle_current_line_blame`
         current_line_blame_opts = {
           virt_text = true,
-          virt_text_pos = "eol",           -- 'eol' | 'overlay' | 'right_align'
+          virt_text_pos = "eol", -- 'eol' | 'overlay' | 'right_align'
           delay = 100,
           ignore_whitespace = false,
         },
         current_line_blame_formatter = '<author>, <author_time:%R> - <summary>',
         on_attach = function(bufnr)
           local gs = package.loaded.gitsigns
-          local wk = require("which-key")
-          wk.register({
-            [",h"] = {
+          require("which-key").add({
+            {
+              ",h",
               function()
                 if vim.wo.diff then
                   return ",h"
@@ -36,9 +36,10 @@ return {
                 end)
                 return "<Ignore>"
               end,
-              "Go to next hunk (Gitsigns)",
+              desc = "Go to next hunk (Gitsigns)",
             },
-            [",,h"] = {
+            {
+              ",,h",
               function()
                 if vim.wo.diff then
                   return ",,h"
@@ -48,36 +49,45 @@ return {
                 end)
                 return "<Ignore>"
               end,
-              "Go to previous hunk (Gitsigns)",
+              desc = "Go to previous hunk (Gitsigns)",
             },
-          }, { mode = { "n", "v" } })
-          wk.register({
-            ["<leader>h"] = {
-              name = "Gitsigns",
-              s = { gs.stage_hunk, "Stage hunk (Gitsigns)" },
-              S = {
-                gs.stage_buffer,
-                "Stage buffer (Gitsigns)",
-              },
-              r = { gs.reset_hunk, "Reset hunk (Gitsigns)" },
-              R = {
-                gs.reset_buffer,
-                "Reset buffer (Gitsigns)",
-              },
-              u = {
-                gs.undo_stage_hunk,
-                "Unstage hunk (Gitsigns)",
-              },
-              p = {
-                gs.preview_hunk,
-                "Preview hunk (Gitsigns)",
-              },
-              b = {
-                function()
-                  gs.blame_line({ full = true })
-                end,
-                "View blame (Gitsigns)",
-              },
+            { "<leader>h", group = "Gitsigns" },
+            {
+              "<leader>hs",
+              gs.stage_hunk,
+              desc = "Stage hunk (Gitsigns)",
+            },
+            {
+              "<leader>hS",
+              gs.stage_buffer,
+              desc = "Stage buffer (Gitsigns)",
+            },
+            {
+              "<leader>hr",
+              gs.reset_hunk,
+              desc = "Reset hunk (Gitsigns)",
+            },
+            {
+              "<leader>hR",
+              gs.reset_buffer,
+              desc = "Reset buffer (Gitsigns)",
+            },
+            {
+              "<leader>hu",
+              gs.undo_stage_hunk,
+              desc = "Unstage hunk (Gitsigns)",
+            },
+            {
+              "<leader>hp",
+              gs.prewview_hunk,
+              desc = "Preview hunk (Gitsigns)",
+            },
+            {
+              "<leader>hb",
+              function()
+                gs.blame_line({ full = true })
+              end,
+              desc = "View blame (Gitsigns)",
             },
           })
         end,

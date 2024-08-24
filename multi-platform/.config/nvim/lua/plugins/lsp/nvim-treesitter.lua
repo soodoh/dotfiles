@@ -11,8 +11,8 @@ return {
         auto_install = true,
         ensure_installed = { "markdown" },
         highlight = {
-          enable = true,                  -- false will disable the whole extension
-          disable = { "json" },           -- list of language that will be disabled
+          enable = true,        -- false will disable the whole extension
+          disable = { "json" }, -- list of language that will be disabled
         },
         indent = { enable = true },
         autopairs = { enable = true },
@@ -42,12 +42,11 @@ return {
       }
     end,
     -- Key bindings
-    require("which-key").register({
-      ["<leader>s"] = {
-        i = {
-          ":InspectTree<CR>",
-          "Inpsect AST (Treesitter)",
-        },
+    require("which-key").add({
+      {
+        "<leader>si",
+        ":InspectTree<CR>",
+        desc = "Inspect AST (Treesitter)"
       },
     }),
   },

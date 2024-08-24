@@ -15,14 +15,16 @@ return {
       vim.o.foldlevelstart = 99
       vim.o.foldenable = true
 
-      require("which-key").register({
-        zR = {
+      require("which-key").add({
+        {
+          "zR",
           ufo.openAllFolds,
-          "Open all folds",
+          desc = "Open all folds",
         },
-        zM = {
+        {
+          "zM",
           ufo.closeAllFolds,
-          "Close all folds",
+          desc = "Close all folds",
         },
       })
     end,

@@ -57,17 +57,17 @@ return {
         },
       })
 
-      require("which-key").register({
-        ["<leader>n"] = {
-          name = "Nvim Tree",
-          n = {
-            ":NvimTreeToggle<CR>",
-            "Toggle (NvimTree)",
-          },
-          f = {
-            ":NvimTreeFindFile<CR>",
-            "Open to file (NvimTree)",
-          },
+      require("which-key").add({
+        { "<leader>n", group = "Nvim Tree" },
+        {
+          "<leader>nn",
+          ":NvimTreeToggle<CR>",
+          desc = "Toggle (NvimTree)",
+        },
+        {
+          "<leader>nf",
+          ":NvimTreeFindFile<CR>",
+          desc = "Open to file (NvimTree)",
         },
       })
     end,

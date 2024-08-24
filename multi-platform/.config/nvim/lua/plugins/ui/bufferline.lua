@@ -10,32 +10,37 @@ return {
           diagnostics = "nvim_lsp",
         },
       })
-      require("which-key").register({
-        ["<leader>"] = {
-          b = {
-            name = "Buffers",
-            p = { ":BufferLinePick<CR>", "Go to (BufferLine)" },
-            o = {
-              ":BufferLineCloseOthers<CR>",
-              "Close all (BufferLine)",
-            },
-          },
-          j = {
-            ":BufferLineCyclePrev<CR>",
-            "Go left (BufferLine)",
-          },
-          k = {
-            ":BufferLineCycleNext<CR>",
-            "Go right (BufferLine)",
-          },
-          J = {
-            ":BufferLineMovePrev<CR>",
-            "Move left (BufferLine)",
-          },
-          K = {
-            ":BufferLineMoveNext<CR>",
-            "Move right (BufferLine)",
-          },
+      require("which-key").add({
+        { "<leader>b", group = "Buffers" },
+        {
+          "<leader>bp",
+          ":BufferLinePick<CR>",
+          desc = "Go to (BufferLine)",
+        },
+        {
+          "<leader>bo",
+          ":BufferLineCloseOthers<CR>",
+          desc = "Close all (BufferLine)",
+        },
+        {
+          "<leader>j",
+          ":BufferLineCyclePrev<CR>",
+          desc = "Go left (BufferLine)",
+        },
+        {
+          "<leader>k",
+          ":BufferLineCycleNext<CR>",
+          desc = "Go right (BufferLine)",
+        },
+        {
+          "<leader>J",
+          ":BufferLineMovePrev<CR>",
+          desc = "Move left (BufferLine)",
+        },
+        {
+          "<leader>K",
+          ":BufferLineMoveNext<CR>",
+          desc = "Move right (BufferLine)",
         },
       })
     end,

@@ -17,12 +17,13 @@ return {
         hidden = true,
       })
 
-      require("which-key").register({
-        ["<leader>gg"] = {
+      require("which-key").add({
+        {
+          "<leader>gg",
           function()
             lazygit:toggle()
           end,
-          "Toggle (LazyGit)",
+          desc = "Toggle (LazyGit)",
         },
       })
     end,

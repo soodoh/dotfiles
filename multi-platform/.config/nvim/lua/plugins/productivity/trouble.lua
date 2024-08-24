@@ -23,6 +23,26 @@ return {
           desc = "Telescope files (Trouble)",
         },
         {
+          ",x",
+          function()
+            trouble.next({
+              mode = "telescope",
+              focus = true,
+            })
+          end,
+          desc = "Go to next Telescope (Trouble)",
+        },
+        {
+          ",,x",
+          function()
+            trouble.prev({
+              mode = "telescope",
+              focus = true,
+            })
+          end,
+          desc = "Go to prev Telescope (Trouble)",
+        },
+        {
           "<leader>xl",
           function()
             trouble.toggle('lsp')
@@ -39,25 +59,4 @@ return {
       })
     end,
   },
-  -- config = function()
-  --   local trouble = require("trouble")
-  --
-  --   require("which-key").register({
-  --     ["<leader>,"] = {
-  --       function()
-  --         trouble.previous({
-  --           skip_groups = true,
-  --           jump = true,
-  --         })
-  --       end,
-  --       "Go to previous (Trouble)",
-  --     },
-  --     ["<leader>."] = {
-  --       function()
-  --         trouble.next({ skip_groups = true, jump = true })
-  --       end,
-  --       "Go to next (Trouble)",
-  --     },
-  --   })
-  -- end,
 };

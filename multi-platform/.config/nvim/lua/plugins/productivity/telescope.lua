@@ -36,22 +36,27 @@ return {
         end
       end
 
-      require("which-key").register({
-        ["<leader>f"] = {
-          name = "Telescope",
-          f = { project_files, "Find files (Telescope)" },
-          g = {
-            ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>",
-            "Grep files (Telescope)",
-          },
-          b = {
-            ":Telescope buffers<CR>",
-            "Find buffer (Telescope)",
-          },
-          h = {
-            ":Telescope oldfiles<CR>",
-            "Find old files (Telescope)",
-          },
+      require("which-key").add({
+        { "<leader>f", group = "Telescope" },
+        {
+          "<leader>ff",
+          project_files,
+          desc = "Find files (Telescope)",
+        },
+        {
+          "<leader>fg",
+          ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>",
+          desc = "Grep files (Telescope)",
+        },
+        {
+          "<leader>fb",
+          ":Telescope buffers<CR>",
+          desc = "Find buffer (Telescope)",
+        },
+        {
+          "<leader>fh",
+          ":Telescope oldfiles<CR>",
+          desc = "Find old files (Telescope)",
         },
       })
 
@@ -84,12 +89,12 @@ return {
               -- ["<esc>"] = actions.close,
               ["<C-c>"] = actions.close,
               ["<C-x>"] = trouble.open,
-              ["<C-X>"] = trouble.add,
+              ["<C-a>"] = trouble.add,
             },
             n = {
               ["<C-c>"] = actions.close,
               ["<C-x>"] = trouble.open,
-              ["<C-X>"] = trouble.add,
+              ["<C-a>"] = trouble.add,
             },
           },
         },

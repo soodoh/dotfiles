@@ -21,51 +21,48 @@ return {
         },
       })
 
-      local wk = require("which-key")
-      wk.register({
-        ["<leader>c"] = {
-          name = "ChatGPT",
+      require("which-key").add({
+        { "<leader>c",  group = "ChatGPT" },
+        {
+          "<leader>cc",
+          ":ChatGPT<CR>",
+          desc = "Toggle (ChatGPT)",
         },
-      }, { mode = "v" })
-      wk.register({
-        ["<leader>c"] = {
-          name = "ChatGPT",
-          c = {
-            ":ChatGPT<CR>",
-            "Toggle (ChatGPT)",
-          },
-          s = {
-            ":ChatGPTActAs<CR>",
-            "ActAs (ChatGPT)",
-          },
-          e = {
-            ":ChatGPTEditWithInstructions<CR>",
-            "Edit (ChatGPT)",
-            mode = { "n", "v" },
-          },
-          a = {
-            name = "Actions (ChatGPT)",
-            c = {
-              ":ChatGPTRun complete_code<CR>",
-              "Complete code",
-              mode = { "n", "v" },
-            },
-            d = {
-              ":ChatGPTRun docstring<CR>",
-              "Docstring for func",
-              mode = { "n", "v" },
-            },
-            t = {
-              ":ChatGPTRun add_tests<CR>",
-              "Add tests",
-              mode = { "n", "v" },
-            },
-            b = {
-              ":ChatGPTRun fix_bugs<CR>",
-              "Fix bugs",
-              mode = { "n", "v" },
-            },
-          },
+        {
+          "<leader>cs",
+          ":ChatGPTActAs<CR>",
+          desc = "ActAs (ChatGPT)",
+        },
+        {
+          "<leader>ce",
+          ":ChatGPTEditWithInstructions<CR>",
+          desc = "Edit (ChatGPT)",
+          mode = { "n", "v" },
+        },
+        { "<leader>ca", group = "Actions (ChatGPT)" },
+        {
+          "<leader>cac",
+          ":ChatGPTRun complete_code<CR>",
+          desc = "Complete code",
+          mode = { "n", "v" },
+        },
+        {
+          "<leader>cad",
+          ":ChatGPTRun docstring<CR>",
+          desc = "Docstring for func",
+          mode = { "n", "v" },
+        },
+        {
+          "<leader>cat",
+          ":ChatGPTRun add_tests<CR>",
+          desc = "Add tests",
+          mode = { "n", "v" },
+        },
+        {
+          "<leader>cab",
+          ":ChatGPTRun fix_bugs<CR>",
+          desc = "Fix bugs",
+          mode = { "n", "v" },
         },
       })
     end,

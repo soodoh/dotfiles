@@ -15,24 +15,24 @@ return {
       vim.api.nvim_create_autocmd("LspAttach", {
         group = vim.api.nvim_create_augroup("UserLspConfig", {}),
         callback = function(ev)
-          require("which-key").register({
-            ["<leader>s"] = {
-              name = "LSP Actions",
-              D = {
-                vim.lsp.buf.definition,
-                "Go to definition (LSP)",
-                buffer = ev.buf,
-              },
-              F = {
-                function()
-                  vim.lsp.buf.format({ async = true })
-                end,
-                "Format buffer (LSP)",
-              },
-              R = {
-                ":LspRestart<CR>",
-                "Restart LSP Sources",
-              },
+          require("which-key").add({
+            {
+              "<leader>sD",
+              vim.lsp.buf.definition,
+              desc = "Go to definition (LSP)",
+              buffer = ev.buf,
+            },
+            {
+              "<leader>sF",
+              function()
+                vim.lsp.buf.format({ async = true })
+              end,
+              desc = "Format buffer (LSP)",
+            },
+            {
+              "<leader>sR",
+              ":LspRestart<CR>",
+              desc = "Restart LSP Sources",
             },
           })
         end,

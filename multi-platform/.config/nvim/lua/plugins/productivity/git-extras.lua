@@ -15,31 +15,25 @@ return {
           ["github%..+%.com"] = require("gitlinker.hosts").get_github_type_url,
         },
       })
-      local wk = require("which-key")
-      -- Normal mode key bindings
-      wk.register({
-        ["<leader>g"] = {
-          name = "Git",
-          y = {
-            function()
-              gitlinker.get_buf_range_url("n")
-            end,
-            "Copy Git URL (Git)",
-          },
+      require("which-key").add({
+        { "<leader>g", group = "Git" },
+        {
+          "<leader>gy",
+          function()
+            gitlinker.get_buf_range_url("n")
+          end,
+          desc = "Copy Git URL (Git)",
+          mode = "n",
         },
-      }, { mode = "n" })
-      -- Visual mode key bindings
-      wk.register({
-        ["<leader>g"] = {
-          name = "Git",           -- So that group is named in visual mode too
-          y = {
-            function()
-              gitlinker.get_buf_range_url("v")
-            end,
-            "Copy Git URL (Git)",
-          },
+        {
+          "<leader>gy",
+          function()
+            gitlinker.get_buf_range_url("v")
+          end,
+          desc = "Copy Git URL (Git)",
+          mode = "v",
         },
-      }, { mode = "v" })
+      })
     end,
   },
 
@@ -48,27 +42,32 @@ return {
     "sindrets/diffview.nvim",
     config = function()
       require("diffview").setup()
-      require("which-key").register({
-        ["<leader>g"] = {
-          name = "Git",
-          c = { ":tabclose<CR>", "Close (Tab)" },
-          d = {
-            ":DiffviewOpen HEAD<CR>",
-            "All Files Diff from HEAD (Diffview)",
-          },
-          o = {
-            ":DiffviewOpen ",
-            "All Files Diff from ... (Diffview)",
-            silent = false,
-          },
-          f = {
-            ":DiffviewFileHistory %<CR>",
-            "Current File History (Diffview)",
-          },
-          h = {
-            ":DiffviewFileHistory<CR>",
-            "All File History (Diffview)",
-          },
+      require("which-key").add({
+        {
+          "<leader>gc",
+          ":tabclose<CR>",
+          desc = "Close (Tab)",
+        },
+        {
+          "<leader>gd",
+          ":DiffviewOpen HEAD<CR>",
+          desc = "All Files Diff from HEAD (Diffview)",
+        },
+        {
+          "<leader>go",
+          ":DiffviewOpen ",
+          desc = "All Files Diff from ... (Diffview)",
+          silent = false,
+        },
+        {
+          "<leader>gf",
+          ":DiffviewFileHistory %<CR>",
+          desc = "Current File History (Diffview)",
+        },
+        {
+          "<leader>gh",
+          ":DiffviewFileHistory<CR>",
+          desc = "All File History (Diffview)",
         },
       })
     end,
