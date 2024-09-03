@@ -3,7 +3,6 @@ return {
   {
     "folke/trouble.nvim",
     dependencies = "nvim-tree/nvim-web-devicons",
-    branch = "dev",
     opts = function()
       local trouble = require("trouble")
       require("which-key").add({
