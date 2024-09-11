@@ -7,7 +7,7 @@ return {
   {
     "neovim/nvim-lspconfig",
     dependencies = {
-      "hrsh7th/nvim-cmp",       -- Better autocomplete
+      "hrsh7th/nvim-cmp", -- Better autocomplete
       "lukas-reineke/lsp-format.nvim",
     },
     config = function()
@@ -75,7 +75,7 @@ return {
       lspconfig.intelephense.setup(get_opts())
       lspconfig.marksman.setup(get_opts())
       lspconfig.svelte.setup(get_opts())
-      lspconfig.tsserver.setup(get_opts({ format = false }))
+      lspconfig.ts_ls.setup(get_opts({ format = false }))
       -- Server
       lspconfig.clangd.setup(get_opts())
       lspconfig.dockerls.setup(get_opts())
