@@ -10,22 +10,6 @@ return {
         size = vim.o.columns * 0.4,
         direction = "vertical",
       })
-      local Terminal = require("toggleterm.terminal").Terminal
-      local lazygit = Terminal:new({
-        cmd = "lazygit",
-        direction = "float",
-        hidden = true,
-      })
-
-      require("which-key").add({
-        {
-          "<leader>gg",
-          function()
-            lazygit:toggle()
-          end,
-          desc = "Toggle (LazyGit)",
-        },
-      })
     end,
   },
 }
