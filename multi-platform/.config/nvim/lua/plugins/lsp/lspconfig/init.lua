@@ -7,7 +7,7 @@ return {
   {
     "neovim/nvim-lspconfig",
     dependencies = {
-      "hrsh7th/nvim-cmp", -- Better autocomplete
+      "hrsh7th/nvim-cmp",       -- Better autocomplete
       "lukas-reineke/lsp-format.nvim",
     },
     config = function()
@@ -64,11 +64,15 @@ return {
       lspconfig.yamlls.setup(get_opts())
       -- Web
       lspconfig.cssls.setup({
-        settings = { css = { lint = { unknownAtRules = "ignore" } } },
+        settings = {
+          css = { lint = { unknownAtRules = "ignore" } },
+        },
       })
       lspconfig.cssmodules_ls.setup(get_opts())
       lspconfig.emmet_ls.setup(get_opts())
-      lspconfig.eslint.setup(get_opts({ format = true }))
+      lspconfig.eslint.setup(get_opts({
+        format = true,
+      }))
       lspconfig.efm.setup(require("plugins.lsp.lspconfig.efm_opts"))
       lspconfig.graphql.setup(get_opts())
       lspconfig.html.setup(get_opts())

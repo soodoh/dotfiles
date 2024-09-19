@@ -8,7 +8,10 @@ return function(opts)
       client.server_capabilities.documentFormattingProvider =
           opts.format
     end
-    require("lsp-format").on_attach(client, bufnr)
+    -- Plugin that auto formats with LSP on save
+    if client.server_capabilities.documentFormattingProvider then
+      require("lsp-format").on_attach(client, bufnr)
+    end
   end
 
   -- Optional settings
