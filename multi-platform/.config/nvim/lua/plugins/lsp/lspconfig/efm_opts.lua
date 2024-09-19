@@ -9,16 +9,15 @@ local prettier = {
     ".prettierrc.yml",
   },
 }
--- local stylua = {
---   formatCanRange = false,
---   formatCommand = "stylua --color Never ${--range-start:charStart} ${--range-end:charEnd} -",
---   formatStdin = true,
---   rootMarkers = { "stylua.toml", ".stylua.toml" },
--- }
--- local stylua = require('efmls-configs.formatters.stylua')
+local stylua = {
+  formatCanRange = false,
+  formatCommand = "stylua --color Never ${--range-start:charStart} ${--range-end:charEnd} -",
+  formatStdin = true,
+  rootMarkers = { "stylua.toml", ".stylua.toml" },
+}
 
 local languages = {
-  -- lua = { stylua },
+  lua = { stylua },
   typescript = { prettier },
   javascript = { prettier },
   typescriptreact = { prettier },
@@ -35,7 +34,7 @@ local efm_opts = require("plugins.lsp.lspconfig.default_opts")()
 efm_opts.filetypes = vim.tbl_keys(languages)
 efm_opts.init_options = {
   documentFormatting = true,
-  documentRangeFormatting = true,
+  -- documentRangeFormatting = true,
 }
 efm_opts.settings = {
   rootMarkers = { ".git/" },
