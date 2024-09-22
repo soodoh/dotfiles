@@ -6,7 +6,9 @@ return {
       "nvim-lua/plenary.nvim",
       "nvim-tree/nvim-tree.lua",
     },
-    opts = {},
+    config = function()
+      require("lsp-file-operations").setup()
+    end,
   },
 
   -- Nvim Tree file explorer
