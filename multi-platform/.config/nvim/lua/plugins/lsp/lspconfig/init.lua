@@ -34,6 +34,11 @@ return {
               ":LspRestart<CR>",
               desc = "Restart LSP Sources",
             },
+            {
+              "<leader>sI",
+              ":LspInfo<CR>",
+              desc = "Show attached LSP clients",
+            },
           })
         end,
       })
