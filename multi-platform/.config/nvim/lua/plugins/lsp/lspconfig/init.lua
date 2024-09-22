@@ -90,6 +90,7 @@ return {
       lspconfig.ruby_lsp.setup(get_opts())
       lspconfig.rust_analyzer.setup(get_opts())
       lspconfig.terraformls.setup(get_opts())
+      lspconfig.omnisharp.setup(get_opts())
 
       -- Format the diagnostic messages
       vim.lsp.handlers["textDocument/publishDiagnostics"] =
