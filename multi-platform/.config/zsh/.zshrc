@@ -1,6 +1,15 @@
 source $HOME/.config/zsh/aliases.zsh
 source $HOME/.config/zsh/opts.zsh
 
+# Use nvm
+if command -v nvm &> /dev/null; then
+  if [ -f .nvmrc ]; then
+    nvm use
+  else
+    nvm use --lts
+  fi
+fi
+
 # Add LF_ICONS env var for lf icons
 # Strips comments from the file, trims whitespace, then formats for LF
 LF_ICONS=$(cat ~/.config/lf/icons | sed \
@@ -26,15 +35,19 @@ eval "$(zoxide init zsh)"
 eval "$(starship init zsh)"
 
 # Include Cargo packages in $PATH
-PATH=$HOME/.cargo/bin:$PATH
+if command -v cargo &> /dev/null; then
+  PATH=$HOME/.cargo/bin:$PATH
+fi
 # Include Go packages in $PATH
-export GOPATH=$HOME/go
-PATH=$GOPATH/bin:$PATH
+if command -v go &> /dev/null; then
+  export GOPATH=$HOME/go
+  PATH=$GOPATH/bin:$PATH
+fi
 # Include Ruby in $PATH
 if command -v brew &> /dev/null; then
     PATH="/opt/homebrew/opt/ruby/bin:$PATH"
 fi
-# For ImageMagick + Nvim
+# ImageMagick + Nvim
 if command -v brew &> /dev/null; then
     export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
 fi
