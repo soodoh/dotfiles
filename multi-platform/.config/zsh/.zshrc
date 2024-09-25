@@ -27,16 +27,16 @@ eval "$(starship init zsh)"
 
 # Include Cargo packages in $PATH
 if command -v cargo &> /dev/null; then
-  PATH=$HOME/.cargo/bin:$PATH
+  PATH+="$HOME/.cargo/bin"
 fi
 # Include Go packages in $PATH
 if command -v go &> /dev/null; then
-  export GOPATH=$HOME/go
-  PATH=$GOPATH/bin:$PATH
+  export GOPATH="$HOME/go"
+  PATH+="$GOPATH/bin"
 fi
 # Include Ruby in $PATH
 if command -v brew &> /dev/null; then
-    PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+    PATH+="/opt/homebrew/opt/ruby/bin"
 fi
 # ImageMagick + Nvim
 if command -v brew &> /dev/null; then
@@ -60,20 +60,25 @@ load () {
   source $ZSH_PLUGINS/$GITHUB/$SOURCE
 }
 
-# Variables for plugins
+# Setup for ZSH plugins
 GIT_AUTO_FETCH_INTERVAL=1200 # in seconds
+zstyle ':omz:plugins:nvm' autoload yes
+fpath+="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker/completions" 
+fpath+="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker-compose" 
 
 autoload -U +X compinit && compinit
-# Dependencies for git plugin
-load "ohmyzsh/ohmyzsh" "lib/git.zsh"
-load "ohmyzsh/ohmyzsh" "lib/async_prompt.zsh"
-# End of git dependencies
+load "ohmyzsh/ohmyzsh" "lib/git.zsh" # Deps for git plugin
+load "ohmyzsh/ohmyzsh" "lib/async_prompt.zsh" # Deps for git plugin
 load "ohmyzsh/ohmyzsh" "plugins/git/git.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/nvm/nvm.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/git-auto-fetch/git-auto-fetch.plugin.zsh"
+ZSH_CACHE_DIR="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker" \
+  load "ohmyzsh/ohmyzsh" "plugins/docker/docker.plugin.zsh" # Docker plugin uses this env var
 load "ohmyzsh/ohmyzsh" "plugins/docker-compose/docker-compose.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/colored-man-pages/colored-man-pages.plugin.zsh"
+load "ohmyzsh/ohmyzsh" "plugins/dotenv/dotenv.plugin.zsh"
 load "zsh-users/zsh-autosuggestions" "zsh-autosuggestions.plugin.zsh"
 load "zsh-users/zsh-completions" "zsh-completions.plugin.zsh"
 load "jeffreytse/zsh-vi-mode" "zsh-vi-mode.plugin.zsh"
 load "zdharma-continuum/fast-syntax-highlighting" "fast-syntax-highlighting.plugin.zsh"
+load "MichaelAquilina/zsh-you-should-use" "you-should-use.plugin.zsh"
