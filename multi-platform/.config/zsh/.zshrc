@@ -1,15 +1,6 @@
 source $HOME/.config/zsh/aliases.zsh
 source $HOME/.config/zsh/opts.zsh
 
-# Use nvm
-if command -v nvm &> /dev/null; then
-  if [ -f .nvmrc ]; then
-    nvm use
-  else
-    nvm use --lts
-  fi
-fi
-
 # Add LF_ICONS env var for lf icons
 # Strips comments from the file, trims whitespace, then formats for LF
 LF_ICONS=$(cat ~/.config/lf/icons | sed \
@@ -73,7 +64,10 @@ load () {
 GIT_AUTO_FETCH_INTERVAL=1200 # in seconds
 
 autoload -U +X compinit && compinit
+# Dependencies for git plugin
 load "ohmyzsh/ohmyzsh" "lib/git.zsh"
+load "ohmyzsh/ohmyzsh" "lib/async_prompt.zsh"
+# End of git dependencies
 load "ohmyzsh/ohmyzsh" "plugins/git/git.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/nvm/nvm.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/git-auto-fetch/git-auto-fetch.plugin.zsh"
