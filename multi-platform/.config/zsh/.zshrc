@@ -75,6 +75,7 @@ GIT_AUTO_FETCH_INTERVAL=1200 # in seconds
 autoload -U +X compinit && compinit
 load "ohmyzsh/ohmyzsh" "lib/git.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/git/git.plugin.zsh"
+load "ohmyzsh/ohmyzsh" "plugins/nvm/nvm.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/git-auto-fetch/git-auto-fetch.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/docker-compose/docker-compose.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/colored-man-pages/colored-man-pages.plugin.zsh"
