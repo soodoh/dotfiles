@@ -76,7 +76,8 @@ ZSH_CACHE_DIR="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker" \
   load "ohmyzsh/ohmyzsh" "plugins/docker/docker.plugin.zsh" # Docker plugin uses this env var
 load "ohmyzsh/ohmyzsh" "plugins/docker-compose/docker-compose.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/colored-man-pages/colored-man-pages.plugin.zsh"
-load "ohmyzsh/ohmyzsh" "plugins/dotenv/dotenv.plugin.zsh"
+ZSH_CACHE_DIR="$ZSH_PLUGINS/ohmyzsh/cache" \
+  load "ohmyzsh/ohmyzsh" "plugins/dotenv/dotenv.plugin.zsh"
 load "zsh-users/zsh-autosuggestions" "zsh-autosuggestions.plugin.zsh"
 load "zsh-users/zsh-completions" "zsh-completions.plugin.zsh"
 load "jeffreytse/zsh-vi-mode" "zsh-vi-mode.plugin.zsh"
