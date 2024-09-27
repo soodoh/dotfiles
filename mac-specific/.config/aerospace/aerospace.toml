@@ -66,21 +66,13 @@ cmd-alt-ctrl-shift-j = 'move down'
 cmd-alt-ctrl-shift-k = 'move up'
 cmd-alt-ctrl-shift-l = 'move right'
 
-# Consider using 'join-with' command as a 'split' replacement if you want to enable normalizations
-# alt-h = 'join-with horizontal'
-# alt-v = 'join-with vertical'
-
 alt-ctrl-shift-f = 'fullscreen'
 
-alt-ctrl-shift-s = 'layout v_accordion'               # 'layout stacking' in i3
-alt-ctrl-shift-w = 'layout h_accordion'               # 'layout tabbed' in i3
-alt-ctrl-shift-e = 'layout tiles horizontal vertical' # 'layout toggle split' in i3
+# alt-ctrl-shift-s = 'layout v_accordion'               # 'layout stacking' in i3
+alt-ctrl-shift-t = 'layout h_accordion tiles'         # 'layout tabbed' in i3
+alt-ctrl-shift-s = 'layout tiles horizontal vertical' # 'layout toggle split' in i3
 
 alt-ctrl-shift-space = 'layout floating tiling' # 'floating toggle' in i3
-
-# `focus parent`/`focus child` are not yet supported, and it's not clear whether they
-# should be supported at all https://github.com/nikitabobko/AeroSpace/issues/5
-# alt-a = 'focus parent'
 
 alt-ctrl-shift-y = 'workspace 1'
 alt-ctrl-shift-u = 'workspace 2'
@@ -92,7 +84,7 @@ cmd-alt-ctrl-shift-u = 'move-node-to-workspace 2'
 cmd-alt-ctrl-shift-i = 'move-node-to-workspace 3'
 cmd-alt-ctrl-shift-o = 'move-node-to-workspace 4'
 
-cmd-alt-ctrl-shift-c = 'reload-config'
+cmd-alt-ctrl-shift-v = 'reload-config'
 
 alt-ctrl-shift-r = 'balance-sizes'
 cmd-alt-ctrl-shift-r = 'mode resize'
