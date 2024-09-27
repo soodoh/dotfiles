@@ -28,14 +28,10 @@ meh - v : yabai -m window --toggle split
 meh - r : yabai -m space --balance
 
 # Move focused window to specific workspace
-# hyper - y : yabai -m window --space 1 && yabai -m space --focus 1
-# hyper - u : yabai -m window --space 2 && yabai -m space --focus 2
-# hyper - i : yabai -m window --space 3 && yabai -m space --focus 3
-# hyper - o : yabai -m window --space 4 && yabai -m space --focus 4
-hyper - y : yabai -m window --space 1
-hyper - u : yabai -m window --space 2
-hyper - i : yabai -m window --space 3
-hyper - o : yabai -m window --space 4
+hyper - y : yabai -m window --space 1 --focus
+hyper - u : yabai -m window --space 2 --focus
+hyper - i : yabai -m window --space 3 --focus
+hyper - o : yabai -m window --space 4 --focus
 
 # Second monitor
 # 0x27 is hex for apostrophe character
