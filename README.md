@@ -105,34 +105,37 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
        trash \
        tmux \
        neovim \
-       koekeishiya/formulae/yabai \
-       koekeishiya/formulae/skhd \
        ripgrep \
        stow \
        fzf \
        zoxide
     ```
 
-1. Install command-not-found functionality (like Ubuntu's apt-get)
+1. Install various taps
 
     ```
     brew tap homebrew/command-not-found
+    ```
+
+    Aerospace:
+
+    ```
+    brew install --cask nikitabobko/tap/aerospace
+    # Nice to have
+    defaults write -g NSWindowShouldDragOnGesture -bool true
+    ```
+
+    JankyBorders (used in aerospace.toml)
+
+    ```
+    brew tap FelixKratz/formulae
+    brew install borders
     ```
 
 1. Symlink Mac dotfiles
 
     ```
     stow -v -R -t $HOME mac-specific
-    ```
-
-1. Start Yabai & SKHD services
-
-    ```
-    # This may be necessary
-    mkdir /Users/{USERNAME}/Library/LaunchAgents
-
-    skhd --start-service
-    yabai --start-service
     ```
 
 1. Install Neovim dependencies
