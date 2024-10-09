@@ -17,9 +17,25 @@ return {
         callback = function(ev)
           require("which-key").add({
             {
-              "<leader>sD",
+              "<leader>s",
+              group = "LSP",
+            },
+            {
+              "<leader>sd",
               vim.lsp.buf.definition,
               desc = "Go to definition (LSP)",
+              buffer = ev.buf,
+            },
+            {
+              "<leader>si",
+              vim.lsp.buf.implementation,
+              desc = "Go to implementation (LSP)",
+              buffer = ev.buf,
+            },
+            {
+              "<leader>sy",
+              vim.lsp.buf.type_definition,
+              desc = "Go to type def (LSP)",
               buffer = ev.buf,
             },
             {

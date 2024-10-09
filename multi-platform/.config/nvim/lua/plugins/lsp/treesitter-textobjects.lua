@@ -11,7 +11,7 @@ return {
             border = "none",
             floating_preview_opts = {},
             peek_definition_code = {
-              ["<leader>sd"] = "@function.outer",
+              ["<leader>sp"] = "@function.outer",
             },
           },
           swap = {
