@@ -1,18 +1,6 @@
 source $HOME/.config/zsh/aliases.zsh
 source $HOME/.config/zsh/opts.zsh
 
-# Add LF_ICONS env var for lf icons
-# Strips comments from the file, trims whitespace, then formats for LF
-LF_ICONS=$(cat ~/.config/lf/icons | sed \
-  -e "/^[ \t]*#/d"   \
-  -e "/^[ \s]*$/d"   \
-  -e "s/^[ \s]*//"   \
-  -e "s/[ \s]*$//"   \
-  -e "s/  */=/g"     \
-  -e "s/$/ /")
-LF_ICONS=${LF_ICONS//$"\n"/:}
-export LF_ICONS
-
 # Preferred editor for local and remote sessions
 export EDITOR="nvim"
 export VISUAL="nvim"
