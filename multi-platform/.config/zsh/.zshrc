@@ -48,7 +48,7 @@ load () {
   source $ZSH_PLUGINS/$GITHUB/$SOURCE
 }
 
-# Setup for ZSH plugins
+# Setup for ZSH plugins:
 GIT_AUTO_FETCH_INTERVAL=1200 # in seconds
 zstyle ':omz:plugins:nvm' lazy yes
 fpath+="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker/completions" 
@@ -60,6 +60,8 @@ load "ohmyzsh/ohmyzsh" "lib/async_prompt.zsh" # Deps for git plugin
 load "ohmyzsh/ohmyzsh" "plugins/git/git.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/nvm/nvm.plugin.zsh"
 load "ohmyzsh/ohmyzsh" "plugins/git-auto-fetch/git-auto-fetch.plugin.zsh"
+ZSH_TMUX_AUTOSTART=true ZSH_TMUX_AUTOQUIT=false \
+  load "ohmyzsh/ohmyzsh" "plugins/tmux/tmux.plugin.zsh"
 ZSH_CACHE_DIR="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker" \
   load "ohmyzsh/ohmyzsh" "plugins/docker/docker.plugin.zsh" # Docker plugin uses this env var
 load "ohmyzsh/ohmyzsh" "plugins/docker-compose/docker-compose.plugin.zsh"
