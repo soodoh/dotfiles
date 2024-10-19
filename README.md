@@ -93,14 +93,12 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
 
     Then run caveat command so that `brew` is in the `$PATH`. Once we symlink the `.zprofile`, this will happen automatically.
 
-1. Install tools
+1. Install common tools
 
     ```
     brew update && brew upgrade
     brew install \
        kitty \
-       lf \
-       lazygit \
        coreutils \
        trash \
        tmux \
@@ -109,6 +107,14 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
        stow \
        fzf \
        zoxide
+    ```
+
+    Additional dev tools:
+    ```
+    brew install \
+        lf \
+        lazygit \
+        gh
     ```
 
 1. Install various taps
