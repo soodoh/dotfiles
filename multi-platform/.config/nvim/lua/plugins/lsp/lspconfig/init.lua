@@ -89,15 +89,12 @@ return {
           css = { lint = { unknownAtRules = "ignore" } },
         },
       })
-      lspconfig.cssmodules_ls.setup(get_opts())
-      lspconfig.emmet_ls.setup(get_opts())
       lspconfig.eslint.setup(get_opts({
         format = true,
       }))
       lspconfig.efm.setup(require("plugins.lsp.lspconfig.efm_opts"))
       lspconfig.graphql.setup(get_opts())
       lspconfig.html.setup(get_opts())
-      lspconfig.intelephense.setup(get_opts())
       lspconfig.marksman.setup(get_opts())
       lspconfig.svelte.setup(get_opts())
       lspconfig.ts_ls.setup(get_opts({ format = false }))
@@ -108,7 +105,6 @@ return {
       lspconfig.gopls.setup(get_opts())
       lspconfig.lua_ls.setup(get_opts())
       lspconfig.pyright.setup(get_opts())
-      -- lspconfig.ruby_lsp.setup(get_opts())
       lspconfig.rubocop.setup(get_opts())
       lspconfig.rust_analyzer.setup(get_opts())
       lspconfig.terraformls.setup(get_opts())
