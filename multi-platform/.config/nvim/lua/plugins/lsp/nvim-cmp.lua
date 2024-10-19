@@ -69,16 +69,15 @@ return {
               fallback()
             end
           end, { "i", "s" }),
-          -- ["<C-b>"] = cmp.mapping.scroll_docs(-4),
-          -- ["<C-f>"] = cmp.mapping.scroll_docs(4),
-          -- ["<C-s>"] = cmp.mapping.complete(),
-          -- ["<C-e>"] = cmp.mapping.close(),
           ["<CR>"] = cmp.mapping.confirm({
             behavior = cmp.ConfirmBehavior.Replace,
           }),
         },
         sources = cmp.config.sources({
           { name = "nvim_lsp" },
+          { name = "nvim_lua" },           -- Lua runtime LSP
+          { name = "path" },
+          { name = "copilot" },
           {
             name = "luasnip",
             option = {
@@ -86,20 +85,29 @@ return {
               use_show_condition = false,
             },
           },
-          { name = "nvim_lua" },
           { name = "emoji" },
           { name = "nerdfont" },
-          { name = "path" },
-          { name = "buffer",  group_index = 2 },
+        }, {
+          {
+            name = "buffer",
+            max_item_count = 5,
+          },
         }),
         sorting = {
-          priority_weight = 1.0,
+          priority_weight = 5.0,
         },
         formatting = {
           format = lspkind.cmp_format({
             mode = "symbol_text",
             maxwidth = 50,
             ellipsis_char = "...",
+            menu = {
+              nvim_lua = "[Lua]",
+              nvim_lsp = "[LSP]",
+              buffer = "[Buffer]",
+              path = "[Path]",
+              copilot = "[Copilot]",
+            },
           }),
         },
       })

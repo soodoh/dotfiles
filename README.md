@@ -109,12 +109,11 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
        zoxide
     ```
 
-    Additional dev tools:
+    Optional dev tools:
     ```
     brew install \
         lf \
-        lazygit \
-        gh
+        lazygit
     ```
 
 1. Install various taps
@@ -137,6 +136,16 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
     brew tap FelixKratz/formulae
     brew install borders
     ```
+
+1. Install Copilot
+
+    CLI:
+
+    ```
+    brew install gh
+    ```
+
+    Follow [Github CLI install instructions](https://docs.github.com/en/copilot/managing-copilot/configure-personal-settings/installing-github-copilot-in-the-cli#installing-copilot-in-the-cli)
 
 1. Symlink Mac dotfiles
 

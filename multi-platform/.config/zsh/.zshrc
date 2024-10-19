@@ -30,6 +30,10 @@ fi
 if command -v brew &> /dev/null; then
   export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
 fi
+# Add Github Copilot CLI aliases (ghcs/ghce)
+if command -v gh &> /dev/null; then
+  eval "$(gh copilot alias -- zsh)"
+fi
 # Koreader dev dependencies
 if command -v brew &> /dev/null; then
   export PATH="$(brew --prefix)/opt/findutils/libexec/gnubin:$(brew --prefix)/opt/gnu-getopt/bin:$(brew --prefix)/opt/make/libexec/gnubin:$(brew --prefix)/opt/util-linux/bin:${PATH}"
