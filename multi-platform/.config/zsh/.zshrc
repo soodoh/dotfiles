@@ -28,11 +28,15 @@ if command -v brew &> /dev/null; then
 fi
 # ImageMagick + Nvim
 if command -v brew &> /dev/null; then
-    export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
+  export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
 fi
 # Koreader dev dependencies
 if command -v brew &> /dev/null; then
   export PATH="$(brew --prefix)/opt/findutils/libexec/gnubin:$(brew --prefix)/opt/gnu-getopt/bin:$(brew --prefix)/opt/make/libexec/gnubin:$(brew --prefix)/opt/util-linux/bin:${PATH}"
+fi
+# Make sure Homebrew-installed apps take priority
+if command -v brew &> /dev/null; then
+  export PATH="/usr/local/bin:/usr/local/sbin:${PATH/:\/usr\/local\/bin/}"
 fi
 
 # Settings for zsh-vi-mode
