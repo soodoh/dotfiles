@@ -27,10 +27,10 @@ return function(opts)
 
   -- Needed for nvim-ufo (LSP-based folding)
   -- foldingRange isn't there by default
-  -- lsp_opts.capabilities.textDocument.foldingRange = {
-  --   dynamicRegistration = false,
-  --   lineFoldingOnly = true,
-  -- }
+  lsp_opts.capabilities.textDocument.foldingRange = {
+    dynamicRegistration = false,
+    lineFoldingOnly = true,
+  }
 
   return lsp_opts
 end
