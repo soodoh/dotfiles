@@ -15,20 +15,20 @@ eval "$(starship init zsh)"
 
 # Include Cargo packages in $PATH
 if command -v cargo &> /dev/null; then
-  PATH+="$HOME/.cargo/bin"
+  PATH="$PATH:$HOME/.cargo/bin"
 fi
 # Include Go packages in $PATH
 if command -v go &> /dev/null; then
   export GOPATH="$HOME/go"
-  PATH+="$GOPATH/bin"
+  PATH="$PATH:$GOPATH/bin"
 fi
 # Include Ruby in $PATH
 if command -v brew &> /dev/null; then
-    PATH+="/opt/homebrew/opt/ruby/bin"
+    PATH="$PATH:/opt/homebrew/opt/ruby/bin"
 fi
 # ImageMagick + Nvim
 if command -v brew &> /dev/null; then
-  export DYLD_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_LIBRARY_PATH"
+  export DYLD_LIBRARY_PATH="$(brew --prefix)/lib/"
 fi
 # Add Github Copilot CLI aliases (ghcs/ghce)
 if command -v gh &> /dev/null; then

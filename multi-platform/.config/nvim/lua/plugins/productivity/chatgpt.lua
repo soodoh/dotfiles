@@ -41,6 +41,7 @@ return {
     config = function()
       local chatgpt = require("chatgpt")
       chatgpt.setup({
+        api_key_cmd = "echo $OPENAI_API_KEY",
         yank_register = '"',
         popup_input = {
           submit = "<C-s>",

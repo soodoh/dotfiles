@@ -105,7 +105,7 @@ return {
       lspconfig.gopls.setup(get_opts())
       lspconfig.lua_ls.setup(get_opts())
       lspconfig.pyright.setup(get_opts())
-      lspconfig.rubocop.setup(get_opts())
+      -- lspconfig.rubocop.setup(get_opts())
       lspconfig.rust_analyzer.setup(get_opts())
       lspconfig.terraformls.setup(get_opts())
       lspconfig.omnisharp.setup(get_opts())
