@@ -24,9 +24,9 @@
 
 ```
 source $HOME/.config/zsh/.zshrc
+# Replace with actual API key
+export OPENAI_API_KEY=XXXXX
 ```
-
-1.  Add environment variables to `~/.zshenv` (i.e. OPENAI_API_KEY)
 
 1.  Set zsh as default shell
 
