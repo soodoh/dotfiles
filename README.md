@@ -24,10 +24,6 @@
 
 ```
 source $HOME/.config/zsh/.zshrc
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 ```
 
 1.  Add environment variables to `~/.zshenv` (i.e. OPENAI_API_KEY)
@@ -44,18 +40,28 @@ export NVM_DIR="$HOME/.nvm"
     sh -c "$(curl -fsSL https://starship.rs/install.sh)"
     ```
 
-1.  Install zoxide
-    Note: On Linux, this can be more easily installed via `apt install zoxide`.
-
-        ```
-        cargo install zoxide --locked
-        ```
-
-1.  Install nvm + global npm dependencies
+1.  Install language runtimes
 
     ```
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
-    nvm install --lts
+    brew install golang
+    ```
+
+    Follow Rust [installation instructions](https://www.rust-lang.org/tools/install)
+
+1.  Install NVM
+
+    Follow [installation instructions](https://github.com/nvm-sh/nvm) for nvm
+
+    Set/install default version of node to LTS:
+
+    ```
+    nvm install 'lts/*'
+    nvm alias default 'lts/*'
+    ```
+
+    Lastly, install some global NPM packages:
+
+    ```
     npm i -g yarn neovim
     ```
 
@@ -65,7 +71,39 @@ export NVM_DIR="$HOME/.nvm"
     git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm
     ```
 
-1.  Open Neovim and run `:Lazy`
+1.  Install Neovim dependencies
+
+    ```
+    pip3 install neovim
+    ```
+
+    Image.nvim Dependencies
+
+    ```
+    # Ubuntu
+    sudo apt install libmagickwand-dev
+
+    # MacOS
+    brew install imagemagick
+    brew install jstkdng/programs/ueberzugpp
+    # See https://github.com/3rd/image.nvim/issues/91#issuecomment-2417623824
+    brew install pkgconfig
+    ```
+
+    Other:
+
+    ```
+    # Ubuntu
+    apt-get install \
+        cmake \
+        python3-venv \
+        python3-neovim
+
+    # MacOS
+    brew install cmake
+    ```
+
+    Open `nvim` and run `:Lazy`
 
 1.  Open Tmux and install tmux plugins (\<prefix\> + I)
 
@@ -109,13 +147,6 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
        zoxide
     ```
 
-    Optional dev tools:
-    ```
-    brew install \
-        lf \
-        lazygit
-    ```
-
 1. Install various taps
 
     ```
@@ -153,12 +184,6 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
     stow -v -R -t $HOME mac-specific
     ```
 
-1. Install Neovim dependencies
-
-    ```
-    pip3 install neovim
-    ```
-
 ## Linux Install (Debian/Ubuntu)
 
 1. Add custom repositories
@@ -182,46 +207,8 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
        fzf \
     ```
 
-1. Install neovim dependencies
-   Optional: install Rust, see official docs
-
-    ```
-    apt-get install \
-        cmake \
-        python3-venv \
-        python3-neovim \
-        unzip \
-        lua5.1 \
-        liblua5.1-dev \
-        ruby \
-        ruby-dev \
-        golang
-    ```
-
 1. Symlink Linux specific dotfiles
 
     ```
     stow -v -R -t $HOME linux-specific
-    ```
-
-1. Install `lazygit`
-
-    ```
-    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
-    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
-    tar xf /tmp/lazygit.tar.gz /tmp/lazygit
-    sudo install lazygit /usr/local/bin
-    rm /tmp/lazygit.tar.gz /tmp/lazygit
-    ```
-
-1. Install `lf`
-
-    - Grab tarball here: https://github.com/gokcehan/lf/releases
-
-    ```
-    wget https://github.com/gokcehan/lf/releases/download/r6/lf-linux-amd64.tar.gz -O lf-linux-amd64.tar.gz
-    tar -xvf lf-linux-amd64.tar.gz
-    chmod +x lf
-    sudo mv lf /usr/local/bin
-    rm lf-linux-amd64.tar.gz
     ```
