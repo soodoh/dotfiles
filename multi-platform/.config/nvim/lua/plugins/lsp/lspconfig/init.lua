@@ -78,7 +78,7 @@ return {
       local get_opts = require("plugins.lsp.lspconfig.default_opts")
       local lspconfig = require("lspconfig")
       -- Unix
-      lspconfig.awk_ls.setup(get_opts())
+      -- lspconfig.awk_ls.setup(get_opts())
       lspconfig.bashls.setup(get_opts())
       lspconfig.jsonls.setup(get_opts())
       lspconfig.taplo.setup(get_opts())
