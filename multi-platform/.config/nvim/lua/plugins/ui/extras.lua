@@ -1,33 +1,13 @@
 return {
   -- Color theme
   {
-    "marko-cerovac/material.nvim",
-    init = function()
-      vim.o.background = "dark"
-      vim.g.material_style = "deep ocean"
-      vim.cmd("colorscheme material")
+    "baliestri/aura-theme",
+    lazy = false,
+    priority = 1000,
+    config = function(plugin)
+      vim.opt.rtp:append(plugin.dir .. "/packages/neovim")
+      vim.cmd([[colorscheme aura-dark]])
     end,
-    opts = {
-      contrast = {
-        terminal = true,
-        sidebars = false,
-        floating_windows = false,
-        cursor_line = true,
-        non_current_windows = true,
-      },
-      plugins = {
-        "dashboard",
-        "gitsigns",
-        "hop",
-        "indent-blankline",
-        "lspsaga",
-        "nvim-cmp",
-        "nvim-tree",
-        "nvim-web-devicons",
-        "telescope",
-        "trouble",
-      },
-    },
   },
 
   -- Smooth scrolling
