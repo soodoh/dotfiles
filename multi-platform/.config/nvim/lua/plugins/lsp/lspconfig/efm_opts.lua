@@ -25,6 +25,7 @@ local languages = {
   css = { prettier },
   graphql = { prettier },
   html = { prettier },
+  svg = { prettier },
   markdown = { prettier },
   json = { prettier },
   python = { prettier },
