@@ -99,6 +99,7 @@ return {
       lspconfig.svelte.setup(get_opts())
       lspconfig.ts_ls.setup(get_opts({ format = false }))
       -- Server
+      lspconfig.prismals.setup(get_opts())
       lspconfig.clangd.setup(get_opts())
       lspconfig.dockerls.setup(get_opts())
       lspconfig.docker_compose_language_service.setup(get_opts())
