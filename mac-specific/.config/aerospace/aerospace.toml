@@ -80,11 +80,20 @@ alt-ctrl-shift-y = 'workspace 1'
 alt-ctrl-shift-u = 'workspace 2'
 alt-ctrl-shift-i = 'workspace 3'
 alt-ctrl-shift-o = 'workspace 4'
+alt-ctrl-shift-p = 'workspace 5'
 
 cmd-alt-ctrl-shift-y = 'move-node-to-workspace 1'
 cmd-alt-ctrl-shift-u = 'move-node-to-workspace 2'
 cmd-alt-ctrl-shift-i = 'move-node-to-workspace 3'
 cmd-alt-ctrl-shift-o = 'move-node-to-workspace 4'
+cmd-alt-ctrl-shift-p = 'move-node-to-workspace 5'
+
+[workspace-to-monitor-force-assignment]
+1 = 'main'
+2 = 'main'
+3 = 'main'
+4 = 'main'
+5 = 'secondary'
 
 cmd-alt-ctrl-shift-v = 'reload-config'
 
