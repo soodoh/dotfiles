@@ -7,7 +7,7 @@ const Configuration: UserConfig = {
     "scope-enum": [
       RuleConfigSeverity.Error,
       "always",
-      ["root", "nvim", "yabai", "zsh", "tmux"],
+      ["root", "nvim", "mac", "zsh", "tmux"],
     ],
   },
 };
