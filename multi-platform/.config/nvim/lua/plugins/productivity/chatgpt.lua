@@ -66,8 +66,8 @@ return {
           submit = "<C-s>",
         },
         openai_params = {
-          model = "gpt-4-turbo-preview",
-          max_tokens = 500,
+          model = "chatgpt-4o-latest",
+          max_tokens = 4095,
         },
       })
 

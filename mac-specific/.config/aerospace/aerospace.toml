@@ -92,7 +92,7 @@ cmd-alt-ctrl-shift-p = 'move-node-to-workspace 5'
 1 = 'main'
 2 = 'main'
 3 = 'main'
-4 = 'main'
+4 = 'secondary'
 5 = 'secondary'
 
 cmd-alt-ctrl-shift-v = 'reload-config'
