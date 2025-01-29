@@ -4,6 +4,7 @@ icon_map() {
   case "$1" in
     "Google Chrome") echo "󰊯" ;;
     "Firefox") echo "" ;;
+    "Safari") echo "󰀹" ;;
     "Slack") echo "󰒱" ;;
     "kitty") echo "" ;;
     "Proton Mail") echo "󰴃" ;;
@@ -11,6 +12,8 @@ icon_map() {
     "Notion") echo "" ;;
     "Messages") echo "󰻞" ;;
     "Discord") echo "󰙯" ;;
+    "System Settings") echo "" ;;
+    "Zoom") echo "󰕧" ;;
     *) echo "" ;;
   esac
 }
