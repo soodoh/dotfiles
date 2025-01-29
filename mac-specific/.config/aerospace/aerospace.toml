@@ -15,7 +15,7 @@ after-startup-command = [
 exec-on-workspace-change = [
   '/bin/bash',
   '-c',
-  'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
+  'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE',
 ]
 
 # Start AeroSpace at login
@@ -67,8 +67,8 @@ cmd-h = []     # Disable "hide application"
 cmd-alt-h = [] # Disable "hide others"
 
 alt-ctrl-shift-h = 'focus left --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
-alt-ctrl-shift-j = 'focus down'
-alt-ctrl-shift-k = 'focus up'
+alt-ctrl-shift-j = 'focus down --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
+alt-ctrl-shift-k = 'focus up --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
 alt-ctrl-shift-l = 'focus right --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
 
 cmd-alt-ctrl-shift-h = 'move left'
@@ -78,7 +78,6 @@ cmd-alt-ctrl-shift-l = 'move right'
 
 alt-ctrl-shift-f = 'fullscreen'
 
-# alt-ctrl-shift-s = 'layout v_accordion'               # 'layout stacking' in i3
 alt-ctrl-shift-t = 'layout h_accordion tiles'         # 'layout tabbed' in i3
 alt-ctrl-shift-s = 'layout tiles horizontal vertical' # 'layout toggle split' in i3
 
@@ -88,24 +87,24 @@ cmd-alt-ctrl-shift-v = 'reload-config'
 alt-ctrl-shift-r = 'balance-sizes'
 cmd-alt-ctrl-shift-r = 'mode resize'
 
-alt-ctrl-shift-y = 'workspace Web'
-alt-ctrl-shift-u = 'workspace Org'
-alt-ctrl-shift-i = 'workspace Other'
-alt-ctrl-shift-o = 'workspace Slack'
-alt-ctrl-shift-p = 'workspace Term'
+alt-ctrl-shift-y = 'workspace 1'
+alt-ctrl-shift-u = 'workspace 2'
+alt-ctrl-shift-i = 'workspace 3'
+alt-ctrl-shift-o = 'workspace 4'
+alt-ctrl-shift-p = 'workspace 5'
 
-cmd-alt-ctrl-shift-y = 'move-node-to-workspace --focus-follows-window Web'
-cmd-alt-ctrl-shift-u = 'move-node-to-workspace --focus-follows-window Org'
-cmd-alt-ctrl-shift-i = 'move-node-to-workspace --focus-follows-window Other'
-cmd-alt-ctrl-shift-o = 'move-node-to-workspace --focus-follows-window Slack'
-cmd-alt-ctrl-shift-p = 'move-node-to-workspace --focus-follows-window Term'
+cmd-alt-ctrl-shift-y = 'move-node-to-workspace --focus-follows-window 1'
+cmd-alt-ctrl-shift-u = 'move-node-to-workspace --focus-follows-window 2'
+cmd-alt-ctrl-shift-i = 'move-node-to-workspace --focus-follows-window 3'
+cmd-alt-ctrl-shift-o = 'move-node-to-workspace --focus-follows-window 4'
+cmd-alt-ctrl-shift-p = 'move-node-to-workspace --focus-follows-window 5'
 
 [workspace-to-monitor-force-assignment]
-Web = 'main'
-Org = 'main'
-Other = 'main'
-Slack = 'secondary'
-Term = 'secondary'
+1 = 'main'
+2 = 'main'
+3 = 'main'
+4 = 'secondary'
+5 = 'secondary'
 
 [mode.resize.binding]
 h = 'resize width -50'
@@ -121,42 +120,43 @@ esc = 'mode main'
 if.app-name-regex-substring = 'google chrome'
 if.during-aerospace-startup = true
 check-further-callbacks = true
-run = ['move-node-to-workspace Web']
+run = ['move-node-to-workspace 1']
 
 [[on-window-detected]]
 if.app-name-regex-substring = 'kitty'
 if.during-aerospace-startup = true
 check-further-callbacks = true
-run = ['move-node-to-workspace Term']
+run = ['move-node-to-workspace 1']
 
-[[on-window-detected]]
-if.app-name-regex-substring = 'slack'
-if.during-aerospace-startup = true
-check-further-callbacks = true
-run = ['move-node-to-workspace Slack']
-
-# "Other" Workspace
-[[on-window-detected]]
-if.app-name-regex-substring = 'firefox'
-if.during-aerospace-startup = true
-check-further-callbacks = true
-run = ['move-node-to-workspace Other']
-
-[[on-window-detected]]
-if.app-name-regex-substring = 'messages'
-if.during-aerospace-startup = true
-check-further-callbacks = true
-run = ['move-node-to-workspace Other']
-
-# "Org" Workspace
+# "Organization" apps
 [[on-window-detected]]
 if.app-name-regex-substring = 'todoist'
 if.during-aerospace-startup = true
 check-further-callbacks = true
-run = ['move-node-to-workspace Org']
+run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
 if.app-name-regex-substring = 'safari'
 if.during-aerospace-startup = true
 check-further-callbacks = true
-run = ['move-node-to-workspace Org']
+run = ['move-node-to-workspace 2']
+
+
+[[on-window-detected]]
+if.app-name-regex-substring = 'slack'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 3']
+
+# "Other" apps
+[[on-window-detected]]
+if.app-name-regex-substring = 'firefox'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 4']
+
+[[on-window-detected]]
+if.app-name-regex-substring = 'messages'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 4']
