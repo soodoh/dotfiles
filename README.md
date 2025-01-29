@@ -1,4 +1,4 @@
-# How to set up entire environment
+#yabai How to set up entire environment
 
 ## Platform Agnostic Install
 
@@ -111,9 +111,9 @@ export OPENAI_API_KEY=XXXXX
 
 [Patched fonts](https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts)
 
--   Alacritty.yml/Kitty.conf uses `FiraCode Nerd Font Mono`
--   [FiraCode Nerd Font Mono](https://github.com/ryanoasis/nerd-fonts/blob/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFontMono-Regular.ttf)
--   Add font manually for Mac installations
+- Alacritty.yml/Kitty.conf uses `FiraCode Nerd Font Mono`
+- [FiraCode Nerd Font Mono](https://github.com/ryanoasis/nerd-fonts/blob/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFontMono-Regular.ttf)
+- For mac installation, use homebrew: `brew install --cask font-fira-code-nerd-font`
 
 ```
 # Linux
@@ -161,11 +161,12 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
     defaults write -g NSWindowShouldDragOnGesture -bool true
     ```
 
-    JankyBorders (used in aerospace.toml)
+    JankyBorders + Sketchybar (used in aerospace.toml)
 
     ```
     brew tap FelixKratz/formulae
     brew install borders
+    brew install sketchybar
     ```
 
 1. Install Copilot
