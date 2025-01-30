@@ -2,6 +2,7 @@
 
 icon_map() {
   case "$1" in
+    "App Store") echo "" ;;
     "Google Chrome") echo "󰊯" ;;
     "Firefox") echo "" ;;
     "Safari") echo "󰀹" ;;
