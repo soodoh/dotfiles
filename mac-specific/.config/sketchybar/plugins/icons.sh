@@ -13,7 +13,7 @@ icon_map() {
     "Messages") echo "󰻞" ;;
     "Discord") echo "󰙯" ;;
     "System Settings") echo "" ;;
-    "Zoom") echo "󰕧" ;;
+    "zoom.us") echo "󰕧" ;;
     *) echo "" ;;
   esac
 }
