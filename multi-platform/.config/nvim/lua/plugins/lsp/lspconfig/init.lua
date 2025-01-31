@@ -38,13 +38,13 @@ return {
               desc = "Go to type def (LSP)",
               buffer = ev.buf,
             },
-            {
-              "<leader>sF",
-              function()
-                vim.lsp.buf.format({ async = true })
-              end,
-              desc = "Format buffer (LSP)",
-            },
+            -- {
+            --   "<leader>sf",
+            --   function()
+            --     vim.lsp.buf.format({ async = true })
+            --   end,
+            --   desc = "Format buffer (LSP)",
+            -- },
             {
               "<leader>sR",
               ":LspRestart<CR>",
@@ -70,6 +70,8 @@ return {
         )
       end
 
+      -- Setup related LSP dependencies
+      require("lsp-format").setup({})
       require("mason").setup()
       require("mason-lspconfig").setup({
         automatic_installation = true,
