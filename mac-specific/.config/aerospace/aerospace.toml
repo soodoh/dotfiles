@@ -56,7 +56,8 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 inner.horizontal = 5
 inner.vertical = 5
 outer.top = [
-  { monitor.main = 5 },
+  { monitor."Built-in" = 5 },
+  { monitor."C49RG9x" = 40 },
   { monitor."MP185Y1-M" = 40 },
   { monitor."eD15" = 40 },
   0,
