@@ -60,7 +60,7 @@ outer.top = [
   { monitor."C49RG9x" = 40 },
   { monitor."MP185Y1-M" = 40 },
   { monitor."eD15" = 40 },
-  0,
+  40,
 ]
 outer.right = 0
 outer.bottom = 0
