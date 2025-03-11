@@ -24,7 +24,7 @@ if command -v go &> /dev/null; then
 fi
 # Include Ruby in $PATH
 if command -v brew &> /dev/null; then
-    PATH="$PATH:/opt/homebrew/opt/ruby/bin"
+    PATH="$PATH:/opt/homebrew/bin"
 fi
 # ImageMagick + Nvim
 if command -v brew &> /dev/null; then
