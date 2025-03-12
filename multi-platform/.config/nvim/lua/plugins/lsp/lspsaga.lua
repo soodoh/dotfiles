@@ -2,32 +2,34 @@ return {
   -- Better UI for LSP (code actions, diagnostics)
   {
     "nvimdev/lspsaga.nvim",
+    after = "catppuccin",
     dependencies = {
       "nvim-tree/nvim-web-devicons",
       "nvim-treesitter/nvim-treesitter",
     },
-    opts = {
-      lightbulb = {
-        sign = false,
-        -- virtual_text = false,
-      },
-      ui = {
-        -- This option only works in Neovim 0.9
-        title = true,
-        -- Border type can be single, double, rounded, solid, shadow.
-        border = "rounded",
-        winblend = 0,
-        expand = "",
-        collapse = "",
-        code_action = "💡",
-        incoming = " ",
-        outgoing = " ",
-        hover = " ",
-        kind = {},
-      },
-    },
-    config = function(_, opts)
-      require("lspsaga").setup(opts)
+    config = function()
+      require("lspsaga").setup({
+        lightbulb = {
+          sign = false,
+          -- virtual_text = false,
+        },
+        ui = {
+          -- This option only works in Neovim 0.9
+          title = true,
+          -- Border type can be single, double, rounded, solid, shadow.
+          border = "rounded",
+          winblend = 0,
+          expand = "",
+          collapse = "",
+          code_action = "💡",
+          incoming = " ",
+          outgoing = " ",
+          hover = " ",
+          kind = require(
+            "catppuccin.groups.integrations.lsp_saga"
+          ).custom_kind(),
+        },
+      })
       require("which-key").add({
         mode = { "n", "v" },
         { "<leader>s", group = "LSP" },
