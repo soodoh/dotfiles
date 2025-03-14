@@ -5,12 +5,7 @@ return function(opts)
   lsp_opts.on_attach = function(client, bufnr)
     -- Explicitly enable/disable formatting per LSP provider
     if opts ~= nil and opts.format ~= nil then
-      client.server_capabilities.documentFormattingProvider =
-          opts.format
-    end
-    -- Plugin that auto formats with LSP on save
-    if client.server_capabilities.documentFormattingProvider then
-      require("lsp-format").on_attach(client, bufnr)
+      client.server_capabilities.documentFormattingProvider = opts.format
     end
   end
 

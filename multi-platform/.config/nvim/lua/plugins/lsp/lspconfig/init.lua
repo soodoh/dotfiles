@@ -7,8 +7,7 @@ return {
   {
     "neovim/nvim-lspconfig",
     dependencies = {
-      "hrsh7th/nvim-cmp",       -- Better autocomplete
-      "lukas-reineke/lsp-format.nvim",
+      "hrsh7th/nvim-cmp", -- Better autocomplete
     },
     config = function()
       -- LSP mappings
@@ -38,13 +37,6 @@ return {
               desc = "Go to type def (LSP)",
               buffer = ev.buf,
             },
-            -- {
-            --   "<leader>sf",
-            --   function()
-            --     vim.lsp.buf.format({ async = true })
-            --   end,
-            --   desc = "Format buffer (LSP)",
-            -- },
             {
               "<leader>sR",
               ":LspRestart<CR>",
@@ -61,17 +53,13 @@ return {
 
       -- Diagnostic icons
       local signs =
-      { Error = "", Warn = "", Hint = "", Info = "" }
+        { Error = "", Warn = "", Hint = "", Info = "" }
       for type, icon in pairs(signs) do
         local hl = "DiagnosticSign" .. type
-        vim.fn.sign_define(
-          hl,
-          { text = icon, texthl = hl, numhl = hl }
-        )
+        vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
       end
 
       -- Setup related LSP dependencies
-      require("lsp-format").setup({})
       require("mason").setup()
       require("mason-lspconfig").setup({
         automatic_installation = true,
@@ -94,7 +82,6 @@ return {
       lspconfig.eslint.setup(get_opts({
         format = true,
       }))
-      lspconfig.efm.setup(require("plugins.lsp.lspconfig.efm_opts"))
       lspconfig.graphql.setup(get_opts())
       lspconfig.html.setup(get_opts())
       lspconfig.marksman.setup(get_opts())
@@ -115,11 +102,11 @@ return {
 
       -- Format the diagnostic messages
       vim.lsp.handlers["textDocument/publishDiagnostics"] =
-          vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
-            underline = true,
-            update_in_insert = false,
-            virtual_text = false,
-          })
+        vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
+          underline = true,
+          update_in_insert = false,
+          virtual_text = false,
+        })
     end,
   },
 
