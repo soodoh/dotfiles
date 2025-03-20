@@ -5,6 +5,7 @@ icon_map() {
     "App Store") echo "" ;;
     "Google Chrome") echo "󰊯" ;;
     "Chromium") echo "󰴂" ;; # Playwright
+    "Finder") echo "󰀶" ;;
     "Firefox") echo "" ;;
     "Safari") echo "󰀹" ;;
     "Calendar") echo "󰸗" ;;
