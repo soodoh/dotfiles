@@ -7,8 +7,7 @@ return {
         open_mapping = "<C-Space>",
         insert_mappings = false,
         terminal_mappings = true,
-        size = vim.o.columns * 0.4,
-        direction = "vertical",
+        direction = "float",
       })
     end,
   },
