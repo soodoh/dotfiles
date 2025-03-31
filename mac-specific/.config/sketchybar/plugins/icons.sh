@@ -9,6 +9,7 @@ icon_map() {
     "Firefox") echo "" ;;
     "Safari") echo "󰀹" ;;
     "Calendar") echo "󰸗" ;;
+    "Google Calendar") echo "󰸗" ;;
     "Slack") echo "󰒱" ;;
     "kitty") echo "" ;;
     "Proton Mail") echo "󰴃" ;;
