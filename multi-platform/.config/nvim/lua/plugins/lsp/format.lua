@@ -1,9 +1,11 @@
 return {
   "stevearc/conform.nvim",
   config = function()
-    require("conform").setup({
+    local conform = require("conform")
+
+    conform.setup({
       formatters = {
-        prettier = {
+        prettierd = {
           require_cwd = true,
           cwd = require("conform.util").root_file({
             ".prettierrc",
@@ -22,20 +24,35 @@ return {
         },
       },
       formatters_by_ft = {
-        lua = { "stylua", lsp_format = "first" },
-        python = { "black", lsp_format = "first" },
-        rust = { "rstfmt", lsp_format = "fallback" },
-        javascript = { "prettier", lsp_format = "first" },
-        typescript = { "prettier", lsp_format = "first" },
-        javascriptreact = { "prettier", lsp_format = "first" },
-        typescriptreact = { "prettier", lsp_format = "first" },
-        svelte = { "prettier", lsp_format = "first" },
-        css = { "prettier", lsp_format = "first" },
-        html = { "prettier", lsp_format = "first" },
-        json = { "prettier", lsp_format = "first" },
-        yaml = { "prettier", lsp_format = "first" },
-        markdown = { "prettier", lsp_format = "first" },
-        graphql = { "prettier", lsp_format = "first" },
+        lua = { "stylua" },
+        python = { "black" },
+        rust = { "rstfmt" },
+        javascript = {
+          "prettierd",
+          "eslint_d",
+        },
+        typescript = {
+          "prettierd",
+          "eslint_d",
+        },
+        javascriptreact = {
+          "prettierd",
+          "eslint_d",
+        },
+        typescriptreact = {
+          "prettierd",
+          "eslint_d",
+        },
+        svelte = {
+          "prettierd",
+          "eslint_d",
+        },
+        css = { "prettierd" },
+        html = { "prettierd" },
+        json = { "prettierd" },
+        yaml = { "prettierd" },
+        markdown = { "prettierd" },
+        graphql = { "prettierd" },
       },
       -- Set this to change the default values when calling conform.format()
       -- This will also affect the default values for format_on_save/format_after_save
@@ -47,7 +64,7 @@ return {
       -- This can also be a function that returns the table.
       format_on_save = {
         -- I recommend these options. See :help conform.format for details.
-        lsp_format = "fallback",
+        -- lsp_format = "fallback",
         timeout_ms = 500,
       },
       -- If this is set, Conform will run the formatter asynchronously after save.

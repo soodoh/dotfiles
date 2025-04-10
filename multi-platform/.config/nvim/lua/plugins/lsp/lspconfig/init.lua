@@ -119,6 +119,8 @@ return {
           "black",
           "stylua",
           "prettier",
+          "prettierd",
+          "eslint_d",
         },
         auto_update = true,
       })
