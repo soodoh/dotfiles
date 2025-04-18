@@ -20,7 +20,7 @@ return {
           hop = true,
           indent_blankline = {
             enabled = true,
-            scope_color = "",             -- catppuccin color (eg. `lavender`) Default: text
+            scope_color = "", -- catppuccin color (eg. `lavender`) Default: text
             colored_indent_levels = false,
           },
           lsp_saga = true,
@@ -75,5 +75,45 @@ return {
       "*",
       css = { css = true },
     },
+  },
+
+  -- Minimap
+  {
+    "Isrothy/neominimap.nvim",
+    version = "v3.x.x",
+    lazy = false, -- NOTE: NO NEED to Lazy load
+    -- Optional. You can alse set your own keybindings
+    keys = {
+      -- Global Minimap Controls
+      {
+        "<leader>mm",
+        "<cmd>Neominimap toggle on<cr>",
+        desc = "Toggle global minimap",
+      },
+      {
+        "<leader>mr",
+        "<cmd>Neominimap refresh<cr>",
+        desc = "Refresh global minimap",
+      },
+      {
+        "<leader>ms",
+        "<cmd>Neominimap toggleFocus<cr>",
+        desc = "Switch focus on minimap",
+      },
+    },
+    init = function()
+      require("which-key").add({
+        { "<leader>m", group = "Minimap" },
+      })
+
+      -- The following options are recommended when layout == "float"
+      vim.opt.wrap = false
+      vim.opt.sidescrolloff = 36 -- Set a large value
+
+      --- Put your configuration here
+      vim.g.neominimap = {
+        auto_enable = true,
+      }
+    end,
   },
 }
