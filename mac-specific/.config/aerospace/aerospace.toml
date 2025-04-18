@@ -133,7 +133,7 @@ check-further-callbacks = true
 run = ['move-node-to-workspace 1']
 
 [[on-window-detected]]
-if.app-name-regex-substring = 'kitty'
+if.app-name-regex-substring = 'alacritty'
 if.during-aerospace-startup = true
 check-further-callbacks = true
 run = ['move-node-to-workspace 1']

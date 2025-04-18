@@ -11,7 +11,9 @@ icon_map() {
     "Calendar") echo "󰸗" ;;
     "Google Calendar") echo "󰸗" ;;
     "Slack") echo "󰒱" ;;
+    "Alacritty") echo "" ;;
     "kitty") echo "" ;;
+    "Terminal") echo "" ;;
     "Proton Mail") echo "󰴃" ;;
     "Todoist") echo "" ;;
     "Notion") echo "" ;;
