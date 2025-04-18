@@ -113,6 +113,23 @@ return {
       --- Put your configuration here
       vim.g.neominimap = {
         auto_enable = true,
+        -- Minimap will not be created for buffers of these types
+        ---@type string[]
+        exclude_filetypes = {
+          "help",
+          "bigfile", -- For Snacks.nvim
+          "dashboard",
+        },
+
+        -- Minimap will not be created for buffers of these types
+        ---@type string[]
+        exclude_buftypes = {
+          "nofile",
+          "nowrite",
+          "quickfix",
+          "terminal",
+          "prompt",
+        },
       }
     end,
   },
