@@ -135,8 +135,8 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
 
     ```
     brew update && brew upgrade
+    brew install --cask alacritty
     brew install \
-       kitty \
        coreutils \
        trash \
        tmux \
@@ -200,7 +200,7 @@ wget -P "$HOME/.local/share/fonts" $LINK_TO_FONT
     ```
     apt-get install \
        neovim \
-       kitty \
+       alacritty \
        zsh \
        tmux \
        ripgrep \
