@@ -89,7 +89,6 @@ return {
       lspconfig.ts_ls.setup(get_opts({ format = false }))
       -- Server
       lspconfig.prismals.setup(get_opts())
-      lspconfig.clangd.setup(get_opts())
       lspconfig.dockerls.setup(get_opts())
       lspconfig.docker_compose_language_service.setup(get_opts())
       lspconfig.gopls.setup(get_opts())
@@ -98,7 +97,7 @@ return {
       -- lspconfig.rubocop.setup(get_opts())
       lspconfig.rust_analyzer.setup(get_opts())
       lspconfig.terraformls.setup(get_opts())
-      lspconfig.omnisharp.setup(get_opts())
+      -- lspconfig.omnisharp.setup(get_opts())
 
       -- Format the diagnostic messages
       vim.lsp.handlers["textDocument/publishDiagnostics"] =

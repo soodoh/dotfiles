@@ -2,8 +2,7 @@ return {
   -- Dependency with build steps
   {
     "nvim-telescope/telescope-fzf-native.nvim",
-    build =
-    "cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build",
+    build = "make",
   },
 
   -- Telescope
@@ -66,9 +65,9 @@ return {
       telescope.setup({
         extensions = {
           fzf = {
-            fuzzy = true,                   -- false will only do exact matching
+            fuzzy = true, -- false will only do exact matching
             override_generic_sorter = true, -- override the generic sorter
-            override_file_sorter = true,    -- override the file sorter
+            override_file_sorter = true, -- override the file sorter
           },
         },
         defaults = {
