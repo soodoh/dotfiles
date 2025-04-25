@@ -1,28 +1,13 @@
 return {
   -- Welcome dashboard
   {
-    "nvimdev/dashboard-nvim",
+    "goolord/alpha-nvim",
     dependencies = { "nvim-tree/nvim-web-devicons" },
-    opts = {
-      config = {
-        week_header = {
-          enable = true,
-        },
-        theme = "hyper",
-        packages = {
-          enable = false,
-        },
-        project = {
-          enable = true,
-          limit = 2,
-          action = "Telescope git_files cwd=",
-        },
-        mru = {
-          limit = 5,
-        },
-        footer = { "", "", "Happy Coding!" },
-      },
-    },
+    config = function()
+      local startify = require("alpha.themes.startify")
+      startify.file_icons.provider = "devicons"
+      require("alpha").setup(startify.config)
+    end,
   },
 }
 
