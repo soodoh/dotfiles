@@ -1,4 +1,4 @@
-alias vim="nvim"
+alias vim="nvm use default && nvim"
 alias l="ls -lAFh"
 
 # Personal git aliases
