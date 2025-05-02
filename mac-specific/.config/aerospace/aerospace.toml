@@ -53,18 +53,18 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 #                 Monitor pattern is the same as for 'workspace-to-monitor-force-assignment'.
 #                 See: https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
 [gaps]
-inner.horizontal = 5
+inner.horizontal = 10
 inner.vertical = 5
 outer.top = [
   { monitor."Built-in" = 5 },
-  { monitor."C49RG9x" = 40 },
-  { monitor."MP185Y1-M" = 40 },
-  { monitor."eD15" = 40 },
+  # { monitor."C49RG9x" = 40 },
+  # { monitor."MP185Y1-M" = 40 },
+  # { monitor."eD15" = 40 },
   40,
 ]
-outer.right = 0
-outer.bottom = 0
-outer.left = 0
+outer.right = 10
+outer.bottom = 10
+outer.left = 10
 
 [mode.main.binding]
 alt-ctrl-shift-enter = 'exec-and-forget open -a Alacritty'
