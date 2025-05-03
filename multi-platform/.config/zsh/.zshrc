@@ -13,6 +13,9 @@ eval "$(zoxide init zsh)"
 # Use Starship for terminal prompt
 eval "$(starship init zsh)"
 
+# Goose gets installed here, but might be nice to use for other things
+PATH="$PATH:$HOME/.local/bin"
+
 # Include Cargo packages in $PATH
 if command -v cargo &> /dev/null; then
   PATH="$PATH:$HOME/.cargo/bin"
