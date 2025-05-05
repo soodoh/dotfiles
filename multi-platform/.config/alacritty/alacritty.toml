@@ -18,6 +18,10 @@ opacity = 0.85
 blur = true
 decorations = "Buttonless"
 
+[window.padding]
+x = 0
+y = 0
+
 # [colors.primary]
 # foreground = "#d8d8d8"
 # background = "#181818"
@@ -51,6 +55,6 @@ family = "FiraCode Nerd Font Mono"
 
 [font.offset]
 x = 0
-y = 3
+y = 2
 
 [keyboard]
