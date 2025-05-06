@@ -146,7 +146,7 @@ check-further-callbacks = true
 run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
-if.app-name-regex-substring = 'safari'
+if.app-name-regex-substring = 'calendar'
 if.during-aerospace-startup = true
 check-further-callbacks = true
 run = ['move-node-to-workspace 2']
@@ -156,7 +156,7 @@ run = ['move-node-to-workspace 2']
 if.app-name-regex-substring = 'slack'
 if.during-aerospace-startup = true
 check-further-callbacks = true
-run = ['move-node-to-workspace 3']
+run = ['move-node-to-workspace 2']
 
 # "Other" apps
 [[on-window-detected]]
