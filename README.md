@@ -33,6 +33,7 @@ brew install \
   neovim \
   borders \
   sketchybar \
+  scroll-reverser \
 && \
 brew install --cask alacritty && \
 brew tap homebrew/command-not-found && \
