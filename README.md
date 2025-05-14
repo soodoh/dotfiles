@@ -34,6 +34,7 @@ brew install \
   borders \
   sketchybar \
   scroll-reverser \
+  block-goose-cli \
 && \
 brew install --cask alacritty && \
 brew tap homebrew/command-not-found && \
