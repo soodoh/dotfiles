@@ -2,26 +2,27 @@
 
 icon_map() {
   case "$1" in
+    "Alacritty") echo "" ;;
     "App Store") echo "" ;;
-    "Google Chrome") echo "󰊯" ;;
+    "Calendar") echo "󰸗" ;;
     "Chromium") echo "󰴂" ;; # Playwright
+    "Discord") echo "󰙯" ;;
     "Finder") echo "󰀶" ;;
     "Firefox") echo "" ;;
-    "Safari") echo "󰀹" ;;
-    "Calendar") echo "󰸗" ;;
     "Google Calendar") echo "󰸗" ;;
-    "Slack") echo "󰒱" ;;
-    "Alacritty") echo "" ;;
-    "kitty") echo "" ;;
-    "Terminal") echo "" ;;
-    "Proton Mail") echo "󰴃" ;;
-    "Todoist") echo "" ;;
-    "Notion") echo "" ;;
+    "Google Chrome") echo "󰊯" ;;
+    "Jellyfin") echo "󰼂" ;;
     "Messages") echo "󰻞" ;;
-    "Discord") echo "󰙯" ;;
+    "Notion") echo "" ;;
+    "Proton Mail") echo "󰴃" ;;
+    "Safari") echo "󰀹" ;;
+    "Slack") echo "󰒱" ;;
     "System Settings") echo "" ;;
+    "Terminal") echo "" ;;
+    "Todoist") echo "" ;;
+    "kitty") echo "" ;;
     "zoom.us") echo "󰕧" ;;
-    *) echo "" ;;
+    *) echo "󰀻" ;;
   esac
 }
 icon_map "$1"
