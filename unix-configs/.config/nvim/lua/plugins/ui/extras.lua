@@ -44,17 +44,6 @@ return {
     end,
   },
 
-  -- Smooth scrolling
-  {
-    "karb94/neoscroll.nvim",
-    opts = {
-      hide_cursor = true,
-      respect_scrolloff = true,
-      cursor_scrolls_alone = true,
-      performance_mode = true,
-    },
-  },
-
   -- Status Line
   {
     "nvim-lualine/lualine.nvim",
