@@ -27,7 +27,6 @@ return {
           mason = true,
           neogit = true,
           nvim_surround = true,
-          nvimtree = true,
           treesitter_context = true,
           treesitter = true,
           ts_rainbow = true,
