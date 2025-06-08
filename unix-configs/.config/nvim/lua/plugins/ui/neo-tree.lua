@@ -154,7 +154,7 @@ return {
         -- see `:h neo-tree-custom-commands-global`
         commands = {},
         window = {
-          position = "left",
+          position = "float",
           width = 40,
           mapping_options = {
             noremap = true,
@@ -206,6 +206,7 @@ return {
             -- ["y"] = "copy",
             -- ["m"] = "move", -- takes text input for destination, also accepts the optional config.show_path option like "add".
             ["q"] = "close_window",
+            ["<C-c>"] = "close_window",
             ["R"] = "refresh",
             ["?"] = "show_help",
             ["<"] = "prev_source",

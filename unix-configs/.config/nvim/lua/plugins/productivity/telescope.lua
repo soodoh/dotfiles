@@ -40,22 +40,22 @@ return {
         {
           "<leader>ff",
           project_files,
-          desc = "Find files (Telescope)",
+          desc = "Find files",
         },
         {
           "<leader>fg",
           ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>",
-          desc = "Grep files (Telescope)",
+          desc = "Grep files",
         },
         {
           "<leader>fb",
           ":Telescope buffers<CR>",
-          desc = "Find buffer (Telescope)",
+          desc = "Find buffer",
         },
         {
           "<leader>fh",
           ":Telescope oldfiles<CR>",
-          desc = "Find old files (Telescope)",
+          desc = "Find recent files",
         },
       })
 
