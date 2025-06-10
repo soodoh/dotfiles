@@ -30,8 +30,8 @@ return {
       require("codecompanion").setup({
         strategies = {
           chat = {
-            adapter = "anthropic",
-            model = "claude-3.7-sonnet",
+            adapter = "copilot",
+            model = "claude-3-7-sonnet-latest",
             keymaps = {
               options = {
                 modes = {
@@ -204,8 +204,8 @@ return {
             },
           },
           inline = {
-            adapter = "anthropic",
-            model = "claude-3.7-sonnet",
+            adapter = "copilot",
+            model = "claude-3-7-sonnet-latest",
             keymaps = {
               accept_change = {
                 modes = {
