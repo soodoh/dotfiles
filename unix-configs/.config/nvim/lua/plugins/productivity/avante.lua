@@ -49,6 +49,9 @@ return {
             },
           },
         },
+        web_search_engine = {
+          provider = "brave",
+        },
         dual_boost = {
           enabled = false,
           first_provider = "openai",
