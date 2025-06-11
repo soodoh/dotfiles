@@ -24,7 +24,31 @@ return {
     event = "VeryLazy",
     version = false, -- Never set this value to "*"! Never!
     config = function()
-      require("avante").setup({})
+      require("avante").setup({
+        -- system_prompt as function ensures LLM always has latest MCP server state
+        -- This is evaluated for every message, even in existing chats
+        system_prompt = function()
+          local hub = require("mcphub").get_hub_instance()
+          return hub and hub:get_active_servers_prompt() or ""
+        end,
+        -- Using function prevents requiring mcphub before it's loaded
+        custom_tools = function()
+          return {
+            require("mcphub.extensions.avante").mcp_tool(),
+          }
+        end,
+        -- Add token usage optimization settings
+        context = {
+          max_tokens = 18000, -- Limit context tokens to stay under 20k/min limit
+          include_buffer_content = false, -- Only include when explicitly needed
+          trim_buffer_context = true, -- Trim unnecessary context
+        },
+        rate_limit = {
+          enabled = true,
+          tokens_per_minute = 20000, -- Match your limit
+          cooldown_period = 60, -- seconds
+        },
+      })
 
       require("which-key").add({
         {
@@ -35,26 +59,26 @@ return {
     end,
     opts = {
       provider = "copilot",
-      auto_suggestions_provider = "claude",
+      auto_suggestions_provider = "copilot",
       mode = "agentic",
       providers = {
         copilot = {
           model = "claude-3-7-sonnet-latest",
           extra_request_body = {
-            timeout = 30000, -- Timeout in milliseconds, increase this for reasoning models
+            timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
             temperature = 0.75,
             max_completion_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
-            --reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
+            reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
           },
         },
         claude = {
           endpoint = "https://api.anthropic.com",
           model = "claude-3.7-sonnet", -- your desired model (or use gpt-4o, etc.)
           extra_request_body = {
-            timeout = 30000, -- Timeout in milliseconds, increase this for reasoning models
+            timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
             temperature = 0.75,
             max_completion_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
-            --reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
+            reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
           },
         },
       },
