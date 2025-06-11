@@ -38,6 +38,11 @@ return {
           lsp_trouble = true,
           which_key = true,
         },
+        custom_highlights = function(colors)
+          return {
+            WinSeparator = { fg = colors.flamingo },
+          }
+        end,
       })
       vim.cmd.colorscheme("catppuccin-mocha")
     end,
