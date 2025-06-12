@@ -174,8 +174,8 @@ return {
             },
             -- Read `# Preview Mode` for more information
             ["l"] = "focus_preview",
-            ["S"] = "open_split",
-            ["s"] = "open_vsplit",
+            ["h"] = "open_split",
+            ["v"] = "open_vsplit",
             -- ["S"] = "split_with_window_picker",
             -- ["s"] = "vsplit_with_window_picker",
             -- ["t"] = "open_tabnew",
@@ -214,6 +214,7 @@ return {
             ["i"] = "show_file_details",
             ["Y"] = "copy_relative_path",
             ["y"] = "copy_selector",
+            ["s"] = "open_with_system",
           },
         },
         nesting_rules = {},
@@ -292,6 +293,42 @@ return {
           },
 
           commands = {
+            open_with_system = function(state)
+              local node = state.tree:get_node()
+              local filepath = node:get_id()
+
+              if node.type == "file" then
+                local system = vim.loop.os_uname().sysname
+                local cmd
+                if system == "Darwin" then
+                  cmd = "open"
+                elseif system == "Linux" then
+                  cmd = "xdg-open"
+                elseif system:find("Windows") then
+                  cmd = "start"
+                else
+                  vim.notify("Unsupported OS", vim.log.levels.ERROR)
+                  return
+                end
+
+                vim.fn.jobstart({ cmd, filepath }, {
+                  detach = true,
+                  on_exit = function(_, code)
+                    if code ~= 0 then
+                      vim.notify(
+                        "Failed to open file with system application",
+                        vim.log.levels.ERROR
+                      )
+                    end
+                  end,
+                })
+                vim.notify(
+                  "Opening file with system application: " .. filepath
+                )
+              else
+                vim.notify("Not a file", vim.log.levels.WARN)
+              end
+            end,
             copy_relative_path = function(state)
               local node = state.tree:get_node()
               local filepath = node:get_id()
