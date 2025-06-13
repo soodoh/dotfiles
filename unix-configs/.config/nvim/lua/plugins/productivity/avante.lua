@@ -38,16 +38,16 @@ return {
               reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
             },
           },
-          claude = {
-            endpoint = "https://api.anthropic.com",
-            model = "claude-3.7-sonnet", -- your desired model (or use gpt-4o, etc.)
-            extra_request_body = {
-              timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
-              temperature = 0.75,
-              max_completion_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
-              reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
-            },
-          },
+          -- claude = {
+          --   endpoint = "https://api.anthropic.com",
+          --   model = "claude-3.7-sonnet", -- your desired model (or use gpt-4o, etc.)
+          --   extra_request_body = {
+          --     timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
+          --     temperature = 0.75,
+          --     max_completion_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
+          --     reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
+          --   },
+          -- },
         },
         web_search_engine = {
           provider = "brave",
