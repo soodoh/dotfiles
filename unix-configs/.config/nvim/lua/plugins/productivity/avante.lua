@@ -30,7 +30,7 @@ return {
         mode = "agentic",
         providers = {
           copilot = {
-            model = "claude-3.7-sonnet",
+            model = "claude-3.7-sonnet-thought",
             extra_request_body = {
               timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
               temperature = 0.75,
@@ -40,7 +40,7 @@ return {
           },
           -- claude = {
           --   endpoint = "https://api.anthropic.com",
-          --   model = "claude-3.7-sonnet", -- your desired model (or use gpt-4o, etc.)
+          --   model = "claude-sonnet-4-20250514",
           --   extra_request_body = {
           --     timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
           --     temperature = 0.75,
