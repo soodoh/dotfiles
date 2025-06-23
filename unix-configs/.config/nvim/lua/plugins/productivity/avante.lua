@@ -25,8 +25,8 @@ return {
     version = false, -- Never set this value to "*"! Never!
     config = function()
       require("avante").setup({
-        provider = "claude",
-        auto_suggestions_provider = "claude",
+        provider = "copilot",
+        auto_suggestions_provider = "copilot",
         mode = "agentic",
         providers = {
           copilot = {
@@ -37,15 +37,15 @@ return {
               max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
             },
           },
-          claude = {
-            endpoint = "https://api.anthropic.com",
-            model = "claude-sonnet-4-20250514",
-            timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
-            extra_request_body = {
-              temperature = 0.75,
-              max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
-            },
-          },
+          -- claude = {
+          --   endpoint = "https://api.anthropic.com",
+          --   model = "claude-sonnet-4-20250514",
+          --   timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
+          --   extra_request_body = {
+          --     temperature = 0.75,
+          --     max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
+          --   },
+          -- },
         },
         web_search_engine = {
           provider = "brave",
