@@ -97,7 +97,4 @@ return {
       })
     end,
   },
-
-  -- Git conflict
-  { "akinsho/git-conflict.nvim", version = "*", config = true },
 }
