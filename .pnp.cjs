@@ -29,7 +29,7 @@ const RAW_RUNTIME_STATE =
           ["@commitlint/cli", "npm:19.8.1"],\
           ["@commitlint/config-conventional", "npm:19.8.1"],\
           ["@commitlint/types", "npm:19.8.1"],\
-          ["@types/node", "npm:22.10.4"],\
+          ["@types/node", "npm:22.15.33"],\
           ["husky", "npm:9.1.7"],\
           ["typescript", "patch:typescript@npm%3A5.7.2#optional!builtin<compat/typescript>::version=5.7.2&hash=e012d7"]\
         ],\
@@ -271,25 +271,25 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-conventional-commits-parser-npm-5.0.1-3f074d40bc-10c0.zip/node_modules/@types/conventional-commits-parser/",\
         "packageDependencies": [\
           ["@types/conventional-commits-parser", "npm:5.0.1"],\
-          ["@types/node", "npm:22.10.1"]\
+          ["@types/node", "npm:24.0.6"]\
         ],\
         "linkType": "HARD"\
       }]\
     ]],\
     ["@types/node", [\
-      ["npm:22.10.1", {\
-        "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-node-npm-22.10.1-db989fc54b-10c0.zip/node_modules/@types/node/",\
+      ["npm:22.15.33", {\
+        "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-node-npm-22.15.33-69dfd7fe67-10c0.zip/node_modules/@types/node/",\
         "packageDependencies": [\
-          ["@types/node", "npm:22.10.1"],\
-          ["undici-types", "npm:6.20.0"]\
+          ["@types/node", "npm:22.15.33"],\
+          ["undici-types", "npm:6.21.0"]\
         ],\
         "linkType": "HARD"\
       }],\
-      ["npm:22.10.4", {\
-        "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-node-npm-22.10.4-0979478433-10c0.zip/node_modules/@types/node/",\
+      ["npm:24.0.6", {\
+        "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-node-npm-24.0.6-5774ae821d-10c0.zip/node_modules/@types/node/",\
         "packageDependencies": [\
-          ["@types/node", "npm:22.10.4"],\
-          ["undici-types", "npm:6.20.0"]\
+          ["@types/node", "npm:24.0.6"],\
+          ["undici-types", "npm:7.8.0"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -530,7 +530,7 @@ const RAW_RUNTIME_STATE =
           ["@commitlint/cli", "npm:19.8.1"],\
           ["@commitlint/config-conventional", "npm:19.8.1"],\
           ["@commitlint/types", "npm:19.8.1"],\
-          ["@types/node", "npm:22.10.4"],\
+          ["@types/node", "npm:22.15.33"],\
           ["husky", "npm:9.1.7"],\
           ["typescript", "patch:typescript@npm%3A5.7.2#optional!builtin<compat/typescript>::version=5.7.2&hash=e012d7"]\
         ],\
@@ -1055,10 +1055,17 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["undici-types", [\
-      ["npm:6.20.0", {\
-        "packageLocation": "../../../../../../runner/cache/others/berry/cache/undici-types-npm-6.20.0-bd21e669af-10c0.zip/node_modules/undici-types/",\
+      ["npm:6.21.0", {\
+        "packageLocation": "../../../../../../runner/cache/others/berry/cache/undici-types-npm-6.21.0-eb2b0ed56a-10c0.zip/node_modules/undici-types/",\
         "packageDependencies": [\
-          ["undici-types", "npm:6.20.0"]\
+          ["undici-types", "npm:6.21.0"]\
+        ],\
+        "linkType": "HARD"\
+      }],\
+      ["npm:7.8.0", {\
+        "packageLocation": "../../../../../../runner/cache/others/berry/cache/undici-types-npm-7.8.0-86f3e2d23e-10c0.zip/node_modules/undici-types/",\
+        "packageDependencies": [\
+          ["undici-types", "npm:7.8.0"]\
         ],\
         "linkType": "HARD"\
       }]\
