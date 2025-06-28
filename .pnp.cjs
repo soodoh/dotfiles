@@ -31,7 +31,7 @@ const RAW_RUNTIME_STATE =
           ["@commitlint/types", "npm:19.8.1"],\
           ["@types/node", "npm:22.15.33"],\
           ["husky", "npm:9.1.7"],\
-          ["typescript", "patch:typescript@npm%3A5.7.2#optional!builtin<compat/typescript>::version=5.7.2&hash=e012d7"]\
+          ["typescript", "patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=e012d7"]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -532,7 +532,7 @@ const RAW_RUNTIME_STATE =
           ["@commitlint/types", "npm:19.8.1"],\
           ["@types/node", "npm:22.15.33"],\
           ["husky", "npm:9.1.7"],\
-          ["typescript", "patch:typescript@npm%3A5.7.2#optional!builtin<compat/typescript>::version=5.7.2&hash=e012d7"]\
+          ["typescript", "patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=e012d7"]\
         ],\
         "linkType": "SOFT"\
       }]\
@@ -1046,10 +1046,10 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["typescript", [\
-      ["patch:typescript@npm%3A5.7.2#optional!builtin<compat/typescript>::version=5.7.2&hash=e012d7", {\
-        "packageLocation": "../../../../../../runner/cache/others/berry/cache/typescript-patch-9d23013579-10c0.zip/node_modules/typescript/",\
+      ["patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=e012d7", {\
+        "packageLocation": "../../../../../../runner/cache/others/berry/cache/typescript-patch-9bc378a806-10c0.zip/node_modules/typescript/",\
         "packageDependencies": [\
-          ["typescript", "patch:typescript@npm%3A5.7.2#optional!builtin<compat/typescript>::version=5.7.2&hash=e012d7"]\
+          ["typescript", "patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=e012d7"]\
         ],\
         "linkType": "HARD"\
       }]\
