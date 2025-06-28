@@ -31,7 +31,7 @@ const RAW_RUNTIME_STATE =
           ["@commitlint/cli", "npm:19.8.1"],\
           ["@commitlint/config-conventional", "npm:19.8.1"],\
           ["@commitlint/types", "npm:19.8.1"],\
-          ["@types/node", "npm:22.15.33"],\
+          ["@types/node", "npm:22.15.34"],\
           ["dotfiles", "workspace:."],\
           ["husky", "npm:9.1.7"],\
           ["typescript", "patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=5786d5"]\
@@ -274,24 +274,24 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-conventional-commits-parser-npm-5.0.1-3f074d40bc-10c0.zip/node_modules/@types/conventional-commits-parser/",\
         "packageDependencies": [\
           ["@types/conventional-commits-parser", "npm:5.0.1"],\
-          ["@types/node", "npm:24.0.6"]\
+          ["@types/node", "npm:24.0.7"]\
         ],\
         "linkType": "HARD"\
       }]\
     ]],\
     ["@types/node", [\
-      ["npm:22.15.33", {\
-        "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-node-npm-22.15.33-69dfd7fe67-10c0.zip/node_modules/@types/node/",\
+      ["npm:22.15.34", {\
+        "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-node-npm-22.15.34-88c1f67cb3-10c0.zip/node_modules/@types/node/",\
         "packageDependencies": [\
-          ["@types/node", "npm:22.15.33"],\
+          ["@types/node", "npm:22.15.34"],\
           ["undici-types", "npm:6.21.0"]\
         ],\
         "linkType": "HARD"\
       }],\
-      ["npm:24.0.6", {\
-        "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-node-npm-24.0.6-5774ae821d-10c0.zip/node_modules/@types/node/",\
+      ["npm:24.0.7", {\
+        "packageLocation": "../../../../../../runner/cache/others/berry/cache/@types-node-npm-24.0.7-7f7ebb1142-10c0.zip/node_modules/@types/node/",\
         "packageDependencies": [\
-          ["@types/node", "npm:24.0.6"],\
+          ["@types/node", "npm:24.0.7"],\
           ["undici-types", "npm:7.8.0"]\
         ],\
         "linkType": "HARD"\
@@ -532,7 +532,7 @@ const RAW_RUNTIME_STATE =
           ["@commitlint/cli", "npm:19.8.1"],\
           ["@commitlint/config-conventional", "npm:19.8.1"],\
           ["@commitlint/types", "npm:19.8.1"],\
-          ["@types/node", "npm:22.15.33"],\
+          ["@types/node", "npm:22.15.34"],\
           ["dotfiles", "workspace:."],\
           ["husky", "npm:9.1.7"],\
           ["typescript", "patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=5786d5"]\
