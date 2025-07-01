@@ -19,6 +19,35 @@ return {
       })
     end,
   },
+  -- {
+  --   "olimorris/codecompanion.nvim",
+  --   config = function()
+  --     require("codecompanion").setup({
+  --       strategies = {
+  --         chat = {
+  --           adapter = "copilot",
+  --         },
+  --         inline = {
+  --           adapter = "copilot",
+  --         },
+  --       },
+  --       extensions = {
+  --         mcphub = {
+  --           callback = "mcphub.extensions.codecompanion",
+  --           opts = {
+  --             show_result_in_chat = true, -- Show mcp tool results in chat
+  --             make_vars = true, -- Convert resources to #variables
+  --             make_slash_commands = true, -- Add prompts as /slash commands
+  --           },
+  --         },
+  --       },
+  --     })
+  --   end,
+  --   dependencies = {
+  --     "nvim-lua/plenary.nvim",
+  --     "nvim-treesitter/nvim-treesitter",
+  --   },
+  -- },
   {
     "yetone/avante.nvim",
     event = "VeryLazy",
@@ -30,8 +59,8 @@ return {
         mode = "agentic",
         providers = {
           copilot = {
-            model = "claude-3.7-sonnet-thought",
-            timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
+            model = "claude-3.7-sonnet",
+            timeout = 60000, -- Timeout in milliseconds, increase this for reasoning models
             extra_request_body = {
               temperature = 0.75,
               max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
@@ -40,12 +69,32 @@ return {
           -- claude = {
           --   endpoint = "https://api.anthropic.com",
           --   model = "claude-sonnet-4-20250514",
-          --   timeout = 45000, -- Timeout in milliseconds, increase this for reasoning models
+          --   timeout = 60000, -- Timeout in milliseconds, increase this for reasoning models
           --   extra_request_body = {
           --     temperature = 0.75,
           --     max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
           --   },
           -- },
+        },
+        dual_boost = {
+          enabled = false,
+          first_provider = "copilot",
+          second_provider = "claude",
+          prompt = "Based on the two reference outputs below, generate a response that incorporates elements from both but reflects your own judgment and unique perspective. Do not provide any explanation, just give the response directly. Reference Output 1: [{{provider1_output}}], Reference Output 2: [{{provider2_output}}]",
+          timeout = 60000, -- Timeout in milliseconds
+        },
+        behaviour = {
+          auto_suggestions = false,
+          auto_set_highlight_group = true,
+          auto_set_keymaps = true,
+          auto_apply_diff_after_generation = false,
+          support_paste_from_clipboard = false,
+          minimize_diff = true, -- Whether to remove unchanged lines when applying a code block
+          enable_token_counting = true, -- Whether to enable token counting. Default to true.
+          auto_approve_tool_permissions = false, -- Default: show permission prompts for all tools
+          -- Examples:
+          -- auto_approve_tool_permissions = true,                -- Auto-approve all tools (no prompts)
+          -- auto_approve_tool_permissions = {"bash", "replace_in_file"}, -- Auto-approve specific tools only
         },
         web_search_engine = {
           provider = "brave",
