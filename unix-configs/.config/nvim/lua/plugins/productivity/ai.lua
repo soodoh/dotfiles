@@ -60,7 +60,7 @@ return {
         providers = {
           copilot = {
             -- model = "claude-3.7-sonnet",
-            model = "gpt-4.1-2025-04-14",
+            model = "gpt-4o",
             timeout = 60000, -- Timeout in milliseconds, increase this for reasoning models
             extra_request_body = {
               temperature = 0.75,
