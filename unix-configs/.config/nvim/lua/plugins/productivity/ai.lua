@@ -59,23 +59,40 @@ return {
         mode = "agentic",
         providers = {
           copilot = {
-            model = "claude-3.7-sonnet",
+            -- model = "claude-3.7-sonnet",
+            model = "gpt-4.1-2025-04-14",
             timeout = 60000, -- Timeout in milliseconds, increase this for reasoning models
             extra_request_body = {
               temperature = 0.75,
               max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
             },
           },
-          -- claude = {
-          --   endpoint = "https://api.anthropic.com",
-          --   model = "claude-sonnet-4-20250514",
-          --   timeout = 60000, -- Timeout in milliseconds, increase this for reasoning models
-          --   extra_request_body = {
-          --     temperature = 0.75,
-          --     max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
-          --   },
-          -- },
+          claude = {
+            endpoint = "https://api.anthropic.com",
+            model = "claude-3-7-sonnet-latest",
+            timeout = 60000, -- Timeout in milliseconds, increase this for reasoning models
+            extra_request_body = {
+              temperature = 0.75,
+              max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
+            },
+          },
         },
+        -- rag_service = {
+        --   enabled = true,
+        --   host_mount = os.getenv("HOME"),
+        --   runner = "docker",
+        --   llm = {
+        --     provider = "copilot",
+        --     model = "gpt-4o",
+        --     extra = nil, -- Additional configuration options for LLM
+        --   },
+        --   embed = {
+        --     provider = "copilot",
+        --     model = "text-embedding-3-large",
+        --     extra = nil, -- Additional configuration options for the embedding model
+        --   },
+        --   docker_extra_args = "", -- Extra arguments to pass to the docker command
+        -- },
         dual_boost = {
           enabled = false,
           first_provider = "copilot",
