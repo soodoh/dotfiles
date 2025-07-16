@@ -36,6 +36,7 @@ brew install \
   scroll-reverser \
   block-goose-cli \
 && \
+brew services start sketchybar && \
 brew install --cask alacritty && \
 brew tap homebrew/command-not-found && \
 brew install --cask nikitabobko/tap/aerospace && \
