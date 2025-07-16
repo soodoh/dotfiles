@@ -93,12 +93,10 @@ return {
         --   },
         --   docker_extra_args = "", -- Extra arguments to pass to the docker command
         -- },
-        dual_boost = {
-          enabled = false,
-          first_provider = "copilot",
-          second_provider = "claude",
-          prompt = "Based on the two reference outputs below, generate a response that incorporates elements from both but reflects your own judgment and unique perspective. Do not provide any explanation, just give the response directly. Reference Output 1: [{{provider1_output}}], Reference Output 2: [{{provider2_output}}]",
-          timeout = 60000, -- Timeout in milliseconds
+        windows = {
+          position = "right",
+          edit = { start_insert = false },
+          ask = { start_insert = false },
         },
         behaviour = {
           auto_suggestions = false,
