@@ -7,7 +7,7 @@ return {
   {
     "neovim/nvim-lspconfig",
     dependencies = {
-      "hrsh7th/nvim-cmp", -- Better autocomplete
+      "saghen/blink.cmp", -- Autocomplete
     },
     config = function()
       -- LSP mappings
@@ -68,48 +68,76 @@ return {
       require("mason-lspconfig").setup({
         automatic_installation = true,
       })
-      -- Setup lspconfig with cmp (auto complete)
+      -- Setup lspconfig (with auto complete, file operations, etc.)
       local get_opts = require("plugins.lsp.lspconfig.default_opts")
       local lspconfig = require("lspconfig")
       -- Unix
-      -- lspconfig.awk_ls.setup(get_opts())
-      lspconfig.bashls.setup(get_opts())
-      lspconfig.jsonls.setup(get_opts())
-      lspconfig.taplo.setup(get_opts())
-      lspconfig.yamlls.setup(get_opts())
+      vim.lsp.config("awk_ls", get_opts())
+      vim.lsp.enable("awk_ls")
+      vim.lsp.config("bashls", get_opts())
+      vim.lsp.enable("bashls")
+      vim.lsp.config("jsonls", get_opts())
+      vim.lsp.enable("jsonls")
+      vim.lsp.config("taplo", get_opts())
+      vim.lsp.enable("taplo")
+      vim.lsp.config("yamlls", get_opts())
+      vim.lsp.enable("yamlls")
       -- Web
-      lspconfig.cssls.setup({
-        settings = {
-          css = { lint = { unknownAtRules = "ignore" } },
-        },
-      })
-      lspconfig.eslint.setup(get_opts({
-        format = true,
-      }))
-      lspconfig.graphql.setup(get_opts())
-      lspconfig.html.setup(get_opts())
-      lspconfig.marksman.setup(get_opts())
-      lspconfig.svelte.setup(get_opts())
-      lspconfig.ts_ls.setup(get_opts({ format = false }))
+      vim.lsp.config(
+        "cssls",
+        get_opts({
+          settings = {
+            css = { lint = { unknownAtRules = "ignore" } },
+          },
+        })
+      )
+      vim.lsp.enable("cssls")
+      vim.lsp.config(
+        "eslint",
+        get_opts({
+          format = true,
+        })
+      )
+      vim.lsp.enable("eslint")
+      vim.lsp.config("graphql", get_opts())
+      vim.lsp.enable("graphql")
+      vim.lsp.config("html", get_opts())
+      vim.lsp.enable("html")
+      vim.lsp.config("marksman", get_opts())
+      vim.lsp.enable("marksman")
+      vim.lsp.config("svelte", get_opts())
+      vim.lsp.enable("svelte")
+      vim.lsp.config("ts_ls", get_opts({ format = false }))
+      vim.lsp.enable("ts_ls")
       -- Server
-      lspconfig.prismals.setup(get_opts())
-      lspconfig.dockerls.setup(get_opts())
-      lspconfig.docker_compose_language_service.setup(get_opts())
-      lspconfig.gopls.setup(get_opts())
-      lspconfig.lua_ls.setup(get_opts())
-      lspconfig.pyright.setup(get_opts())
-      -- lspconfig.rubocop.setup(get_opts())
-      lspconfig.rust_analyzer.setup(get_opts())
-      lspconfig.terraformls.setup(get_opts())
-      -- lspconfig.omnisharp.setup(get_opts())
+      vim.lsp.config("prismals", get_opts())
+      vim.lsp.enable("prismals")
+      vim.lsp.config("dockerls", get_opts())
+      vim.lsp.enable("dockerls")
+      vim.lsp.config("docker_compose_language_service", get_opts())
+      vim.lsp.enable("docker_compose_language_service")
+      vim.lsp.config("gopls", get_opts())
+      vim.lsp.enable("gopls")
+      vim.lsp.config("lua_ls", get_opts())
+      vim.lsp.enable("lua_ls")
+      vim.lsp.config("pyright", get_opts())
+      vim.lsp.enable("pyright")
+      vim.lsp.config("rubocop", get_opts())
+      -- vim.lsp.enable("rubocop")
+      vim.lsp.config("rust_analyzer", get_opts())
+      vim.lsp.enable("rust_analyzer")
+      vim.lsp.config("terraformls", get_opts())
+      vim.lsp.enable("terraformls")
+      vim.lsp.config("omnisharp", get_opts())
+      -- vim.lsp.enable("omnisharp")
 
       -- Format the diagnostic messages
-      vim.lsp.handlers["textDocument/publishDiagnostics"] =
-        vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
-          underline = true,
-          update_in_insert = false,
-          virtual_text = false,
-        })
+      -- vim.lsp.handlers["textDocument/publishDiagnostics"] =
+      --   vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
+      --     underline = true,
+      --     update_in_insert = false,
+      --     virtual_text = false,
+      --   })
     end,
   },
 

@@ -14,18 +14,20 @@ return function(opts)
     lsp_opts.settings = opts.settings
   end
 
-  lsp_opts.capabilities = vim.tbl_deep_extend(
-    "force",
-    require("cmp_nvim_lsp").default_capabilities(),
+  lsp_opts.capabilities = require("blink.cmp").get_lsp_capabilities(
     require("lsp-file-operations").default_capabilities()
   )
-
   -- Needed for nvim-ufo (LSP-based folding)
   -- foldingRange isn't there by default
-  lsp_opts.capabilities.textDocument.foldingRange = {
-    dynamicRegistration = false,
-    lineFoldingOnly = true,
-  }
+  lsp_opts.capabilities =
+    vim.tbl_deep_extend("force", lsp_opts.capabilities, {
+      textDocument = {
+        foldingRange = {
+          dynamicRegistration = false,
+          lineFoldingOnly = true,
+        },
+      },
+    })
 
   return lsp_opts
 end
