@@ -122,8 +122,8 @@ return {
         mappings = {
           --- @class AvanteConflictMappings
           diff = {
-            next = ",x",
-            prev = ",,x",
+            next = "]x",
+            prev = "[x",
           },
           jump = {
             next = "]]",

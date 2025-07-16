@@ -268,8 +268,8 @@ return {
               ["#"] = "fuzzy_sorter", -- fuzzy sorting using the fzy algorithm
               ["f"] = "filter_on_submit",
               ["<c-x>"] = "clear_filter",
-              [",,g"] = "prev_git_modified",
-              [",g"] = "next_git_modified",
+              ["[g"] = "prev_git_modified",
+              ["]g"] = "next_git_modified",
               ["o"] = {
                 "show_help",
                 nowait = false,

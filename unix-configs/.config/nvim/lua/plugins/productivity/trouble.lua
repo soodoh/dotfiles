@@ -10,19 +10,19 @@ return {
         {
           "<leader>xt",
           function()
-            trouble.toggle('telescope')
+            trouble.toggle("telescope")
           end,
           desc = "Telescope results (Trouble)",
         },
         {
           "<leader>xT",
           function()
-            trouble.toggle('telescope_files')
+            trouble.toggle("telescope_files")
           end,
           desc = "Telescope files (Trouble)",
         },
         {
-          ",x",
+          "]x",
           function()
             trouble.next({
               mode = "telescope",
@@ -32,7 +32,7 @@ return {
           desc = "Go to next Telescope (Trouble)",
         },
         {
-          ",,x",
+          "[x",
           function()
             trouble.prev({
               mode = "telescope",
@@ -44,18 +44,18 @@ return {
         {
           "<leader>xl",
           function()
-            trouble.toggle('lsp')
+            trouble.toggle("lsp")
           end,
           desc = "LSP references (Trouble)",
         },
         {
           "<leader>xq",
           function()
-            trouble.toggle('qflist')
+            trouble.toggle("qflist")
           end,
           desc = "Quickfix List (Trouble)",
         },
       })
     end,
   },
-};
+}

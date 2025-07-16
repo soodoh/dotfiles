@@ -25,9 +25,7 @@ return {
           incoming = " ",
           outgoing = " ",
           hover = " ",
-          kind = require(
-            "catppuccin.groups.integrations.lsp_saga"
-          ).custom_kind(),
+          kind = require("catppuccin.groups.integrations.lsp_saga").custom_kind(),
         },
       })
       require("which-key").add({
@@ -54,12 +52,12 @@ return {
           desc = "Show line diagnostics (Lspsaga)",
         },
         {
-          ",,e",
+          "[e",
           ":Lspsaga diagnostic_jump_prev<CR>",
           desc = "Go to prev diagnostics (Lspsaga)",
         },
         {
-          ",e",
+          "]e",
           ":Lspsaga diagnostic_jump_next<CR>",
           desc = "Go to next diagnostics (Lspsaga)",
         },
