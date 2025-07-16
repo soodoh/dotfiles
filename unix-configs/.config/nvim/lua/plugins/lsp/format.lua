@@ -5,7 +5,7 @@ return {
 
     conform.setup({
       formatters = {
-        prettierd = {
+        prettier = {
           require_cwd = true,
           cwd = require("conform.util").root_file({
             ".prettierrc",
@@ -28,31 +28,31 @@ return {
         python = { "black" },
         rust = { "rstfmt" },
         javascript = {
-          "prettierd",
+          "prettier",
           "eslint_d",
         },
         typescript = {
-          "prettierd",
+          "prettier",
           "eslint_d",
         },
         javascriptreact = {
-          "prettierd",
+          "prettier",
           "eslint_d",
         },
         typescriptreact = {
-          "prettierd",
+          "prettier",
           "eslint_d",
         },
         svelte = {
-          "prettierd",
+          "prettier",
           "eslint_d",
         },
-        css = { "prettierd" },
-        html = { "prettierd" },
-        json = { "prettierd" },
-        yaml = { "prettierd" },
-        markdown = { "prettierd" },
-        graphql = { "prettierd" },
+        css = { "prettier" },
+        html = { "prettier" },
+        json = { "prettier" },
+        yaml = { "prettier" },
+        markdown = { "prettier" },
+        graphql = { "prettier" },
       },
       -- Set this to change the default values when calling conform.format()
       -- This will also affect the default values for format_on_save/format_after_save
