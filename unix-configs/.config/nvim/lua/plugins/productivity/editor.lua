@@ -48,10 +48,4 @@ return {
       })
     end,
   },
-
-  -- Automatically enter (){}[] while typing
-  {
-    "windwp/nvim-autopairs",
-    opts = {},
-  },
 }
