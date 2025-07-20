@@ -1,5 +1,4 @@
 return {
-  -- Color theme
   {
     "catppuccin/nvim",
     name = "catppuccin",
@@ -46,27 +45,5 @@ return {
       })
       vim.cmd.colorscheme("catppuccin-mocha")
     end,
-  },
-
-  -- Status Line
-  {
-    "nvim-lualine/lualine.nvim",
-    dependencies = { "nvim-tree/nvim-web-devicons" },
-    config = function()
-      require("lualine").setup({
-        options = {
-          theme = "catppuccin",
-        },
-      })
-    end,
-  },
-
-  -- Color hex codes
-  {
-    "norcalli/nvim-colorizer.lua",
-    opts = {
-      "*",
-      css = { css = true },
-    },
   },
 }
