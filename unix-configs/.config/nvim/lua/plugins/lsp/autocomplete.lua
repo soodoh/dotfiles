@@ -16,18 +16,21 @@ return {
     opts = {
       keymap = {
         preset = "default",
-        ["<Tab>"] = { "insert_next", "fallback" },
-        ["<S-Tab>"] = { "insert_prev", "fallback" },
+        ["<Tab>"] = { "select_next", "fallback" },
+        ["<S-Tab>"] = { "select_prev", "fallback" },
         ["<C-n"] = { "snippet_forward", "fallback_to_mappings" },
         ["<C-p"] = { "snippet_backward", "fallback_to_mappings" },
-        ["<CR>"] = { "select_and_accept", "fallback" },
+        ["<CR>"] = { "accept", "fallback" },
       },
       appearance = {
         nerd_font_variant = "mono",
       },
+      cmdline = { enabled = true },
       completion = {
         documentation = { auto_show = true },
         trigger = { prefetch_on_insert = true },
+        accept = { auto_brackets = { enabled = false } },
+        list = { selection = { preselect = false, auto_insert = false } },
       },
       sources = {
         default = {
@@ -48,6 +51,7 @@ return {
             score_offset = 100,
             async = true,
           },
+          -- Provider agnostic LLM autocomplete, but using Copilot for now
           -- minuet = {
           --   name = "minuet",
           --   module = "minuet.blink",
