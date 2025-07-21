@@ -11,12 +11,11 @@ return {
         auto_install = true,
         ensure_installed = { "markdown" },
         highlight = {
-          enable = true,                  -- false will disable the whole extension
-          disable = { "json" },           -- list of language that will be disabled
+          enable = true, -- false will disable the whole extension
+          disable = { "json" }, -- list of language that will be disabled
         },
         indent = { enable = true },
         autopairs = { enable = true },
-        autotag = { enable = true },
         context_commentstring = { enable = true },
       })
       -- Rainbow parentheses, powered by treesitter
