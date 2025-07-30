@@ -40,6 +40,7 @@ brew services start sketchybar && \
 brew install --cask alacritty && \
 brew tap homebrew/command-not-found && \
 brew install --cask nikitabobko/tap/aerospace && \
+brew install --cask mediosz/tap/swipeaerospace && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
 ```
 
