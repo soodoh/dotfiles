@@ -23,7 +23,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@commitlint/cli@npm:^19.6.1":
+"@commitlint/cli@npm:^19.8.1":
   version: 19.8.1
   resolution: "@commitlint/cli@npm:19.8.1"
   dependencies:
@@ -40,7 +40,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@commitlint/config-conventional@npm:^19.6.0":
+"@commitlint/config-conventional@npm:^19.8.1":
   version: 19.8.1
   resolution: "@commitlint/config-conventional@npm:19.8.1"
   dependencies:
@@ -204,7 +204,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@commitlint/types@npm:^19.5.0, @commitlint/types@npm:^19.8.1":
+"@commitlint/types@npm:^19.8.1":
   version: 19.8.1
   resolution: "@commitlint/types@npm:19.8.1"
   dependencies:
@@ -232,7 +232,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^22.10.4":
+"@types/node@npm:^22.17.0":
   version: 22.17.0
   resolution: "@types/node@npm:22.17.0"
   dependencies:
@@ -428,12 +428,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "dotfiles@workspace:."
   dependencies:
-    "@commitlint/cli": "npm:^19.6.1"
-    "@commitlint/config-conventional": "npm:^19.6.0"
-    "@commitlint/types": "npm:^19.5.0"
-    "@types/node": "npm:^22.10.4"
+    "@commitlint/cli": "npm:^19.8.1"
+    "@commitlint/config-conventional": "npm:^19.8.1"
+    "@commitlint/types": "npm:^19.8.1"
+    "@types/node": "npm:^22.17.0"
     husky: "npm:^9.1.7"
-    typescript: "npm:^5.7.2"
+    typescript: "npm:^5.9.2"
   languageName: unknown
   linkType: soft
 
@@ -863,7 +863,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.7.2":
+"typescript@npm:^5.9.2":
   version: 5.9.2
   resolution: "typescript@npm:5.9.2"
   bin:
@@ -873,7 +873,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.7.2#optional!builtin<compat/typescript>":
+"typescript@patch:typescript@npm%3A^5.9.2#optional!builtin<compat/typescript>":
   version: 5.9.2
   resolution: "typescript@patch:typescript@npm%3A5.9.2#optional!builtin<compat/typescript>::version=5.9.2&hash=5786d5"
   bin:
