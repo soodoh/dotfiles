@@ -93,6 +93,7 @@ cmd-alt-ctrl-shift-i = 'move-node-to-workspace --focus-follows-window 3'
 cmd-alt-ctrl-shift-o = 'move-node-to-workspace --focus-follows-window 4'
 cmd-alt-ctrl-shift-p = 'move-node-to-workspace --focus-follows-window 5'
 
+cmd-alt-ctrl-shift-f = 'flatten-workspace-tree'
 alt-ctrl-shift-f = 'fullscreen'
 alt-ctrl-shift-t = 'layout h_accordion tiles'         # 'layout tabbed' in i3
 alt-ctrl-shift-s = 'layout tiles horizontal vertical' # 'layout toggle split' in i3
