@@ -54,19 +54,15 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 [gaps]
 inner.horizontal = 10
 inner.vertical = 5
-outer.top = [
-  { monitor."Built-in" = 5 },
-  # { monitor."C49RG9x" = 40 },
-  # { monitor."MP185Y1-M" = 40 },
-  # { monitor."eD15" = 40 },
-  40,
-]
+outer.top = [{ monitor."Built-in" = 5 }, 40]
 outer.right = 10
 outer.bottom = 10
 outer.left = 10
 
 [mode.main.binding]
 alt-ctrl-shift-enter = 'exec-and-forget open -a Alacritty'
+# Opens default web browser
+cmd-alt-ctrl-shift-enter = 'exec-and-forget /usr/libexec/PlistBuddy -c "Print :LSHandlers" ~/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist | awk "/LSHandlerContentType.*default-app\.web-browser/{flag=1} flag && /LSHandlerRoleAll = /{gsub(/.* = /,\"\"); gsub(/;/,\"\"); print; exit}" | xargs open -b'
 
 cmd-h = []     # Disable "hide application"
 cmd-alt-h = [] # Disable "hide others"
@@ -85,29 +81,23 @@ alt-ctrl-shift-y = 'workspace 1'
 alt-ctrl-shift-u = 'workspace 2'
 alt-ctrl-shift-i = 'workspace 3'
 alt-ctrl-shift-o = 'workspace 4'
-alt-ctrl-shift-p = 'workspace 5'
 
 cmd-alt-ctrl-shift-y = 'move-node-to-workspace --focus-follows-window 1'
 cmd-alt-ctrl-shift-u = 'move-node-to-workspace --focus-follows-window 2'
 cmd-alt-ctrl-shift-i = 'move-node-to-workspace --focus-follows-window 3'
 cmd-alt-ctrl-shift-o = 'move-node-to-workspace --focus-follows-window 4'
-cmd-alt-ctrl-shift-p = 'move-node-to-workspace --focus-follows-window 5'
 
-cmd-alt-ctrl-shift-f = 'flatten-workspace-tree'
 alt-ctrl-shift-f = 'fullscreen'
 alt-ctrl-shift-t = 'layout h_accordion tiles'         # 'layout tabbed' in i3
 alt-ctrl-shift-s = 'layout tiles horizontal vertical' # 'layout toggle split' in i3
 alt-ctrl-shift-space = 'layout floating tiling'       # 'floating toggle' in i3
+alt-ctrl-shift-r = 'balance-sizes'
+
 cmd-alt-ctrl-shift-v = 'reload-config'
+cmd-alt-ctrl-shift-r = 'mode resize'
 
-alt-ctrl-shift-r = 'mode resize'
-alt-ctrl-shift-w = 'mode workspace'
-
-[mode.workspace.binding]
-h = 'move-workspace-to-monitor prev'
-l = 'move-workspace-to-monitor next'
-enter = 'mode main'
-esc = 'mode main'
+alt-ctrl-shift-w = 'move-workspace-to-monitor next'
+cmd-alt-ctrl-shift-w = 'move-workspace-to-monitor prev'
 
 [mode.resize.binding]
 h = 'resize width -50'
@@ -117,12 +107,12 @@ l = 'resize width +50'
 enter = ['balance-sizes', 'mode main']
 esc = 'mode main'
 
+# This prevents "move-workspace-to-monitor" from working
 # [workspace-to-monitor-force-assignment]
 # 1 = 'main'
 # 2 = 'main'
-# 3 = 'main'
+# 3 = 'secondary'
 # 4 = 'secondary'
-# 5 = 'secondary'
 
 # Automatically move applications to preferred workspace
 # Main workspaces
@@ -140,23 +130,22 @@ run = ['move-node-to-workspace 1']
 
 # "Organization" apps
 [[on-window-detected]]
-if.app-name-regex-substring = 'todoist'
-if.during-aerospace-startup = true
-check-further-callbacks = true
-run = ['move-node-to-workspace 2']
-
-[[on-window-detected]]
 if.app-name-regex-substring = 'calendar'
 if.during-aerospace-startup = true
 check-further-callbacks = true
 run = ['move-node-to-workspace 2']
-
 
 [[on-window-detected]]
 if.app-name-regex-substring = 'slack'
 if.during-aerospace-startup = true
 check-further-callbacks = true
 run = ['move-node-to-workspace 2']
+
+[[on-window-detected]]
+if.app-name-regex-substring = 'todoist'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 3']
 
 # "Other" apps
 [[on-window-detected]]
