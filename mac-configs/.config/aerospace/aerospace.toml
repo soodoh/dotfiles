@@ -76,10 +76,10 @@ alt-ctrl-shift-j = 'focus down --boundaries all-monitors-outer-frame --boundarie
 alt-ctrl-shift-k = 'focus up --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
 alt-ctrl-shift-l = 'focus right --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
 
-cmd-alt-ctrl-shift-h = 'move left'
-cmd-alt-ctrl-shift-j = 'move down'
-cmd-alt-ctrl-shift-k = 'move up'
-cmd-alt-ctrl-shift-l = 'move right'
+cmd-alt-ctrl-shift-h = 'move left --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+cmd-alt-ctrl-shift-j = 'move down --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+cmd-alt-ctrl-shift-k = 'move up --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+cmd-alt-ctrl-shift-l = 'move right --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
 
 alt-ctrl-shift-y = 'workspace 1'
 alt-ctrl-shift-u = 'workspace 2'
