@@ -23,8 +23,9 @@ return {
         ensure_installed = {
           "black",
           "stylua",
+          "shellcheck",
           "prettier",
-          "prettierd",
+          -- "prettierd",
           "eslint_d",
         },
         auto_update = true,
