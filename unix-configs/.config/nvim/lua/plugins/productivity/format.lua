@@ -24,7 +24,7 @@ return {
         },
       },
       formatters_by_ft = {
-        sh = { "shellcheck" },
+        sh = { "shfmt", "shellcheck" },
         lua = { "stylua" },
         python = { "black" },
         rust = { "rstfmt" },
