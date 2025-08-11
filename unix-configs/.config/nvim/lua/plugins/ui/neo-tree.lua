@@ -297,20 +297,35 @@ return {
               local node = state.tree:get_node()
               local filepath = node:get_id()
 
-              if node.type == "file" then
-                local system = vim.loop.os_uname().sysname
-                local cmd
-                if system == "Darwin" then
-                  cmd = "open"
-                elseif system == "Linux" then
-                  cmd = "xdg-open"
-                elseif system:find("Windows") then
-                  cmd = "start"
-                else
-                  vim.notify("Unsupported OS", vim.log.levels.ERROR)
-                  return
-                end
+              local system = vim.loop.os_uname().sysname
+              local cmd
+              if system == "Darwin" then
+                cmd = "open"
+              elseif system == "Linux" then
+                cmd = "xdg-open"
+              elseif system:find("Windows") then
+                cmd = "start"
+              else
+                vim.notify("Unsupported OS", vim.log.levels.ERROR)
+                return
+              end
 
+              if node.type == "directory" then
+                vim.fn.jobstart({ cmd, filepath }, {
+                  detach = true,
+                  on_exit = function(_, code)
+                    if code ~= 0 then
+                      vim.notify(
+                        "Failed to open folder in Finder",
+                        vim.log.levels.ERROR
+                      )
+                    end
+                  end,
+                })
+                vim.notify(
+                  "Opening folder in Finder: " .. filepath
+                )
+              elseif node.type == "file" then
                 vim.fn.jobstart({ cmd, filepath }, {
                   detach = true,
                   on_exit = function(_, code)
@@ -326,7 +341,7 @@ return {
                   "Opening file with system application: " .. filepath
                 )
               else
-                vim.notify("Not a file", vim.log.levels.WARN)
+                vim.notify("Unsupported node type", vim.log.levels.WARN)
               end
             end,
             copy_relative_path = function(state)
