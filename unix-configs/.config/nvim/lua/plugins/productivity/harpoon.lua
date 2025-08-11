@@ -37,7 +37,14 @@ return {
         function()
           harpoon:list():add()
         end,
-        desc = "Add file to Harpoon list",
+        desc = "Add current buffer to Harpoon list",
+      },
+      {
+        "<leader>hd",
+        function()
+          harpoon:list():remove()
+        end,
+        desc = "Remove current buffer from Harpoon list",
       },
       {
         "<C-h>",
