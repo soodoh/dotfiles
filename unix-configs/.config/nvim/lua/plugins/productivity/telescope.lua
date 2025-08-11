@@ -1,17 +1,14 @@
 return {
-  -- Dependency with build steps
-  {
-    "nvim-telescope/telescope-fzf-native.nvim",
-    build = "make",
-  },
-
   -- Telescope
   {
     "nvim-telescope/telescope.nvim",
     dependencies = {
       "nvim-lua/plenary.nvim",
       "nvim-telescope/telescope-live-grep-raw.nvim",
-      "nvim-telescope/telescope-fzf-native.nvim",
+      {
+        "nvim-telescope/telescope-fzf-native.nvim",
+        build = "make",
+      },
       "folke/trouble.nvim",
     },
     config = function()
