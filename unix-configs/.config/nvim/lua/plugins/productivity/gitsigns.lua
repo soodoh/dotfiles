@@ -26,10 +26,10 @@ return {
           local gs = package.loaded.gitsigns
           require("which-key").add({
             {
-              "]h",
+              "]g",
               function()
                 if vim.wo.diff then
-                  return "]h"
+                  return "]g"
                 end
                 vim.schedule(function()
                   gs.next_hunk()
@@ -39,10 +39,10 @@ return {
               desc = "Go to next hunk (Gitsigns)",
             },
             {
-              "[h",
+              "[g",
               function()
                 if vim.wo.diff then
-                  return "[h"
+                  return "[g"
                 end
                 vim.schedule(function()
                   gs.prev_hunk()
