@@ -51,39 +51,38 @@ return {
               end,
               desc = "Go to previous hunk (Gitsigns)",
             },
-            { "<leader>h", group = "Gitsigns" },
             {
-              "<leader>hs",
+              "<leader>gs",
               gs.stage_hunk,
               desc = "Stage hunk (Gitsigns)",
             },
             {
-              "<leader>hS",
+              "<leader>gS",
               gs.stage_buffer,
               desc = "Stage buffer (Gitsigns)",
             },
             {
-              "<leader>hr",
+              "<leader>gr",
               gs.reset_hunk,
               desc = "Reset hunk (Gitsigns)",
             },
             {
-              "<leader>hR",
+              "<leader>gR",
               gs.reset_buffer,
               desc = "Reset buffer (Gitsigns)",
             },
             {
-              "<leader>hu",
+              "<leader>gu",
               gs.undo_stage_hunk,
               desc = "Unstage hunk (Gitsigns)",
             },
             {
-              "<leader>hp",
+              "<leader>gp",
               gs.prewview_hunk,
               desc = "Preview hunk (Gitsigns)",
             },
             {
-              "<leader>hb",
+              "<leader>gb",
               function()
                 gs.blame_line({ full = true })
               end,

@@ -19,6 +19,7 @@ return {
           function()
             neogit.open()
           end,
+          desc = "Open Neogit",
         },
       })
     end,
