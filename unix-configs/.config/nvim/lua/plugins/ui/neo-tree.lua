@@ -51,6 +51,7 @@ return {
         enable_diagnostics = true,
         open_files_do_not_replace_types = { "terminal", "trouble", "qf" }, -- when opening files, do not use windows containing these filetypes or buftypes
         open_files_using_relative_paths = false,
+        enable_normal_mode_for_inputs = true,
         sort_case_insensitive = false, -- used when sorting files and directories in the tree
         sort_function = nil, -- use a custom function for sorting files and directories in the tree
         -- sort_function = function (a,b)
@@ -322,9 +323,7 @@ return {
                     end
                   end,
                 })
-                vim.notify(
-                  "Opening folder in Finder: " .. filepath
-                )
+                vim.notify("Opening folder in Finder: " .. filepath)
               elseif node.type == "file" then
                 vim.fn.jobstart({ cmd, filepath }, {
                   detach = true,
