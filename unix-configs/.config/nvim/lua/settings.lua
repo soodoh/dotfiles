@@ -36,3 +36,11 @@ vim.opt.tabstop = 2 -- 1 tab = 2 spaces
 vim.opt.expandtab = true -- expand tab to spaces
 -- q  - comment formatting; n - numbered lists; j - remove comment when joining lines; 1 - don't break after one-letter word
 vim.opt.formatoptions = "qnj1"
+
+-- Filetypes
+vim.filetype.add({
+  pattern = {
+    ["Caddyfile"] = "caddyfile", -- exact filename
+    ["*.caddy"] = "caddyfile", -- optional, if you have any .caddy files
+  },
+})

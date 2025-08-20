@@ -9,7 +9,24 @@ return {
       local treesitter = require("nvim-treesitter.configs")
       treesitter.setup({
         auto_install = true,
-        ensure_installed = { "markdown" },
+        ensure_installed = {
+          "caddy",
+          "markdown",
+          "javascript",
+          "typescript",
+          "tsx",
+          "json",
+          "yaml",
+          "html",
+          "css",
+          "lua",
+          "bash",
+          "dockerfile",
+          "gitcommit",
+          "toml",
+          "lua",
+          "bash",
+        },
         highlight = {
           enable = true, -- false will disable the whole extension
           disable = { "json" }, -- list of language that will be disabled
