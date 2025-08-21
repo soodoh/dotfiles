@@ -2,13 +2,12 @@ return {
   -- Better buffer tab line
   {
     "akinsho/bufferline.nvim",
+    tag = "*",
     dependencies = "nvim-tree/nvim-web-devicons",
     after = "catppuccin",
     config = function()
       require("bufferline").setup({
-        highlights = require(
-          "catppuccin.groups.integrations.bufferline"
-        ).get(),
+        -- highlights = require("catppuccin.groups.integrations.bufferline").get(),
         options = {
           numbers = "buffer_id",
           diagnostics = "nvim_lsp",
