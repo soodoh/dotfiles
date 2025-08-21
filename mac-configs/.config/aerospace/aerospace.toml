@@ -7,8 +7,12 @@ after-login-command = []
 # 'after-startup-command' is run after 'after-login-command'
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
 after-startup-command = [
+  'exec-and-forget sketchybar',
   'exec-and-forget borders active_color=0xffe1e3e4 inactive_color=0xff494d64 width=5.0',
 ]
+
+# Start AeroSpace at login
+start-at-login = true
 
 # Notify Sketchybar about workspace change
 exec-on-workspace-change = [
@@ -16,9 +20,6 @@ exec-on-workspace-change = [
   '-c',
   'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE',
 ]
-
-# Start AeroSpace at login
-start-at-login = true
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
@@ -96,8 +97,14 @@ alt-ctrl-shift-r = 'balance-sizes'
 cmd-alt-ctrl-shift-v = 'reload-config'
 cmd-alt-ctrl-shift-r = 'mode resize'
 
-alt-ctrl-shift-w = 'move-workspace-to-monitor next'
-cmd-alt-ctrl-shift-w = 'move-workspace-to-monitor prev'
+alt-ctrl-shift-w = [
+  'move-workspace-to-monitor --wrap-around next',
+  'exec-and-forget sketchybar --trigger aerospace_monitor_change TARGET_MONITOR=$(aerospace list-monitors --focused --format "%{monitor-appkit-nsscreen-screens-id}") FOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)',
+]
+cmd-alt-ctrl-shift-w = [
+  'move-workspace-to-monitor --wrap-around prev',
+  'exec-and-forget sketchybar --trigger aerospace_monitor_change TARGET_MONITOR=$(aerospace list-monitors --focused --format "%{monitor-appkit-nsscreen-screens-id}") FOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)',
+]
 
 [mode.resize.binding]
 h = 'resize width -50'
