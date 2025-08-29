@@ -64,14 +64,14 @@ return {
             name = "Avante",
             opts = {},
           },
-          git = {
-            module = "blink-cmp-git",
-            name = "Git",
-            enabled = function()
-              return vim.bo.filetype == "gitcommit"
-            end,
-            opts = {},
-          },
+          -- git = {
+          --   module = "blink-cmp-git",
+          --   name = "Git",
+          --   enabled = function()
+          --     return vim.bo.filetype == "gitcommit"
+          --   end,
+          --   opts = {},
+          -- },
           nerdfont = {
             module = "blink-nerdfont",
             name = "Nerd Fonts",
