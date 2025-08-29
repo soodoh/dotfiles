@@ -33,10 +33,6 @@ fi
 if command -v brew &> /dev/null; then
   export DYLD_LIBRARY_PATH="$(brew --prefix)/lib/"
 fi
-# Add Github Copilot CLI aliases (ghcs/ghce)
-if command -v gh &> /dev/null; then
-  eval "$(gh copilot alias -- zsh)"
-fi
 # Koreader dev dependencies
 if command -v brew &> /dev/null; then
   export PATH="$(brew --prefix)/opt/findutils/libexec/gnubin:$(brew --prefix)/opt/gnu-getopt/bin:$(brew --prefix)/opt/make/libexec/gnubin:$(brew --prefix)/opt/util-linux/bin:${PATH}"
@@ -68,8 +64,8 @@ GIT_AUTO_FETCH_INTERVAL=120 # in seconds
 zstyle ':omz:plugins:nvm' autoload yes
 zstyle ':omz:plugins:nvm' lazy yes # otherwise it takes too long to open new shells
 zstyle ':omz:plugins:nvm' lazy-cmd vim nvim git # this needs node/npm
-fpath+="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker/completions" 
-fpath+="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker-compose" 
+fpath+="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker/completions"
+fpath+="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker-compose"
 
 autoload -U +X compinit && compinit
 load "ohmyzsh/ohmyzsh" "lib/git.zsh" # Deps for git plugin
