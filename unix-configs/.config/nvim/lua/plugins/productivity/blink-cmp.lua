@@ -35,7 +35,7 @@ return {
       sources = {
         default = {
           "copilot",
-          "git",
+          -- "git",
           "avante",
           "nerdfont",
           "emoji",
