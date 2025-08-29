@@ -15,7 +15,7 @@ vim.opt.sidescrolloff = 8
 vim.opt.diffopt = "vertical"
 
 -- Status column
--- vim.opt.relativenumber = true
+vim.opt.relativenumber = true
 vim.opt.number = true
 vim.opt.numberwidth = 3 -- always reserve 3 spaces for line number
 vim.opt.modelines = 0
