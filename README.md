@@ -20,6 +20,7 @@ Mac:
 ```
 brew install \
   git \
+  gh \
   zsh \
   coreutils \
   cmake \
@@ -49,6 +50,7 @@ Debian/Ubuntu
 apt update && apt upgrade ;\
 apt install \
   git \
+  gh \
   zsh \
   cmake \
   golang \
@@ -65,6 +67,7 @@ Arch
 pacman -Syu \
   yay \
   git \
+  gh \
   zsh \
   cmake \
   golang \

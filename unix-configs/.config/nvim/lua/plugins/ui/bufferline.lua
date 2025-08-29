@@ -2,7 +2,7 @@ return {
   -- Better buffer tab line
   {
     "akinsho/bufferline.nvim",
-    tag = "*",
+    version = "*",
     dependencies = "nvim-tree/nvim-web-devicons",
     after = "catppuccin",
     config = function()
