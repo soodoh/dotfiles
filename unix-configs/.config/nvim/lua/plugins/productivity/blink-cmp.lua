@@ -7,7 +7,7 @@ return {
       "rafamadriz/friendly-snippets",
       -- community sources
       "Kaiser-Yang/blink-cmp-avante",
-      "Kaiser-Yang/blink-cmp-git",
+      -- "Kaiser-Yang/blink-cmp-git",
       "MahanRahmati/blink-nerdfont.nvim",
       "moyiz/blink-emoji.nvim",
       "giuxtaposition/blink-cmp-copilot",
