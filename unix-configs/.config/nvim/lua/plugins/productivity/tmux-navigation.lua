@@ -12,7 +12,19 @@ return {
       )
       vim.keymap.set(
         "n",
+        "<C-Left>",
+        ":NvimTmuxNavigateLeft<CR>",
+        { silent = true }
+      )
+      vim.keymap.set(
+        "n",
         "<C-j>",
+        ":NvimTmuxNavigateDown<CR>",
+        { silent = true }
+      )
+      vim.keymap.set(
+        "n",
+        "<C-Down>",
         ":NvimTmuxNavigateDown<CR>",
         { silent = true }
       )
@@ -24,7 +36,19 @@ return {
       )
       vim.keymap.set(
         "n",
+        "<C-Up>",
+        ":NvimTmuxNavigateUp<CR>",
+        { silent = true }
+      )
+      vim.keymap.set(
+        "n",
         "<C-l>",
+        ":NvimTmuxNavigateRight<CR>",
+        { silent = true }
+      )
+      vim.keymap.set(
+        "n",
+        "<C-Right>",
         ":NvimTmuxNavigateRight<CR>",
         { silent = true }
       )
