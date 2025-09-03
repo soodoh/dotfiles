@@ -13,6 +13,26 @@ chars = "\f"
 key = "K"
 mods = "Command|Super"
 
+[[keyboard.bindings]]
+key = "Up"
+mods = "Control"
+chars = "\u001b[1;5A"
+
+[[keyboard.bindings]]
+key = "Down"
+mods = "Control"
+chars = "\u001b[1;5B"
+
+[[keyboard.bindings]]
+key = "Left"
+mods = "Control"
+chars = "\u001b[1;5D"
+
+[[keyboard.bindings]]
+key = "Right"
+mods = "Control"
+chars = "\u001b[1;5C"
+
 [window]
 opacity = 0.85
 blur = true
