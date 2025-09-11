@@ -93,42 +93,6 @@ keybinds clear-defaults=true {
         bind "right" {
             GoToNextTab
         }
-        bind "1" {
-            GoToTab 1
-            SwitchToMode "locked"
-        }
-        bind "2" {
-            GoToTab 2
-            SwitchToMode "locked"
-        }
-        bind "3" {
-            GoToTab 3
-            SwitchToMode "locked"
-        }
-        bind "4" {
-            GoToTab 4
-            SwitchToMode "locked"
-        }
-        bind "5" {
-            GoToTab 5
-            SwitchToMode "locked"
-        }
-        bind "6" {
-            GoToTab 6
-            SwitchToMode "locked"
-        }
-        bind "7" {
-            GoToTab 7
-            SwitchToMode "locked"
-        }
-        bind "8" {
-            GoToTab 8
-            SwitchToMode "locked"
-        }
-        bind "9" {
-            GoToTab 9
-            SwitchToMode "locked"
-        }
         bind "[" {
             BreakPaneLeft
             SwitchToMode "locked"
@@ -341,11 +305,12 @@ keybinds clear-defaults=true {
             SwitchToMode "normal"
         }
         bind "s" {
-            LaunchOrFocusPlugin "https://github.com/laperlej/zellij-sessionizer/releases/latest/download/zellij-sessionizer.wasm" {
+            LaunchOrFocusPlugin "sessionizer" {
                 floating true
                 move_to_focused_tab true
                 cwd "/"
                 root_dirs "/Users/paul.diloreto/Documents;/Users/pauldiloreto/Documents;/home/docker"
+                session_layout "custom_status"
             }
             SwitchToMode "Locked"
         }
@@ -365,6 +330,15 @@ keybinds clear-defaults=true {
         }
     }
     shared_among "normal" "locked" {
+        bind "Alt n" {
+            NewPane
+        }
+        bind "Alt t" {
+            NewTab
+        }
+        bind "Alt x" {
+            CloseFocus
+        }
         bind "Alt left" {
             MoveFocusOrTab "left"
         }
@@ -375,6 +349,18 @@ keybinds clear-defaults=true {
             MoveFocus "up"
         }
         bind "Alt right" {
+            MoveFocusOrTab "right"
+        }
+        bind "Alt h" {
+            MoveFocusOrTab "left"
+        }
+        bind "Alt j" {
+            MoveFocus "down"
+        }
+        bind "Alt k" {
+            MoveFocus "up"
+        }
+        bind "Alt l" {
             MoveFocusOrTab "right"
         }
         bind "Alt +" {
@@ -395,23 +381,8 @@ keybinds clear-defaults=true {
         bind "Alt f" {
             ToggleFloatingPanes
         }
-        bind "Alt h" {
-            MoveFocusOrTab "left"
-        }
         bind "Alt i" {
             MoveTab "left"
-        }
-        bind "Alt j" {
-            MoveFocus "down"
-        }
-        bind "Alt k" {
-            MoveFocus "up"
-        }
-        bind "Alt l" {
-            MoveFocusOrTab "right"
-        }
-        bind "Alt n" {
-            NewPane
         }
         bind "Alt o" {
             MoveTab "right"
@@ -548,13 +519,12 @@ keybinds clear-defaults=true {
         }
     }
 }
-// Plugin aliases - can be used to change the implementation of Zellij
-// changing these requires a restart to take effect
 plugins {
     plugin-manager location="zellij:plugin-manager"
     session-manager location="zellij:session-manager"
+    sessionizer location="https://github.com/laperlej/zellij-sessionizer/releases/download/v0.4.3/zellij-sessionizer.wasm"
+    zjstatus location="https://github.com/dj95/zjstatus/releases/download/v0.21.1/zjstatus.wasm"
 }
-// Plugins to load in the background when a new session starts
 load_plugins {
 
 }
@@ -569,7 +539,7 @@ theme "tokyo-night-dark"
 // Default: normal
 default_mode "locked"
 // The name of the default layout to load on startup
-default_layout "default"
+default_layout "custom_status"
 // Toggle enabling the mouse mode.
 // On certain configurations, or terminals this could
 // potentially interfere with copying text.

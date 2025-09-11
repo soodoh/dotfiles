@@ -14,14 +14,6 @@ Add homebrew to `$PATH` for current session so that the follow steps can access 
 export PATH=$PATH:/opt/homebrew/bin
 ```
 
-1. Disable Option/Alt key from typing accents (Mac only)
-
-In order to not conflict with terminal/other hot keys using Alt, enter this in the terminal.
-
-```bash
-defaults write -g ApplePressAndHoldEnabled -bool false
-```
-
 1. Install dependencies
 
 Mac:
