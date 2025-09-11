@@ -28,6 +28,7 @@ return {
         lua = { "stylua" },
         python = { "black" },
         rust = { "rstfmt" },
+        kdl = { "kdlfmt" },
         javascript = {
           "prettier",
           "eslint_d",
@@ -115,7 +116,8 @@ return {
         "<leader>sF",
         function()
           vim.g.disable_autoformat = not vim.g.disable_autoformat
-          local status = vim.g.disable_autoformat and "disabled" or "enabled"
+          local status = vim.g.disable_autoformat and "disabled"
+            or "enabled"
           vim.notify("Format on save " .. status)
         end,
         desc = "Toggle format on save (LSP)",
