@@ -1,4 +1,3 @@
-vim.keymap.set("i", "jk", "<ESC>", { silent = true })
 -- so that forward delete works in insert mode
 vim.keymap.set("i", "<C-d>", "<Del>", { silent = true })
 

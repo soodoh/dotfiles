@@ -42,9 +42,6 @@ if command -v brew &> /dev/null; then
   export PATH="/usr/local/bin:/usr/local/sbin:${PATH/:\/usr\/local\/bin/}"
 fi
 
-# Settings for zsh-vi-mode
-ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
-
 # ZSH plugins
 ZSH_PLUGINS=$HOME/.config/zsh-plugins
 load () {
