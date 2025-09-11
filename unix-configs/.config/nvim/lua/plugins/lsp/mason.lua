@@ -22,11 +22,12 @@ return {
       require("mason-tool-installer").setup({
         ensure_installed = {
           "black",
-          "stylua",
+          "eslint_d",
+          "kdlfmt",
+          "prettier",
           "shellcheck",
           "shfmt",
-          "prettier",
-          "eslint_d",
+          "stylua",
         },
         auto_update = true,
       })
