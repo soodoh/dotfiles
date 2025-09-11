@@ -1,5 +1,7 @@
+# Personal, general-purpose aliases
 alias vim="nvim"
 alias l="ls -lAFh"
+alias ze="zellij"
 
 # Personal git aliases
 alias gdn="git diff --name-only"
