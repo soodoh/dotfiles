@@ -1,4 +1,69 @@
 keybinds clear-defaults=true {
+    shared_among "normal" "locked" {
+        bind "Alt n" {
+            NewPane
+        }
+        bind "Alt t" {
+            NewTab
+        }
+        bind "Alt x" {
+            CloseFocus
+        }
+        bind "Alt left" {
+            MoveFocusOrTab "left"
+        }
+        bind "Alt down" {
+            MoveFocus "down"
+        }
+        bind "Alt up" {
+            MoveFocus "up"
+        }
+        bind "Alt right" {
+            MoveFocusOrTab "right"
+        }
+        bind "Alt h" {
+            MoveFocusOrTab "left"
+        }
+        bind "Alt j" {
+            MoveFocus "down"
+        }
+        bind "Alt k" {
+            MoveFocus "up"
+        }
+        bind "Alt l" {
+            MoveFocusOrTab "right"
+        }
+        bind "Alt +" {
+            Resize "Increase"
+        }
+        bind "Alt -" {
+            Resize "Decrease"
+        }
+        bind "Alt =" {
+            Resize "Increase"
+        }
+        bind "Alt [" {
+            PreviousSwapLayout
+        }
+        bind "Alt ]" {
+            NextSwapLayout
+        }
+        bind "Alt f" {
+            ToggleFloatingPanes
+        }
+        bind "Alt i" {
+            MoveTab "left"
+        }
+        bind "Alt o" {
+            MoveTab "right"
+        }
+        bind "Alt p" {
+            TogglePaneInGroup
+        }
+        bind "Alt Shift p" {
+            ToggleGroupMarking
+        }
+    }
     locked {
         bind "Ctrl g" {
             SwitchToMode "normal"
@@ -329,71 +394,6 @@ keybinds clear-defaults=true {
             SwitchToMode "locked"
         }
     }
-    shared_among "normal" "locked" {
-        bind "Alt n" {
-            NewPane
-        }
-        bind "Alt t" {
-            NewTab
-        }
-        bind "Alt x" {
-            CloseFocus
-        }
-        bind "Alt left" {
-            MoveFocusOrTab "left"
-        }
-        bind "Alt down" {
-            MoveFocus "down"
-        }
-        bind "Alt up" {
-            MoveFocus "up"
-        }
-        bind "Alt right" {
-            MoveFocusOrTab "right"
-        }
-        bind "Alt h" {
-            MoveFocusOrTab "left"
-        }
-        bind "Alt j" {
-            MoveFocus "down"
-        }
-        bind "Alt k" {
-            MoveFocus "up"
-        }
-        bind "Alt l" {
-            MoveFocusOrTab "right"
-        }
-        bind "Alt +" {
-            Resize "Increase"
-        }
-        bind "Alt -" {
-            Resize "Decrease"
-        }
-        bind "Alt =" {
-            Resize "Increase"
-        }
-        bind "Alt [" {
-            PreviousSwapLayout
-        }
-        bind "Alt ]" {
-            NextSwapLayout
-        }
-        bind "Alt f" {
-            ToggleFloatingPanes
-        }
-        bind "Alt i" {
-            MoveTab "left"
-        }
-        bind "Alt o" {
-            MoveTab "right"
-        }
-        bind "Alt p" {
-            TogglePaneInGroup
-        }
-        bind "Alt Shift p" {
-            ToggleGroupMarking
-        }
-    }
     shared_except "locked" "renametab" "renamepane" {
         bind "Ctrl g" {
             SwitchToMode "locked"
@@ -570,11 +570,9 @@ copy_on_select false
 // Consider also setting `attach_to_session true,`
 // otherwise this will error if such a session exists.
 // Default: <RANDOM>
-// session_name "default"
+session_name "home"
 // When `session_name` is provided, attaches to that session
 // if it is already running or creates it otherwise.
-// Default: false
-//
 attach_to_session true
 // Toggle between having Zellij lay out panes according to a predefined set of layouts whenever possible
 // Options:
