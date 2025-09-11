@@ -42,6 +42,19 @@ if command -v brew &> /dev/null; then
   export PATH="/usr/local/bin:/usr/local/sbin:${PATH/:\/usr\/local\/bin/}"
 fi
 
+# Auto open zellij
+if [[ -z "$ZELLIJ" ]]; then
+    if [[ "$ZELLIJ_AUTO_ATTACH" == "true" ]]; then
+        zellij attach -c
+    else
+        zellij
+    fi
+
+    if [[ "$ZELLIJ_AUTO_EXIT" == "true" ]]; then
+        exit
+    fi
+fi
+
 # ZSH plugins
 ZSH_PLUGINS=$HOME/.config/zsh-plugins
 load () {
