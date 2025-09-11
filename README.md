@@ -14,33 +14,40 @@ Add homebrew to `$PATH` for current session so that the follow steps can access 
 export PATH=$PATH:/opt/homebrew/bin
 ```
 
+1. Disable Option/Alt key from typing accents (Mac only)
+
+In order to not conflict with terminal/other hot keys using Alt, enter this in the terminal.
+
+```bash
+defaults write -g ApplePressAndHoldEnabled -bool false
+```
+
 1. Install dependencies
 
 Mac:
 ```
 brew install \
-  git \
-  zsh \
-  coreutils \
+  block-goose-cli \
+  borders \
   cmake \
+  coreutils \
+  fzf \
+  git \
   golang \
+  neovim \
+  ripgrep \
+  scroll-reverser \
+  sketchybar \
   stow \
   trash \
-  ripgrep \
-  fzf \
+  wget \
+  zellij \
   zoxide \
-  tmux \
-  neovim \
-  borders \
-  sketchybar \
-  scroll-reverser \
-  block-goose-cli \
+  zsh \
 && \
-brew services start sketchybar && \
 brew install --cask alacritty && \
 brew tap homebrew/command-not-found && \
 brew install --cask nikitabobko/tap/aerospace && \
-brew install --cask mediosz/tap/swipeaerospace && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
 ```
 
@@ -48,32 +55,45 @@ Debian/Ubuntu
 ```
 apt update && apt upgrade ;\
 apt install \
-  git \
-  zsh \
   cmake \
-  golang \
-  stow \
-  ripgrep \
   fzf \
-  zoxide \
-  tmux \
+  git \
+  golang \
   neovim
+  ripgrep \
+  stow \
+  wget \
+  zellij \
+  zoxide \
+  zsh \
 ```
 
 Arch
 ```
 pacman -Syu \
-  yay \
-  git \
-  zsh \
   cmake \
-  golang \
-  stow \
-  ripgrep \
   fzf \
-  zoxide \
-  tmux \
+  git \
+  golang \
   neovim
+  ripgrep \
+  stow \
+  yay \
+  wget \
+  zellij \
+  zoxide \
+  zsh \
+```
+
+1. Install rust
+
+View [latest documentation](https://www.rust-lang.org/tools/install) & follow install instructions.
+After installing, run this:
+
+```bash
+rustup update
+# Unless using package managers for this
+cargo install --locked zellij
 ```
 
 1. Source `.zshrc`
