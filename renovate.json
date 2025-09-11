@@ -12,5 +12,18 @@
       ],
       "rangeStrategy": "bump"
     }
+  ],
+  "regexManagers": [
+    {
+      "fileMatch": [
+        "/zellij/config\\.kdl$"
+      ],
+      "matchStrings": [
+        "https://github.com/(?<depOrg>[^/]+)/(?<depName>[^/]+)/releases/download/v(?<currentValue>[^/]+)/(?<asset>[^\\s\"]+)"
+      ],
+      "depNameTemplate": "{{depOrg}}/{{depName}}",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
+    }
   ]
 }

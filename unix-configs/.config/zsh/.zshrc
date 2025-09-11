@@ -59,8 +59,7 @@ load () {
 # Setup for ZSH plugins:
 GIT_AUTO_FETCH_INTERVAL=120 # in seconds
 zstyle ':omz:plugins:nvm' autoload yes
-zstyle ':omz:plugins:nvm' lazy yes # otherwise it takes too long to open new shells
-zstyle ':omz:plugins:nvm' lazy-cmd vim nvim git # this needs node/npm
+zstyle ':omz:plugins:nvm' silent-autoload yes
 fpath+="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker/completions"
 fpath+="$ZSH_PLUGINS/ohmyzsh/ohmyzsh/plugins/docker-compose"
 
