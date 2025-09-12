@@ -10,7 +10,7 @@ keybinds clear-defaults=true {
             CloseFocus
         }
         bind "Alt left" {
-            MoveFocusOrTab "left"
+            MoveFocus "left"
         }
         bind "Alt down" {
             MoveFocus "down"
@@ -19,10 +19,10 @@ keybinds clear-defaults=true {
             MoveFocus "up"
         }
         bind "Alt right" {
-            MoveFocusOrTab "right"
+            MoveFocus "right"
         }
         bind "Alt h" {
-            MoveFocusOrTab "left"
+            MoveFocus "left"
         }
         bind "Alt j" {
             MoveFocus "down"
@@ -31,31 +31,16 @@ keybinds clear-defaults=true {
             MoveFocus "up"
         }
         bind "Alt l" {
-            MoveFocusOrTab "right"
+            MoveFocus "right"
         }
-        bind "Alt +" {
-            Resize "Increase"
+        bind "Alt i" {
+            GoToPreviousTab
         }
-        bind "Alt -" {
-            Resize "Decrease"
-        }
-        bind "Alt =" {
-            Resize "Increase"
-        }
-        bind "Alt [" {
-            PreviousSwapLayout
-        }
-        bind "Alt ]" {
-            NextSwapLayout
+        bind "Alt o" {
+            GoToNextTab
         }
         bind "Alt f" {
             ToggleFloatingPanes
-        }
-        bind "Alt i" {
-            MoveTab "left"
-        }
-        bind "Alt o" {
-            MoveTab "right"
         }
         bind "Alt p" {
             TogglePaneInGroup
