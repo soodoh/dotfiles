@@ -10,7 +10,7 @@ keybinds clear-defaults=true {
             CloseFocus
         }
         bind "Alt left" {
-            MoveFocus "left"
+            MoveFocusOrTab "left"
         }
         bind "Alt down" {
             MoveFocus "down"
@@ -19,10 +19,10 @@ keybinds clear-defaults=true {
             MoveFocus "up"
         }
         bind "Alt right" {
-            MoveFocus "right"
+            MoveFocusOrTab "right"
         }
         bind "Alt h" {
-            MoveFocus "left"
+            MoveFocusOrTab "left"
         }
         bind "Alt j" {
             MoveFocus "down"
@@ -31,7 +31,7 @@ keybinds clear-defaults=true {
             MoveFocus "up"
         }
         bind "Alt l" {
-            MoveFocus "right"
+            MoveFocusOrTab "right"
         }
         bind "Alt i" {
             GoToPreviousTab
@@ -265,18 +265,6 @@ keybinds clear-defaults=true {
         bind "l" {
             MovePane "right"
         }
-        bind "m" {
-            SwitchToMode "normal"
-        }
-        bind "n" {
-            MovePane
-        }
-        bind "p" {
-            MovePaneBackwards
-        }
-        bind "tab" {
-            MovePane
-        }
     }
     scroll {
         bind "Alt left" {
@@ -352,7 +340,12 @@ keybinds clear-defaults=true {
             Detach
         }
         bind "o" {
-            SwitchToMode "normal"
+            LaunchOrFocusPlugin "choose-tree" {
+                floating true
+                move_to_focused_tab true
+                show_plugins false
+            }
+            SwitchToMode "Locked"
         }
         bind "s" {
             LaunchOrFocusPlugin "sessionizer" {
@@ -509,6 +502,7 @@ plugins {
     session-manager location="zellij:session-manager"
     sessionizer location="https://github.com/laperlej/zellij-sessionizer/releases/download/v0.4.3/zellij-sessionizer.wasm"
     zjstatus location="https://github.com/dj95/zjstatus/releases/download/v0.21.1/zjstatus.wasm"
+    choose-tree location="https://github.com/laperlej/zellij-choose-tree/releases/download/v0.4.2/zellij-choose-tree.wasm"
 }
 load_plugins {
 
