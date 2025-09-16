@@ -44,15 +44,11 @@ fi
 
 # Auto open zellij
 if [[ -z "$ZELLIJ" ]]; then
-    if [[ "$ZELLIJ_AUTO_ATTACH" == "true" ]]; then
-        zellij attach -c
-    else
-        zellij
-    fi
-
-    if [[ "$ZELLIJ_AUTO_EXIT" == "true" ]]; then
-        exit
-    fi
+  if [[ $(zellij ls -s | wc -l) -gt 1 ]]; then
+      zellij a $(zellij ls -s | tail -1)
+  else
+    zellij
+  fi
 fi
 
 # ZSH plugins
