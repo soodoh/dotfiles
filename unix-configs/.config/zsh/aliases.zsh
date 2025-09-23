@@ -2,7 +2,7 @@
 alias vim="nvim"
 alias l="ls -lAFh"
 alias ze="zellij"
-alias za="zellij a $(zellij ls -s | tail -1)"
+alias za='zellij a $(zellij ls -s | tail -1)'
 
 # Personal git aliases
 alias gdn="git diff --name-only"

@@ -34,10 +34,10 @@ keybinds clear-defaults=true {
             MoveFocusOrTab "right"
         }
         bind "Alt i" {
-            GoToPreviousTab
+            MoveTab "Left"
         }
         bind "Alt o" {
-            GoToNextTab
+            MoveTab "Right"
         }
         bind "Alt f" {
             ToggleFloatingPanes
