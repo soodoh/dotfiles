@@ -5,15 +5,15 @@
   "author": "Paul DiLoreto <paul.diloreto@gmail.com>",
   "license": "MIT",
   "devDependencies": {
-    "@commitlint/cli": "^20.0.0",
+    "@commitlint/cli": "^20.1.0",
     "@commitlint/config-conventional": "^20.0.0",
     "@commitlint/types": "^20.0.0",
-    "@types/node": "^22.18.7",
+    "@types/node": "^22.18.8",
     "husky": "^9.1.7"
   },
   "packageManager": "yarn@4.10.3",
   "dependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "prepare": "husky"
