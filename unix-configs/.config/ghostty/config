@@ -3,3 +3,4 @@ background-opacity = 0.8
 background-blur = 20
 window-theme = ghostty
 window-decoration = none
+confirm-close-surface = false
