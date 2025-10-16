@@ -5,19 +5,19 @@
 1. Install homebrew (Mac only)
 
 Note: cross reference [official documented](https://brew.sh/) install steps
-```
+```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
 Add homebrew to `$PATH` for current session so that the follow steps can access homebrew packages.
-```
+```bash
 export PATH=$PATH:/opt/homebrew/bin
 ```
 
 1. Install dependencies
 
 Mac:
-```
+```bash
 brew install \
   block-goose-cli \
   borders \
@@ -37,14 +37,17 @@ brew install \
   zoxide \
   zsh \
 && \
-brew install --cask alacritty && \
 brew tap homebrew/command-not-found && \
 brew install --cask nikitabobko/tap/aerospace && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
+
+# Install terminal emulator of choice
+brew install --cask alacritty
+brew install --cask ghostty
 ```
 
 Debian/Ubuntu
-```
+```bash
 apt update && apt upgrade ;\
 apt install \
   cmake \
@@ -61,7 +64,7 @@ apt install \
 ```
 
 Arch
-```
+```bash
 pacman -Syu \
   cmake \
   fzf \
@@ -90,37 +93,37 @@ cargo install --locked zellij
 
 1. Source `.zshrc`
 
-```
+```bash
 echo "source $HOME/.config/zsh/.zshrc" > $HOME/.zshrc
 ```
 
 (Optional) Add environment variables:
-```
+```bash
 echo "export OPENAI_API_KEY=XXXXX" >> $HOME/.zshrc
 ```
 
 1. Symlink dotfiles
 
 Mac:
-```
+```bash
 mkdir ~/.config && \
 stow -vRt $HOME unix-configs ; \
 stow -vRt $HOME mac-configs
 ```
 
 Linux:
-```
+```bash
 mkdir ~/.config && \
 stow -vRt $HOME unix-configs
 ```
 (Optional)
-```
+```bash
 stow -vRt $HOME sway-configs
 ```
 
 1.  Install starship
 
-    ```
+    ```bash
     sh -c "$(curl -fsSL https://starship.rs/install.sh)"
     ```
 
@@ -130,7 +133,7 @@ stow -vRt $HOME sway-configs
 
     Set/install default version of node to LTS, then install global NPM packages:
 
-    ```
+    ```bash
     nvm install 'lts/*' && \
     nvm alias default 'lts/*' && \
     npm i -g yarn neovim yalc
@@ -138,19 +141,19 @@ stow -vRt $HOME sway-configs
 
 1. Setup git config
 
-    ```
+    ```bash
     git config --global user.name "Paul DiLoreto" ;\
     git config --global user.email "paul.diloreto@gmail.com"
     ```
 
 1.  Set zsh as default shell
 
-    ```
+    ```bash
     chsh -s $(which zsh)
     ```
 
     If this fails with "non-standard shell", run this first & try again:
-    ```
+    ```bash
     sudo sh -c 'echo "/opt/homebrew/bin/zsh" >> /etc/shells'
     ```
 
@@ -161,43 +164,33 @@ stow -vRt $HOME sway-configs
 Alacritty.yml/Kitty.conf uses [FiraCode Nerd Font Mono](https://github.com/ryanoasis/nerd-fonts/blob/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFontMono-Regular.ttf)
 
 Mac:
-```
+```bash
 brew install --cask font-fira-code-nerd-font
 ```
 
 Arch:
-```
+```bash
 yay -S ttf-firacode-nerd
 ```
 
 Ubuntu/Debian:
-```
+```bash
 mkdir -p ~/.local/share/fonts && \
 wget -P "$HOME/.local/share/fonts" https://github.com/ryanoasis/nerd-fonts/blob/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFontMono-Regular.ttf
 ```
 
-
-## Setup Tmux
-
-1. Install tmux plugin manager
-
-    ```
-    git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm
-    ```
-
-1. Run `tmux` and install tmux plugins (\<prefix\> + I)
 
 ## Setup Neovim
 
 1.  Install Neovim dependencies
 
 Mac:
-    ```
+    ```bash
     pip3 install neovim
     ```
 
 Ubuntu/Debian:
-```
+```bash
 apt install python3-venv python3-neovim
 ```
 
