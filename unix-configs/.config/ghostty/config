@@ -1,5 +1,6 @@
+theme = "TokyoNight"
 font-size = 20
-background-opacity = 0.8
+background-opacity = 0.85
 background-blur = 20
 window-theme = ghostty
 window-decoration = none

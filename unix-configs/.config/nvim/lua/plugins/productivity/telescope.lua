@@ -54,6 +54,11 @@ return {
           ":Telescope oldfiles<CR>",
           desc = "Find recent files",
         },
+        {
+          "<leader>ft",
+          ":Telescope colorscheme<CR>",
+          desc = "Switch themes",
+        },
       })
 
       local actions = require("telescope.actions")
