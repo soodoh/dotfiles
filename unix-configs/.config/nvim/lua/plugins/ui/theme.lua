@@ -1,48 +1,41 @@
 return {
   {
-    "catppuccin/nvim",
-    name = "catppuccin",
-    priority = 1000,
+    "erl-koenig/theme-hub.nvim",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      -- Optional: Telescope integration
+      "nvim-telescope/telescope-ui-select.nvim",
+      -- Optional: for themes that use lush (will be notified if a theme requires it)
+      "rktjmp/lush.nvim",
+    },
     config = function()
-      require("catppuccin").setup({
-        flavor = "mocha", -- latte, frappe, macchiato, mocha
-        transparent_background = true,
-        float = {
-          transparent = true,
-          solid = false,
-        },
-        integrations = {
-          bufferline = true,
-          fzf = true,
-          gitsigns = true,
-          hop = true,
-          indent_blankline = {
-            enabled = true,
-            scope_color = "", -- catppuccin color (eg. `lavender`) Default: text
-            colored_indent_levels = false,
-          },
-          lsp_saga = true,
-          mason = true,
-          neogit = true,
-          nvim_surround = true,
-          treesitter_context = true,
-          treesitter = true,
-          ts_rainbow = true,
-          ufo = true,
-          telescope = {
-            enabled = true,
-            -- style = "nvchad"
-          },
-          lsp_trouble = true,
-          which_key = true,
-        },
-        custom_highlights = function(colors)
-          return {
-            WinSeparator = { fg = colors.flamingo },
-          }
-        end,
+      require("theme-hub").setup({
+        auto_install_on_select = true,
+        apply_after_install = true,
+        persistent = true,
       })
-      vim.cmd.colorscheme("catppuccin-mocha")
+      require("telescope").load_extension("ui-select")
+      require("which-key").add({
+        { "<leader>t", group = "Themes" },
+        {
+          "<leader>th",
+          ":ThemeHub<CR>",
+          desc = "Switch/Preview themes",
+        },
+        {
+          "<leader>tt",
+          function()
+            require("telescope.builtin").colorscheme({
+              enable_preview = true,
+              ignore_builtins = true,
+            })
+          end,
+          desc = "Switch/Preview themes",
+        },
+      })
+
+      -- Set default colorscheme, so persisted theme doesnt flash on load
+      vim.cmd("colorscheme tokyodark")
     end,
   },
 }

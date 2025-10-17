@@ -2,6 +2,12 @@ theme = "TokyoNight"
 font-size = 20
 background-opacity = 0.85
 background-blur = 20
+confirm-close-surface = false
+
+fullscreen = true
+maximize = true
 window-theme = ghostty
 window-decoration = none
-confirm-close-surface = false
+window-padding-balance = true
+window-padding-x = 0
+window-padding-y = 0
