@@ -2,7 +2,6 @@ return {
   -- Better UI for LSP (code actions, diagnostics)
   {
     "nvimdev/lspsaga.nvim",
-    after = "catppuccin",
     dependencies = {
       "nvim-tree/nvim-web-devicons",
       "nvim-treesitter/nvim-treesitter",
@@ -25,7 +24,6 @@ return {
           incoming = " ",
           outgoing = " ",
           hover = " ",
-          kind = require("catppuccin.groups.integrations.lsp_saga").custom_kind(),
         },
       })
       require("which-key").add({
