@@ -72,21 +72,43 @@ alt-ctrl-shift-h = 'focus left --boundaries all-monitors-outer-frame --boundarie
 alt-ctrl-shift-j = 'focus down --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
 alt-ctrl-shift-k = 'focus up --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
 alt-ctrl-shift-l = 'focus right --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
+# Arrow key alternate bindings
+alt-ctrl-shift-left = 'focus left --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
+alt-ctrl-shift-down = 'focus down --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
+alt-ctrl-shift-up = 'focus up --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
+alt-ctrl-shift-right = 'focus right --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
 
 cmd-alt-ctrl-shift-h = 'move left --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
 cmd-alt-ctrl-shift-j = 'move down --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
 cmd-alt-ctrl-shift-k = 'move up --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
 cmd-alt-ctrl-shift-l = 'move right --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+# Arrow key alternate bindings
+cmd-alt-ctrl-shift-left = 'move left --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+cmd-alt-ctrl-shift-down = 'move down --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+cmd-alt-ctrl-shift-up = 'move up --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+cmd-alt-ctrl-shift-right = 'move right --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
 
 alt-ctrl-shift-y = 'workspace 1'
 alt-ctrl-shift-u = 'workspace 2'
 alt-ctrl-shift-i = 'workspace 3'
 alt-ctrl-shift-o = 'workspace 4'
+# Numbered alternative bindings
+alt-ctrl-shift-1 = 'workspace 1'
+alt-ctrl-shift-2 = 'workspace 2'
+alt-ctrl-shift-3 = 'workspace 3'
+alt-ctrl-shift-4 = 'workspace 4'
+alt-ctrl-shift-5 = 'workspace 5'
 
 cmd-alt-ctrl-shift-y = 'move-node-to-workspace --focus-follows-window 1'
 cmd-alt-ctrl-shift-u = 'move-node-to-workspace --focus-follows-window 2'
 cmd-alt-ctrl-shift-i = 'move-node-to-workspace --focus-follows-window 3'
 cmd-alt-ctrl-shift-o = 'move-node-to-workspace --focus-follows-window 4'
+# Numbered alternative bindings
+cmd-alt-ctrl-shift-1 = 'move-node-to-workspace --focus-follows-window 1'
+cmd-alt-ctrl-shift-2 = 'move-node-to-workspace --focus-follows-window 2'
+cmd-alt-ctrl-shift-3 = 'move-node-to-workspace --focus-follows-window 3'
+cmd-alt-ctrl-shift-4 = 'move-node-to-workspace --focus-follows-window 4'
+cmd-alt-ctrl-shift-5 = 'move-node-to-workspace --focus-follows-window 5'
 
 alt-ctrl-shift-f = 'fullscreen'
 alt-ctrl-shift-t = 'layout h_accordion tiles'         # 'layout tabbed' in i3
