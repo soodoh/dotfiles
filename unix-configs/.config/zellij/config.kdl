@@ -39,15 +39,6 @@ keybinds clear-defaults=true {
         bind "Alt o" {
             MoveTab "Right"
         }
-        bind "Alt f" {
-            ToggleFloatingPanes
-        }
-        bind "Alt p" {
-            TogglePaneInGroup
-        }
-        bind "Alt Shift p" {
-            ToggleGroupMarking
-        }
     }
     locked {
         bind "Ctrl g" {
@@ -104,6 +95,11 @@ keybinds clear-defaults=true {
             SwitchToMode "locked"
         }
         bind "p" {
+            TogglePaneInGroup
+            SwitchToMode "normal"
+        }
+        bind "P" {
+            ToggleGroupMarking
             SwitchToMode "normal"
         }
         bind "r" {
