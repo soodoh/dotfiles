@@ -19,7 +19,6 @@ export PATH=$PATH:/opt/homebrew/bin
 Mac:
 ```bash
 brew install \
-  block-goose-cli \
   borders \
   cmake \
   coreutils \
