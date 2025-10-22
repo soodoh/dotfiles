@@ -19,35 +19,6 @@ return {
       })
     end,
   },
-  -- {
-  --   "olimorris/codecompanion.nvim",
-  --   config = function()
-  --     require("codecompanion").setup({
-  --       strategies = {
-  --         chat = {
-  --           adapter = "copilot",
-  --         },
-  --         inline = {
-  --           adapter = "copilot",
-  --         },
-  --       },
-  --       extensions = {
-  --         mcphub = {
-  --           callback = "mcphub.extensions.codecompanion",
-  --           opts = {
-  --             show_result_in_chat = true, -- Show mcp tool results in chat
-  --             make_vars = true, -- Convert resources to #variables
-  --             make_slash_commands = true, -- Add prompts as /slash commands
-  --           },
-  --         },
-  --       },
-  --     })
-  --   end,
-  --   dependencies = {
-  --     "nvim-lua/plenary.nvim",
-  --     "nvim-treesitter/nvim-treesitter",
-  --   },
-  -- },
   {
     "yetone/avante.nvim",
     event = "VeryLazy",
@@ -179,23 +150,23 @@ return {
       "nvim-tree/nvim-web-devicons", -- or echasnovski/mini.icons
       "zbirenbaum/copilot.lua", -- for providers='copilot'
       "saghen/blink.cmp", -- Autocomplete
-      {
-        -- support for image pasting
-        "HakonHarnes/img-clip.nvim",
-        event = "VeryLazy",
-        opts = {
-          -- recommended settings
-          default = {
-            embed_image_as_base64 = false,
-            prompt_for_file_name = false,
-            drag_and_drop = {
-              insert_mode = true,
-            },
-            -- required for Windows users
-            use_absolute_path = true,
-          },
-        },
-      },
+      -- {
+      --   -- support for image pasting
+      --   "HakonHarnes/img-clip.nvim",
+      --   event = "VeryLazy",
+      --   opts = {
+      --     -- recommended settings
+      --     default = {
+      --       embed_image_as_base64 = false,
+      --       prompt_for_file_name = false,
+      --       drag_and_drop = {
+      --         insert_mode = true,
+      --       },
+      --       -- required for Windows users
+      --       use_absolute_path = true,
+      --     },
+      --   },
+      -- },
       {
         -- Make sure to set this up properly if you have lazy=true
         "MeanderingProgrammer/render-markdown.nvim",
