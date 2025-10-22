@@ -109,7 +109,7 @@ echo "export OPENAI_API_KEY=XXXXX" >> $HOME/.zshrc
 Mac:
 ```bash
 mkdir ~/.config && \
-stow -vRt $HOME unix-configs ; \
+stow -vRt $HOME unix-configs && \
 stow -vRt $HOME mac-configs
 ```
 
