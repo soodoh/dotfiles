@@ -33,6 +33,7 @@ brew install \
   stow \
   trash \
   wget \
+  yazi \
   zellij \
   zoxide \
   zsh \
@@ -42,7 +43,6 @@ brew install --cask nikitabobko/tap/aerospace && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
 
 # Install terminal emulator of choice
-brew install --cask alacritty
 brew install --cask ghostty
 ```
 
@@ -58,6 +58,7 @@ apt install \
   ripgrep \
   stow \
   wget \
+  yazi \
   zellij \
   zoxide \
   zsh \
@@ -74,6 +75,7 @@ pacman -Syu \
   ripgrep \
   stow \
   yay \
+  yazi \
   wget \
   zellij \
   zoxide \
@@ -185,9 +187,11 @@ wget -P "$HOME/.local/share/fonts" https://github.com/ryanoasis/nerd-fonts/blob/
 1.  Install Neovim dependencies
 
 Mac:
-    ```bash
-    pip3 install neovim
-    ```
+```bash
+pip3 install neovim && \
+brew install \
+  imagemagick
+```
 
 Ubuntu/Debian:
 ```bash

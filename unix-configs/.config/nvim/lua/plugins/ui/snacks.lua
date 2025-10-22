@@ -6,6 +6,7 @@ return {
     opts = {
       bigfile = { enabled = true },
       input = { enabled = true },
+      image = { enabled = true },
       picker = { enabled = true },
       notify = { enabled = true },
       quickfile = { enabled = true },
