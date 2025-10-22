@@ -14,9 +14,7 @@ local get_default_opts = function(opts)
     lsp_opts.settings = opts.settings
   end
 
-  lsp_opts.capabilities = require("blink.cmp").get_lsp_capabilities(
-    require("lsp-file-operations").default_capabilities()
-  )
+  lsp_opts.capabilities = require("blink.cmp").get_lsp_capabilities()
   -- Needed for nvim-ufo (LSP-based folding)
   -- foldingRange isn't there by default
   lsp_opts.capabilities =
