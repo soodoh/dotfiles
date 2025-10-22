@@ -21,4 +21,7 @@ require("lazy").setup({
     { import = "plugins.productivity" },
     { import = "plugins.ui" },
   },
+  rocks = {
+    hererocks = false,
+  },
 })
