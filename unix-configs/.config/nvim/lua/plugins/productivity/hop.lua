@@ -1,8 +1,8 @@
 return {
   -- Hotkeys to move in buffer
   {
-    "phaazon/hop.nvim",
-    branch = "v2", -- optional but strongly recommended
+    "smoka7/hop.nvim",
+    version = "*",
     config = function()
       -- require("hop").setup({ keys = "etovxqpdygfblzhckisuran" })
       require("hop").setup()
