@@ -22,6 +22,7 @@ brew install \
   borders \
   cmake \
   coreutils \
+  fd \
   fzf \
   git \
   golang \
@@ -50,6 +51,7 @@ Debian/Ubuntu
 apt update && apt upgrade ;\
 apt install \
   cmake \
+  fd \
   fzf \
   git \
   golang \
@@ -67,6 +69,7 @@ Arch
 ```bash
 pacman -Syu \
   cmake \
+  fd \
   fzf \
   git \
   golang \
