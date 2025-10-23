@@ -19,7 +19,5 @@ return {
 
 		config.use_fancy_tab_bar = false
 		config.tab_bar_at_bottom = true
-		config.show_new_tab_button_in_tab_bar = false
-		-- config.show_close_tab_button_in_tabs = true
 	end,
 }
