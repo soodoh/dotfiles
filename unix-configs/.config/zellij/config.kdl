@@ -39,6 +39,9 @@ keybinds clear-defaults=true {
         bind "Alt o" {
             MoveTab "Right"
         }
+        bind "Alt f" {
+            ToggleFloatingPanes
+        }
     }
     locked {
         bind "Ctrl g" {
