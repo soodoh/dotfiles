@@ -29,5 +29,10 @@ return {
 			config.keys,
 			{ key = "d", mods = "LEADER", action = wezterm.action.DetachDomain("CurrentPaneDomain") }
 		)
+		table.insert(config.keys, {
+			key = "w",
+			mods = "LEADER",
+			action = wezterm.action.ShowLauncherArgs({ title = "Connect to Domain", flags = "FUZZY|DOMAINS" }),
+		})
 	end,
 }
