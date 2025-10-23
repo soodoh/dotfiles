@@ -54,6 +54,16 @@ return {
           ":Telescope oldfiles<CR>",
           desc = "Find recent files",
         },
+        {
+          "<leader>fc",
+          function()
+            require("telescope.builtin").colorscheme({
+              enable_preview = true,
+              ignore_builtins = true,
+            })
+          end,
+          desc = "Switch/Preview colorscheme",
+        },
       })
 
       local actions = require("telescope.actions")
