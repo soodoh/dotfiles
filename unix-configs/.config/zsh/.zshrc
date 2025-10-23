@@ -42,15 +42,6 @@ if command -v brew &> /dev/null; then
   export PATH="/usr/local/bin:/usr/local/sbin:${PATH/:\/usr\/local\/bin/}"
 fi
 
-# Auto open zellij
-if [[ -z "$ZELLIJ" ]]; then
-  if [[ $(zellij ls -s | wc -l) -gt 1 ]]; then
-      zellij a $(zellij ls -s | tail -1)
-  else
-    zellij
-  fi
-fi
-
 # ZSH plugins
 ZSH_PLUGINS=$HOME/.config/zsh-plugins
 load () {
