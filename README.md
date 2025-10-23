@@ -43,7 +43,7 @@ brew install --cask nikitabobko/tap/aerospace && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
 
 # Install terminal emulator of choice
-brew install --cask ghostty
+brew install --cask wezterm
 ```
 
 Debian/Ubuntu
