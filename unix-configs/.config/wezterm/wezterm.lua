@@ -1,7 +1,16 @@
 local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 
+local is_darwin = function()
+	return wezterm.target_triple:find("darwin") ~= nil
+end
 local workspace_switcher = wezterm.plugin.require("https://github.com/MLFlexer/smart_workspace_switcher.wezterm")
+if is_darwin() then
+	workspace_switcher.zoxide_path = "/opt/homebrew/bin/zoxide"
+else
+	workspace_switcher.zoxide_path = "/usr/bin/zoxide"
+end
+
 local tabline = require("tabline")
 tabline.apply_to_config(config)
 
