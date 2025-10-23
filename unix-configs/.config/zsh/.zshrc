@@ -13,9 +13,6 @@ eval "$(zoxide init zsh)"
 # Use Starship for terminal prompt
 eval "$(starship init zsh)"
 
-# Goose gets installed here, but might be nice to use for other things
-PATH="$PATH:$HOME/.local/bin"
-
 # Include Cargo packages in $PATH
 if command -v cargo &> /dev/null; then
   PATH="$PATH:$HOME/.cargo/bin"
@@ -25,21 +22,18 @@ if command -v go &> /dev/null; then
   export GOPATH="$HOME/go"
   PATH="$PATH:$GOPATH/bin"
 fi
-# Include Ruby in $PATH
+# MacOS specific stuff
 if command -v brew &> /dev/null; then
-    PATH="$PATH:/opt/homebrew/bin"
-fi
-# ImageMagick + Nvim
-if command -v brew &> /dev/null; then
-  export DYLD_LIBRARY_PATH="$(brew --prefix)/lib/"
-fi
-# Koreader dev dependencies
-if command -v brew &> /dev/null; then
-  export PATH="$(brew --prefix)/opt/findutils/libexec/gnubin:$(brew --prefix)/opt/gnu-getopt/bin:$(brew --prefix)/opt/make/libexec/gnubin:$(brew --prefix)/opt/util-linux/bin:${PATH}"
-fi
-# Make sure Homebrew-installed apps take priority
-if command -v brew &> /dev/null; then
+  PATH="$PATH:/opt/homebrew/bin"
+  # Koreader dev dependencies
+  PATH="$(brew --prefix)/opt/findutils/libexec/gnubin:$(brew --prefix)/opt/gnu-getopt/bin:$(brew --prefix)/opt/make/libexec/gnubin:$(brew --prefix)/opt/util-linux/bin:${PATH}"
+  # WezTerm
+  # PATH="$PATH:/Applications/WezTerm.app/Contents/MacOS"
+  # Make sure Homebrew-installed apps take priority
   export PATH="/usr/local/bin:/usr/local/sbin:${PATH/:\/usr\/local\/bin/}"
+
+  # ImageMagick + Nvim
+  export DYLD_LIBRARY_PATH="$(brew --prefix)/lib/"
 fi
 
 # ZSH plugins
