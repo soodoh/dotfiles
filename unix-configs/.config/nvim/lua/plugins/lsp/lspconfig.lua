@@ -95,15 +95,11 @@ return {
 
       -- Unix
       vim.lsp.config("awk_ls", get_default_opts())
-      vim.lsp.enable("awk_ls")
       vim.lsp.config("bashls", get_default_opts())
-      vim.lsp.enable("bashls")
       vim.lsp.config("jsonls", get_default_opts())
-      vim.lsp.enable("jsonls")
       vim.lsp.config("taplo", get_default_opts())
-      vim.lsp.enable("taplo")
+      vim.lsp.config("vimls", get_default_opts())
       vim.lsp.config("yamlls", get_default_opts())
-      vim.lsp.enable("yamlls")
       -- Web
       vim.lsp.config(
         "cssls",
@@ -113,45 +109,25 @@ return {
           },
         })
       )
-      vim.lsp.enable("cssls")
       vim.lsp.config(
         "eslint",
         get_default_opts({
           format = true,
         })
       )
-      vim.lsp.enable("eslint")
       vim.lsp.config("graphql", get_default_opts())
-      vim.lsp.enable("graphql")
       vim.lsp.config("html", get_default_opts())
-      vim.lsp.enable("html")
       vim.lsp.config("marksman", get_default_opts())
-      vim.lsp.enable("marksman")
-      vim.lsp.config("svelte", get_default_opts())
-      vim.lsp.enable("svelte")
-      vim.lsp.config("ts_ls", get_default_opts({ format = false }))
-      vim.lsp.enable("ts_ls")
-      -- Server
       vim.lsp.config("prismals", get_default_opts())
-      vim.lsp.enable("prismals")
-      vim.lsp.config("dockerls", get_default_opts())
-      vim.lsp.enable("dockerls")
-      vim.lsp.config("docker_compose_language_service", get_default_opts())
-      vim.lsp.enable("docker_compose_language_service")
+      vim.lsp.config("svelte", get_default_opts())
+      vim.lsp.config("ts_ls", get_default_opts({ format = false }))
+      -- Server
+      vim.lsp.config("csharp_ls", get_default_opts())
+      vim.lsp.config("docker_language_server", get_default_opts())
       vim.lsp.config("gopls", get_default_opts())
-      vim.lsp.enable("gopls")
       vim.lsp.config("lua_ls", get_default_opts())
-      vim.lsp.enable("lua_ls")
       vim.lsp.config("pyright", get_default_opts())
-      vim.lsp.enable("pyright")
-      vim.lsp.config("rubocop", get_default_opts())
-      -- vim.lsp.enable("rubocop")
       vim.lsp.config("rust_analyzer", get_default_opts())
-      vim.lsp.enable("rust_analyzer")
-      vim.lsp.config("terraformls", get_default_opts())
-      vim.lsp.enable("terraformls")
-      vim.lsp.config("omnisharp", get_default_opts())
-      -- vim.lsp.enable("omnisharp")
     end,
   },
 }
