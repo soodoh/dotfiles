@@ -38,6 +38,7 @@ brew install \
   zoxide \
   zsh \
 && \
+brew install --cask dotnet-sdk && \
 brew tap homebrew/command-not-found && \
 brew install --cask nikitabobko/tap/aerospace && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
