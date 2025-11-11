@@ -6,10 +6,10 @@ return {
     opts = {
       -- picker = { enabled = true },
       -- lazygit = { enabled = true },
+      -- image = { enabled = true },
       notifier = { enabled = true, top_down = false },
       bigfile = { enabled = true },
       input = { enabled = true },
-      image = { enabled = true },
       quickfile = { enabled = true },
       words = { enabled = true },
       indent = { enabled = true },
