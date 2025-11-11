@@ -26,6 +26,7 @@ brew install \
   fzf \
   git \
   golang \
+  jstkdng/programs/ueberzugpp \
   neovim \
   ripgrep \
   scroll-reverser \
