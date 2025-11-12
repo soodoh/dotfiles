@@ -13,7 +13,8 @@ return {
 
 		config.window_background_opacity = 0.8
 		config.macos_window_background_blur = 15
-		-- config.colors = { background = "black" }
+
+		config.colors = { background = "black" }
 		config.color_scheme = "tokyonight_night"
 		config.font = wezterm.font("FiraCode Nerd Font Mono")
 		config.font_size = 18.0
