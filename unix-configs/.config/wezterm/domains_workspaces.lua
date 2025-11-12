@@ -4,7 +4,7 @@ return {
 	apply_to_config = function(config)
 		-- Use "unix" for tmux-like persistent session, rather than "local" default
 		config.unix_domains = {
-			{ name = "main", local_echo_threshold_ms = 300 },
+			{ name = "main" },
 		}
 		config.ssh_domains = {
 			{

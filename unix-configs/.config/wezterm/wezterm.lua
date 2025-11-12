@@ -9,6 +9,9 @@ config.key_tables = {
 	search_mode = default_key_tables.search_mode,
 }
 
+config.max_fps = 120
+config.prefer_egl = false
+
 local main_keybindings = require("main_keybindings")
 main_keybindings.apply_to_config(config)
 
