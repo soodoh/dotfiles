@@ -27,20 +27,16 @@ if command -v brew &> /dev/null; then
   PATH="$PATH:/opt/homebrew/bin"
   # Koreader dev dependencies
   PATH="$(brew --prefix)/opt/findutils/libexec/gnubin:$(brew --prefix)/opt/gnu-getopt/bin:$(brew --prefix)/opt/make/libexec/gnubin:$(brew --prefix)/opt/util-linux/bin:${PATH}"
-  # WezTerm
-  # PATH="$PATH:/Applications/WezTerm.app/Contents/MacOS"
   # Make sure Homebrew-installed apps take priority
   export PATH="/usr/local/bin:/usr/local/sbin:${PATH/:\/usr\/local\/bin/}"
 
   # ImageMagick + Nvim
   export DYLD_LIBRARY_PATH="$(brew --prefix)/lib/"
-
-  # Antidote installed via Homebrew
 fi
 
 # Antidote ZSH plugin manager
 ANTIDOTE_DIR="$HOME/.local/share/antidote"
-# Auto install
+# Auto install, if needed
 if [[ ! -d $ANTIDOTE_DIR ]]; then
   mkdir -p $ANTIDOTE_DIR
   git clone --depth=1 https://github.com/mattmc3/antidote.git $ANTIDOTE_DIR
