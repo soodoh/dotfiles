@@ -2,15 +2,10 @@ local wezterm = require("wezterm")
 
 return {
 	apply_to_config = function(config)
-		config.default_workspace = "~"
 		-- Use "unix" for tmux-like persistent session, rather than "local" default
 		config.unix_domains = {
-			{ name = "unix" },
+			{ name = "main", local_echo_threshold_ms = 300 },
 		}
-		-- Automatically connect to "unix" domain on startup
-		-- (like auto-starting tmux)
-		config.default_gui_startup_args = { "connect", "unix" }
-
 		config.ssh_domains = {
 			{
 				name = "proxmox",
@@ -23,6 +18,13 @@ return {
 				username = "docker",
 			},
 		}
+
+		-- Default workspace only works on local domain
+		config.default_workspace = "~"
+		config.default_domain = "main"
+		-- Automatically connect to "unix" domain on startup
+		-- (like auto-starting tmux)
+		-- config.default_gui_startup_args = { "connect", "main" }
 
 		-- Related keybindings
 		table.insert(

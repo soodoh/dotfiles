@@ -45,7 +45,7 @@ brew install --cask nikitabobko/tap/aerospace && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
 
 # Install terminal emulator of choice
-brew install --cask wezterm
+brew install --cask wezterm@nightly
 ```
 
 Debian/Ubuntu

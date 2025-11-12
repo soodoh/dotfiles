@@ -2,6 +2,7 @@ local wezterm = require("wezterm")
 
 return {
 	apply_to_config = function(config)
+		config.enable_scroll_bar = false
 		config.window_decorations = "RESIZE"
 		config.window_padding = {
 			left = 5,

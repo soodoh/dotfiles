@@ -27,6 +27,14 @@ return {
 			key = "/",
 			action = wezterm.action.Search("CurrentSelectionOrEmptyString"),
 		})
+		table.insert(config.key_tables.copy_mode, {
+			key = "u",
+			action = wezterm.action.ScrollByPage(-0.5),
+		})
+		table.insert(config.key_tables.copy_mode, {
+			key = "d",
+			action = wezterm.action.ScrollByPage(0.5),
+		})
 		table.insert(config.key_tables.search_mode, {
 			key = "Escape",
 			action = wezterm.action.Multiple({

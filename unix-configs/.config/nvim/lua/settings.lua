@@ -2,7 +2,6 @@
 vim.g.mapleader = " "
 vim.opt.backspace = "indent,eol,start" -- backspace works on every char in insert mode
 vim.opt.history = 1000
-vim.opt.termguicolors = true
 
 -- Display
 vim.opt.showmatch = true -- show matching brackets
