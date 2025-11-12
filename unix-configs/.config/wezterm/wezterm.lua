@@ -2,6 +2,11 @@ local wezterm = require("wezterm")
 local config = wezterm.config_builder()
 -- Setup table so modules can insert to it
 config.keys = {}
+local default_key_tables = wezterm.gui.default_key_tables()
+config.key_tables = {
+	copy_mode = default_key_tables.copy_mode,
+	search_mode = default_key_tables.search_mode,
+}
 
 -- Split up settings into relevant modules
 local common = require("common")
