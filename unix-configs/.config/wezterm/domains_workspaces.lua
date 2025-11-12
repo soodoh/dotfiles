@@ -21,7 +21,7 @@ return {
 
 		-- Default workspace only works on local domain
 		config.default_workspace = "~"
-		config.default_domain = "main"
+		-- config.default_domain = "main"
 		-- Automatically connect to "unix" domain on startup
 		-- (like auto-starting tmux)
 		-- config.default_gui_startup_args = { "connect", "main" }
