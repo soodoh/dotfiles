@@ -21,8 +21,22 @@ return {
 		table.insert(config.keys, { key = "w", mods = "SUPER", action = wezterm.action.QuitApplication })
 		table.insert(config.keys, { key = "m", mods = "SUPER", action = wezterm.action.Hide })
 
-		-- Other
+		-- Copy and Search modes
 		table.insert(config.keys, { key = "Enter", mods = "LEADER", action = wezterm.action.ActivateCopyMode })
+		table.insert(config.key_tables.copy_mode, {
+			key = "/",
+			action = wezterm.action.Search("CurrentSelectionOrEmptyString"),
+		})
+		table.insert(config.key_tables.search_mode, {
+			key = "Escape",
+			action = wezterm.action.Multiple({
+				wezterm.action.CopyMode("ClearPattern"),
+				wezterm.action.CopyMode("AcceptPattern"),
+				wezterm.action.CopyMode({ SetSelectionMode = "Cell" }),
+			}),
+		})
+
+		-- Other
 		table.insert(config.keys, { key = "u", mods = "ALT", action = wezterm.action.ScrollByPage(-0.5) })
 		table.insert(config.keys, { key = "d", mods = "ALT", action = wezterm.action.ScrollByPage(0.5) })
 	end,
