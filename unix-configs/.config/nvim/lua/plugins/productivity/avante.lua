@@ -31,7 +31,7 @@ return {
         mode = "agentic",
         providers = {
           copilot = {
-            model = "claude-4.5-sonnet",
+            model = "claude-sonnet-4.5",
             -- model = "gpt-4o",
             timeout = 60000, -- Timeout in milliseconds, increase this for reasoning models
             extra_request_body = {
