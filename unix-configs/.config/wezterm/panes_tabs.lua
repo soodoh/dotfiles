@@ -29,6 +29,7 @@ return {
 		table.insert(config.keys, { key = "n", mods = "ALT", action = wezterm.action.SpawnTab("CurrentPaneDomain") })
 		table.insert(config.keys, { key = "i", mods = "ALT", action = wezterm.action.MoveTabRelative(-1) })
 		table.insert(config.keys, { key = "o", mods = "ALT", action = wezterm.action.MoveTabRelative(1) })
+		table.insert(config.keys, { key = "r", mods = "ALT", action = wezterm.action.RotatePanes("Clockwise") })
 		table.insert(config.keys, {
 			key = "s",
 			mods = "ALT",
