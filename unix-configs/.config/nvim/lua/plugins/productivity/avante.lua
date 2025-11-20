@@ -67,6 +67,10 @@ return {
         -- },
         windows = {
           position = "right",
+          width = 40,
+          sidebar_header = {
+            enabled = false,
+          },
           edit = { start_insert = false },
           ask = { start_insert = false },
         },
