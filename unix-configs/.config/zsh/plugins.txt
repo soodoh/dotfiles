@@ -14,7 +14,7 @@ ohmyzsh/ohmyzsh path:plugins/docker-compose
 ohmyzsh/ohmyzsh path:plugins/git-auto-fetch
 ohmyzsh/ohmyzsh path:plugins/colored-man-pages
 
-Sparragus/zsh-auto-nvm-use
+Sparragus/zsh-auto-nvm-use kind:defer
 jeffreytse/zsh-vi-mode
 zsh-users/zsh-autosuggestions
 zdharma-continuum/fast-syntax-highlighting kind:defer
