@@ -1,23 +1,22 @@
 return {
   {
-    "NeogitOrg/neogit",
-    dependencies = {
-      "nvim-lua/plenary.nvim", -- required
-      "sindrets/diffview.nvim", -- optional - Diff integration
-      "nvim-telescope/telescope.nvim", -- optional
+    "kdheepak/lazygit.nvim",
+    lazy = true,
+    cmd = {
+      "LazyGit",
+      "LazyGitConfig",
+      "LazyGitCurrentFile",
+      "LazyGitFilter",
+      "LazyGitFilterCurrentFile",
     },
-    config = function()
-      local neogit = require("neogit")
-      neogit.setup({})
-      require("which-key").add({
-        {
-          "<leader>gg",
-          function()
-            neogit.open()
-          end,
-          desc = "Open Neogit",
-        },
-      })
-    end,
+    -- optional for floating window border decoration
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+    },
+    -- setting the keybinding for LazyGit with 'keys' is recommended in
+    -- order to load the plugin when the command is run for the first time
+    keys = {
+      { "<leader>gg", "<cmd>LazyGit<cr>", desc = "LazyGit" },
+    },
   },
 }
