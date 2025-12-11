@@ -14,6 +14,7 @@ icon_map() {
   "Google Chrome") echo "󰊯" ;;
   "Jellyfin") echo "󰼂" ;;
   "Messages") echo "󰻞" ;;
+  "Music") echo "󰝚" ;;
   "Notion") echo "" ;;
   "Proton Mail") echo "󰴃" ;;
   "Safari") echo "󰀹" ;;
