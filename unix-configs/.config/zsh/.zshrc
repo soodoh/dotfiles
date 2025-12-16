@@ -1,6 +1,23 @@
 source $HOME/.config/zsh/aliases.zsh
 source $HOME/.config/zsh/opts.zsh
 
+# Antidote ZSH plugin manager
+ANTIDOTE_DIR="$HOME/.local/share/antidote"
+# Auto install, if needed
+if [[ ! -d $ANTIDOTE_DIR ]]; then
+  mkdir -p $ANTIDOTE_DIR
+  git clone --depth=1 https://github.com/mattmc3/antidote.git $ANTIDOTE_DIR
+fi
+source "$ANTIDOTE_DIR/antidote.zsh"
+antidote load "$HOME/.config/zsh/plugins.txt" "$HOME/.config/zsh/plugins.zsh"
+
+# neovim-remote setup
+# if [ -n "$NVIM_LISTEN_ADDRESS" ]; then
+#   alias nvim=nvr -cc split --remote-wait +'set bufhidden=wipe'
+# else
+#   alias nvim='nvim --listen /tmp/nvim-server.pipe'
+# fi
+
 # Preferred editor for local and remote sessions
 export EDITOR="nvim"
 export VISUAL="nvim"
@@ -33,13 +50,3 @@ if command -v brew &> /dev/null; then
   # ImageMagick + Nvim
   export DYLD_LIBRARY_PATH="$(brew --prefix)/lib/"
 fi
-
-# Antidote ZSH plugin manager
-ANTIDOTE_DIR="$HOME/.local/share/antidote"
-# Auto install, if needed
-if [[ ! -d $ANTIDOTE_DIR ]]; then
-  mkdir -p $ANTIDOTE_DIR
-  git clone --depth=1 https://github.com/mattmc3/antidote.git $ANTIDOTE_DIR
-fi
-source "$ANTIDOTE_DIR/antidote.zsh"
-antidote load "$HOME/.config/zsh/plugins.txt" "$HOME/.config/zsh/plugins.zsh"

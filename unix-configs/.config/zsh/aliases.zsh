@@ -1,5 +1,6 @@
 # Personal, general-purpose aliases
 alias vim="nvim"
+alias v="nvim"
 alias l="ls -lAFh"
 alias ze="zellij"
 alias za='zellij a $(zellij ls -s | tail -1)'

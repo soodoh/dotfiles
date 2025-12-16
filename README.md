@@ -27,6 +27,7 @@ brew install \
   git \
   golang \
   jstkdng/programs/ueberzugpp \
+  lazygit \
   neovim \
   ripgrep \
   scroll-reverser \
@@ -57,6 +58,7 @@ apt install \
   fzf \
   git \
   golang \
+  lazygit \
   neovim
   ripgrep \
   stow \
@@ -75,7 +77,8 @@ pacman -Syu \
   fzf \
   git \
   golang \
-  neovim
+  lazygit \
+  neovim \
   ripgrep \
   stow \
   yay \
@@ -194,13 +197,13 @@ wget -P "$HOME/.local/share/fonts" https://github.com/ryanoasis/nerd-fonts/blob/
 Mac:
 ```bash
 pip3 install neovim && \
-brew install \
-  imagemagick
+  brew install neovim-remote
 ```
 
 Ubuntu/Debian:
 ```bash
 apt install python3-venv python3-neovim
+pip install neovim-remote
 ```
 
 1. Run `nvim` and run `:Lazy`, press `U` to update all packages
