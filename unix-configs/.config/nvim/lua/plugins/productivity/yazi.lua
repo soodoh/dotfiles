@@ -23,7 +23,7 @@ return {
       require("yazi").setup({
         open_for_directories = true,
         keymaps = {
-          show_help = "<f1>",
+          show_help = "?",
         },
         integrations = {
           resolve_relative_path_implementation = function(
