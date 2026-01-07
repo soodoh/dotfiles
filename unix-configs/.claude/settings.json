@@ -9,13 +9,13 @@
     "NODE_TLS_REJECT_UNAUTHORIZED": "0"
   },
   "enabledPlugins": {
-    "frontend-design@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": false,
     "context7@claude-plugins-official": true,
     "feature-dev@claude-plugins-official": true,
     "serena@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
+    "playwright@claude-plugins-official": false,
     "pyright-lsp@claude-plugins-official": true,
     "gopls-lsp@claude-plugins-official": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
