@@ -146,7 +146,7 @@ stow -vRt $HOME sway-configs
     ```bash
     nvm install 'lts/*' && \
     nvm alias default 'lts/*' && \
-    npm i -g yarn neovim yalc
+    npm i -g pnpm neovim yalc
     ```
 
 1. Setup git config
