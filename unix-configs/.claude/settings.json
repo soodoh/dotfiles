@@ -1,0 +1,11 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:1337",
+    "ANTHROPIC_AUTH_TOKEN": "sk-dummy",
+    "ANTHROPIC_MODEL": "claude-sonnet-4.5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-5-mini",
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+  }
+}

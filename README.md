@@ -40,13 +40,14 @@ brew install \
   zoxide \
   zsh \
 && \
-brew install --cask dotnet-sdk && \
 brew tap homebrew/command-not-found && \
-brew install --cask nikitabobko/tap/aerospace && \
+brew install --cask \
+  claude-code \
+  dotnet-sdk \
+  nikitabobko/tap/aerospace \
+  wezterm@nightly \
+&& \
 defaults write -g NSWindowShouldDragOnGesture -bool true
-
-# Install terminal emulator of choice
-brew install --cask wezterm@nightly
 ```
 
 Debian/Ubuntu
