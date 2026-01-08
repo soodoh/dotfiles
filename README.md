@@ -153,7 +153,7 @@ stow -vRt $HOME sway-configs
 
     ```bash
     git config --global user.name "Paul DiLoreto" ;\
-    git config --global user.email "paul.diloreto@gmail.com"
+    git config --global user.email "soodohh@pm.me"
     git config --global core.excludesfile "$HOME/.config/.gitignore_global"
     ```
 
