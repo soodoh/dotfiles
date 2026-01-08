@@ -3,9 +3,6 @@
 # dependencies
 /node_modules
 pnpm-debug.log*
-# unused lock files
-package-lock.json
-yarn.lock
 
 # misc
 .DS_Store
