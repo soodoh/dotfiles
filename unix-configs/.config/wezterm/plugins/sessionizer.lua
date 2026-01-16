@@ -7,13 +7,7 @@ local schema = {
 	options = {
 		callback = history.Wrapper(sessionizer.DefaultCallback),
 	},
-	sessionizer.DefaultWorkspace({}),
 	sessionizer.AllActiveWorkspaces({}),
-	-- sessionizer.FdSearch({
-	-- 	wezterm.home_dir .. "/Documents/engineering-knowledge/repos",
-	-- 	max_depth = 2,
-	-- 	include_submodules = true,
-	-- }),
 	sessionizer.FdSearch({
 		wezterm.home_dir .. "/Documents",
 		max_depth = 2,
