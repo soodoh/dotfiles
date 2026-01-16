@@ -45,6 +45,7 @@ brew install --cask \
   claude-code \
   dotnet-sdk \
   nikitabobko/tap/aerospace \
+  steipete/tap/codexbar \
   wezterm@nightly \
 && \
 defaults write -g NSWindowShouldDragOnGesture -bool true

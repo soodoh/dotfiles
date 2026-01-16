@@ -9,11 +9,11 @@ local schema = {
 	},
 	sessionizer.DefaultWorkspace({}),
 	sessionizer.AllActiveWorkspaces({}),
-	sessionizer.FdSearch({
-		wezterm.home_dir .. "/Documents/engineering-knowledge/repos",
-		max_depth = 2,
-		include_submodules = true,
-	}),
+	-- sessionizer.FdSearch({
+	-- 	wezterm.home_dir .. "/Documents/engineering-knowledge/repos",
+	-- 	max_depth = 2,
+	-- 	include_submodules = true,
+	-- }),
 	sessionizer.FdSearch({
 		wezterm.home_dir .. "/Documents",
 		max_depth = 2,
