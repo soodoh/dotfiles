@@ -61,7 +61,7 @@ outer.bottom = 10
 outer.left = 10
 
 [mode.main.binding]
-alt-ctrl-shift-enter = 'exec-and-forget open -a WezTerm'
+alt-ctrl-shift-enter = 'exec-and-forget open -a Ghostty'
 # Opens default web browser
 cmd-alt-ctrl-shift-enter = 'exec-and-forget /usr/libexec/PlistBuddy -c "Print :LSHandlers" ~/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist | awk "/LSHandlerContentType.*default-app\.web-browser/{flag=1} flag && /LSHandlerRoleAll = /{gsub(/.* = /,\"\"); gsub(/;/,\"\"); print; exit}" | xargs open -b'
 
@@ -152,7 +152,7 @@ check-further-callbacks = true
 run = ['move-node-to-workspace 1']
 
 [[on-window-detected]]
-if.app-name-regex-substring = 'alacritty'
+if.app-name-regex-substring = 'ghostty'
 if.during-aerospace-startup = true
 check-further-callbacks = true
 run = ['move-node-to-workspace 1']
