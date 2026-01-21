@@ -5,10 +5,7 @@ return {
     build = ":TSUpdate",
     dependencies = "HiPhish/rainbow-delimiters.nvim",
     config = function()
-      -- Treesitter Setup
-      local treesitter = require("nvim-treesitter.configs")
-      treesitter.setup({
-        auto_install = true,
+      require("nvim-treesitter").setup({
         ensure_installed = {
           "caddy",
           "markdown",
@@ -24,16 +21,8 @@ return {
           "dockerfile",
           "gitcommit",
           "toml",
-          "lua",
-          "bash",
         },
-        highlight = {
-          enable = true, -- false will disable the whole extension
-          disable = { "json" }, -- list of language that will be disabled
-        },
-        indent = { enable = true },
-        autopairs = { enable = true },
-        context_commentstring = { enable = true },
+        auto_install = true,
       })
       -- Rainbow parentheses, powered by treesitter
       local rainbow_delimiters = require("rainbow-delimiters")
