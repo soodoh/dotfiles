@@ -33,10 +33,10 @@ brew install \
   scroll-reverser \
   sketchybar \
   stow \
+  tmux \
   trash \
   wget \
   yazi \
-  zellij \
   zoxide \
   zsh \
 && \
@@ -64,9 +64,9 @@ apt install \
   neovim
   ripgrep \
   stow \
+  tmux \
   wget \
   yazi \
-  zellij \
   zoxide \
   zsh \
 ```
@@ -83,10 +83,10 @@ pacman -Syu \
   neovim \
   ripgrep \
   stow \
+  tmux \
   yay \
   yazi \
   wget \
-  zellij \
   zoxide \
   zsh \
 ```
@@ -99,7 +99,7 @@ After installing, run this:
 ```bash
 rustup update
 # Unless using package managers for this
-cargo install --locked zellij
+cargo install tmux-sessionizer
 ```
 
 1. Source `.zshrc`
