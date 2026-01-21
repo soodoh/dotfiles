@@ -14,6 +14,12 @@ Add homebrew to `$PATH` for current session so that the follow steps can access 
 export PATH=$PATH:/opt/homebrew/bin
 ```
 
+1.Install Claude Code
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
 1. Install dependencies
 
 Mac:
@@ -36,39 +42,42 @@ brew install \
   tmux \
   trash \
   wget \
-  yazi \
   zoxide \
   zsh \
 && \
 brew tap homebrew/command-not-found && \
 brew install --cask \
-  claude-code \
   dotnet-sdk \
   nikitabobko/tap/aerospace \
   steipete/tap/codexbar \
-  wezterm@nightly \
 && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
 ```
 
 Debian/Ubuntu
+
+Add Neovim unstable PPA for latest version:
+```bash
+echo "deb https://ppa.launchpadcontent.net/neovim-ppa/unstable/ubuntu noble main" | sudo tee /etc/apt/sources.list.d/neovim-unstable.list
+curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x9DBB0BE9366964F134855E2255F96FCF8231B6DD" | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/neovim-ppa.gpg
+```
+
 ```bash
 apt update && apt upgrade ;\
 apt install \
   cmake \
-  fd \
+  fd-find \
   fzf \
   git \
   golang \
   lazygit \
-  neovim
+  neovim \
   ripgrep \
   stow \
   tmux \
   wget \
-  yazi \
   zoxide \
-  zsh \
+  zsh
 ```
 
 Arch
@@ -85,7 +94,6 @@ pacman -Syu \
   stow \
   tmux \
   yay \
-  yazi \
   wget \
   zoxide \
   zsh \
@@ -100,6 +108,7 @@ After installing, run this:
 rustup update
 # Unless using package managers for this
 cargo install tmux-sessionizer
+cargo install --force yazi-build
 ```
 
 1. Source `.zshrc`
@@ -173,7 +182,7 @@ stow -vRt $HOME sway-configs
 
 [Patched fonts](https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts)
 
-Alacritty.yml/Kitty.conf uses [FiraCode Nerd Font Mono](https://github.com/ryanoasis/nerd-fonts/blob/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFontMono-Regular.ttf)
+Ghostty config uses [FiraCode Nerd Font Mono](https://github.com/ryanoasis/nerd-fonts/blob/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFontMono-Regular.ttf)
 
 Mac:
 ```bash

@@ -37,6 +37,9 @@ eval "$(zoxide init zsh)"
 # Use Starship for terminal prompt
 eval "$(starship init zsh)"
 
+# Claude Code (and some other binaries) is in ~/.local/bin
+PATH="$PATH:$HOME/.local/bin"
+
 # Include Cargo packages in $PATH
 if command -v cargo &> /dev/null; then
   PATH="$PATH:$HOME/.cargo/bin"
