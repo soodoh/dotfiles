@@ -24,7 +24,6 @@ return {
           -- LSP
           "awk-language-server",
           "bash-language-server",
-          "csharp-language-server",
           "css-lsp",
           "docker-language-server",
           "eslint-lsp",
