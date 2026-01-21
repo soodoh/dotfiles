@@ -34,6 +34,15 @@ eval "$(starship init zsh)"
 if command -v cargo &> /dev/null; then
   PATH="$PATH:$HOME/.cargo/bin"
 fi
+# tmux-sessionizer config location
+export TMS_CONFIG_FILE="$HOME/.config/tms/config.toml"
+
+# TPM (Tmux Plugin Manager) - auto install if needed
+TPM_DIR="$HOME/.tmux/plugins/tpm"
+if [[ ! -d $TPM_DIR ]]; then
+  mkdir -p "$HOME/.tmux/plugins"
+  git clone --depth=1 https://github.com/tmux-plugins/tpm.git "$TPM_DIR"
+fi
 # Include Go packages in $PATH
 if command -v go &> /dev/null; then
   export GOPATH="$HOME/go"

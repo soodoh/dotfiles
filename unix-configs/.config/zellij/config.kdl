@@ -1,5 +1,20 @@
 keybinds clear-defaults=true {
-    shared_among "normal" "locked" {
+    shared_among "normal" "locked" "scroll" {
+        bind "Alt w" {
+            LaunchOrFocusPlugin "sessionizer" {
+                floating true
+                move_to_focused_tab true
+                cwd "/"
+                root_dirs "/Users/paul.diloreto/Documents;/Users/pauldiloreto/Documents;/home/docker"
+                session_layout "custom_status"
+            }
+        }
+        bind "Alt Tab" {
+            LaunchOrFocusPlugin "session-manager" {
+                floating true
+                move_to_focused_tab true
+            }
+        }
         bind "Alt n" {
             NewPane
         }
@@ -266,22 +281,6 @@ keybinds clear-defaults=true {
         }
     }
     scroll {
-        bind "Alt left" {
-            MoveFocusOrTab "left"
-            SwitchToMode "locked"
-        }
-        bind "Alt down" {
-            MoveFocus "down"
-            SwitchToMode "locked"
-        }
-        bind "Alt up" {
-            MoveFocus "up"
-            SwitchToMode "locked"
-        }
-        bind "Alt right" {
-            MoveFocusOrTab "right"
-            SwitchToMode "locked"
-        }
         bind "e" {
             EditScrollback
             SwitchToMode "locked"
@@ -289,25 +288,6 @@ keybinds clear-defaults=true {
         bind "f" {
             SwitchToMode "entersearch"
             SearchInput 0
-        }
-        bind "Alt h" {
-            MoveFocusOrTab "left"
-            SwitchToMode "locked"
-        }
-        bind "Alt j" {
-            MoveFocus "down"
-            SwitchToMode "locked"
-        }
-        bind "Alt k" {
-            MoveFocus "up"
-            SwitchToMode "locked"
-        }
-        bind "Alt l" {
-            MoveFocusOrTab "right"
-            SwitchToMode "locked"
-        }
-        bind "s" {
-            SwitchToMode "normal"
         }
     }
     search {
@@ -337,24 +317,6 @@ keybinds clear-defaults=true {
         }
         bind "d" {
             Detach
-        }
-        bind "o" {
-            LaunchOrFocusPlugin "choose-tree" {
-                floating true
-                move_to_focused_tab true
-                show_plugins false
-            }
-            SwitchToMode "Locked"
-        }
-        bind "s" {
-            LaunchOrFocusPlugin "sessionizer" {
-                floating true
-                move_to_focused_tab true
-                cwd "/"
-                root_dirs "/Users/paul.diloreto/Documents;/Users/pauldiloreto/Documents;/home/docker"
-                session_layout "custom_status"
-            }
-            SwitchToMode "Locked"
         }
         bind "p" {
             LaunchOrFocusPlugin "plugin-manager" {
@@ -501,7 +463,6 @@ plugins {
     session-manager location="zellij:session-manager"
     sessionizer location="https://github.com/laperlej/zellij-sessionizer/releases/download/v0.4.4/zellij-sessionizer.wasm"
     zjstatus location="https://github.com/dj95/zjstatus/releases/download/v0.22.0/zjstatus.wasm"
-    choose-tree location="https://github.com/laperlej/zellij-choose-tree/releases/download/v0.4.2/zellij-choose-tree.wasm"
 }
 load_plugins {
 

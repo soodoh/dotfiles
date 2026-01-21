@@ -1,0 +1,29 @@
+# tmux-sessionizer (tms) configuration
+# https://github.com/jrmoulton/tmux-sessionizer
+
+# Search paths for projects (same as your previous sessionizer)
+search_paths = [
+    "~/Documents"
+]
+
+# Directories to exclude from search
+excluded_dirs = [
+    ".git",
+    "node_modules",
+    ".cache",
+    "__pycache__",
+    ".venv",
+    "target"
+]
+
+# Maximum depth for searching (default is 10)
+search_depth = 2
+
+# Default session to switch to when killing the current session
+# default_session = "main"
+
+# Display settings
+display_full_path = false
+
+# Sort sessions by last attached time
+session_sort_order = "LastAttached"
