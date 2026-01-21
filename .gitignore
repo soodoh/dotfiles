@@ -16,3 +16,4 @@ node_modules/
 # Specific to my dotfiles
 **/nvim/lazy-lock.json
 unix-configs/.config/zsh/plugins.zsh
+unix-configs/.config/tmux/plugins/
