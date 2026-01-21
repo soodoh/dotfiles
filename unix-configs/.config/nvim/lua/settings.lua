@@ -8,6 +8,7 @@ vim.opt.showmatch = true -- show matching brackets
 vim.opt.hlsearch = false
 vim.opt.cursorline = true
 vim.opt.completeopt = "menu,menuone,noselect"
+vim.opt.cmdheight = 0 -- hide command line when not in use
 -- Keep cursor in view
 vim.opt.scrolloff = 8
 vim.opt.sidescrolloff = 8
