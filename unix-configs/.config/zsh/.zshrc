@@ -1,6 +1,11 @@
 source $HOME/.config/zsh/aliases.zsh
 source $HOME/.config/zsh/opts.zsh
 
+# Tmux (oh-my-zsh plugin)
+##########################
+# auto start tmux when opening a terminal
+export ZSH_TMUX_AUTOSTART=true
+
 # Antidote ZSH plugin manager
 ANTIDOTE_DIR="$HOME/.local/share/antidote"
 # Auto install, if needed
