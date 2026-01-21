@@ -3,7 +3,8 @@
 
 # Search paths for projects (same as your previous sessionizer)
 search_paths = [
-    "~/Documents"
+    # "~/Documents",
+    "~/Projects"
 ]
 
 # Directories to exclude from search
