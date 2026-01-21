@@ -5,6 +5,8 @@ source $HOME/.config/zsh/opts.zsh
 ##########################
 # auto start tmux when opening a terminal
 export ZSH_TMUX_AUTOSTART=true
+# don't quit shell when detaching (allows returning to terminal)
+export ZSH_TMUX_AUTOQUIT=false
 
 # Antidote ZSH plugin manager
 ANTIDOTE_DIR="$HOME/.local/share/antidote"
