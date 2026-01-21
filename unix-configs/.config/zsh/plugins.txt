@@ -13,6 +13,7 @@ ohmyzsh/ohmyzsh path:plugins/docker
 ohmyzsh/ohmyzsh path:plugins/docker-compose
 ohmyzsh/ohmyzsh path:plugins/git-auto-fetch
 ohmyzsh/ohmyzsh path:plugins/colored-man-pages
+ohmyzsh/ohmyzsh path:plugins/tmux
 
 Sparragus/zsh-auto-nvm-use kind:defer
 jeffreytse/zsh-vi-mode
