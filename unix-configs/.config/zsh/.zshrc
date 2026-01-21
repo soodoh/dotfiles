@@ -48,9 +48,9 @@ fi
 export TMS_CONFIG_FILE="$HOME/.config/tms/config.toml"
 
 # TPM (Tmux Plugin Manager) - auto install if needed
-TPM_DIR="$HOME/.tmux/plugins/tpm"
+TPM_DIR="$HOME/.config/tmux/plugins/tpm"
 if [[ ! -d $TPM_DIR ]]; then
-  mkdir -p "$HOME/.tmux/plugins"
+  mkdir -p "$HOME/.config/tmux/plugins"
   git clone --depth=1 https://github.com/tmux-plugins/tpm.git "$TPM_DIR"
 fi
 # Include Go packages in $PATH
