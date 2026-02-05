@@ -1,0 +1,45 @@
+model_list:
+  # Wildcard routing - matches ANY version of Claude models (robust to date suffix changes)
+  - model_name: "claude-opus-*"
+    litellm_params:
+      model: github_copilot/claude-opus-4.5
+      api_base: https://api.githubcopilot.com
+
+  - model_name: "claude-sonnet-*"
+    litellm_params:
+      model: github_copilot/claude-sonnet-4.5
+      api_base: https://api.githubcopilot.com
+
+  - model_name: "claude-haiku-*"
+    litellm_params:
+      model: github_copilot/claude-haiku-4.5
+      api_base: https://api.githubcopilot.com
+
+  # GPT Models
+  - model_name: gpt-5-2
+    litellm_params:
+      model: github_copilot/gpt-5.2
+      api_base: https://api.githubcopilot.com
+
+  - model_name: gpt-5-2-codex
+    litellm_params:
+      model: github_copilot/gpt-5.2-codex
+      api_base: https://api.githubcopilot.com
+
+litellm_settings:
+  # Automatically drop unsupported parameters (e.g., 'thinking' for GitHub Copilot)
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+  # Enable request logging (will use SQLite automatically)
+  store_model_in_db: true
+
+  # UI settings
+  ui_username: os.environ/LITELLM_UI_USERNAME
+  ui_password: os.environ/LITELLM_UI_PASSWORD
+
+  # Rate limiting
+  max_budget: 100
+  budget_duration: 30d
