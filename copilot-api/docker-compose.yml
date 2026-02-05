@@ -1,0 +1,19 @@
+services:
+  copilot-api:
+    build:
+      context: https://github.com/ericc-ch/copilot-api.git
+    container_name: copilot-api
+    ports:
+      - "1337:4141"
+    volumes:
+      - copilot-data:/root/.local/share/copilot-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4141/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  copilot-data:
