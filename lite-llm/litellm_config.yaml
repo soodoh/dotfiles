@@ -21,11 +21,6 @@ model_list:
       model: github_copilot/gpt-5.2
       api_base: https://api.githubcopilot.com
 
-  - model_name: gpt-5-2-codex
-    litellm_params:
-      model: github_copilot/gpt-5.2-codex
-      api_base: https://api.githubcopilot.com
-
 litellm_settings:
   # Automatically drop unsupported parameters (e.g., 'thinking' for GitHub Copilot)
   drop_params: true
