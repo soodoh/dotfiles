@@ -24,13 +24,13 @@ type(scope): message
 
 **Valid scopes**: `root`, `nvim`, `mac`, `zsh`, `tmux`
 
-Pre-commit hook runs: `pnpm exec commitlint --edit`
+Pre-commit hook runs: `bunx commitlint --edit`
 
 ## Commands
 
 ```bash
 # Install dependencies (needed for commit hooks)
-pnpm install
+bun install
 
 # Apply unix configs
 stow -vRt $HOME unix-configs

@@ -156,7 +156,7 @@ stow -vRt $HOME sway-configs
     ```bash
     nvm install 'lts/*' && \
     nvm alias default 'lts/*' && \
-    npm i -g pnpm neovim yalc
+    npm i -g neovim yalc
     ```
 
 1. Install bun

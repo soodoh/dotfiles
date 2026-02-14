@@ -10,10 +10,10 @@ alias gdn="git diff --name-only"
 alias gmc="git merge --continue"
 alias -g nv="--no-verify"
 
-# pnpm/Npm/Node/JS aliases
+# Bun/Node/JS aliases
 alias yp="yarn run build && yarn dlx yalc push"
 alias ypl="yarn run build:library && yarn dlx yalc push"
 alias ydx="yarn dlx"
 alias ywk="yarn workspace"
-alias pp="pnpm run build && pnpm dlx yalc push"
-alias pdx="pnpm dlx"
+alias bp="bun run build && bunx yalc push"
+alias bx="bunx"
