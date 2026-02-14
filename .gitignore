@@ -1,5 +1,5 @@
 # dependencies
-pnpm-debug.log*
+bun-debug.log*
 node_modules/
 
 # misc
