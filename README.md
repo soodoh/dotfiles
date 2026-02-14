@@ -159,6 +159,14 @@ stow -vRt $HOME sway-configs
     npm i -g pnpm neovim yalc
     ```
 
+1. Install bun
+
+    Follow [installation instructions](https://bun.com/docs/installation) for bun
+
+    ```bash
+    curl -fsSL https://bun.com/install | bash
+    ```
+
 1. Setup git config
 
     ```bash
