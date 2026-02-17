@@ -15,10 +15,23 @@ model_list:
       model: github_copilot/claude-haiku-4.5
       api_base: https://api.githubcopilot.com
 
-  # GPT Models
-  - model_name: gpt-5-2
+  # Claude Code uses dash notation (gpt-5-3-codex)
+  - model_name: "gpt-5-3-codex"
     litellm_params:
-      model: github_copilot/gpt-5.2
+      model: github_copilot/gpt-5.3-codex
+      api_base: https://api.githubcopilot.com
+
+  - model_name: "gpt-5-2-codex"
+    litellm_params:
+      model: github_copilot/gpt-5.2-codex
+      api_base: https://api.githubcopilot.com
+
+
+  # GPT Models - Wildcard passthrough for Codex (dot notation: gpt-5.3-codex, gpt-5.2, etc.)
+  # The incoming model name is passed directly to GitHub Copilot
+  - model_name: "gpt-5.*"
+    litellm_params:
+      model: "github_copilot/*"
       api_base: https://api.githubcopilot.com
 
 litellm_settings:
