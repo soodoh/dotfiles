@@ -1,14 +1,31 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm-postgres
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
     container_name: litellm
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "1337:4000"
     env_file:
       - .env
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
-      - litellm_data:/app/data # SQLite database and logs
       - github_copilot_tokens:/root/.config/litellm/github_copilot # Store GitHub auth tokens
     command:
       ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
@@ -21,5 +38,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  litellm_data:
+  postgres_data:
   github_copilot_tokens:
