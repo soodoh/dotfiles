@@ -32,6 +32,7 @@ return {
           "json-lsp",
           "lua-language-server",
           "marksman",
+          "oxlint",
           "prisma-language-server",
           "pyright",
           "rust-analyzer",
