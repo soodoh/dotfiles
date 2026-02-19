@@ -132,6 +132,13 @@ return {
               "typescript",
               "typescriptreact",
             },
+            root_markers = {
+              ".oxlintrc.json",
+              "oxlint.config.ts",
+              "oxlint.config.js",
+              "oxlint.config.mjs",
+              "oxlint.config.cjs",
+            },
           }
         )
       )

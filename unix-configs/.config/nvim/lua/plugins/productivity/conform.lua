@@ -31,23 +31,18 @@ return {
         kdl = { "kdlfmt" },
         javascript = {
           "prettier",
-          "oxlint",
         },
         typescript = {
           "prettier",
-          "oxlint",
         },
         javascriptreact = {
           "prettier",
-          "oxlint",
         },
         typescriptreact = {
           "prettier",
-          "oxlint",
         },
         svelte = {
           "prettier",
-          "oxlint",
         },
         css = { "prettier" },
         html = { "prettier" },
