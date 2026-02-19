@@ -32,22 +32,27 @@ return {
         javascript = {
           "prettier",
           "eslint_d",
+          "oxlint",
         },
         typescript = {
           "prettier",
           "eslint_d",
+          "oxlint",
         },
         javascriptreact = {
           "prettier",
           "eslint_d",
+          "oxlint",
         },
         typescriptreact = {
           "prettier",
           "eslint_d",
+          "oxlint",
         },
         svelte = {
           "prettier",
           "eslint_d",
+          "oxlint",
         },
         css = { "prettier" },
         html = { "prettier" },

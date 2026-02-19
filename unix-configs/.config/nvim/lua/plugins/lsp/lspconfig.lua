@@ -115,6 +115,12 @@ return {
           format = true,
         })
       )
+      vim.lsp.config(
+        "oxlint",
+        get_default_opts({
+          format = true,
+        })
+      )
       vim.lsp.config("graphql", get_default_opts())
       vim.lsp.config("html", get_default_opts())
       vim.lsp.config("marksman", get_default_opts())
