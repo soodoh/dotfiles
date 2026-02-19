@@ -117,9 +117,23 @@ return {
       )
       vim.lsp.config(
         "oxlint",
-        get_default_opts({
-          format = true,
-        })
+        vim.tbl_deep_extend(
+          "force",
+          get_default_opts({
+            format = true,
+          }),
+          {
+            -- Mason installs `oxlint`; start its LSP mode explicitly.
+            cmd = { "oxlint", "--lsp" },
+            -- Avoid health warnings for filetypes not registered in Neovim 0.11.
+            filetypes = {
+              "javascript",
+              "javascriptreact",
+              "typescript",
+              "typescriptreact",
+            },
+          }
+        )
       )
       vim.lsp.config("graphql", get_default_opts())
       vim.lsp.config("html", get_default_opts())
