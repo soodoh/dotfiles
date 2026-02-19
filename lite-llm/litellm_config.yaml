@@ -2,28 +2,17 @@ model_list:
   # Wildcard routing - matches ANY version of Claude models (robust to date suffix changes)
   - model_name: "claude-opus-*"
     litellm_params:
-      model: github_copilot/claude-opus-4.5
+      model: github_copilot/claude-opus-4.6
       api_base: https://api.githubcopilot.com
 
   - model_name: "claude-sonnet-*"
     litellm_params:
-      model: github_copilot/claude-sonnet-4.5
+      model: github_copilot/claude-sonnet-4.6
       api_base: https://api.githubcopilot.com
 
   - model_name: "claude-haiku-*"
     litellm_params:
       model: github_copilot/claude-haiku-4.5
-      api_base: https://api.githubcopilot.com
-
-  # Claude Code uses dash notation (gpt-5-3-codex)
-  - model_name: "gpt-5-3-codex"
-    litellm_params:
-      model: github_copilot/gpt-5.3-codex
-      api_base: https://api.githubcopilot.com
-
-  - model_name: "gpt-5-2-codex"
-    litellm_params:
-      model: github_copilot/gpt-5.2-codex
       api_base: https://api.githubcopilot.com
 
   # Models for Codex usage
@@ -54,8 +43,8 @@ general_settings:
   store_model_in_db: true
 
   # UI settings
-  ui_username: os.environ/LITELLM_UI_USERNAME
-  ui_password: os.environ/LITELLM_UI_PASSWORD
+  ui_username: os.environ/UI_USERNAME
+  ui_password: os.environ/UI_PASSWORD
 
   # Rate limiting
   max_budget: 100
