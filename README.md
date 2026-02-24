@@ -106,8 +106,11 @@ After installing, run this:
 
 ```bash
 rustup update
+
+# Installing directly from GitHub, until crates.io gets updated to include v0.5.0+
+# cargo install tmux-sessionizer
+cargo install --git https://github.com/jrmoulton/tmux-sessionizer.git --tag v0.5.0
 # Unless using package managers for this
-cargo install tmux-sessionizer
 cargo install --force yazi-build
 ```
 

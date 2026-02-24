@@ -1,9 +1,7 @@
 # tmux-sessionizer (tms) configuration
 # https://github.com/jrmoulton/tmux-sessionizer
 
-# Search paths for projects (same as your previous sessionizer)
 search_paths = [
-    # "~/Documents",
     "~/Projects"
 ]
 
