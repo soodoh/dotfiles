@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: litellm-postgres
     env_file:
       - .env
@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   litellm:
-    image: ghcr.io/berriai/litellm:main-latest
+    image: ghcr.io/berriai/litellm:v1.81.14.rc.1
     container_name: litellm
     depends_on:
       postgres:
