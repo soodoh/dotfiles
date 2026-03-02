@@ -29,6 +29,8 @@ brew install \
   cmake \
   coreutils \
   fd \
+  fish \
+  fnm \
   fzf \
   git \
   golang \
@@ -67,6 +69,7 @@ apt update && apt upgrade ;\
 apt install \
   cmake \
   fd-find \
+  fish \
   fzf \
   git \
   golang \
@@ -80,11 +83,17 @@ apt install \
   zsh
 ```
 
+Already installed via brew (Mac). For Debian/Arch, use the following:
+```bash
+curl -fsSL https://fnm.vercel.app/install | bash
+```
+
 Arch
 ```bash
 pacman -Syu \
   cmake \
   fd \
+  fish \
   fzf \
   git \
   golang \
@@ -96,7 +105,7 @@ pacman -Syu \
   yay \
   wget \
   zoxide \
-  zsh \
+  zsh
 ```
 
 1. Install rust
@@ -114,13 +123,19 @@ cargo install --git https://github.com/jrmoulton/tmux-sessionizer.git --tag v0.5
 cargo install --force yazi-build
 ```
 
-1. Source `.zshrc`
+1. Setup shell config
 
+Zsh:
 ```bash
 echo "source $HOME/.config/zsh/.zshrc" > $HOME/.zshrc
 ```
 
-(Optional) Add environment variables:
+Fish (no sourcing needed — stow symlinks `~/.config/fish/` directly). For secrets/API keys, create a file outside stow:
+```bash
+echo "set -gx OPENAI_API_KEY XXXXX" > $HOME/.config/fish/conf.d/00-secrets.fish
+```
+
+(Optional) Add environment variables for zsh:
 ```bash
 echo "export OPENAI_API_KEY=XXXXX" >> $HOME/.zshrc
 ```
@@ -150,18 +165,6 @@ stow -vRt $HOME sway-configs
     sh -c "$(curl -fsSL https://starship.rs/install.sh)"
     ```
 
-1.  Install NVM
-
-    Follow [installation instructions](https://github.com/nvm-sh/nvm) for nvm
-
-    Set/install default version of node to LTS, then install global NPM packages:
-
-    ```bash
-    nvm install 'lts/*' && \
-    nvm alias default 'lts/*' && \
-    npm i -g neovim yalc
-    ```
-
 1. Install bun
 
     Follow [installation instructions](https://bun.com/docs/installation) for bun
@@ -178,14 +181,23 @@ stow -vRt $HOME sway-configs
     git config --global core.excludesfile "$HOME/.config/.gitignore_global"
     ```
 
-1.  Set zsh as default shell
+1.  Set default shell
 
+    Fish:
+    ```bash
+    chsh -s $(which fish)
+    ```
+
+    Zsh:
     ```bash
     chsh -s $(which zsh)
     ```
 
     If this fails with "non-standard shell", run this first & try again:
     ```bash
+    # For fish:
+    sudo sh -c 'echo "$(which fish)" >> /etc/shells'
+    # For zsh:
     sudo sh -c 'echo "/opt/homebrew/bin/zsh" >> /etc/shells'
     ```
 
@@ -216,10 +228,14 @@ wget -P "$HOME/.local/share/fonts" https://github.com/ryanoasis/nerd-fonts/blob/
 
 1.  Install Neovim dependencies
 
+```bash
+npm i -g neovim
+```
+
 Mac:
 ```bash
-pip3 install neovim && \
-  brew install neovim-remote
+pip3 install neovim
+brew install neovim-remote
 ```
 
 Ubuntu/Debian:
