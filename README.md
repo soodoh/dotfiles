@@ -185,12 +185,14 @@ stow -vRt $HOME sway-configs
 
     Fish:
     ```bash
-    chsh -s $(which fish)
+    command -v fish | sudo tee -a /etc/shells
+    chsh -s $(command -v fish)
     ```
 
     Zsh:
     ```bash
-    chsh -s $(which zsh)
+    command -v zsh | sudo tee -a /etc/shells
+    chsh -s $(command -v zsh)
     ```
 
     If this fails with "non-standard shell", run this first & try again:
