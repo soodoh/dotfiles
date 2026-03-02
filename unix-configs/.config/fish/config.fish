@@ -1,8 +1,3 @@
-# Fisher plugin manager - auto install if needed
-if not functions -q fisher
-    curl -sL https://git.io/fisher | source && fisher update
-end
-
 # Preferred editor
 set -gx EDITOR nvim
 set -gx VISUAL nvim

@@ -8,8 +8,7 @@ abbr -a gmc 'git merge --continue'
 abbr -a --position anywhere -- nv --no-verify
 
 # Tmux (replaces OMZ tmux plugin aliases)
-abbr -a ta 'tmux attach -t'
-abbr -a tad 'tmux attach -d -t'
+abbr -a ta 'tmux attach'
 abbr -a ts 'tmux new-session -s'
 abbr -a tl 'tmux list-sessions'
 abbr -a tksv 'tmux kill-server'

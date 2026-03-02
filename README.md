@@ -130,7 +130,12 @@ Zsh:
 echo "source $HOME/.config/zsh/.zshrc" > $HOME/.zshrc
 ```
 
-Fish (no sourcing needed — stow symlinks `~/.config/fish/` directly). For secrets/API keys, create a file outside stow:
+Fish (no sourcing needed — stow symlinks `~/.config/fish/` directly). Install fisher and plugins:
+```bash
+curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher
+```
+
+For secrets/API keys, create a file outside stow:
 ```bash
 echo "set -gx OPENAI_API_KEY XXXXX" > $HOME/.config/fish/conf.d/00-secrets.fish
 ```
