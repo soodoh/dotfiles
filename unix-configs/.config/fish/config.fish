@@ -8,10 +8,6 @@ set -gx GPG_TTY (tty)
 # Vi mode
 fish_vi_key_bindings
 
-# tmux auto-start via budimanjojo/tmux.fish
-set -g fish_tmux_autostart true
-set -g fish_tmux_default_session_name main
-
 # tmux-sessionizer config location
 set -gx TMS_CONFIG_FILE "$HOME/.config/tms/config.toml"
 
