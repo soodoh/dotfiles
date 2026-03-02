@@ -15,7 +15,6 @@ function __fish_git_auto_fetch --on-variable PWD --description 'Auto git fetch o
 
     set -l fetch_head "$git_dir/FETCH_HEAD"
     if test -f $fetch_head
-        # Check if FETCH_HEAD is older than 60 seconds
         set -l now (date +%s)
         set -l fetch_time (stat -f %m $fetch_head 2>/dev/null; or stat -c %Y $fetch_head 2>/dev/null)
         if test -n "$fetch_time"
@@ -26,7 +25,6 @@ function __fish_git_auto_fetch --on-variable PWD --description 'Auto git fetch o
         end
     end
 
-    # Fetch in background
     command git fetch --quiet &
     disown
 end
