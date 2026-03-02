@@ -30,7 +30,6 @@ brew install \
   coreutils \
   fd \
   fish \
-  fnm \
   fzf \
   git \
   golang \
@@ -83,11 +82,6 @@ apt install \
   zsh
 ```
 
-Already installed via brew (Mac). For Debian/Arch, use the following:
-```bash
-curl -fsSL https://fnm.vercel.app/install | bash
-```
-
 Arch
 ```bash
 pacman -Syu \
@@ -106,6 +100,18 @@ pacman -Syu \
   wget \
   zoxide \
   zsh
+```
+
+1. Install `fnm` (instead of `nvm`)
+
+Mac:
+```bash
+brew install fnm
+```
+
+Debian/Arch:
+```bash
+curl -fsSL https://fnm.vercel.app/install | bash
 ```
 
 1. Install rust
