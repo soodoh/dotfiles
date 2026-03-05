@@ -1,3 +1,15 @@
+# Abbreviation expansion functions (for dynamic command substitution)
+function _abbr_groh; echo "git reset origin/(__git.current_branch) --hard"; end
+function _abbr_gprom; echo "git pull --rebase origin (__git.default_branch)"; end
+function _abbr_gprum; echo "git pull --rebase upstream (__git.default_branch)"; end
+function _abbr_gluc; echo "git pull upstream (__git.current_branch)"; end
+function _abbr_glum; echo "git pull upstream (__git.default_branch)"; end
+function _abbr_gmum; echo "git merge upstream/(__git.default_branch)"; end
+function _abbr_grbum; echo "git rebase upstream/(__git.default_branch)"; end
+function _abbr_gswm; echo "git switch (__git.default_branch)"; end
+function _abbr_dsta; echo "docker stop (docker ps -q)"; end
+function _abbr_drma; echo "docker rm (docker ps -qa)"; end
+
 # General
 abbr -a vim nvim
 abbr -a v nvim
@@ -38,14 +50,14 @@ abbr -a gstaa 'git stash apply'
 abbr -a gstc 'git stash clear'
 abbr -a gsps 'git show --pretty=short --show-signature'
 abbr -a gta 'git tag --annotate'
-abbr -a groh 'git reset origin/\(__git.current_branch\) --hard'
-abbr -a gprom 'git pull --rebase origin \(__git.default_branch\)'
-abbr -a gprum 'git pull --rebase upstream \(__git.default_branch\)'
-abbr -a gluc 'git pull upstream \(__git.current_branch\)'
-abbr -a glum 'git pull upstream \(__git.default_branch\)'
-abbr -a gmum 'git merge upstream/\(__git.default_branch\)'
-abbr -a grbum 'git rebase upstream/\(__git.default_branch\)'
-abbr -a gswm 'git switch \(__git.default_branch\)'
+abbr -a groh --function _abbr_groh
+abbr -a gprom --function _abbr_gprom
+abbr -a gprum --function _abbr_gprum
+abbr -a gluc --function _abbr_gluc
+abbr -a glum --function _abbr_glum
+abbr -a gmum --function _abbr_gmum
+abbr -a grbum --function _abbr_grbum
+abbr -a gswm --function _abbr_gswm
 abbr -a gpristine 'git reset --hard; and git clean --force -dfx'
 abbr -a gwipe 'git reset --hard; and git clean --force -df'
 abbr -a gbg 'git branch -vv | grep ": gone]"'
@@ -95,8 +107,8 @@ abbr -a dxcit 'docker container exec -it'
 abbr -a dipru 'docker image prune -a'
 abbr -a dncn 'docker network connect'
 abbr -a dndcn 'docker network disconnect'
-abbr -a dsta 'docker stop \(docker ps -q\)'
-abbr -a drma 'docker rm \(docker ps -qa\)'
+abbr -a dsta --function _abbr_dsta
+abbr -a drma --function _abbr_drma
 
 # Docker Compose
 abbr -a dco 'docker compose'
