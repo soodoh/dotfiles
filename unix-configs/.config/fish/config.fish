@@ -18,3 +18,6 @@ end
 
 # Load custom functions (checked into dotfiles, separate from Fisher-managed functions)
 set -a fish_function_path $__fish_config_dir/custom/functions
+
+# Re-initialize abbr_tips after custom abbreviations are loaded
+__abbr_tips_init
