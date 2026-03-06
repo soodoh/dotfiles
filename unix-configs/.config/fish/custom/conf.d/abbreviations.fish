@@ -138,3 +138,8 @@ abbr -a yp 'yarn run build && yarn dlx yalc push'
 abbr -a ypl 'yarn run build:library && yarn dlx yalc push'
 abbr -a bp 'bun run build && bunx yalc push'
 abbr -a bx bunx
+
+# Claude Code
+abbr -a cc 'claude --dangerously-skip-permissions'
+abbr -a ccc 'claude --dangerously-skip-permissions --continue'
+abbr -a ccw 'claude --dangerously-skip-permissions --worktree'
