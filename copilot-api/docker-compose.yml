@@ -1,0 +1,12 @@
+services:
+  copilot-api:
+    image: ghcr.io/ericc-ch/copilot-api:v0.7
+    container_name: copilot-api
+    ports:
+      - "1337:4141"
+    volumes:
+      - copilot-auth-data:/root/.local/share/copilot-api
+    restart: unless-stopped
+
+volumes:
+  copilot-auth-data:
