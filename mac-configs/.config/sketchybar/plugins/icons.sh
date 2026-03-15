@@ -15,7 +15,8 @@ icon_map() {
   "Jellyfin") echo "󰼂" ;;
   "Messages") echo "󰻞" ;;
   "Music") echo "󰝚" ;;
-  "Notion") echo "" ;;
+  "Notion") echo "" ;;
+  "Obsidian") echo "" ;;
   "Proton Mail") echo "󰴃" ;;
   "Safari") echo "󰀹" ;;
   "Slack") echo "󰒱" ;;
@@ -24,7 +25,9 @@ icon_map() {
   "Todoist") echo "" ;;
   "kitty") echo "" ;;
   "WezTerm") echo "" ;;
+  "Wispr Flow") echo "󰔊" ;;
   "zoom.us") echo "󰕧" ;;
+  "Zen") echo "" ;;
   *) echo "󰀻" ;;
   esac
 }
