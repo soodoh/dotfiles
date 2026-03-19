@@ -188,3 +188,9 @@ if.app-name-regex-substring = 'messages'
 if.during-aerospace-startup = true
 check-further-callbacks = true
 run = ['move-node-to-workspace 4']
+
+# Float Bitwarden extension popups
+[[on-window-detected]]
+if.app-name-regex-substring = '(?i)(firefox|google chrome|zen)'
+if.window-title-regex-substring = '(?i)bitwarden'
+run = ['layout floating']
