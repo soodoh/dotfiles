@@ -1,10 +1,8 @@
 return {
   -- Color hex codes
   {
-    "norcalli/nvim-colorizer.lua",
-    opts = {
-      "*",
-      css = { css = true },
-    },
+    "catgoose/nvim-colorizer.lua",
+    event = "BufReadPre",
+    opts = {},
   },
 }
