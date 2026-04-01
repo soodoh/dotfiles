@@ -12,15 +12,13 @@
     "url": "git+https://github.com/soodoh/dotfiles.git"
   },
   "description": "Dot files used in my personal developer environments across multiple OSs.",
-  "scripts": {
-    "prepare": "husky"
-  },
+  "scripts": {},
   "devDependencies": {
     "@commitlint/cli": "^20.4.3",
     "@commitlint/config-conventional": "^20.4.3",
     "@commitlint/types": "^20.4.3",
     "@types/node": "^25.3.5",
-    "husky": "^9.1.7"
+    "lefthook": "^2.1.4"
   },
   "dependencies": {
     "typescript": "^5.9.3"
