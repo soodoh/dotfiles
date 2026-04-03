@@ -14,10 +14,10 @@
   "description": "Dot files used in my personal developer environments across multiple OSs.",
   "scripts": {},
   "devDependencies": {
-    "@commitlint/cli": "^20.4.3",
-    "@commitlint/config-conventional": "^20.4.3",
-    "@commitlint/types": "^20.4.3",
-    "@types/node": "^25.3.5",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@commitlint/types": "^20.5.0",
+    "@types/node": "^25.5.2",
     "lefthook": "^2.1.4"
   },
   "dependencies": {
