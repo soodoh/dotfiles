@@ -147,4 +147,5 @@ abbr -a ccw 'claude --dangerously-skip-permissions --worktree'
 
 # Codex
 abbr -a cx 'codex --yolo'
+abbr -a cxr 'codex --yolo resume'
 abbr -a cxw 'codex --yolo --worktree'
