@@ -45,6 +45,7 @@ abbr -a grhs 'git reset --soft'
 abbr -a greva 'git revert --abort'
 abbr -a grevc 'git revert --continue'
 abbr -a gsi 'git submodule init'
+abbr -a gsts 'git stash --staged'
 abbr -a gstall 'git stash --all'
 abbr -a gstaa 'git stash apply'
 abbr -a gstc 'git stash clear'
@@ -143,3 +144,7 @@ abbr -a bx bunx
 abbr -a cc 'claude --dangerously-skip-permissions'
 abbr -a ccc 'claude --dangerously-skip-permissions --continue'
 abbr -a ccw 'claude --dangerously-skip-permissions --worktree'
+
+# Codex
+abbr -a cx 'codex --yolo'
+abbr -a cxw 'codex --yolo --worktree'
