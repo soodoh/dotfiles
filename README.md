@@ -14,23 +14,6 @@ Add homebrew to `$PATH` for current session so that the follow steps can access 
 export PATH=$PATH:/opt/homebrew/bin
 ```
 
-1.Install Claude Code / Codex
-
-Codex (all platforms):
-```bash
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-Mac:
-```bash
-brew install --cask codex
-```
-
-Linux (after `fnm` is installed):
-```bash
-npm i -g @openai/codex 
-```
-
 1. Install dependencies
 
 Mac:
@@ -138,6 +121,29 @@ rustup update
 cargo install --git https://github.com/jrmoulton/tmux-sessionizer.git --tag v0.5.0
 # Unless using package managers for this
 cargo install --force yazi-build
+```
+
+1.Install Claude Code / Codex
+
+Happier CLI (remote session support):
+```bash
+curl -fsSL https://happier.dev/install | bash
+happier auth login
+```
+
+Claude Code (all platforms):
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+Mac:
+```bash
+brew install --cask codex
+```
+
+Linux (after `fnm` is installed):
+```bash
+npm i -g @openai/codex 
 ```
 
 1. Setup shell config

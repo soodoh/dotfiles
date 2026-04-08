@@ -141,10 +141,10 @@ abbr -a bp 'bun run build && bunx yalc push'
 abbr -a bx bunx
 
 # Claude Code
-abbr -a cc 'claude --dangerously-skip-permissions'
-abbr -a ccc 'claude --dangerously-skip-permissions --continue'
-abbr -a ccw 'claude --dangerously-skip-permissions --worktree'
+abbr -a cc 'happier claude --dangerously-skip-permissions'
+abbr -a ccc 'happier claude --dangerously-skip-permissions --continue'
+abbr -a ccw 'happier claude --dangerously-skip-permissions --worktree'
 
 # Codex
-abbr -a cx 'codex --yolo'
-abbr -a cxr 'codex --yolo resume'
+abbr -a cx 'happier codex --yolo'
+abbr -a cxr 'happier codex --yolo resume'
