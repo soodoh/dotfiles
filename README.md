@@ -14,10 +14,21 @@ Add homebrew to `$PATH` for current session so that the follow steps can access 
 export PATH=$PATH:/opt/homebrew/bin
 ```
 
-1.Install Claude Code
+1.Install Claude Code / Codex
 
+Codex (all platforms):
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
+```
+
+Mac:
+```bash
+brew install --cask codex
+```
+
+Linux (after `fnm` is installed):
+```bash
+npm i -g @openai/codex 
 ```
 
 1. Install dependencies
