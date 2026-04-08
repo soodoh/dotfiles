@@ -28,3 +28,6 @@ docker-compose.override.yml
 # Claude/Serena
 .claude/
 .serena/
+
+# Local git worktrees
+.worktrees/

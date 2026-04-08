@@ -2,6 +2,7 @@ return {
   -- Treesitter (LSP-based syntax highlighting)
   {
     "nvim-treesitter/nvim-treesitter",
+    branch = "main",
     build = ":TSUpdate",
     dependencies = "HiPhish/rainbow-delimiters.nvim",
     config = function()
