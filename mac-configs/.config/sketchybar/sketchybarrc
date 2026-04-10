@@ -97,9 +97,31 @@ sketchybar --add item front_app left \
            --set front_app icon.drawing=off script="$PLUGIN_DIR/front_app.sh" \
            --subscribe front_app front_app_switched
 
+##### AI Usage #####
+AI_USAGE_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar"
+mkdir -p "$AI_USAGE_CACHE_DIR"
+sketchybar --add item ai_usage.refresh right \
+           --set ai_usage.refresh \
+           drawing=off \
+           update_freq=60 \
+           script="$PLUGIN_DIR/ai_usage_refresh.sh"
+
+right_separator_style=(
+  icon=│
+  label.drawing=off
+  icon.color=0x66ffffff
+  icon.padding_left=6
+  icon.padding_right=6
+  background.drawing=off
+)
+
 ##### Adding Right Items #####
 sketchybar --add item clock right \
            --set clock update_freq=10 icon=  script="$PLUGIN_DIR/clock.sh" \
+           --add item right_separator.system right \
+           --set right_separator.system "${right_separator_style[@]}" \
+           --add item right_separator.ai right \
+           --set right_separator.ai "${right_separator_style[@]}" drawing=off \
            --add item volume right \
            --set volume script="$PLUGIN_DIR/volume.sh" \
            --subscribe volume volume_change \
@@ -111,6 +133,7 @@ sketchybar --add item clock right \
            --add item ram right \
            --set ram update_freq=120 icon="󰍛" script="$PLUGIN_DIR/ram.sh"
 
+"$PLUGIN_DIR/ai_usage_refresh.sh"
 
 ##### Force all scripts to run the first time (never do this in a script) #####
 sketchybar --update

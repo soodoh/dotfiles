@@ -27,6 +27,7 @@ brew install \
   fzf \
   git \
   golang \
+  jq \
   jstkdng/programs/ueberzugpp \
   lazygit \
   neovim \
@@ -140,6 +141,8 @@ Mac:
 ```bash
 brew install --cask codex
 ```
+
+If `codexbar` and `jq` are installed, SketchyBar will show per-provider AI usage badges for providers that currently return usable data from `codexbar usage --format json`.
 
 Linux (after `fnm` is installed):
 ```bash
