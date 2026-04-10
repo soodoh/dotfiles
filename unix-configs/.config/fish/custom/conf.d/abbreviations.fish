@@ -13,6 +13,7 @@ function _abbr_drma; echo "docker rm (docker ps -qa)"; end
 # General
 abbr -a vim nvim
 abbr -a v nvim
+abbr -a l 'l -lAFh'
 
 # Git
 abbr -a gdn 'git diff --name-only'

@@ -1,5 +1,3 @@
-status is-interactive; or return
-
 # Starship prompt
 if command -q starship
     starship init fish | source
