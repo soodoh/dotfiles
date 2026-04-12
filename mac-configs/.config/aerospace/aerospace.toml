@@ -175,6 +175,18 @@ if.during-aerospace-startup = true
 check-further-callbacks = true
 run = ['move-node-to-workspace 3']
 
+[[on-window-detected]]
+if.app-name-regex-substring = 'obsidian'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 3']
+
+[[on-window-detected]]
+if.app-name-regex-substring = 'music'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 4']
+
 # Float Bitwarden extension popups
 [[on-window-detected]]
 if.app-name-regex-substring = '(?i)(firefox|google chrome|zen)'
