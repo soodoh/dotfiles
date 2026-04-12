@@ -97,7 +97,6 @@ alt-ctrl-shift-1 = 'workspace 1'
 alt-ctrl-shift-2 = 'workspace 2'
 alt-ctrl-shift-3 = 'workspace 3'
 alt-ctrl-shift-4 = 'workspace 4'
-alt-ctrl-shift-5 = 'workspace 5'
 
 cmd-alt-ctrl-shift-y = 'move-node-to-workspace --focus-follows-window 1'
 cmd-alt-ctrl-shift-u = 'move-node-to-workspace --focus-follows-window 2'
@@ -108,7 +107,6 @@ cmd-alt-ctrl-shift-1 = 'move-node-to-workspace --focus-follows-window 1'
 cmd-alt-ctrl-shift-2 = 'move-node-to-workspace --focus-follows-window 2'
 cmd-alt-ctrl-shift-3 = 'move-node-to-workspace --focus-follows-window 3'
 cmd-alt-ctrl-shift-4 = 'move-node-to-workspace --focus-follows-window 4'
-cmd-alt-ctrl-shift-5 = 'move-node-to-workspace --focus-follows-window 5'
 
 alt-ctrl-shift-f = 'fullscreen'
 alt-ctrl-shift-t = 'layout h_accordion tiles'         # 'layout tabbed' in i3
@@ -137,11 +135,11 @@ enter = ['balance-sizes', 'mode main']
 esc = 'mode main'
 
 # This prevents "move-workspace-to-monitor" from working
-# [workspace-to-monitor-force-assignment]
-# 1 = 'main'
-# 2 = 'main'
-# 3 = 'secondary'
-# 4 = 'secondary'
+[workspace-to-monitor-force-assignment]
+1 = 'main'
+2 = 'main'
+3 = 'main'
+4 = 'secondary'
 
 # Automatically move applications to preferred workspace
 # Main workspaces
@@ -159,7 +157,7 @@ run = ['move-node-to-workspace 1']
 
 # "Organization" apps
 [[on-window-detected]]
-if.app-name-regex-substring = 'calendar'
+if.app-name-regex-substring = '(?i)(firefox|google chrome|zen)'
 if.during-aerospace-startup = true
 check-further-callbacks = true
 run = ['move-node-to-workspace 2']
@@ -170,24 +168,12 @@ if.during-aerospace-startup = true
 check-further-callbacks = true
 run = ['move-node-to-workspace 2']
 
-[[on-window-detected]]
-if.app-name-regex-substring = 'todoist'
-if.during-aerospace-startup = true
-check-further-callbacks = true
-run = ['move-node-to-workspace 3']
-
 # "Other" apps
-[[on-window-detected]]
-if.app-name-regex-substring = 'firefox'
-if.during-aerospace-startup = true
-check-further-callbacks = true
-run = ['move-node-to-workspace 4']
-
 [[on-window-detected]]
 if.app-name-regex-substring = 'messages'
 if.during-aerospace-startup = true
 check-further-callbacks = true
-run = ['move-node-to-workspace 4']
+run = ['move-node-to-workspace 3']
 
 # Float Bitwarden extension popups
 [[on-window-detected]]
