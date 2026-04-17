@@ -106,8 +106,16 @@ return {
         },
       })
 
-      -- Load the fzf extension after setup
-      telescope.load_extension("fzf")
+      -- Keep Telescope usable even if the native extension has not been built yet.
+      local has_fzf = pcall(telescope.load_extension, "fzf")
+      if not has_fzf then
+        vim.schedule(function()
+          vim.notify_once(
+            "Telescope FZF native extension is unavailable; run :Lazy build telescope-fzf-native.nvim",
+            vim.log.levels.WARN
+          )
+        end)
+      end
     end,
   },
 }
