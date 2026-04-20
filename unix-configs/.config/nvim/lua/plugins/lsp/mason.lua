@@ -26,6 +26,7 @@ return {
           "bash-language-server",
           "css-lsp",
           "docker-language-server",
+          "biome",
           "eslint-lsp",
           "gopls",
           "html-lsp",

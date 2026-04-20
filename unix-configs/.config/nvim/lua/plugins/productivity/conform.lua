@@ -2,25 +2,36 @@ return {
   "stevearc/conform.nvim",
   config = function()
     local conform = require("conform")
+    local util = require("conform.util")
+    local biome_root = util.root_file({
+      "biome.json",
+      "biome.jsonc",
+    })
+    local prettier_root = util.root_file({
+      ".prettierrc",
+      ".prettierrc.json",
+      ".prettierrc.yml",
+      ".prettierrc.yaml",
+      ".prettierrc.json5",
+      ".prettierrc.js",
+      ".prettierrc.cjs",
+      ".prettierrc.mjs",
+      ".prettierrc.toml",
+      "prettier.config.js",
+      "prettier.config.cjs",
+      "prettier.config.mjs",
+    })
+    local web_formatters = { "biome", "prettier", stop_after_first = true }
 
     conform.setup({
       formatters = {
+        biome = {
+          require_cwd = true,
+          cwd = biome_root,
+        },
         prettier = {
           require_cwd = true,
-          cwd = require("conform.util").root_file({
-            ".prettierrc",
-            ".prettierrc.json",
-            ".prettierrc.yml",
-            ".prettierrc.yaml",
-            ".prettierrc.json5",
-            ".prettierrc.js",
-            ".prettierrc.cjs",
-            ".prettierrc.mjs",
-            ".prettierrc.toml",
-            "prettier.config.js",
-            "prettier.config.cjs",
-            "prettier.config.mjs",
-          }),
+          cwd = prettier_root,
         },
       },
       formatters_by_ft = {
@@ -29,27 +40,18 @@ return {
         python = { "black" },
         -- rust = { "rstfmt" },
         kdl = { "kdlfmt" },
-        javascript = {
-          "prettier",
-        },
-        typescript = {
-          "prettier",
-        },
-        javascriptreact = {
-          "prettier",
-        },
-        typescriptreact = {
-          "prettier",
-        },
-        svelte = {
-          "prettier",
-        },
-        css = { "prettier" },
-        html = { "prettier" },
-        json = { "prettier" },
+        javascript = web_formatters,
+        typescript = web_formatters,
+        javascriptreact = web_formatters,
+        typescriptreact = web_formatters,
+        svelte = web_formatters,
+        css = web_formatters,
+        html = web_formatters,
+        json = web_formatters,
+        jsonc = web_formatters,
         yaml = { "prettier" },
         markdown = { "prettier" },
-        graphql = { "prettier" },
+        graphql = web_formatters,
         -- Use the "_" filetype to run formatters on filetypes that don't
         -- have other formatters configured.
         ["_"] = { "trim_whitespace" },

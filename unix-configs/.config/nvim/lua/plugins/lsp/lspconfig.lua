@@ -102,6 +102,12 @@ return {
       vim.lsp.config("yamlls", get_default_opts())
       -- Web
       vim.lsp.config(
+        "biome",
+        get_default_opts({
+          format = true,
+        })
+      )
+      vim.lsp.config(
         "cssls",
         get_default_opts({
           settings = {
@@ -145,8 +151,6 @@ return {
       vim.lsp.config("graphql", get_default_opts())
       vim.lsp.config("html", get_default_opts())
       vim.lsp.config("marksman", get_default_opts())
-      vim.lsp.config("prismals", get_default_opts())
-      vim.lsp.config("svelte", get_default_opts())
       vim.lsp.config("ts_ls", get_default_opts({ format = false }))
       -- Server
       vim.lsp.config("csharp_ls", get_default_opts())
