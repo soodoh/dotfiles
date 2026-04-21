@@ -15,6 +15,7 @@ AI_USAGE_STATE_PATH="${AI_USAGE_STATE_PATH:-$CACHE_DIR/ai_usage_items.txt}"
 AI_USAGE_NOW_EPOCH="${AI_USAGE_NOW_EPOCH:-$(date +%s)}"
 CODEXBAR_BIN="${CODEXBAR_BIN:-$(command -v codexbar || true)}"
 SKETCHYBAR_BIN="${SKETCHYBAR_BIN:-$(command -v sketchybar || true)}"
+AI_USAGE_TEXT_FONT="${AI_USAGE_TEXT_FONT:-FiraCode Nerd Font:Bold:14.0}"
 
 mkdir -p "$(dirname "$AI_USAGE_CACHE_PATH")" "$(dirname "$AI_USAGE_STATE_PATH")"
 
@@ -44,6 +45,11 @@ write_cache() {
 resolve_icon_path() {
   local icon_path="$1"
 
+  if [[ -z "$icon_path" ]]; then
+    printf '\n'
+    return 0
+  fi
+
   if [[ "$icon_path" == /* ]]; then
     printf '%s\n' "$icon_path"
   else
@@ -53,19 +59,35 @@ resolve_icon_path() {
 
 render_provider_item() {
   local item_name="$1"
-  local resolved_icon_path="$2"
-  local session_used="$3"
-  local label_color="$4"
+  local provider_name="$2"
+  local resolved_icon_path="$3"
+  local session_used="$4"
+  local label_color="$5"
+
+  if [[ -n "$resolved_icon_path" ]]; then
+    "$SKETCHYBAR_BIN" \
+      --set "$item_name" \
+      drawing=on \
+      icon="" \
+      icon.background.drawing=on \
+      icon.background.color=0x00000000 \
+      icon.background.image="$resolved_icon_path" \
+      icon.background.image.drawing=on \
+      icon.background.image.scale=0.5 \
+      label="${session_used}%" \
+      label.color="$label_color" >/dev/null 2>&1 || true
+    return 0
+  fi
 
   "$SKETCHYBAR_BIN" \
     --set "$item_name" \
     drawing=on \
-    icon="" \
-    icon.background.drawing=on \
-    icon.background.color=0x00000000 \
-    icon.background.image="$resolved_icon_path" \
-    icon.background.image.drawing=on \
-    icon.background.image.scale=0.5 \
+    icon="$provider_name" \
+    icon.font="$AI_USAGE_TEXT_FONT" \
+    icon.color="$label_color" \
+    icon.background.drawing=off \
+    icon.background.image="" \
+    icon.background.image.drawing=off \
     label="${session_used}%" \
     label.color="$label_color" >/dev/null 2>&1 || true
 }
@@ -151,15 +173,29 @@ sync_provider_items_unlocked() {
     render_args+=(
       --set "$item_name"
       drawing=on
-      icon=""
-      icon.background.drawing=on
-      icon.background.color=0x00000000
-      icon.background.image="$resolved_icon_path"
-      icon.background.image.drawing=on
-      icon.background.image.scale=0.5
       label="${session_used}%"
       label.color="$label_color"
     )
+
+    if [[ -n "$resolved_icon_path" ]]; then
+      render_args+=(
+        icon=""
+        icon.background.drawing=on
+        icon.background.color=0x00000000
+        icon.background.image="$resolved_icon_path"
+        icon.background.image.drawing=on
+        icon.background.image.scale=0.5
+      )
+    else
+      render_args+=(
+        icon="$provider_id"
+        icon.font="$AI_USAGE_TEXT_FONT"
+        icon.color="$label_color"
+        icon.background.drawing=off
+        icon.background.image=""
+        icon.background.image.drawing=off
+      )
+    fi
   done < <(jq -c '.providers[]' "$AI_USAGE_CACHE_PATH")
 
   if [[ ${#render_args[@]} -gt 0 ]]; then
@@ -179,7 +215,7 @@ sync_provider_items_unlocked() {
             fallback_label_color="$DIMMED_COLOR"
           fi
 
-          render_provider_item "$fallback_item_name" "$fallback_resolved_icon_path" "$fallback_session_used" "$fallback_label_color"
+          render_provider_item "$fallback_item_name" "$fallback_provider_id" "$fallback_resolved_icon_path" "$fallback_session_used" "$fallback_label_color"
         done
       fi
     fi
