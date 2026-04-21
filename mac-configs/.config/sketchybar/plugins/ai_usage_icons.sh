@@ -2,10 +2,10 @@
 
 provider_icon() {
   case "$1" in
-    codex) echo "../assets/ai_usage/codex.png" ;;
-    claude) echo "../assets/ai_usage/claude.png" ;;
-    copilot) echo "../assets/ai_usage/copilot.png" ;;
-    *) echo "../assets/ai_usage/codex.png" ;;
+  codex) echo "../assets/codex.png" ;;
+  claude) echo "../assets/claude.png" ;;
+  copilot) echo "../assets/copilot.png" ;;
+  *) echo "../assets/codex.png" ;;
   esac
 }
 

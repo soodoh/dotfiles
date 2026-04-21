@@ -94,8 +94,6 @@ sketchybar --add item front_app left \
            --subscribe front_app front_app_switched
 
 ##### AI Usage #####
-AI_USAGE_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar"
-mkdir -p "$AI_USAGE_CACHE_DIR"
 sketchybar --add item ai_usage.refresh right \
            --set ai_usage.refresh \
            drawing=off \
