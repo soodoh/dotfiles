@@ -93,13 +93,6 @@ sketchybar --add item front_app left \
            --set front_app icon.drawing=off script="$PLUGIN_DIR/front_app.sh" \
            --subscribe front_app front_app_switched
 
-##### AI Usage #####
-sketchybar --add item ai_usage.refresh right \
-           --set ai_usage.refresh \
-           drawing=off \
-           update_freq=60 \
-           script="$PLUGIN_DIR/ai_usage_refresh.sh"
-
 right_separator_style=(
   icon=│
   label.drawing=off
@@ -127,7 +120,14 @@ sketchybar --add item clock right \
            --add item ram right \
            --set ram update_freq=120 icon="󰍛" script="$PLUGIN_DIR/ram.sh"
 
-"$PLUGIN_DIR/ai_usage_refresh.sh"
-
 ##### Force all scripts to run the first time (never do this in a script) #####
 sketchybar --update
+
+##### AI Usage #####
+sketchybar --add item ai_usage.refresh right \
+           --set ai_usage.refresh \
+           drawing=off \
+           update_freq=60 \
+           script="$PLUGIN_DIR/ai_usage_refresh.sh"
+
+"$PLUGIN_DIR/ai_usage_refresh.sh" >/dev/null 2>&1 &
