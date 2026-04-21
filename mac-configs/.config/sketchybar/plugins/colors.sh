@@ -13,6 +13,7 @@ export ACTIVE_COLOR=0x88FF00FF
 export BAR_COLOR=0xff101314
 export ITEM_BG_COLOR=0xff353c3f
 export ACCENT_COLOR=0xffffffff
+export INACTIVE_BORDER_COLOR=0x44ffffff
 export DIMMED_COLOR=0x88ffffff
 
 # -- Purple Scheme --

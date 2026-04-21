@@ -1,9 +1,15 @@
 #!/bin/sh
 
 source "$CONFIG_DIR/plugins/colors.sh"
+workspace_group="$NAME.group"
+focused_workspace="${FOCUSED_WORKSPACE:-$(aerospace list-workspaces --focused 2>/dev/null || true)}"
 
-if [ "$1" = "$FOCUSED_WORKSPACE" ]; then
-  sketchybar --set $NAME background.color="$ACTIVE_COLOR" label.shadow.drawing=on icon.shadow.drawing=on background.border_width=2
+if [ -z "$focused_workspace" ]; then
+  exit 0
+fi
+
+if [ "$1" = "$focused_workspace" ]; then
+  sketchybar --set "$workspace_group" background.color="$ACTIVE_COLOR" background.border_color="$ACCENT_COLOR" background.border_width=2
 else
-  sketchybar --set $NAME background.color="$ITEM_BG_COLOR" label.shadow.drawing=off icon.shadow.drawing=off background.border_width=0
+  sketchybar --set "$workspace_group" background.color="$ITEM_BG_COLOR" background.border_color="$INACTIVE_BORDER_COLOR" background.border_width=1
 fi

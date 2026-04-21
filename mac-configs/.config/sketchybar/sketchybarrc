@@ -1,9 +1,12 @@
+#!/bin/sh
+if [ -z "${BASH_VERSION:-}" ] || shopt -oq posix; then
+  exec /bin/bash "$0" "$@"
+fi
+
 # This is a demo config to showcase some of the most important commands.
 # It is meant to be changed and configured, as it is intentionally kept sparse.
 # For a (much) more advanced configuration example see my dotfiles:
 # https://github.com/FelixKratz/dotfiles
-
-#!/bin/bash
 
 source "$CONFIG_DIR/plugins/colors.sh"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
@@ -39,45 +42,38 @@ sketchybar --default "${default[@]}"
 ##### Aerospace integration #####
 sketchybar --add event aerospace_workspace_change
 
-for sid in $(aerospace list-workspaces --all); do
+source "$PLUGIN_DIR/aerospace_workspace_icons.sh"
+focused_workspace="$(aerospace list-workspaces --focused)"
 
-  sketchybar --add item space.$sid left \
-    --subscribe space.$sid aerospace_workspace_change \
-    --set space.$sid \
+for sid in $(aerospace list-workspaces --all); do
+  keep_visible_when_empty=false
+  if [[ "$sid" == "$focused_workspace" ]]; then
+    keep_visible_when_empty=true
+  fi
+
+  sketchybar --add item space."$sid" left \
+    --subscribe space."$sid" aerospace_workspace_change \
+    --set space."$sid" \
+    padding_left=0 \
+    padding_right=0 \
     drawing="off" \
+    background.drawing=off \
+    icon.drawing=off \
+    label.drawing=off \
+    click_script="aerospace workspace $sid"
+
+  create_workspace_icon_items "$sid"
+  create_workspace_group "$sid"
+  sketchybar --set space."$sid" script="$CONFIG_DIR/plugins/aerospace.sh $sid"
+  sketchybar --set space."$sid".group \
     background.color="$ITEM_BG_COLOR" \
     background.corner_radius=5 \
     background.drawing=on \
-    background.border_color="$ACCENT_COLOR" \
-    background.border_width=0 \
-    background.height=25 \
-    icon.padding_left=0 \
-    icon.padding_right=0 \
-    label.padding_right=20 \
-    label.padding_left=0 \
-    label.shadow.drawing="$drawing" \
-    label.shadow.color="$SHADOW" \
-    label.shadow.distance=4 \
-    click_script="aerospace workspace $sid" \
-    script="$CONFIG_DIR/plugins/aerospace.sh $sid"
-
-  apps=$(aerospace list-windows --workspace "$sid" | awk -F'|' '{gsub(/^ *| *$/, "", $2); print $2}')
-  drawing="off"
-  if [ $(echo $apps | grep . | wc -l) -gt 0 ]; then
-    drawing="on"
-  fi
-
-  sketchybar --set space.$sid drawing=$drawing
-  icon_strip=""
-  if [ "${apps}" != "" ]; then
-    while read -r app
-    do
-      icon_strip+=" $($CONFIG_DIR/plugins/icons.sh "$app")"
-    done <<< "${apps}"
-  else
-    icon_strip=""
-  fi
-  sketchybar --set space.$sid label="$icon_strip"
+    background.border_color="$INACTIVE_BORDER_COLOR" \
+    background.border_width=1 \
+    background.height=25
+  render_workspace_items "$sid" "$(aerospace list-windows --workspace "$sid" | extract_workspace_apps_from_windows)" "$keep_visible_when_empty"
+  NAME="space.$sid" FOCUSED_WORKSPACE="$focused_workspace" "$CONFIG_DIR/plugins/aerospace.sh" "$sid"
 
 done
 

@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/bin/sh
+if [ -z "${BASH_VERSION:-}" ] || shopt -oq posix; then
+  exec /bin/bash "$0" "$@"
+fi
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
