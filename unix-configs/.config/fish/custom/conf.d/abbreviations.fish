@@ -16,6 +16,7 @@ abbr -a v nvim
 abbr -a l 'ls -lAFh'
 
 # Git
+abbr -a gbc gbclone
 abbr -a gdn 'git diff --name-only'
 abbr -a gmc 'git merge --continue'
 abbr -a --position anywhere -- nv --no-verify
