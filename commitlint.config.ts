@@ -7,9 +7,9 @@ const Configuration: UserConfig = {
     "scope-enum": [
       RuleConfigSeverity.Error,
       "always",
-      ["root", "nvim", "mac", "zsh", "fish", "tmux"]
+      ["root", "nvim", "mac", "shell", "tmux"]
     ],
   },
 };
 
-module.exports = Configuration;
+export default Configuration;

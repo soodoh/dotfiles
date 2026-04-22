@@ -34,6 +34,7 @@ brew install \
   ripgrep \
   scroll-reverser \
   sketchybar \
+  starship \
   stow \
   tmux \
   trash \
@@ -120,8 +121,12 @@ rustup update
 # Installing directly from GitHub, until crates.io gets updated to include v0.5.0+
 # cargo install tmux-sessionizer
 cargo install --git https://github.com/jrmoulton/tmux-sessionizer.git --tag v0.5.0
-# Unless using package managers for this
+```
+
+Linux only (otherwise handled by homebrew):
+```bash
 cargo install --force yazi-build
+cargo install starship --locked
 ```
 
 1.Install Claude Code / Codex
@@ -189,12 +194,6 @@ stow -vRt $HOME unix-configs
 ```bash
 stow -vRt $HOME sway-configs
 ```
-
-1.  Install starship
-
-    ```bash
-    sh -c "$(curl -fsSL https://starship.rs/install.sh)"
-    ```
 
 1. Install bun
 

@@ -2,6 +2,9 @@
 set -gx EDITOR nvim
 set -gx VISUAL nvim
 
+# Disable the default fish welcome message
+set -g fish_greeting
+
 # GPG can use stdin
 set -gx GPG_TTY (tty)
 
@@ -13,7 +16,18 @@ if status is-interactive
   set -a fish_function_path $__fish_config_dir/custom/functions
 
   # Source custom conf.d (checked into dotfiles, separate from Fisher-managed conf.d)
-  for f in $__fish_config_dir/custom/conf.d/*.fish
+  set -l custom_conf_dir $__fish_config_dir/custom/conf.d
+  set -l path_conf $custom_conf_dir/path.fish
+
+  # Load PATH setup before integrations that depend on Homebrew binaries.
+  if test -f $path_conf
+      source $path_conf
+  end
+
+  for f in $custom_conf_dir/*.fish
+      if test "$f" = "$path_conf"
+          continue
+      end
       source $f
   end
 
