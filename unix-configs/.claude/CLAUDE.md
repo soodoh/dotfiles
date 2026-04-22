@@ -10,6 +10,7 @@
 - Do not pause to ask me which execution mode to use. Default to `superpowers:subagent-driven-development`.
 - Use `superpowers:executing-plans` only if subagents are unavailable or the tasks are tightly coupled enough that inline execution is clearly the better fit.
 - When implementation can be parallelized safely, prefer subagent-driven development.
+- When finalizing a branch created with the superpowers workflow, add a final cleanup commit that removes any superpowers-generated docs before considering the branch complete.
 - Only stop for confirmation after brainstorming if there is a real ambiguity, a meaningful risk, or a decision that would be expensive to reverse.
 
 ## Worktrees by default
