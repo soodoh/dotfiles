@@ -189,6 +189,11 @@ run = ['move-node-to-workspace 4']
 
 # Float Bitwarden extension popups
 [[on-window-detected]]
-if.app-name-regex-substring = '(?i)(firefox|google chrome|zen)'
+if.app-id = 'app.zen-browser.zen'
+if.window-title-regex-substring = 'Extension:'
+run = ['layout floating']
+
+[[on-window-detected]]
+if.app-name-regex-substring = '(?i)(firefox|google chrome)'
 if.window-title-regex-substring = '(?i)bitwarden'
 run = ['layout floating']
