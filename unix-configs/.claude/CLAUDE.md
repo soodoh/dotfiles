@@ -12,9 +12,3 @@
 - When implementation can be parallelized safely, prefer subagent-driven development.
 - When finalizing a branch created with the superpowers workflow, add a final cleanup commit that removes any superpowers-generated docs before considering the branch complete.
 - Only stop for confirmation after brainstorming if there is a real ambiguity, a meaningful risk, or a decision that would be expensive to reverse.
-
-## Worktrees by default
-- For new implementation work, prefer using a git worktree instead of modifying the current checkout directly.
-- Prefer project-local worktrees in `<repo>/.worktrees/`.
-- Ensure `.worktrees/` is gitignored before creating a worktree. If it is not ignored yet, add it to the repository `.gitignore` first.
-- Reuse an existing `.worktrees/` directory when present. If no project-local worktree directory exists yet, create `.worktrees/` in the current repository and use it.
