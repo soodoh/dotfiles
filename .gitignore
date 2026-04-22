@@ -25,8 +25,7 @@ unix-configs/.config/fish/conf.d/
 # Machine-specific Docker Compose overrides
 docker-compose.override.yml
 
-# Claude/Serena
-.claude/
+# Agent files
 .serena/
 
 # Local git worktrees
