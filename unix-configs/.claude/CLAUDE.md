@@ -1,5 +1,8 @@
 # Global working preferences
 
+## Commit metadata
+- When making commits, never include any `Co-authored-by` trailers.
+
 ## Superpowers flow
 - For complex features, larger refactors, and multi-step implementation work, use the `obra/superpowers` workflow by default.
 - In that workflow, use the brainstorming phase to clarify requirements with me.
