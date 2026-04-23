@@ -3,6 +3,11 @@ if test -x /opt/homebrew/bin/brew
     /opt/homebrew/bin/brew shellenv | source
 end
 
+# Obsidian CLI (macOS)
+if test -d /Applications/Obsidian.app/Contents/MacOS
+  fish_add_path -aP /Applications/Obsidian.app/Contents/MacOS
+end
+
 # Claude Code and other local binaries
 fish_add_path -aP $HOME/.local/bin
 
