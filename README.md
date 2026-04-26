@@ -33,6 +33,7 @@ brew install \
   neovim \
   ripgrep \
   scroll-reverser \
+  sesh \
   sketchybar \
   starship \
   stow \
@@ -78,6 +79,11 @@ apt install \
   zsh
 ```
 
+Install sesh with Go:
+```bash
+go install github.com/joshmedeski/sesh/v2@latest
+```
+
 Arch
 ```bash
 pacman -Syu \
@@ -96,6 +102,11 @@ pacman -Syu \
   wget \
   zoxide \
   zsh
+```
+
+Install sesh from the AUR:
+```bash
+yay -S sesh-bin
 ```
 
 1. Install `fnm` (instead of `nvm`)

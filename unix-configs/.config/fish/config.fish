@@ -8,9 +8,6 @@ set -g fish_greeting
 # GPG can use stdin
 set -gx GPG_TTY (tty)
 
-# tmux-sessionizer config location
-set -gx TMS_CONFIG_FILE "$HOME/.config/tms/config.toml"
-
 if status is-interactive
   # Load custom functions (checked into dotfiles, separate from Fisher-managed functions)
   set -a fish_function_path $__fish_config_dir/custom/functions

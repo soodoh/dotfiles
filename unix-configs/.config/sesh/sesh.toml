@@ -1,0 +1,11 @@
+#:schema https://github.com/joshmedeski/sesh/raw/main/sesh.schema.json
+
+cache = true
+sort_order = ["tmux", "config", "zoxide"]
+
+[default_session]
+preview_command = "if command -v eza >/dev/null 2>&1; then eza --all --git --icons --color=always {}; elif command -v lsd >/dev/null 2>&1; then lsd --all --icon always --color always {}; else ls -la {}; fi"
+
+[[wildcard]]
+pattern = "~/Projects/*"
+preview_command = "if command -v eza >/dev/null 2>&1; then eza --all --git --icons --color=always {}; elif command -v lsd >/dev/null 2>&1; then lsd --all --icon always --color always {}; else ls -la {}; fi"
