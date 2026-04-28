@@ -6,25 +6,29 @@ return {
     build = ":TSUpdate",
     dependencies = "HiPhish/rainbow-delimiters.nvim",
     config = function()
+      local parsers = {
+        "caddy",
+        "markdown",
+        "javascript",
+        "typescript",
+        "tsx",
+        "json",
+        "yaml",
+        "html",
+        "css",
+        "lua",
+        "bash",
+        "dockerfile",
+        "gitcommit",
+        "toml",
+      }
+
       require("nvim-treesitter").setup({
-        ensure_installed = {
-          "caddy",
-          "markdown",
-          "javascript",
-          "typescript",
-          "tsx",
-          "json",
-          "yaml",
-          "html",
-          "css",
-          "lua",
-          "bash",
-          "dockerfile",
-          "gitcommit",
-          "toml",
-        },
-        auto_install = true,
+        install_dir = vim.fn.stdpath("data") .. "/site",
       })
+
+      require("nvim-treesitter").install(parsers)
+
       -- Rainbow parentheses, powered by treesitter
       local rainbow_delimiters = require("rainbow-delimiters")
       vim.g.rainbow_delimiters = {

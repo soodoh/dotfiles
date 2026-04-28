@@ -39,6 +39,7 @@ brew install \
   stow \
   tmux \
   trash \
+  tree-sitter-cli \
   wget \
   zoxide \
   zsh \
@@ -74,6 +75,7 @@ apt install \
   ripgrep \
   stow \
   tmux \
+  tree-sitter-cli \
   wget \
   zoxide \
   zsh
@@ -98,6 +100,7 @@ pacman -Syu \
   ripgrep \
   stow \
   tmux \
+  tree-sitter-cli \
   yay \
   wget \
   zoxide \
