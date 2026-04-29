@@ -139,7 +139,7 @@ cargo install --force yazi-build
 cargo install starship --locked
 ```
 
-1.Install Claude Code / Codex
+1.Install Agents
 
 Happier CLI (remote session support):
 ```bash
@@ -147,21 +147,22 @@ curl -fsSL https://happier.dev/install | bash
 happier auth login
 ```
 
-Claude Code (all platforms):
+Claude Code:
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-Mac:
+Codex:
 ```bash
+# Mac
 brew install --cask codex
+# Linux (after `fnm` steps)
+npm i -g @openai/codex 
 ```
 
-If `codexbar` and `jq` are installed, SketchyBar will show per-provider AI usage badges for providers that currently return usable data from `codexbar usage --format json`.
-
-Linux (after `fnm` is installed):
+Pi:
 ```bash
-npm i -g @openai/codex 
+npm install -g @mariozechner/pi-coding-agent
 ```
 
 1. Setup shell config
