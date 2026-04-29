@@ -27,8 +27,8 @@ docker-compose.override.yml
 
 # Agent files
 .serena/
-**/.agents/sessions/
-**/.agents/auth.json
+**/.pi/agent/sessions/
+**/.pi/agent/auth.json
 
 # Local git worktrees
 .worktrees/
