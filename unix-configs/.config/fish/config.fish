@@ -2,6 +2,10 @@
 set -gx EDITOR nvim
 set -gx VISUAL nvim
 
+# Ensure terminal clients such as tmux detect UTF-8 support.
+set -gx LANG en_US.UTF-8
+set -gx LC_CTYPE en_US.UTF-8
+
 # Disable the default fish welcome message
 set -g fish_greeting
 
