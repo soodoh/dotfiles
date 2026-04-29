@@ -1,0 +1,58 @@
+{
+  "enabled": true,
+  "features": {
+    "policies": true,
+    "permissionGate": true,
+    "pathAccess": true
+  },
+  "pathAccess": {
+    "mode": "ask",
+    "allowedPaths": []
+  },
+  "policies": {
+    "rules": [
+      {
+        "id": "secret-files",
+        "description": "Block direct access to local secret files while allowing examples and test fixtures.",
+        "patterns": [
+          { "pattern": ".env" },
+          { "pattern": ".env.local" },
+          { "pattern": ".env.production" },
+          { "pattern": ".env.prod" },
+          { "pattern": ".dev.vars" },
+          { "pattern": "*.pem" },
+          { "pattern": "*.key" }
+        ],
+        "allowedPatterns": [
+          { "pattern": ".env.example" },
+          { "pattern": ".env.sample" },
+          { "pattern": ".env.test" },
+          { "pattern": "*.example.env" },
+          { "pattern": "*.sample.env" },
+          { "pattern": "*.test.env" },
+          { "pattern": "copilot-api/ca-bundle.pem" }
+        ],
+        "protection": "noAccess",
+        "onlyIfExists": true,
+        "enabled": true
+      }
+    ]
+  },
+  "permissionGate": {
+    "patterns": [
+      { "pattern": "rm -rf", "description": "recursive force delete" },
+      { "pattern": "sudo", "description": "superuser command" },
+      { "pattern": "dd if=", "description": "raw disk write/copy command" },
+      { "pattern": "mkfs.", "description": "filesystem formatting command" },
+      { "pattern": "chmod -R 777", "description": "recursive world-writable permissions" },
+      { "pattern": "chown -R", "description": "recursive ownership change" }
+    ],
+    "customPatterns": [],
+    "requireConfirmation": true,
+    "allowedPatterns": [],
+    "autoDenyPatterns": [],
+    "explainCommands": false,
+    "explainModel": null,
+    "explainTimeout": 5000
+  }
+}
