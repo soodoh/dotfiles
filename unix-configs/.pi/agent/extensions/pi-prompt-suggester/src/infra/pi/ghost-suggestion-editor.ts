@@ -1,7 +1,7 @@
 import { CustomEditor } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
 import type { GhostAcceptKey } from "../../config/types.js";
-import { matchesGhostAcceptKey } from "./ghost-accept-keys.js";
+import { matchesGhostAcceptKey, normalizeGhostAcceptAndSendKeys } from "./ghost-accept-keys.js";
 import type { EditorHistoryState } from "./runtime-ref.js";
 
 const GHOST_COLOR = "\x1b[38;5;244m";
@@ -37,6 +37,7 @@ export class GhostSuggestionEditor extends CustomEditor {
 		private readonly getSuggestion: () => string | undefined,
 		private readonly getSuggestionRevision: () => number,
 		private readonly ghostAcceptKeys: readonly GhostAcceptKey[],
+		private readonly ghostAcceptAndSendKeys: readonly GhostAcceptKey[],
 		private readonly getHistoryState: () => EditorHistoryState,
 		private readonly setHistoryState: (state: EditorHistoryState) => void,
 	) {
@@ -48,8 +49,16 @@ export class GhostSuggestionEditor extends CustomEditor {
 	public override handleInput(data: string): void {
 		const ghost = this.getGhostState();
 		// Accept ghost suggestion with a configured shortcut when the editor is still empty.
+		// Accept-and-send shortcuts materialize the suggestion, then pass the key through
+		// to the base editor so normal submit behavior runs.
 		// Any other key should hide ghost mode and reveal normal editor UI behavior.
 		if (ghost && ghost.text.length === 0) {
+			if (matchesGhostAcceptKey(data, normalizeGhostAcceptAndSendKeys(this.ghostAcceptAndSendKeys))) {
+				this.setText(ghost.suggestion);
+				super.handleInput(data);
+				this.syncSharedHistoryState();
+				return;
+			}
 			if (matchesGhostAcceptKey(data, this.ghostAcceptKeys)) {
 				this.setText(ghost.suggestion);
 				return;

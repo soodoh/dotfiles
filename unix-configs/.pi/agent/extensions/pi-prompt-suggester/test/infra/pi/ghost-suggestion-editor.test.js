@@ -14,7 +14,7 @@ function createHistoryStore() {
 	};
 }
 
-function createEditor(store, { text = "", suggestion, ghostAcceptKeys = ["space"] } = {}) {
+function createEditor(store, { text = "", suggestion, ghostAcceptKeys = ["right"], ghostAcceptAndSendKeys = ["enter"] } = {}) {
 	const tui = {
 		terminal: { rows: 24 },
 		requestRender() {},
@@ -37,6 +37,7 @@ function createEditor(store, { text = "", suggestion, ghostAcceptKeys = ["space"
 		() => suggestion,
 		() => 1,
 		ghostAcceptKeys,
+		ghostAcceptAndSendKeys,
 		() => store.get(),
 		(state) => store.set(state),
 	);
@@ -72,11 +73,11 @@ test("preserves active history navigation state across ghost editor swaps", () =
 	assert.equal(swappedEditor.getText(), "");
 });
 
-test("accepts ghost suggestion with Space by default", () => {
+test("accepts ghost suggestion with right arrow by default", () => {
 	const store = createHistoryStore();
 	const editor = createEditor(store, { suggestion: "hello world" });
 
-	editor.handleInput(" ");
+	editor.handleInput("\x1b[C");
 
 	assert.equal(editor.getText(), "hello world");
 });
@@ -90,11 +91,30 @@ test("accepts ghost suggestion with right arrow when configured", () => {
 	assert.equal(editor.getText(), "hello world");
 });
 
-test("accepts ghost suggestion with Enter when configured", () => {
+test("accepts and submits ghost suggestion with Enter by default", () => {
 	const store = createHistoryStore();
-	const editor = createEditor(store, { suggestion: "hello world", ghostAcceptKeys: ["enter"] });
+	const editor = createEditor(store, { suggestion: "hello world" });
+	let submitted = "";
+	editor.onSubmit = (text) => {
+		submitted = text;
+	};
 
 	editor.handleInput("\r");
 
+	assert.equal(submitted, "hello world");
+	assert.equal(editor.getText(), "");
+});
+
+test("Space can still be configured as accept-only", () => {
+	const store = createHistoryStore();
+	const editor = createEditor(store, { suggestion: "hello world", ghostAcceptKeys: ["space"], ghostAcceptAndSendKeys: ["enter"] });
+	let submitted = "";
+	editor.onSubmit = (text) => {
+		submitted = text;
+	};
+
+	editor.handleInput(" ");
+
 	assert.equal(editor.getText(), "hello world");
+	assert.equal(submitted, "");
 });

@@ -40,6 +40,8 @@ test("validateConfig rejects unknown keys and invalid values", () => {
 });
 
 test("validateConfig accepts supported ghost accept key combinations", () => {
+	assert.deepEqual(defaultConfig.suggestion.ghostAcceptKeys, ["right"]);
+	assert.deepEqual(defaultConfig.suggestion.ghostAcceptAndSendKeys, ["enter"]);
 	assert.equal(
 		validateConfig({
 			...defaultConfig,
@@ -75,6 +77,13 @@ test("validateConfig accepts supported ghost accept key combinations", () => {
 		}),
 		true,
 	);
+	assert.equal(
+		validateConfig({
+			...defaultConfig,
+			suggestion: { ...defaultConfig.suggestion, ghostAcceptAndSendKeys: ["enter"] },
+		}),
+		true,
+	);
 });
 
 test("normalizeOverrideConfig drops invalid fields and preserves valid overrides", () => {
@@ -84,6 +93,7 @@ test("normalizeOverrideConfig drops invalid fields and preserves valid overrides
 			suggestion: {
 				maxSuggestionChars: 333,
 				ghostAcceptKeys: ["space", "right", "enter"],
+				ghostAcceptAndSendKeys: ["enter"],
 				maxRecentUserPrompts: -5,
 				unknown: true,
 			},
@@ -98,6 +108,7 @@ test("normalizeOverrideConfig drops invalid fields and preserves valid overrides
 		schemaVersion: defaultConfig.schemaVersion,
 		suggestion: {
 			ghostAcceptKeys: ["space", "right", "enter"],
+			ghostAcceptAndSendKeys: ["enter"],
 			maxSuggestionChars: 333,
 		},
 	});

@@ -3,7 +3,7 @@ import { SuggesterConfigPersistence } from "./config-persistence.js";
 import { resolveModelRef, SESSION_DEFAULT, THINKING_LEVELS, summarizeInstruction } from "./shared.js";
 import { manageVariantsUi, runAbTestingUi, showAbStats } from "./ab-testing.js";
 import { showModelSelector } from "./model-selector.js";
-import { formatGhostAcceptKeys } from "../ghost-accept-keys.js";
+import { formatGhostAcceptAndSendKeys, formatGhostAcceptKeys } from "../ghost-accept-keys.js";
 import { isSuggestionDisplayMode, usesGhostEditor } from "../suggestion-display-mode.js";
 export async function handleSettingsUiCommand(ctx, composition) {
     if (!ctx.hasUI) {
@@ -35,11 +35,12 @@ export async function handleSettingsUiCommand(ctx, composition) {
             return `inherit → ${formatValue(effectiveValue)}`;
         return `${formatValue(overrideValue)} (${formatScopeName(activeScope).toLowerCase()})`;
     };
-    const describeScopedGhostAcceptKeys = async () => {
-        const overrideValue = await persistence.readOverrideValue(activeScope, "suggestion.ghostAcceptKeys");
+    const describeScopedGhostKeys = async (configPath, effectiveValue) => {
+        const formatter = configPath === "suggestion.ghostAcceptKeys" ? formatGhostAcceptKeys : formatGhostAcceptAndSendKeys;
+        const overrideValue = await persistence.readOverrideValue(activeScope, configPath);
         if (overrideValue === undefined)
-            return `inherit → ${formatGhostAcceptKeys(composition.config.suggestion.ghostAcceptKeys)}`;
-        return `${formatGhostAcceptKeys(Array.isArray(overrideValue) ? overrideValue : undefined)} (${formatScopeName(activeScope).toLowerCase()})`;
+            return `inherit → ${formatter(effectiveValue)}`;
+        return `${formatter(Array.isArray(overrideValue) ? overrideValue : undefined)} (${formatScopeName(activeScope).toLowerCase()})`;
     };
     const getScopedEditorValue = async (configPath, effectiveValue) => {
         const overrideValue = await persistence.readOverrideValue(activeScope, configPath);
@@ -130,7 +131,12 @@ export async function handleSettingsUiCommand(ctx, composition) {
             {
                 value: "suggestion.ghostAcceptKeys",
                 label: "Ghost accept keys",
-                description: await describeScopedGhostAcceptKeys(),
+                description: await describeScopedGhostKeys("suggestion.ghostAcceptKeys", composition.config.suggestion.ghostAcceptKeys),
+            },
+            {
+                value: "suggestion.ghostAcceptAndSendKeys",
+                label: "Ghost accept-and-send keys",
+                description: await describeScopedGhostKeys("suggestion.ghostAcceptAndSendKeys", composition.config.suggestion.ghostAcceptAndSendKeys),
             },
             {
                 value: "suggestion.prefillOnlyWhenEditorEmpty",
@@ -360,16 +366,25 @@ export async function handleSettingsUiCommand(ctx, composition) {
                     : "Suggestions will be shown in the widget, leaving the default editor untouched.", "info");
                 continue;
             }
-            if (action === "suggestion.ghostAcceptKeys") {
-                const currentValue = await getScopedEditorValue("suggestion.ghostAcceptKeys", composition.config.suggestion.ghostAcceptKeys);
-                const selected = await ctx.ui.select(`Ghost accept keys (${formatScopeName(activeScope)}, current: ${formatGhostAcceptKeys(currentValue)})`, ["Space", "Right", "Space + Right"]);
+            if (action === "suggestion.ghostAcceptKeys" || action === "suggestion.ghostAcceptAndSendKeys") {
+                const currentValue = await getScopedEditorValue(action, action === "suggestion.ghostAcceptKeys"
+                    ? composition.config.suggestion.ghostAcceptKeys
+                    : composition.config.suggestion.ghostAcceptAndSendKeys);
+                const formatter = action === "suggestion.ghostAcceptKeys" ? formatGhostAcceptKeys : formatGhostAcceptAndSendKeys;
+                const selected = await ctx.ui.select(`${action === "suggestion.ghostAcceptKeys" ? "Ghost accept keys" : "Ghost accept-and-send keys"} (${formatScopeName(activeScope)}, current: ${formatter(currentValue)})`, ["Space", "Right", "Enter", "Space + Right", "Right + Enter", "Space + Right + Enter"]);
                 if (!selected)
                     continue;
                 const next = selected === "Space"
                     ? ["space"]
                     : selected === "Right"
                         ? ["right"]
-                        : ["space", "right"];
+                        : selected === "Enter"
+                            ? ["enter"]
+                            : selected === "Space + Right"
+                                ? ["space", "right"]
+                                : selected === "Right + Enter"
+                                    ? ["right", "enter"]
+                                    : ["space", "right", "enter"];
                 await persistence.writeValue(activeScope, action, next);
                 ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
                 continue;

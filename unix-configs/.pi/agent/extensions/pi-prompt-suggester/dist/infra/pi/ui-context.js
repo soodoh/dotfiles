@@ -27,6 +27,9 @@ export function createUiContext(params) {
         get ghostAcceptKeys() {
             return config.suggestion.ghostAcceptKeys;
         },
+        get ghostAcceptAndSendKeys() {
+            return config.suggestion.ghostAcceptAndSendKeys;
+        },
         get prefillOnlyWhenEditorEmpty() {
             return config.suggestion.prefillOnlyWhenEditorEmpty;
         },

@@ -1,6 +1,6 @@
 import { CustomEditor } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
-import { matchesGhostAcceptKey } from "./ghost-accept-keys.js";
+import { matchesGhostAcceptKey, normalizeGhostAcceptAndSendKeys } from "./ghost-accept-keys.js";
 const GHOST_COLOR = "\x1b[38;5;244m";
 const RESET = "\x1b[0m";
 // Cursor rendering varies across themes/terminal modes (e.g. 7m, 5;7m, etc.).
@@ -10,6 +10,7 @@ export class GhostSuggestionEditor extends CustomEditor {
     getSuggestion;
     getSuggestionRevision;
     ghostAcceptKeys;
+    ghostAcceptAndSendKeys;
     getHistoryState;
     setHistoryState;
     suppressGhost = false;
@@ -17,11 +18,12 @@ export class GhostSuggestionEditor extends CustomEditor {
     lastSuggestion;
     lastSuggestionRevision = -1;
     needsInitialHistoryRestore = true;
-    constructor(tui, theme, keybindings, getSuggestion, getSuggestionRevision, ghostAcceptKeys, getHistoryState, setHistoryState) {
+    constructor(tui, theme, keybindings, getSuggestion, getSuggestionRevision, ghostAcceptKeys, ghostAcceptAndSendKeys, getHistoryState, setHistoryState) {
         super(tui, theme, keybindings);
         this.getSuggestion = getSuggestion;
         this.getSuggestionRevision = getSuggestionRevision;
         this.ghostAcceptKeys = ghostAcceptKeys;
+        this.ghostAcceptAndSendKeys = ghostAcceptAndSendKeys;
         this.getHistoryState = getHistoryState;
         this.setHistoryState = setHistoryState;
         this.restoreSharedHistoryState();
@@ -30,8 +32,16 @@ export class GhostSuggestionEditor extends CustomEditor {
     handleInput(data) {
         const ghost = this.getGhostState();
         // Accept ghost suggestion with a configured shortcut when the editor is still empty.
+        // Accept-and-send shortcuts materialize the suggestion, then pass the key through
+        // to the base editor so normal submit behavior runs.
         // Any other key should hide ghost mode and reveal normal editor UI behavior.
         if (ghost && ghost.text.length === 0) {
+            if (matchesGhostAcceptKey(data, normalizeGhostAcceptAndSendKeys(this.ghostAcceptAndSendKeys))) {
+                this.setText(ghost.suggestion);
+                super.handleInput(data);
+                this.syncSharedHistoryState();
+                return;
+            }
             if (matchesGhostAcceptKey(data, this.ghostAcceptKeys)) {
                 this.setText(ghost.suggestion);
                 return;

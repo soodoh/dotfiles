@@ -1,15 +1,27 @@
 import { Key, matchesKey } from "@mariozechner/pi-tui";
 import type { GhostAcceptKey } from "../../config/types.js";
 
-export const DEFAULT_GHOST_ACCEPT_KEYS: readonly GhostAcceptKey[] = ["space"];
+export const DEFAULT_GHOST_ACCEPT_KEYS: readonly GhostAcceptKey[] = ["right"];
+export const DEFAULT_GHOST_ACCEPT_AND_SEND_KEYS: readonly GhostAcceptKey[] = ["enter"];
 
 function isGhostAcceptKey(value: unknown): value is GhostAcceptKey {
 	return value === "space" || value === "right" || value === "enter";
 }
 
+function normalizeGhostKeys(
+	ghostKeys: readonly GhostAcceptKey[] | undefined,
+	defaults: readonly GhostAcceptKey[],
+): GhostAcceptKey[] {
+	const normalized = (ghostKeys ?? defaults).filter((entry): entry is GhostAcceptKey => isGhostAcceptKey(entry));
+	return normalized.length > 0 ? [...new Set(normalized)] : [...defaults];
+}
+
 export function normalizeGhostAcceptKeys(ghostAcceptKeys: readonly GhostAcceptKey[] | undefined): GhostAcceptKey[] {
-	const normalized = (ghostAcceptKeys ?? DEFAULT_GHOST_ACCEPT_KEYS).filter((entry): entry is GhostAcceptKey => isGhostAcceptKey(entry));
-	return normalized.length > 0 ? [...new Set(normalized)] : [...DEFAULT_GHOST_ACCEPT_KEYS];
+	return normalizeGhostKeys(ghostAcceptKeys, DEFAULT_GHOST_ACCEPT_KEYS);
+}
+
+export function normalizeGhostAcceptAndSendKeys(ghostAcceptAndSendKeys: readonly GhostAcceptKey[] | undefined): GhostAcceptKey[] {
+	return normalizeGhostKeys(ghostAcceptAndSendKeys, DEFAULT_GHOST_ACCEPT_AND_SEND_KEYS);
 }
 
 export function matchesGhostAcceptKey(data: string, ghostAcceptKeys: readonly GhostAcceptKey[] | undefined): boolean {
@@ -20,12 +32,20 @@ export function matchesGhostAcceptKey(data: string, ghostAcceptKeys: readonly Gh
 	});
 }
 
-export function formatGhostAcceptKeys(ghostAcceptKeys: readonly GhostAcceptKey[] | undefined): string {
-	return normalizeGhostAcceptKeys(ghostAcceptKeys)
+function formatGhostKeys(ghostKeys: readonly GhostAcceptKey[]): string {
+	return ghostKeys
 		.map((key) => {
 			if (key === "space") return "Space";
 			if (key === "right") return "Right";
 			return "Enter";
 		})
 		.join("/");
+}
+
+export function formatGhostAcceptKeys(ghostAcceptKeys: readonly GhostAcceptKey[] | undefined): string {
+	return formatGhostKeys(normalizeGhostAcceptKeys(ghostAcceptKeys));
+}
+
+export function formatGhostAcceptAndSendKeys(ghostAcceptAndSendKeys: readonly GhostAcceptKey[] | undefined): string {
+	return formatGhostKeys(normalizeGhostAcceptAndSendKeys(ghostAcceptAndSendKeys));
 }

@@ -21,6 +21,7 @@ export interface SuggestionConfig {
 	fastPathContinueOnError: boolean;
 	displayMode: SuggestionDisplayMode;
 	ghostAcceptKeys: GhostAcceptKey[];
+	ghostAcceptAndSendKeys: GhostAcceptKey[];
 	maxAssistantTurnChars: number;
 	maxRecentUserPrompts: number;
 	maxRecentUserPromptChars: number;

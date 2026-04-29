@@ -78,7 +78,8 @@ test("PiSuggestionSink keeps ghost suggestions even before idle flips", async ()
 	await sink.showSuggestion("hello world", { generationId: 1 });
 
 	assert.equal(runtime.suggestion, "hello world");
-	assert.match(runtime.panelSuggestionStatus, /Space accepts/);
+	assert.match(runtime.panelSuggestionStatus, /Right accepts/);
+	assert.match(runtime.panelSuggestionStatus, /Enter sends/);
 });
 
 test("PiSuggestionSink retains suggestions even when the editor text is temporarily incompatible", async () => {

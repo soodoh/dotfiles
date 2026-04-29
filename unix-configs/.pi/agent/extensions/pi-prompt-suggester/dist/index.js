@@ -28,7 +28,7 @@ export default function suggester(pi) {
             case "install":
                 break;
         }
-        ctx.ui.setEditorComponent((tui, theme, kb) => new GhostSuggestionEditor(tui, theme, kb, () => composition.runtimeRef.getSuggestion(), () => composition.runtimeRef.getSuggestionRevision(), composition.config.suggestion.ghostAcceptKeys, () => composition.runtimeRef.getEditorHistoryState(), (state) => composition.runtimeRef.setEditorHistoryState(state)));
+        ctx.ui.setEditorComponent((tui, theme, kb) => new GhostSuggestionEditor(tui, theme, kb, () => composition.runtimeRef.getSuggestion(), () => composition.runtimeRef.getSuggestionRevision(), composition.config.suggestion.ghostAcceptKeys, composition.config.suggestion.ghostAcceptAndSendKeys, () => composition.runtimeRef.getEditorHistoryState(), (state) => composition.runtimeRef.setEditorHistoryState(state)));
         ghostEditorInstallState = { context: ctx, sessionFile };
     }
     async function getComposition() {

@@ -132,6 +132,7 @@ export class PiSuggestionSink implements SuggestionSink {
 			restored: options?.restore,
 			canGhostInEditor,
 			ghostAcceptKeys: this.runtime.ghostAcceptKeys,
+			ghostAcceptAndSendKeys: this.runtime.ghostAcceptAndSendKeys,
 		}));
 		refreshSuggesterUi(this.runtime);
 	}

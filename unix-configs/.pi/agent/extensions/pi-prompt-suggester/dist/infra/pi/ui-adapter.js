@@ -120,6 +120,7 @@ export class PiSuggestionSink {
             restored: options?.restore,
             canGhostInEditor,
             ghostAcceptKeys: this.runtime.ghostAcceptKeys,
+            ghostAcceptAndSendKeys: this.runtime.ghostAcceptAndSendKeys,
         }));
         refreshSuggesterUi(this.runtime);
     }
