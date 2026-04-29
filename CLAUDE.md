@@ -22,7 +22,7 @@ Commits are linted via commitlint with conventional commits format:
 type(scope): message
 ```
 
-**Valid scopes**: `root`, `nvim`, `mac`, `shell`, `tmux`
+**Valid scopes**: `root`, `agents`, `nvim`, `mac`, `shell`, `tmux`
 
 Pre-commit hook runs: `bunx commitlint --edit`
 
