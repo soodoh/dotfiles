@@ -15,6 +15,7 @@
   "packages": [
     "npm:pi-web-access",
     "npm:@juicesharp/rpiv-todo",
-    "npm:pi-superpowers"
+    "npm:pi-superpowers",
+    "npm:pi-subagents"
   ]
 }
