@@ -17,7 +17,10 @@
     "npm:@juicesharp/rpiv-todo",
     "npm:pi-superpowers",
     "npm:pi-subagents",
-    "npm:pi-powerline-footer"
+    "npm:pi-powerline-footer",
+    "npm:pi-ask-user",
+    "npm:pi-markdown-preview",
+    "npm:@guwidoe/pi-prompt-suggester"
   ],
   "powerline": "compact"
 }
