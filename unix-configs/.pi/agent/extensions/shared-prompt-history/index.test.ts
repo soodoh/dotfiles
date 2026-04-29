@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
 mock.module("@mariozechner/pi-coding-agent", async () =>
-  import("/Users/pauldiloreto/.local/share/fnm/node-versions/v24.15.0/installation/lib/node_modules/@mariozechner/pi-coding-agent/dist/index.js"),
+  import("/Users/paul.diloreto/.local/share/fnm/node-versions/v24.15.0/installation/lib/node_modules/@mariozechner/pi-coding-agent/dist/index.js"),
 );
 
 const { default: sharedPromptHistory } = await import("./index");
