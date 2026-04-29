@@ -16,6 +16,8 @@
     "npm:pi-web-access",
     "npm:@juicesharp/rpiv-todo",
     "npm:pi-superpowers",
-    "npm:pi-subagents"
-  ]
+    "npm:pi-subagents",
+    "npm:pi-powerline-footer"
+  ],
+  "powerline": "compact"
 }
