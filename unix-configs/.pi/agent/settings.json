@@ -19,7 +19,8 @@
     "npm:pi-subagents",
     "npm:pi-powerline-footer",
     "npm:pi-ask-user",
-    "npm:pi-markdown-preview"
+    "npm:pi-markdown-preview",
+    "npm:@dreki-gg/pi-context7"
   ],
   "powerline": "compact"
 }
