@@ -10,6 +10,8 @@
     "inlineSources": false,
     "isolatedModules": true,
     "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
+    "types": ["bun-types", "node"],
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "preserveWatchOutput": true,
