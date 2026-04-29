@@ -19,8 +19,7 @@
     "npm:pi-subagents",
     "npm:pi-powerline-footer",
     "npm:pi-ask-user",
-    "npm:pi-markdown-preview",
-    "npm:@guwidoe/pi-prompt-suggester"
+    "npm:pi-markdown-preview"
   ],
   "powerline": "compact"
 }
