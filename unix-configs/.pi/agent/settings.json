@@ -3,5 +3,18 @@
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.5",
   "defaultThinkingLevel": "medium",
-  "theme": "dark"
+  "theme": "dark",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 20000
+  },
+  "collapseChangelog": true,
+  "quietStartup": false,
+  "enableSkillCommands": true,
+  "packages": [
+    "npm:pi-web-access",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:taskplane"
+  ]
 }
