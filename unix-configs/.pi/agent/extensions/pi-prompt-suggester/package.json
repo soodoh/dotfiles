@@ -1,0 +1,54 @@
+{
+  "name": "@guwidoe/pi-prompt-suggester",
+  "version": "0.3.8",
+  "type": "module",
+  "description": "Intent-aware next-prompt suggestion extension for pi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guwidoe/pi-prompt-suggester.git"
+  },
+  "homepage": "https://github.com/guwidoe/pi-prompt-suggester#readme",
+  "bugs": {
+    "url": "https://github.com/guwidoe/pi-prompt-suggester/issues"
+  },
+  "main": "dist/index.js",
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "pi-extension",
+    "coding-agent",
+    "terminal-agent",
+    "ai-agent",
+    "developer-tools",
+    "prompt-suggester",
+    "prompt-suggestion",
+    "prompt-engineering",
+    "workflow-automation",
+    "productivity",
+    "typescript"
+  ],
+  "pi": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-agent-core": "*",
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-agent-core": "*",
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@types/node": "^24.3.0",
+    "typescript": "^5.7.3"
+  }
+}

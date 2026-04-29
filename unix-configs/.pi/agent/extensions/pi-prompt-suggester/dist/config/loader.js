@@ -1,0 +1,91 @@
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { projectStateDir } from "../infra/pi/state-root.js";
+import { readJsonIfExists, writeJson } from "../infra/storage/json-file.js";
+import { normalizeConfig, normalizeOverrideConfig, validateConfig } from "./schema.js";
+function isObject(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function deepMerge(base, override) {
+    if (!isObject(base) || !isObject(override)) {
+        return override ?? base;
+    }
+    const result = { ...base };
+    for (const [key, value] of Object.entries(override)) {
+        const existing = result[key];
+        if (isObject(existing) && isObject(value)) {
+            result[key] = deepMerge(existing, value);
+        }
+        else if (value !== undefined) {
+            result[key] = value;
+        }
+    }
+    return result;
+}
+async function readOverrideConfig(filePath, defaultConfig) {
+    let parsed;
+    try {
+        parsed = await readJsonIfExists(filePath);
+    }
+    catch (error) {
+        throw new Error(`Failed to load config ${filePath}: ${error.message}`);
+    }
+    if (parsed === undefined)
+        return undefined;
+    const normalized = normalizeOverrideConfig(parsed, defaultConfig);
+    if (normalized.changed) {
+        await writeJson(filePath, normalized.config);
+    }
+    return normalized.config;
+}
+async function readRequiredConfig(filePath) {
+    let parsed;
+    try {
+        const raw = await fs.readFile(filePath, "utf8");
+        parsed = JSON.parse(raw);
+    }
+    catch (error) {
+        throw new Error(`Failed to load required default config ${filePath}: ${error.message}`);
+    }
+    if (!validateConfig(parsed)) {
+        throw new Error(`Default config at ${filePath} is invalid.`);
+    }
+    return parsed;
+}
+const PACKAGE_DEFAULT_CONFIG_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../config/prompt-suggester.config.json");
+async function pathExists(filePath) {
+    try {
+        await fs.access(filePath);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+export class FileConfigLoader {
+    cwd;
+    homeDir;
+    constructor(cwd = process.cwd(), homeDir = os.homedir()) {
+        this.cwd = cwd;
+        this.homeDir = homeDir;
+    }
+    async load() {
+        const cwdDefaultPath = path.join(this.cwd, "config", "prompt-suggester.config.json");
+        const defaultPath = (await pathExists(cwdDefaultPath)) ? cwdDefaultPath : PACKAGE_DEFAULT_CONFIG_PATH;
+        const userPath = path.join(this.homeDir, ".pi", "suggester", "config.json");
+        const projectPath = path.join(projectStateDir(this.cwd, { home: this.homeDir }), "config.json");
+        const defaultConfig = await readRequiredConfig(defaultPath);
+        const [userConfig, projectConfig] = await Promise.all([
+            readOverrideConfig(userPath, defaultConfig),
+            readOverrideConfig(projectPath, defaultConfig),
+        ]);
+        const merged = deepMerge(deepMerge(defaultConfig, userConfig), projectConfig);
+        const normalized = normalizeConfig(merged, defaultConfig);
+        if (!validateConfig(normalized.config)) {
+            throw new Error(`Failed to normalize suggester config. Base defaults from ${defaultPath}; overrides from ${userPath} and ${projectPath}.`);
+        }
+        return normalized.config;
+    }
+}
