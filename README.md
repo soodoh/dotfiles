@@ -162,7 +162,7 @@ npm i -g @openai/codex
 
 Pi:
 ```bash
-npm install -g @mariozechner/pi-coding-agent
+bun add -g @mariozechner/pi-coding-agent
 ```
 
 1. Setup shell config
