@@ -2,28 +2,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import type { SuggestionSink } from "../../app/orchestrators/turn-end.js";
 import type { SuggestionUsageStats } from "../../domain/state.js";
-import { formatTokens } from "./display.js";
-import {
-	formatGhostAcceptAndSendKeys,
-	formatGhostAcceptKeys,
-} from "./ghost-accept-keys.js";
 import type { UiContextLike } from "./ui-context.js";
-
-function formatUsage(
-	usage: { suggester: SuggestionUsageStats; seeder: SuggestionUsageStats },
-	suggesterModelDisplay: string | undefined,
-): string {
-	const combinedInput = usage.suggester.inputTokens + usage.seeder.inputTokens;
-	const combinedOutput =
-		usage.suggester.outputTokens + usage.seeder.outputTokens;
-	const combinedCacheRead =
-		usage.suggester.cacheReadTokens + usage.seeder.cacheReadTokens;
-	const combinedCost = usage.suggester.costTotal + usage.seeder.costTotal;
-	const suffix = suggesterModelDisplay
-		? `, suggester: ${suggesterModelDisplay}`
-		: "";
-	return `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${usage.suggester.calls} sugg, ${usage.seeder.calls} seed)${suffix}`;
-}
 
 function formatPanelLog(
 	theme: ExtensionContext["ui"]["theme"],
@@ -46,19 +25,6 @@ function getActiveUiContext(
 	}
 }
 
-function getGhostSuggestionStatus(params: {
-	restored?: boolean;
-	canGhostInEditor: boolean;
-	ghostAcceptKeys: UiContextLike["ghostAcceptKeys"];
-	ghostAcceptAndSendKeys: UiContextLike["ghostAcceptAndSendKeys"];
-}): string {
-	const statusLabel = params.restored
-		? "restored prompt suggestion"
-		: "prompt suggestion";
-	if (!params.canGhostInEditor) return `${statusLabel} · ghost hidden`;
-	return `${statusLabel} · ${formatGhostAcceptKeys(params.ghostAcceptKeys)} accepts · ${formatGhostAcceptAndSendKeys(params.ghostAcceptAndSendKeys)} sends`;
-}
-
 export function refreshSuggesterUi(runtime: UiContextLike): void {
 	const ctx = getActiveUiContext(runtime);
 	if (!ctx) return;
@@ -67,14 +33,8 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 	ctx.ui.setStatus("suggester-events", undefined);
 	ctx.ui.setStatus("suggester-usage", undefined);
 
-	const suggestionStatus = runtime.showPanelStatus
-		? runtime.getPanelSuggestionStatus()
-		: undefined;
-	const usageStatus = runtime.showUsageInPanel
-		? runtime.getPanelUsageStatus()
-		: undefined;
 	const logStatus = runtime.getPanelLogStatus();
-	if (!suggestionStatus && !logStatus && !usageStatus) {
+	if (!logStatus) {
 		ctx.ui.setWidget("suggester-panel", undefined);
 		return;
 	}
@@ -84,32 +44,10 @@ export function refreshSuggesterUi(runtime: UiContextLike): void {
 		(_tui, theme) => ({
 			invalidate() {},
 			render(width: number): string[] {
-				const lines: string[] = [];
-				const parts: string[] = [];
-				if (suggestionStatus) parts.push(theme.fg("accent", suggestionStatus));
-				if (logStatus) parts.push(formatPanelLog(theme, logStatus));
-				const line = parts.join(" · ");
-				if (line) {
-					const truncated = truncateToWidth(
-						line,
-						Math.max(10, width),
-						"",
-						true,
-					);
-					const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
-					lines.push(truncated + pad);
-				}
-				if (usageStatus) {
-					const truncated = truncateToWidth(
-						theme.fg("dim", usageStatus),
-						Math.max(10, width),
-						"",
-						true,
-					);
-					const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
-					lines.push(truncated + pad);
-				}
-				return lines.length > 0 ? lines : [" ".repeat(Math.max(1, width))];
+				const line = formatPanelLog(theme, logStatus);
+				const truncated = truncateToWidth(line, Math.max(10, width), "", true);
+				const pad = " ".repeat(Math.max(0, width - visibleWidth(truncated)));
+				return [truncated + pad];
 			},
 		}),
 		{ placement: "belowEditor" },
@@ -128,29 +66,10 @@ export class PiSuggestionSink implements SuggestionSink {
 			options.generationId !== this.runtime.getEpoch()
 		)
 			return;
-		const ctx = getActiveUiContext(this.runtime);
-		if (!ctx) return;
-
-		const editorText = ctx.ui.getEditorText();
-		const trimmedEditorText = editorText.trim();
-		const isMultilineSuggestion = text.includes("\n");
-		const prefixCompatible =
-			!editorText.includes("\n") && text.startsWith(editorText);
-		const canGhostInEditor = isMultilineSuggestion
-			? trimmedEditorText.length === 0
-			: this.runtime.prefillOnlyWhenEditorEmpty
-				? trimmedEditorText.length === 0
-				: trimmedEditorText.length === 0 || prefixCompatible;
+		if (!getActiveUiContext(this.runtime)) return;
 
 		this.runtime.setSuggestion(text);
-		this.runtime.setPanelSuggestionStatus(
-			getGhostSuggestionStatus({
-				restored: options?.restore,
-				canGhostInEditor,
-				ghostAcceptKeys: this.runtime.ghostAcceptKeys,
-				ghostAcceptAndSendKeys: this.runtime.ghostAcceptAndSendKeys,
-			}),
-		);
+		this.runtime.setPanelSuggestionStatus(undefined);
 		refreshSuggesterUi(this.runtime);
 	}
 
@@ -167,20 +86,11 @@ export class PiSuggestionSink implements SuggestionSink {
 		refreshSuggesterUi(this.runtime);
 	}
 
-	public async setUsage(usage: {
+	public async setUsage(_usage: {
 		suggester: SuggestionUsageStats;
 		seeder: SuggestionUsageStats;
 	}): Promise<void> {
-		const ctx = getActiveUiContext(this.runtime);
-		if (!ctx) return;
-		if (usage.suggester.calls <= 0 && usage.seeder.calls <= 0) {
-			this.runtime.setPanelUsageStatus(undefined);
-			refreshSuggesterUi(this.runtime);
-			return;
-		}
-		this.runtime.setPanelUsageStatus(
-			formatUsage(usage, this.runtime.getSuggesterModelDisplay()),
-		);
+		this.runtime.setPanelUsageStatus(undefined);
 		refreshSuggesterUi(this.runtime);
 	}
 }
