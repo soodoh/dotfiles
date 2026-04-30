@@ -26,13 +26,9 @@ unix-configs/.config/fish/conf.d/
 docker-compose.override.yml
 
 # Agent files
-.serena/
 **/.pi/agent/**
-!**/.pi/
-!**/.pi/agent/
 !**/.pi/agent/settings.json
 !**/.pi/agent/AGENTS.md
-!**/.pi/agent/extensions/
 !**/.pi/agent/extensions/**
 
 # Local git worktrees
