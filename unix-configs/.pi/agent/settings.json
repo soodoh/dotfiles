@@ -15,15 +15,9 @@
   "packages": [
     "npm:pi-web-access",
     "npm:@juicesharp/rpiv-todo",
-    "npm:pi-superpowers",
     "npm:pi-subagents",
     "npm:pi-powerline-footer",
-    "npm:pi-ask-user",
-    "npm:pi-markdown-preview",
-    "npm:@dreki-gg/pi-context7"
+    "npm:pi-ask-user"
   ],
-  "powerline": "compact",
-  "serena": {
-    "blockedTools": ["read", "write", "edit", "ls", "find", "grep"]
-  }
+  "powerline": "compact"
 }
