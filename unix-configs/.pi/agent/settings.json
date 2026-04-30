@@ -22,5 +22,8 @@
     "npm:pi-markdown-preview",
     "npm:@dreki-gg/pi-context7"
   ],
-  "powerline": "compact"
+  "powerline": "compact",
+  "serena": {
+    "blockedTools": ["read", "write", "edit", "ls", "find", "grep"]
+  }
 }
