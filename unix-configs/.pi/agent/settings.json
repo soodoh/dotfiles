@@ -19,7 +19,20 @@
     "npm:pi-powerline-footer",
     "npm:pi-ask-user",
     "npm:pi-lens",
-    "npm:pi-superpowers"
+    {
+      "source": "git:github.com/tmustier/pi-extensions",
+      "extensions": [
+        "pi-usage-extension",
+        "pi-ralph-wiggum",
+        "arcade/spice-invaders.ts",
+        "arcade/picman.ts",
+        "arcade/ping.ts",
+        "arcade/tetris.ts",
+        "arcade/mario-not/mario-not.ts"
+      ]
+    },
+    "npm:taskplane"
   ],
-  "powerline": "compact"
+  "powerline": "compact",
+  "steeringMode": "all"
 }
