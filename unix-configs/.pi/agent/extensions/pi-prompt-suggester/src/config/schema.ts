@@ -31,15 +31,32 @@ function isPositiveNumber(value: unknown): boolean {
 }
 
 function isPercentageInteger(value: unknown): boolean {
-	return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100;
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value >= 0 &&
+		value <= 100
+	);
 }
 
 function isPositivePercentageInteger(value: unknown): boolean {
-	return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= 100;
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value > 0 &&
+		value <= 100
+	);
 }
 
 function isThinkingLevel(value: unknown): boolean {
-	return ["minimal", "low", "medium", "high", "xhigh", "session-default"].includes(String(value));
+	return [
+		"minimal",
+		"low",
+		"medium",
+		"high",
+		"xhigh",
+		"session-default",
+	].includes(String(value));
 }
 
 function isModelSetting(value: unknown): boolean {
@@ -50,20 +67,25 @@ function isSuggestionStrategy(value: unknown): boolean {
 	return ["compact", "transcript-steering"].includes(String(value));
 }
 
-function isSuggestionDisplayMode(value: unknown): boolean {
-	return ["ghost", "widget"].includes(String(value));
-}
-
 function isGhostAcceptKey(value: unknown): value is GhostAcceptKey {
 	return ["space", "right", "enter"].includes(String(value));
 }
 
 function isGhostAcceptKeys(value: unknown): value is GhostAcceptKey[] {
-	return Array.isArray(value) && value.length > 0 && value.every((entry) => isGhostAcceptKey(entry)) && new Set(value).size === value.length;
+	return (
+		Array.isArray(value) &&
+		value.length > 0 &&
+		value.every((entry) => isGhostAcceptKey(entry)) &&
+		new Set(value).size === value.length
+	);
 }
 
 function isSchemaVersion(value: unknown): boolean {
-	return typeof value === "number" && Number.isInteger(value) && value === CURRENT_CONFIG_SCHEMA_VERSION;
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value === CURRENT_CONFIG_SCHEMA_VERSION
+	);
 }
 
 function isLoggingLevel(value: unknown): boolean {
@@ -102,7 +124,6 @@ const suggestionValidators: ValidatorMap<SuggestionConfig> = {
 	noSuggestionToken: (value) => typeof value === "string",
 	customInstruction: (value) => typeof value === "string",
 	fastPathContinueOnError: isBoolean,
-	displayMode: isSuggestionDisplayMode,
 	ghostAcceptKeys: isGhostAcceptKeys,
 	ghostAcceptAndSendKeys: isGhostAcceptKeys,
 	maxAssistantTurnChars: isPositiveInteger,
@@ -127,7 +148,6 @@ const suggestionShape: SuggestionConfig = {
 	noSuggestionToken: "",
 	customInstruction: "",
 	fastPathContinueOnError: true,
-	displayMode: "ghost",
 	ghostAcceptKeys: ["right"],
 	ghostAcceptAndSendKeys: ["enter"],
 	maxAssistantTurnChars: 1,
@@ -151,10 +171,15 @@ const suggestionShape: SuggestionConfig = {
 
 const steeringValidators: ValidatorMap<SteeringConfig> = {
 	historyWindow: isPositiveInteger,
-	acceptedThreshold: (value) => typeof value === "number" && isPositiveNumber(value) && value <= 1,
+	acceptedThreshold: (value) =>
+		typeof value === "number" && isPositiveNumber(value) && value <= 1,
 	maxChangedExamples: isPositiveInteger,
 };
-const steeringShape: SteeringConfig = { historyWindow: 1, acceptedThreshold: 0.5, maxChangedExamples: 1 };
+const steeringShape: SteeringConfig = {
+	historyWindow: 1,
+	acceptedThreshold: 0.5,
+	maxChangedExamples: 1,
+};
 
 const loggingValidators: ValidatorMap<LoggingConfig> = {
 	level: isLoggingLevel,
@@ -184,7 +209,9 @@ function normalizeSection<T extends object>(
 	let changed = input !== undefined && !isObject(input);
 
 	if (source) {
-		const supportedKeys = new Set(Object.keys(defaults as Record<string, unknown>));
+		const supportedKeys = new Set(
+			Object.keys(defaults as Record<string, unknown>),
+		);
 		for (const key of Object.keys(source)) {
 			if (!supportedKeys.has(key)) {
 				changed = true;
@@ -224,7 +251,10 @@ function normalizeSection<T extends object>(
 	};
 }
 
-function hasUnknownTopLevelKeys(config: Record<string, unknown>, defaults: PromptSuggesterConfig): boolean {
+function hasUnknownTopLevelKeys(
+	config: Record<string, unknown>,
+	defaults: PromptSuggesterConfig,
+): boolean {
 	const supportedKeys = new Set(Object.keys(defaults));
 	for (const key of Object.keys(config)) {
 		if (!supportedKeys.has(key)) return true;
@@ -238,11 +268,15 @@ function validateSection<T extends object>(
 	validators: ValidatorMap<T>,
 ): input is T {
 	if (!isObject(input)) return false;
-	const supportedKeys = new Set(Object.keys(defaults as Record<string, unknown>));
+	const supportedKeys = new Set(
+		Object.keys(defaults as Record<string, unknown>),
+	);
 	for (const key of Object.keys(input)) {
 		if (!supportedKeys.has(key)) return false;
 	}
-	for (const key of Object.keys(defaults as Record<string, unknown>) as Array<keyof T & string>) {
+	for (const key of Object.keys(defaults as Record<string, unknown>) as Array<
+		keyof T & string
+	>) {
 		if (!validators[key](input[key])) return false;
 	}
 	return true;
@@ -255,15 +289,48 @@ export function normalizeConfig(
 	const source = isObject(config) ? config : undefined;
 	let changed = config !== undefined && !isObject(config);
 	if (source) {
-		changed = changed || source.schemaVersion !== defaults.schemaVersion || hasUnknownTopLevelKeys(source, defaults);
+		changed =
+			changed ||
+			source.schemaVersion !== defaults.schemaVersion ||
+			hasUnknownTopLevelKeys(source, defaults);
 	}
 
-	const seed = normalizeSection(source?.seed, defaults.seed, seedValidators, true);
-	const reseed = normalizeSection(source?.reseed, defaults.reseed, reseedValidators, true);
-	const suggestion = normalizeSection(source?.suggestion, defaults.suggestion, suggestionValidators, true);
-	const steering = normalizeSection(source?.steering, defaults.steering, steeringValidators, true);
-	const logging = normalizeSection(source?.logging, defaults.logging, loggingValidators, true);
-	const inference = normalizeSection(source?.inference, defaults.inference, inferenceValidators, true);
+	const seed = normalizeSection(
+		source?.seed,
+		defaults.seed,
+		seedValidators,
+		true,
+	);
+	const reseed = normalizeSection(
+		source?.reseed,
+		defaults.reseed,
+		reseedValidators,
+		true,
+	);
+	const suggestion = normalizeSection(
+		source?.suggestion,
+		defaults.suggestion,
+		suggestionValidators,
+		true,
+	);
+	const steering = normalizeSection(
+		source?.steering,
+		defaults.steering,
+		steeringValidators,
+		true,
+	);
+	const logging = normalizeSection(
+		source?.logging,
+		defaults.logging,
+		loggingValidators,
+		true,
+	);
+	const inference = normalizeSection(
+		source?.inference,
+		defaults.inference,
+		inferenceValidators,
+		true,
+	);
 
 	changed =
 		changed ||
@@ -295,15 +362,48 @@ export function normalizeOverrideConfig(
 	const source = isObject(config) ? config : undefined;
 	let changed = !isObject(config);
 	if (source) {
-		changed = changed || source.schemaVersion !== defaults.schemaVersion || hasUnknownTopLevelKeys(source, defaults);
+		changed =
+			changed ||
+			source.schemaVersion !== defaults.schemaVersion ||
+			hasUnknownTopLevelKeys(source, defaults);
 	}
 
-	const seed = normalizeSection(source?.seed, defaults.seed, seedValidators, false);
-	const reseed = normalizeSection(source?.reseed, defaults.reseed, reseedValidators, false);
-	const suggestion = normalizeSection(source?.suggestion, defaults.suggestion, suggestionValidators, false);
-	const steering = normalizeSection(source?.steering, defaults.steering, steeringValidators, false);
-	const logging = normalizeSection(source?.logging, defaults.logging, loggingValidators, false);
-	const inference = normalizeSection(source?.inference, defaults.inference, inferenceValidators, false);
+	const seed = normalizeSection(
+		source?.seed,
+		defaults.seed,
+		seedValidators,
+		false,
+	);
+	const reseed = normalizeSection(
+		source?.reseed,
+		defaults.reseed,
+		reseedValidators,
+		false,
+	);
+	const suggestion = normalizeSection(
+		source?.suggestion,
+		defaults.suggestion,
+		suggestionValidators,
+		false,
+	);
+	const steering = normalizeSection(
+		source?.steering,
+		defaults.steering,
+		steeringValidators,
+		false,
+	);
+	const logging = normalizeSection(
+		source?.logging,
+		defaults.logging,
+		loggingValidators,
+		false,
+	);
+	const inference = normalizeSection(
+		source?.inference,
+		defaults.inference,
+		inferenceValidators,
+		false,
+	);
 
 	changed =
 		changed ||
@@ -330,18 +430,23 @@ export function normalizeOverrideConfig(
 	};
 }
 
-export function validateConfig(config: unknown): config is PromptSuggesterConfig {
+export function validateConfig(
+	config: unknown,
+): config is PromptSuggesterConfig {
 	if (!isObject(config)) return false;
 	if (!isSchemaVersion(config.schemaVersion)) return false;
-	if (hasUnknownTopLevelKeys(config, {
-		schemaVersion: CURRENT_CONFIG_SCHEMA_VERSION,
-		seed: seedShape,
-		reseed: reseedShape,
-		suggestion: suggestionShape,
-		steering: steeringShape,
-		logging: loggingShape,
-		inference: inferenceShape,
-	})) return false;
+	if (
+		hasUnknownTopLevelKeys(config, {
+			schemaVersion: CURRENT_CONFIG_SCHEMA_VERSION,
+			seed: seedShape,
+			reseed: reseedShape,
+			suggestion: suggestionShape,
+			steering: steeringShape,
+			logging: loggingShape,
+			inference: inferenceShape,
+		})
+	)
+		return false;
 
 	return (
 		validateSection(config.seed, seedShape, seedValidators) &&

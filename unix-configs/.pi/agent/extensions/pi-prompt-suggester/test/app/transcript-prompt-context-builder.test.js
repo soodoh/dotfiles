@@ -10,7 +10,6 @@ const baseConfig = {
 		noSuggestionToken: "[no suggestion]",
 		customInstruction: "Prefer terse confirmations.",
 		fastPathContinueOnError: true,
-		displayMode: "ghost",
 		maxAssistantTurnChars: 100000,
 		maxRecentUserPrompts: 20,
 		maxRecentUserPromptChars: 500,

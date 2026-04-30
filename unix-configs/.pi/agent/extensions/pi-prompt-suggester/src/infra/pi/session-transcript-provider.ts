@@ -1,7 +1,11 @@
+import type { Message } from "@mariozechner/pi-ai";
+import {
+	buildSessionContext,
+	type SessionContext,
+	type SessionEntry,
+} from "@mariozechner/pi-coding-agent";
 import type { SessionTranscriptProvider } from "../../app/ports/session-transcript.js";
 import type { RuntimeContextProvider } from "../model/pi-model-client.js";
-import { buildSessionContext, type SessionContext, type SessionEntry } from "@mariozechner/pi-coding-agent";
-import type { Message } from "@mariozechner/pi-ai";
 
 function cloneMessages(messages: Message[]): Message[] {
 	return JSON.parse(JSON.stringify(messages)) as Message[];
@@ -20,20 +24,27 @@ export class PiSessionTranscriptProvider implements SessionTranscriptProvider {
 	public getActiveTranscript() {
 		const ctx = this.runtime.getContext();
 		if (!ctx) return undefined;
-		const sessionManager = ctx.sessionManager as SessionManagerWithContext;
-		const transcript = typeof sessionManager.buildSessionContext === "function"
-			? sessionManager.buildSessionContext()
-			: buildSessionContext(
-				ctx.sessionManager.getBranch(ctx.sessionManager.getLeafId() ?? undefined) as SessionEntry[],
-				ctx.sessionManager.getLeafId() ?? undefined,
-			);
-		const systemPrompt = ctx.getSystemPrompt().trim();
-		if (!systemPrompt) return undefined;
-		return {
-			systemPrompt,
-			messages: cloneMessages(transcript.messages as Message[]),
-			contextUsagePercent: ctx.getContextUsage()?.percent ?? undefined,
-			sessionId: ctx.sessionManager.getSessionId(),
-		};
+		try {
+			const sessionManager = ctx.sessionManager as SessionManagerWithContext;
+			const transcript =
+				typeof sessionManager.buildSessionContext === "function"
+					? sessionManager.buildSessionContext()
+					: buildSessionContext(
+							ctx.sessionManager.getBranch(
+								ctx.sessionManager.getLeafId() ?? undefined,
+							) as SessionEntry[],
+							ctx.sessionManager.getLeafId() ?? undefined,
+						);
+			const systemPrompt = ctx.getSystemPrompt().trim();
+			if (!systemPrompt) return undefined;
+			return {
+				systemPrompt,
+				messages: cloneMessages(transcript.messages as Message[]),
+				contextUsagePercent: ctx.getContextUsage()?.percent ?? undefined,
+				sessionId: ctx.sessionManager.getSessionId(),
+			};
+		} catch {
+			return undefined;
+		}
 	}
 }

@@ -33,3 +33,6 @@ docker-compose.override.yml
 
 # Local git worktrees
 .worktrees/
+
+# Build output
+unix-configs/.pi/agent/extensions/pi-prompt-suggester/dist/

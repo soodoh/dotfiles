@@ -1,7 +1,6 @@
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
 export type InferenceDefault = "session-default";
 export type SuggestionStrategy = "compact" | "transcript-steering";
-export type SuggestionDisplayMode = "ghost" | "widget";
 export type GhostAcceptKey = "space" | "right" | "enter";
 
 export interface SeedConfig {
@@ -19,7 +18,6 @@ export interface SuggestionConfig {
 	noSuggestionToken: string;
 	customInstruction: string;
 	fastPathContinueOnError: boolean;
-	displayMode: SuggestionDisplayMode;
 	ghostAcceptKeys: GhostAcceptKey[];
 	ghostAcceptAndSendKeys: GhostAcceptKey[];
 	maxAssistantTurnChars: number;

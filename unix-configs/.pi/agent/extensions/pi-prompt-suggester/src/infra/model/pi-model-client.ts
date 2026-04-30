@@ -2,14 +2,22 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { completeSimple, type Message, type Model, type ThinkingLevel as AiThinkingLevel, type UserMessage } from "@mariozechner/pi-ai";
+import {
+	type ThinkingLevel as AiThinkingLevel,
+	completeSimple,
+	type Message,
+	type Model,
+	type UserMessage,
+} from "@mariozechner/pi-ai";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { ModelClient, ModelInvocationSettings, SuggestionModelContext } from "../../app/ports/model-client.js";
 import type { Logger } from "../../app/ports/logger.js";
+import type {
+	ModelClient,
+	ModelInvocationSettings,
+	SuggestionModelContext,
+} from "../../app/ports/model-client.js";
 import type { SuggestionPromptContext } from "../../app/services/prompt-context-builder.js";
 import type { TranscriptSuggestionPromptContext } from "../../app/services/transcript-prompt-context-builder.js";
-import type { SuggestionUsage } from "../../domain/suggestion.js";
-import { accumulateUsage, createEmptyUsage } from "../../domain/usage.js";
 import {
 	REQUIRED_SEED_CATEGORIES,
 	type SeedArtifact,
@@ -17,13 +25,28 @@ import {
 	type SeedDraft,
 	type SeedKeyFileCategory,
 } from "../../domain/seed.js";
-import { renderForcedSeederFinalPrompt, renderSeederSystemPrompt, renderSeederUserPrompt } from "../../prompts/seeder-template.js";
+import type { SuggestionUsage } from "../../domain/suggestion.js";
+import { accumulateUsage, createEmptyUsage } from "../../domain/usage.js";
+import {
+	renderForcedSeederFinalPrompt,
+	renderSeederSystemPrompt,
+	renderSeederUserPrompt,
+} from "../../prompts/seeder-template.js";
 import { renderSuggestionPrompt } from "../../prompts/suggestion-template.js";
 import { renderTranscriptSteeringPrompt } from "../../prompts/transcript-steering-template.js";
 
 const execFileAsync = promisify(execFile);
-const IGNORED_DIRS = new Set([".git", "node_modules", ".pi", "dist", "build", "coverage"]);
-const CLAUDE_BRIDGE_STREAM_SIMPLE_KEY = Symbol.for("claude-bridge:activeStreamSimple");
+const IGNORED_DIRS = new Set([
+	".git",
+	"node_modules",
+	".pi",
+	"dist",
+	"build",
+	"coverage",
+]);
+const CLAUDE_BRIDGE_STREAM_SIMPLE_KEY = Symbol.for(
+	"claude-bridge:activeStreamSimple",
+);
 
 export interface RuntimeContextProvider {
 	getContext(): ExtensionContext | undefined;
@@ -121,11 +144,22 @@ function preview(value: string, maxChars: number = 500): string {
 	return `${normalized.slice(0, maxChars)}…`;
 }
 
+function isStaleExtensionContextError(error: unknown): boolean {
+	return (
+		error instanceof Error && error.message.includes("extension ctx is stale")
+	);
+}
+
 function extractText(content: unknown): string {
 	if (!Array.isArray(content)) return "";
 	return content
 		.map((block) => {
-			if (block && typeof block === "object" && "type" in block && (block as { type?: string }).type === "text") {
+			if (
+				block &&
+				typeof block === "object" &&
+				"type" in block &&
+				(block as { type?: string }).type === "text"
+			) {
 				return String((block as { text?: unknown }).text ?? "");
 			}
 			return "";
@@ -134,7 +168,9 @@ function extractText(content: unknown): string {
 		.trim();
 }
 
-function isTranscriptSuggestionContext(context: SuggestionModelContext): context is TranscriptSuggestionPromptContext {
+function isTranscriptSuggestionContext(
+	context: SuggestionModelContext,
+): context is TranscriptSuggestionPromptContext {
 	return "transcriptMessages" in context;
 }
 
@@ -218,7 +254,10 @@ function parseJsonObject(text: string): Record<string, unknown> {
 
 function coerceStringArray(value: unknown): string[] {
 	if (!Array.isArray(value)) return [];
-	return value.map((entry) => String(entry)).map((entry) => entry.trim()).filter(Boolean);
+	return value
+		.map((entry) => String(entry))
+		.map((entry) => entry.trim())
+		.filter(Boolean);
 }
 
 function coerceCategory(value: unknown): SeedKeyFileCategory {
@@ -235,14 +274,13 @@ function coerceCategory(value: unknown): SeedKeyFileCategory {
 	return "other";
 }
 
-function coerceCategoryFindings(value: unknown): SeedCategoryFindings | undefined {
+function coerceCategoryFindings(
+	value: unknown,
+): SeedCategoryFindings | undefined {
 	if (!value || typeof value !== "object") return undefined;
 	const obj = value as Record<string, unknown>;
-	const categories: Array<"vision" | "architecture" | "principles_guidelines"> = [
-		"vision",
-		"architecture",
-		"principles_guidelines",
-	];
+	const categories: Array<"vision" | "architecture" | "principles_guidelines"> =
+		["vision", "architecture", "principles_guidelines"];
 	const findings = {} as SeedCategoryFindings;
 	for (const category of categories) {
 		const raw = obj[category];
@@ -262,28 +300,50 @@ function coerceSeedDraft(payload: Record<string, unknown>): SeedDraft {
 		? payload.keyFiles
 				.map((entry) => {
 					if (!entry || typeof entry !== "object") return null;
-					const filePath = String((entry as { path?: unknown }).path ?? "").trim();
-					const whyImportant = String((entry as { whyImportant?: unknown }).whyImportant ?? "").trim();
+					const filePath = String(
+						(entry as { path?: unknown }).path ?? "",
+					).trim();
+					const whyImportant = String(
+						(entry as { whyImportant?: unknown }).whyImportant ?? "",
+					).trim();
 					if (!filePath) return null;
 					return {
 						path: filePath,
 						whyImportant: whyImportant || "High-signal file",
-						category: coerceCategory((entry as { category?: unknown }).category),
+						category: coerceCategory(
+							(entry as { category?: unknown }).category,
+						),
 					};
 				})
-				.filter((entry): entry is { path: string; whyImportant: string; category: SeedKeyFileCategory } => entry !== null)
+				.filter(
+					(
+						entry,
+					): entry is {
+						path: string;
+						whyImportant: string;
+						category: SeedKeyFileCategory;
+					} => entry !== null,
+				)
 		: [];
 
 	const topObjectives = coerceStringArray(payload.topObjectives);
 	const constraints = coerceStringArray(payload.constraints);
-	const objectivesSummary = String(payload.objectivesSummary ?? "").trim() || topObjectives.join("\n");
-	const constraintsSummary = String(payload.constraintsSummary ?? "").trim() || constraints.join("\n");
+	const objectivesSummary =
+		String(payload.objectivesSummary ?? "").trim() || topObjectives.join("\n");
+	const constraintsSummary =
+		String(payload.constraintsSummary ?? "").trim() || constraints.join("\n");
 	return {
-		projectIntentSummary: String(payload.projectIntentSummary ?? payload.visionSummary ?? "").trim(),
+		projectIntentSummary: String(
+			payload.projectIntentSummary ?? payload.visionSummary ?? "",
+		).trim(),
 		objectivesSummary,
 		constraintsSummary,
-		principlesGuidelinesSummary: String(payload.principlesGuidelinesSummary ?? payload.guidelinesSummary ?? "").trim(),
-		implementationStatusSummary: String(payload.implementationStatusSummary ?? payload.statusSummary ?? "").trim(),
+		principlesGuidelinesSummary: String(
+			payload.principlesGuidelinesSummary ?? payload.guidelinesSummary ?? "",
+		).trim(),
+		implementationStatusSummary: String(
+			payload.implementationStatusSummary ?? payload.statusSummary ?? "",
+		).trim(),
 		topObjectives,
 		constraints,
 		keyFiles,
@@ -323,7 +383,9 @@ function parseSeederResponse(text: string): SeederModelResponse {
 function parseSeederFinalResponse(text: string): Record<string, unknown> {
 	const response = parseSeederResponse(text);
 	if (response.type !== "final") {
-		throw new Error(`Forced seeder final synthesis returned type=${response.type} instead of type=final`);
+		throw new Error(
+			`Forced seeder final synthesis returned type=${response.type} instead of type=final`,
+		);
 	}
 	return response.seed;
 }
@@ -337,21 +399,34 @@ function globToRegExp(glob: string): RegExp {
 	return new RegExp(`^${escaped}$`, "i");
 }
 
-function validateSeedCoverage(draft: SeedDraft): { ok: boolean; reason?: string } {
+function validateSeedCoverage(draft: SeedDraft): {
+	ok: boolean;
+	reason?: string;
+} {
 	const findings = draft.categoryFindings;
 	if (!findings) {
-		return { ok: false, reason: "Missing categoryFindings. Provide explicit findings for vision/architecture/principles_guidelines." };
+		return {
+			ok: false,
+			reason:
+				"Missing categoryFindings. Provide explicit findings for vision/architecture/principles_guidelines.",
+		};
 	}
 
 	for (const category of REQUIRED_SEED_CATEGORIES) {
-		const finding = findings[category as "vision" | "architecture" | "principles_guidelines"];
+		const finding =
+			findings[category as "vision" | "architecture" | "principles_guidelines"];
 		if (!finding) {
 			return { ok: false, reason: `Missing categoryFindings.${category}` };
 		}
 		if (!finding.rationale.trim()) {
-			return { ok: false, reason: `categoryFindings.${category}.rationale is empty` };
+			return {
+				ok: false,
+				reason: `categoryFindings.${category}.rationale is empty`,
+			};
 		}
-		const hasCategoryFile = draft.keyFiles.some((file) => file.category === category);
+		const hasCategoryFile = draft.keyFiles.some(
+			(file) => file.category === category,
+		);
 		if (finding.found && !hasCategoryFile) {
 			return {
 				ok: false,
@@ -405,18 +480,34 @@ export class PiModelClient implements ModelClient {
 					maxSteps,
 					history,
 				});
-				const responseText = await this.completePrompt(prompt, systemPrompt, input.settings);
+				const responseText = await this.completePrompt(
+					prompt,
+					systemPrompt,
+					input.settings,
+				);
 				usage = accumulateUsage(usage, responseText.usage);
 				const response = parseSeederResponse(responseText.text);
 
 				if (response.type === "final") {
 					const draft = coerceSeedDraft(response.seed);
-					if (!draft.projectIntentSummary) throw new Error("Seeder final response missing projectIntentSummary");
-					if (!draft.objectivesSummary) throw new Error("Seeder final response missing objectivesSummary");
-					if (!draft.constraintsSummary) throw new Error("Seeder final response missing constraintsSummary");
-					if (!draft.principlesGuidelinesSummary) throw new Error("Seeder final response missing principlesGuidelinesSummary");
-					if (!draft.implementationStatusSummary) throw new Error("Seeder final response missing implementationStatusSummary");
-					if (draft.keyFiles.length === 0) throw new Error("Seeder final response produced no keyFiles");
+					if (!draft.projectIntentSummary)
+						throw new Error(
+							"Seeder final response missing projectIntentSummary",
+						);
+					if (!draft.objectivesSummary)
+						throw new Error("Seeder final response missing objectivesSummary");
+					if (!draft.constraintsSummary)
+						throw new Error("Seeder final response missing constraintsSummary");
+					if (!draft.principlesGuidelinesSummary)
+						throw new Error(
+							"Seeder final response missing principlesGuidelinesSummary",
+						);
+					if (!draft.implementationStatusSummary)
+						throw new Error(
+							"Seeder final response missing implementationStatusSummary",
+						);
+					if (draft.keyFiles.length === 0)
+						throw new Error("Seeder final response produced no keyFiles");
 					const validation = validateSeedCoverage(draft);
 					if (validation.ok) {
 						this.logger?.info("seeder.run.completed", {
@@ -453,7 +544,10 @@ export class PiModelClient implements ModelClient {
 					reason: response.reason,
 					modelResponsePreview: preview(responseText.text),
 				});
-				const toolResult = await this.executeSeederTool(response.tool, response.arguments ?? {});
+				const toolResult = await this.executeSeederTool(
+					response.tool,
+					response.arguments ?? {},
+				);
 				this.logger?.info("seeder.tool.result", {
 					runId,
 					step,
@@ -481,18 +575,36 @@ export class PiModelClient implements ModelClient {
 				maxSteps,
 				history,
 			});
-			const forcedResponseText = await this.completePrompt(forcedPrompt, systemPrompt, input.settings);
+			const forcedResponseText = await this.completePrompt(
+				forcedPrompt,
+				systemPrompt,
+				input.settings,
+			);
 			usage = accumulateUsage(usage, forcedResponseText.usage);
-			const forcedDraft = coerceSeedDraft(parseSeederFinalResponse(forcedResponseText.text));
-			if (!forcedDraft.projectIntentSummary) throw new Error("Seeder final response missing projectIntentSummary");
-			if (!forcedDraft.objectivesSummary) throw new Error("Seeder final response missing objectivesSummary");
-			if (!forcedDraft.constraintsSummary) throw new Error("Seeder final response missing constraintsSummary");
-			if (!forcedDraft.principlesGuidelinesSummary) throw new Error("Seeder final response missing principlesGuidelinesSummary");
-			if (!forcedDraft.implementationStatusSummary) throw new Error("Seeder final response missing implementationStatusSummary");
-			if (forcedDraft.keyFiles.length === 0) throw new Error("Seeder final response produced no keyFiles");
+			const forcedDraft = coerceSeedDraft(
+				parseSeederFinalResponse(forcedResponseText.text),
+			);
+			if (!forcedDraft.projectIntentSummary)
+				throw new Error("Seeder final response missing projectIntentSummary");
+			if (!forcedDraft.objectivesSummary)
+				throw new Error("Seeder final response missing objectivesSummary");
+			if (!forcedDraft.constraintsSummary)
+				throw new Error("Seeder final response missing constraintsSummary");
+			if (!forcedDraft.principlesGuidelinesSummary)
+				throw new Error(
+					"Seeder final response missing principlesGuidelinesSummary",
+				);
+			if (!forcedDraft.implementationStatusSummary)
+				throw new Error(
+					"Seeder final response missing implementationStatusSummary",
+				);
+			if (forcedDraft.keyFiles.length === 0)
+				throw new Error("Seeder final response produced no keyFiles");
 			const forcedValidation = validateSeedCoverage(forcedDraft);
 			if (!forcedValidation.ok) {
-				throw new Error(`Forced seeder final synthesis failed validation: ${forcedValidation.reason}`);
+				throw new Error(
+					`Forced seeder final synthesis failed validation: ${forcedValidation.reason}`,
+				);
 			}
 			this.logger?.info("seeder.run.completed", {
 				runId,
@@ -529,7 +641,10 @@ export class PiModelClient implements ModelClient {
 				context.systemPrompt,
 				settings,
 				context.sessionId,
-				{ suggestionMode: "transcript-steering", transcriptMessageCount: context.transcriptMessageCount },
+				{
+					suggestionMode: "transcript-steering",
+					transcriptMessageCount: context.transcriptMessageCount,
+				},
 				{ allowEmptyText: true },
 			);
 		}
@@ -537,7 +652,12 @@ export class PiModelClient implements ModelClient {
 			[
 				{
 					role: "user",
-					content: [{ type: "text", text: renderSuggestionPrompt(context as SuggestionPromptContext) }],
+					content: [
+						{
+							type: "text",
+							text: renderSuggestionPrompt(context as SuggestionPromptContext),
+						},
+					],
 					timestamp: Date.now(),
 				},
 			],
@@ -557,16 +677,42 @@ export class PiModelClient implements ModelClient {
 		debugMeta?: Record<string, unknown>,
 		options?: CompletePromptOptions,
 	): Promise<{ text: string; usage?: SuggestionUsage }> {
-		const ctx = this.runtime.getContext();
-		if (!ctx?.model) {
-			throw new Error("No active model available for suggester");
+		let model: Model<any>;
+		let apiKey: string | undefined;
+		let headers: Record<string, string> | undefined;
+		let activeContext: ExtensionContext | undefined;
+		try {
+			const ctx = this.runtime.getContext();
+			if (!ctx?.model) {
+				throw new Error("No active model available for suggester");
+			}
+
+			activeContext = ctx;
+			model = this.resolveModelForCall(
+				ctx.model,
+				settings?.modelRef,
+				ctx.modelRegistry.getAll(),
+			);
+			const auth = await this.resolveRequestAuth(model, ctx.modelRegistry);
+			apiKey = auth.apiKey;
+			headers = auth.headers;
+		} catch (error) {
+			if (options?.allowEmptyText && isStaleExtensionContextError(error)) {
+				return { text: "", usage: undefined };
+			}
+			throw error;
 		}
 
-		const model = this.resolveModelForCall(ctx.model, settings?.modelRef, ctx.modelRegistry.getAll());
-		const { apiKey, headers } = await this.resolveRequestAuth(model, ctx.modelRegistry);
-		const messages = typeof messagesOrPrompt === "string"
-			? [{ role: "user", content: [{ type: "text", text: messagesOrPrompt }], timestamp: Date.now() } satisfies UserMessage]
-			: messagesOrPrompt;
+		const messages =
+			typeof messagesOrPrompt === "string"
+				? [
+						{
+							role: "user",
+							content: [{ type: "text", text: messagesOrPrompt }],
+							timestamp: Date.now(),
+						} satisfies UserMessage,
+					]
+				: messagesOrPrompt;
 		const requestContext = {
 			systemPrompt:
 				systemPrompt ??
@@ -598,15 +744,20 @@ export class PiModelClient implements ModelClient {
 				allowEmptyText: options?.allowEmptyText,
 			});
 		} catch (error) {
-			if (error instanceof UnsupportedProviderError && options?.allowEmptyText) {
-				this.warnUnsupportedProviderOnce(error, ctx);
+			if (
+				error instanceof UnsupportedProviderError &&
+				options?.allowEmptyText
+			) {
+				if (activeContext)
+					this.warnUnsupportedProviderOnce(error, activeContext);
 				return { text: "", usage: undefined };
 			}
 			throw error;
 		}
 
 		const text = extractText(response.content);
-		if (!text && !options?.allowEmptyText) throw new Error("Model returned empty text");
+		if (!text && !options?.allowEmptyText)
+			throw new Error("Model returned empty text");
 		return {
 			text,
 			usage: {
@@ -648,23 +799,42 @@ export class PiModelClient implements ModelClient {
 			return await completeSimple(model, context, options);
 		} catch (error) {
 			if (this.isMissingProviderRegistrationError(error, model.api)) {
-				throw new UnsupportedProviderError(model.api, model, invocation.configuredModelRef, invocation.kind);
+				throw new UnsupportedProviderError(
+					model.api,
+					model,
+					invocation.configuredModelRef,
+					invocation.kind,
+				);
 			}
 			throw error;
 		}
 	}
 
 	private getClaudeBridgeStreamSimple(): StreamSimpleLike | undefined {
-		const value = (globalThis as Record<symbol, unknown>)[CLAUDE_BRIDGE_STREAM_SIMPLE_KEY];
-		return typeof value === "function" ? (value as StreamSimpleLike) : undefined;
+		const value = (globalThis as Record<symbol, unknown>)[
+			CLAUDE_BRIDGE_STREAM_SIMPLE_KEY
+		];
+		return typeof value === "function"
+			? (value as StreamSimpleLike)
+			: undefined;
 	}
 
-	private isMissingProviderRegistrationError(error: unknown, api: string): boolean {
-		return error instanceof Error && error.message.includes(`No API provider registered for api: ${api}`);
+	private isMissingProviderRegistrationError(
+		error: unknown,
+		api: string,
+	): boolean {
+		return (
+			error instanceof Error &&
+			error.message.includes(`No API provider registered for api: ${api}`)
+		);
 	}
 
-	private warnUnsupportedProviderOnce(error: UnsupportedProviderError, ctx: ExtensionContext): void {
-		const configuredModelRef = error.configuredModelRef?.trim() || "session-default";
+	private warnUnsupportedProviderOnce(
+		error: UnsupportedProviderError,
+		ctx: ExtensionContext,
+	): void {
+		const configuredModelRef =
+			error.configuredModelRef?.trim() || "session-default";
 		const key = `${error.invocationKind}:${error.providerApi}:${configuredModelRef}`;
 		if (this.warnedCompatibilityKeys.has(key)) return;
 		this.warnedCompatibilityKeys.add(key);
@@ -678,18 +848,24 @@ export class PiModelClient implements ModelClient {
 				"Set /suggester model suggester <supported-provider/model> or switch the session to a provider that this extension can call directly.",
 		});
 
-		if (ctx.hasUI) {
-			ctx.ui.notify(
-				`Prompt suggester skipped this turn because provider '${error.providerApi}' isn't directly compatible. Set /suggester model suggester <supported-provider/model> to use an explicit model.`,
-				"warning",
-			);
+		try {
+			if (ctx.hasUI) {
+				ctx.ui.notify(
+					`Prompt suggester skipped this turn because provider '${error.providerApi}' isn't directly compatible. Set /suggester model suggester <supported-provider/model> to use an explicit model.`,
+					"warning",
+				);
+			}
+		} catch {
+			// Ignore stale UI contexts from async suggestion work finishing after shutdown.
 		}
 	}
 
 	private async resolveRequestAuth(
 		model: Model<any>,
 		modelRegistry: {
-			getApiKeyAndHeaders?: (model: Model<any>) => Promise<
+			getApiKeyAndHeaders?: (
+				model: Model<any>,
+			) => Promise<
 				| { ok: true; apiKey?: string; headers?: Record<string, string> }
 				| { ok: false; error: string }
 			>;
@@ -712,13 +888,19 @@ export class PiModelClient implements ModelClient {
 		};
 	}
 
-	private resolveModelForCall(currentModel: Model<any>, modelRef: string | undefined, allModels: Model<any>[]): Model<any> {
+	private resolveModelForCall(
+		currentModel: Model<any>,
+		modelRef: string | undefined,
+		allModels: Model<any>[],
+	): Model<any> {
 		const normalized = (modelRef ?? "").trim();
 		if (!normalized) return currentModel;
 		if (normalized.includes("/")) {
 			const [provider, ...rest] = normalized.split("/");
 			const id = rest.join("/");
-			const exact = allModels.find((entry) => entry.provider === provider && entry.id === id);
+			const exact = allModels.find(
+				(entry) => entry.provider === provider && entry.id === id,
+			);
 			if (exact) return exact;
 			throw new Error(`Configured suggester model not found: ${normalized}`);
 		}
@@ -732,7 +914,10 @@ export class PiModelClient implements ModelClient {
 		throw new Error(`Configured suggester model not found: ${normalized}`);
 	}
 
-	private async executeSeederTool(tool: SeederToolName, args: Record<string, unknown>): Promise<string> {
+	private async executeSeederTool(
+		tool: SeederToolName,
+		args: Record<string, unknown>,
+	): Promise<string> {
 		switch (tool) {
 			case "ls":
 				return await this.toolLs(args);
@@ -748,10 +933,16 @@ export class PiModelClient implements ModelClient {
 	}
 
 	private resolvePath(inputPath: unknown): string {
-		const value = typeof inputPath === "string" && inputPath.trim().length > 0 ? inputPath.trim() : ".";
+		const value =
+			typeof inputPath === "string" && inputPath.trim().length > 0
+				? inputPath.trim()
+				: ".";
 		const clean = value.replace(/^@/, "");
 		const absolute = path.resolve(this.cwd, clean);
-		if (absolute !== this.cwd && !absolute.startsWith(`${this.cwd}${path.sep}`)) {
+		if (
+			absolute !== this.cwd &&
+			!absolute.startsWith(`${this.cwd}${path.sep}`)
+		) {
 			throw new Error(`Path escapes repository root: ${value}`);
 		}
 		return absolute;
@@ -764,7 +955,10 @@ export class PiModelClient implements ModelClient {
 		const lines = entries
 			.sort((a, b) => a.name.localeCompare(b.name))
 			.slice(0, limit)
-			.map((entry) => `${entry.isDirectory() ? "d" : "f"} ${path.relative(this.cwd, path.join(absolute, entry.name)) || "."}`);
+			.map(
+				(entry) =>
+					`${entry.isDirectory() ? "d" : "f"} ${path.relative(this.cwd, path.join(absolute, entry.name)) || "."}`,
+			);
 		return truncate(lines.join("\n") || "(empty)", 8000);
 	}
 
@@ -773,7 +967,11 @@ export class PiModelClient implements ModelClient {
 		const pattern = String(args.pattern ?? "").trim();
 		if (!pattern) throw new Error("find requires pattern");
 		const limit = Math.min(500, Math.max(1, Number(args.limit ?? 200)));
-		const matcher = globToRegExp(pattern.includes("*") || pattern.includes("?") ? pattern : `**/*${pattern}*`);
+		const matcher = globToRegExp(
+			pattern.includes("*") || pattern.includes("?")
+				? pattern
+				: `**/*${pattern}*`,
+		);
 		const results: string[] = [];
 
 		const walk = async (dir: string): Promise<void> => {
@@ -800,10 +998,18 @@ export class PiModelClient implements ModelClient {
 		const pattern = String(args.pattern ?? "").trim();
 		if (!pattern) throw new Error("grep requires pattern");
 		const limit = Math.min(200, Math.max(1, Number(args.limit ?? 80)));
-		const rgArgs = ["--line-number", "--no-heading", "--color", "never", "--max-count", String(limit)];
+		const rgArgs = [
+			"--line-number",
+			"--no-heading",
+			"--color",
+			"never",
+			"--max-count",
+			String(limit),
+		];
 		if (args.ignoreCase === true) rgArgs.push("-i");
 		if (args.literal === true) rgArgs.push("-F");
-		if (typeof args.glob === "string" && args.glob.trim()) rgArgs.push("-g", args.glob.trim());
+		if (typeof args.glob === "string" && args.glob.trim())
+			rgArgs.push("-g", args.glob.trim());
 		rgArgs.push(pattern, searchPath);
 
 		try {
@@ -813,11 +1019,18 @@ export class PiModelClient implements ModelClient {
 			});
 			return truncate(stdout.trim() || "(no matches)", 8000);
 		} catch (error) {
-			const err = error as NodeJS.ErrnoException & { stdout?: string; stderr?: string; code?: number | string };
+			const err = error as NodeJS.ErrnoException & {
+				stdout?: string;
+				stderr?: string;
+				code?: number | string;
+			};
 			if (String(err.code) === "1") return "(no matches)";
 			const stdout = typeof err.stdout === "string" ? err.stdout.trim() : "";
 			const stderr = typeof err.stderr === "string" ? err.stderr.trim() : "";
-			return truncate([stdout, stderr].filter(Boolean).join("\n") || "(grep failed)", 8000);
+			return truncate(
+				[stdout, stderr].filter(Boolean).join("\n") || "(grep failed)",
+				8000,
+			);
 		}
 	}
 
@@ -829,7 +1042,9 @@ export class PiModelClient implements ModelClient {
 		const lines = raw.split(/\r?\n/);
 		const start = offset - 1;
 		const sliced = lines.slice(start, start + limit);
-		const numbered = sliced.map((line, index) => `${start + index + 1}: ${line}`);
+		const numbered = sliced.map(
+			(line, index) => `${start + index + 1}: ${line}`,
+		);
 		return truncate(numbered.join("\n") || "(empty)", 12000);
 	}
 }

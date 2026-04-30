@@ -1,8 +1,8 @@
+import path from "node:path";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { LoggedEvent } from "../../../app/ports/event-log.js";
 import type { AppComposition } from "../../../composition/root.js";
 import type { PromptSuggesterConfig } from "../../../config/types.js";
-import path from "node:path";
 import { formatTokens } from "../display.js";
 import { projectStateDir } from "../state-root.js";
 import { asString, modelToRef, summarizeInstruction } from "./shared.js";
@@ -12,16 +12,22 @@ export function renderSeedTrace(events: LoggedEvent[]): string {
 		return "Suggester seed trace\n- no seeder events found in persistent logs.";
 	}
 
-	const withRunId = events.filter((event) => typeof event.meta?.runId === "string");
+	const withRunId = events.filter(
+		(event) => typeof event.meta?.runId === "string",
+	);
 	const latestRunId = asString(withRunId.at(-1)?.meta?.runId);
-	const scoped = latestRunId ? events.filter((event) => event.meta?.runId === latestRunId) : events;
+	const scoped = latestRunId
+		? events.filter((event) => event.meta?.runId === latestRunId)
+		: events;
 	const lines = scoped.slice(-80).map((event) => {
 		const time = event.at.split("T")[1]?.replace("Z", "") ?? event.at;
 		const run = asString(event.meta?.runId);
 		const step = event.meta?.step;
 		const reason = asString(event.meta?.reason);
 		const tool = asString(event.meta?.tool);
-		const preview = asString(event.meta?.toolResultPreview) ?? asString(event.meta?.modelResponsePreview);
+		const preview =
+			asString(event.meta?.toolResultPreview) ??
+			asString(event.meta?.modelResponsePreview);
 		const detailBits = [
 			run ? `run=${run}` : undefined,
 			step !== undefined ? `step=${step}` : undefined,
@@ -47,19 +53,30 @@ export function renderStatus(
 	state: Awaited<ReturnType<AppComposition["stores"]["stateStore"]["load"]>>,
 	config: PromptSuggesterConfig,
 	ctx?: ExtensionContext,
-	activeVariantName?: string,
 ): string {
 	const steeringSummary = {
-		exact: state.steeringHistory.filter((event) => event.classification === "accepted_exact").length,
-		edited: state.steeringHistory.filter((event) => event.classification === "accepted_edited").length,
-		changed: state.steeringHistory.filter((event) => event.classification === "changed_course").length,
+		exact: state.steeringHistory.filter(
+			(event) => event.classification === "accepted_exact",
+		).length,
+		edited: state.steeringHistory.filter(
+			(event) => event.classification === "accepted_edited",
+		).length,
+		changed: state.steeringHistory.filter(
+			(event) => event.classification === "changed_course",
+		).length,
 	};
 	const activeModel = modelToRef(ctx?.model);
-	const logFile = ctx ? path.join(projectStateDir(ctx.cwd), "logs", "events.ndjson") : "~/.local/state/pi/pi-prompt-suggester/projects/<project>/logs/events.ndjson";
-	const combinedInput = state.suggestionUsage.inputTokens + state.seederUsage.inputTokens;
-	const combinedOutput = state.suggestionUsage.outputTokens + state.seederUsage.outputTokens;
-	const combinedCacheRead = state.suggestionUsage.cacheReadTokens + state.seederUsage.cacheReadTokens;
-	const combinedCost = state.suggestionUsage.costTotal + state.seederUsage.costTotal;
+	const logFile = ctx
+		? path.join(projectStateDir(ctx.cwd), "logs", "events.ndjson")
+		: "~/.local/state/pi/pi-prompt-suggester/projects/<project>/logs/events.ndjson";
+	const combinedInput =
+		state.suggestionUsage.inputTokens + state.seederUsage.inputTokens;
+	const combinedOutput =
+		state.suggestionUsage.outputTokens + state.seederUsage.outputTokens;
+	const combinedCacheRead =
+		state.suggestionUsage.cacheReadTokens + state.seederUsage.cacheReadTokens;
+	const combinedCost =
+		state.suggestionUsage.costTotal + state.seederUsage.costTotal;
 	const suggesterPromptTokens = state.suggestionUsage.last?.inputTokens ?? 0;
 	const compactUsageLine = `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${state.suggestionUsage.calls} sugg, ${state.seederUsage.calls} seed), last suggester prompt: ${formatTokens(suggesterPromptTokens)} tok`;
 
@@ -71,11 +88,9 @@ export function renderStatus(
 		`- implementation status: ${seed?.implementationStatusSummary?.slice(0, 140) ?? "(none)"}`,
 		`- active session model: ${activeModel}`,
 		`- config schemaVersion: ${config.schemaVersion}`,
-		`- active variant: ${activeVariantName ?? "default"}`,
 		`- custom instruction: ${summarizeInstruction(config.suggestion.customInstruction)}`,
 		`- suggestion strategy: ${config.suggestion.strategy}`,
 		`- steering transcript guardrails: ctx<=${config.suggestion.transcriptMaxContextPercent}% msgs<=${config.suggestion.transcriptMaxMessages} chars<=${config.suggestion.transcriptMaxChars} rollout=${config.suggestion.transcriptRolloutPercent}%`,
-		"- local experiment controls: /suggesterSettings → strategy / variants / transcript guardrails",
 		`- models (config): seeder=${config.inference.seederModel}, suggester=${config.inference.suggesterModel}`,
 		`- thinking (config): seeder=${config.inference.seederThinking}, suggester=${config.inference.suggesterThinking}`,
 		`- ${compactUsageLine}`,

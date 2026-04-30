@@ -16,7 +16,6 @@
     "npm:pi-web-access",
     "npm:@juicesharp/rpiv-todo",
     "npm:pi-subagents",
-    "npm:pi-powerline-footer",
     "npm:pi-ask-user",
     "npm:pi-lens",
     {
@@ -31,8 +30,16 @@
         "arcade/mario-not/mario-not.ts"
       ]
     },
-    "npm:taskplane"
+    "npm:pi-vim",
+    "npm:@ollama/pi-web-search",
+    "npm:pi-ask-user",
+    "npm:pi-lens",
+    "npm:pi-subagents",
+    "npm:pi-intercom",
+    "npm:@plannotator/pi-extension"
   ],
-  "powerline": "compact",
-  "steeringMode": "all"
+  "steeringMode": "all",
+  "promptSuggester": {
+    "suggesterModel": "session-default"
+  }
 }

@@ -21,7 +21,9 @@ export interface ConsoleLoggerOptions {
 	statusKey?: string;
 	mirrorToConsoleWhenNoUi?: boolean;
 	eventLog?: EventLog;
-	setWidgetLogStatus?: (status: { level: Level; text: string } | undefined) => void;
+	setWidgetLogStatus?: (
+		status: { level: Level; text: string } | undefined,
+	) => void;
 }
 
 export class ConsoleLogger implements Logger {
@@ -52,7 +54,11 @@ export class ConsoleLogger implements Logger {
 		this.log("error", message, meta);
 	}
 
-	private log(level: Level, message: string, meta?: Record<string, unknown>): void {
+	private log(
+		level: Level,
+		message: string,
+		meta?: Record<string, unknown>,
+	): void {
 		if (this.options.eventLog) {
 			void this.options.eventLog
 				.append({
@@ -64,23 +70,37 @@ export class ConsoleLogger implements Logger {
 				.catch(() => undefined);
 		}
 		if (LEVEL_ORDER[level] < LEVEL_ORDER[this.level]) return;
-		const payload = meta && Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : "";
+		const payload =
+			meta && Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : "";
 		const line = truncate(`[suggester ${level}] ${message}${payload}`, 220);
 		const statusLine = truncate(`[suggester ${level}] ${message}`, 120);
+		try {
+			this.options.setWidgetLogStatus?.(
+				level === "warn" || level === "error"
+					? { level, text: statusLine }
+					: undefined,
+			);
+		} catch {
+			// Logging must not fail the extension when the pi UI context has gone stale.
+		}
+
 		const ctx = this.options.getContext?.();
-		this.options.setWidgetLogStatus?.(level === "warn" || level === "error" ? { level, text: statusLine } : undefined);
-		if (ctx?.hasUI && !this.options.setWidgetLogStatus) {
-			const theme = ctx.ui.theme;
-			const colorized =
-				level === "error"
-					? theme.fg("error", statusLine)
-					: level === "warn"
-						? theme.fg("warning", statusLine)
-						: level === "debug"
-							? theme.fg("dim", statusLine)
-							: theme.fg("muted", statusLine);
-			ctx.ui.setStatus(this.statusKey, colorized);
-			return;
+		try {
+			if (ctx?.hasUI && !this.options.setWidgetLogStatus) {
+				const theme = ctx.ui.theme;
+				const colorized =
+					level === "error"
+						? theme.fg("error", statusLine)
+						: level === "warn"
+							? theme.fg("warning", statusLine)
+							: level === "debug"
+								? theme.fg("dim", statusLine)
+								: theme.fg("muted", statusLine);
+				ctx.ui.setStatus(this.statusKey, colorized);
+				return;
+			}
+		} catch {
+			// Treat stale UI contexts the same as no UI.
 		}
 
 		if (!this.mirrorToConsoleWhenNoUi) return;

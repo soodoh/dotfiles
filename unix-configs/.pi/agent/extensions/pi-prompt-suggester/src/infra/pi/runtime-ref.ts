@@ -15,7 +15,9 @@ export class RuntimeRef {
 	private lastBootstrappedLeafId: string | undefined;
 	private panelSuggestionStatus: string | undefined;
 	private panelUsageStatus: string | undefined;
-	private panelLogStatus: { level: "debug" | "info" | "warn" | "error"; text: string } | undefined;
+	private panelLogStatus:
+		| { level: "debug" | "info" | "warn" | "error"; text: string }
+		| undefined;
 	private editorHistoryState: EditorHistoryState = { entries: [], index: -1 };
 
 	public setContext(ctx: ExtensionContext): void {
@@ -24,6 +26,12 @@ export class RuntimeRef {
 
 	public getContext(): ExtensionContext | undefined {
 		return this.currentContext;
+	}
+
+	public clearContext(ctx?: ExtensionContext): void {
+		if (ctx && this.currentContext !== ctx) return;
+		this.currentContext = undefined;
+		this.generationEpoch += 1;
 	}
 
 	public bumpEpoch(): number {
@@ -80,18 +88,25 @@ export class RuntimeRef {
 		return this.panelUsageStatus;
 	}
 
-	public setPanelLogStatus(status: { level: "debug" | "info" | "warn" | "error"; text: string } | undefined): void {
+	public setPanelLogStatus(
+		status:
+			| { level: "debug" | "info" | "warn" | "error"; text: string }
+			| undefined,
+	): void {
 		this.panelLogStatus = status;
 	}
 
-	public getPanelLogStatus(): { level: "debug" | "info" | "warn" | "error"; text: string } | undefined {
+	public getPanelLogStatus():
+		| { level: "debug" | "info" | "warn" | "error"; text: string }
+		| undefined {
 		return this.panelLogStatus;
 	}
 
 	public setEditorHistoryState(state: EditorHistoryState): void {
 		const entries = state.entries.map((entry) => entry.trim()).filter(Boolean);
 		const maxIndex = entries.length - 1;
-		const index = entries.length === 0 ? -1 : Math.max(-1, Math.min(state.index, maxIndex));
+		const index =
+			entries.length === 0 ? -1 : Math.max(-1, Math.min(state.index, maxIndex));
 		this.editorHistoryState = { entries, index };
 	}
 

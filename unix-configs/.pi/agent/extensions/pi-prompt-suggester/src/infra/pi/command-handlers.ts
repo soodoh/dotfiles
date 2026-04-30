@@ -1,15 +1,5 @@
 export {
-	handleConfigCommand,
-	handleInstructionCommand,
-	handleModelCommand,
 	handleSeedTraceCommand,
-	handleSettingsUiCommand,
-	handleThinkingCommand,
-	handleVariantCommand,
-	handleAbCommand,
-	manageVariantsUi,
-	runAbTestingUi,
-	showAbStats,
 	renderSeedTrace,
 	renderStatus,
 } from "./commands/index.js";

@@ -13,7 +13,6 @@
     "noSuggestionToken": "[no suggestion]",
     "customInstruction": "",
     "fastPathContinueOnError": true,
-    "displayMode": "ghost",
     "ghostAcceptKeys": ["right"],
     "ghostAcceptAndSendKeys": ["enter"],
     "maxAssistantTurnChars": 100000,

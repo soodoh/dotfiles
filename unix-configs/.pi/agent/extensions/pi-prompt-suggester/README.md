@@ -43,9 +43,7 @@ Add to `packages` in `~/.pi/agent/settings.json` or `.pi/settings.json`:
 
 ```json
 {
-  "packages": [
-    "npm:@guwidoe/pi-prompt-suggester"
-  ]
+  "packages": ["npm:@guwidoe/pi-prompt-suggester"]
 }
 ```
 
@@ -53,77 +51,33 @@ Add to `packages` in `~/.pi/agent/settings.json` or `.pi/settings.json`:
 
 ### Main entrypoint
 
-Use:
-
-- `/suggesterSettings`
-
-This is the main UI for normal users. It lets you:
-- edit the custom instruction
-- choose custom suggester/seeder models
-- choose custom suggester/seeder thinking levels
-- customize the maximum suggested-prompt length
-- choose which ghost-editor key accepts a suggestion
-- tune common behavior settings
-- reset overrides
+This local fork is intentionally lean. Runtime customization comes only from Pi's agent settings file, `~/.pi/agent/settings.json`.
 
 ### Everyday behavior
 
 - after an assistant completion, the extension may suggest the next user prompt
 - when the editor is empty and the suggestion is compatible, it appears as ghost text
-- by default, press `Space` on an empty editor to accept the full suggestion
-- you can change the ghost accept key in `/suggesterSettings` or via `suggestion.ghostAcceptKeys`
+- by default, Right Arrow accepts the full suggestion and Enter accepts/sends it
 
 ### Common commands
 
-- `/suggesterSettings` — main settings UI
 - `/suggester` or `/suggester status` — inspect current status
 - `/suggester reseed` — refresh project intent in the background
-
-### Advanced commands
-
-Most users do not need these, but they are available:
-
-- `/suggester instruction ...`
-- `/suggester model ...`
-- `/suggester thinking ...`
-- `/suggester config ...`
-- `/suggester seed-trace ...`
+- `/suggester seed-trace ...` — inspect seeder log events
 
 ## Configuration
 
-The most useful settings are the custom instruction, custom suggester/seeder models, custom suggester/seeder thinking levels, and the maximum suggested-prompt length.
-
-You can also configure which key accepts ghost suggestions. Supported values are:
-- `"space"`
-- `"right"`
-- or both
-
-You can edit them via:
-- `/suggesterSettings`
-
-Or:
-- `/suggester instruction set [project|user]`
-- `/suggester model ...`
-- `/suggester thinking ...`
-- `/suggester config set suggestion.maxSuggestionChars <number>`
-- `/suggester config set suggestion.ghostAcceptKeys ["space","right"]`
-
-Example:
+Add a `promptSuggester` object to `~/.pi/agent/settings.json`:
 
 ```json
 {
-  "suggestion": {
-    "ghostAcceptKeys": ["space", "right"]
+  "promptSuggester": {
+    "suggesterModel": "session-default"
   }
 }
 ```
 
-Overrides can be stored at:
-- user: `~/.pi/suggester/config.json`
-- project: `.pi/suggester/config.json`
-
-If you want the full config surface, see:
-- [`config/prompt-suggester.config.json`](./config/prompt-suggester.config.json)
+Only `promptSuggester.suggesterModel` is supported as a custom setting. All other values come from package defaults in [`config/prompt-suggester.config.json`](./config/prompt-suggester.config.json).
 
 ## Docs
 

@@ -1,9 +1,0 @@
-{
-  "schemaVersion": 8,
-  "suggestion": {
-    "showUsageInPanel": false
-  },
-  "inference": {
-    "suggesterModel": "openai-codex/gpt-5.4-mini"
-  }
-}

@@ -1,20 +1,25 @@
-import type { PromptSuggesterConfig } from "../../config/types.js";
 import { toInvocationThinkingLevel } from "../../config/inference.js";
+import type { PromptSuggesterConfig } from "../../config/types.js";
+import type { SuggestionUsageStats } from "../../domain/state.js";
 import type { TurnContext } from "../../domain/suggestion.js";
 import { addUsageStats } from "../../domain/usage.js";
-import type { SuggestionUsageStats } from "../../domain/state.js";
-import type { SuggesterVariantStore } from "../../infra/pi/suggester-variant-store.js";
 import type { Logger } from "../ports/logger.js";
 import type { SeedStore } from "../ports/seed-store.js";
 import type { StateStore } from "../ports/state-store.js";
-import type { SuggestionEngine } from "../services/suggestion-engine.js";
 import type { StalenessChecker } from "../services/staleness-checker.js";
+import type { SuggestionEngine } from "../services/suggestion-engine.js";
 import type { ReseedRunner } from "./reseed-runner.js";
 
 export interface SuggestionSink {
-	showSuggestion(text: string, options?: { restore?: boolean; generationId?: number }): Promise<void>;
+	showSuggestion(
+		text: string,
+		options?: { restore?: boolean; generationId?: number },
+	): Promise<void>;
 	clearSuggestion(options?: { generationId?: number }): Promise<void>;
-	setUsage(usage: { suggester: SuggestionUsageStats; seeder: SuggestionUsageStats }): Promise<void>;
+	setUsage(usage: {
+		suggester: SuggestionUsageStats;
+		seeder: SuggestionUsageStats;
+	}): Promise<void>;
 }
 
 export interface TurnEndOrchestratorDeps {
@@ -27,7 +32,6 @@ export interface TurnEndOrchestratorDeps {
 	suggestionSink: SuggestionSink;
 	logger: Logger;
 	checkForStaleness: boolean;
-	variantStore?: SuggesterVariantStore;
 }
 
 function normalizeSuggestionForComparison(value: string): string {
@@ -46,13 +50,17 @@ export class TurnEndOrchestrator {
 			assistantCacheWriteTokens: turn.assistantUsage?.cacheWriteTokens,
 		});
 
-		const [seed, state] = await Promise.all([this.deps.seedStore.load(), this.deps.stateStore.load()]);
-		const activeVariantName = this.deps.variantStore?.getActiveVariantName() ?? "default";
+		const [seed, state] = await Promise.all([
+			this.deps.seedStore.load(),
+			this.deps.stateStore.load(),
+		]);
+		const activeVariantName = "default";
 		if (state.pendingNextTurnObservation && turn.assistantUsage) {
 			this.deps.logger.info("suggestion.next_turn.cache_observed", {
 				suggestionTurnId: state.pendingNextTurnObservation.suggestionTurnId,
 				suggestionShownAt: state.pendingNextTurnObservation.suggestionShownAt,
-				userPromptSubmittedAt: state.pendingNextTurnObservation.userPromptSubmittedAt,
+				userPromptSubmittedAt:
+					state.pendingNextTurnObservation.userPromptSubmittedAt,
 				nextAssistantTurnId: turn.turnId,
 				variantName: state.pendingNextTurnObservation.variantName,
 				strategy: state.pendingNextTurnObservation.strategy,
@@ -67,7 +75,10 @@ export class TurnEndOrchestrator {
 		}
 
 		let turnsSinceLastStalenessCheck = state.turnsSinceLastStalenessCheck;
-		if (this.deps.checkForStaleness && this.deps.config.reseed.checkAfterEveryTurn) {
+		if (
+			this.deps.checkForStaleness &&
+			this.deps.config.reseed.checkAfterEveryTurn
+		) {
 			const interval = this.deps.config.reseed.turnCheckInterval;
 			if (interval > 0) {
 				turnsSinceLastStalenessCheck += 1;
@@ -91,9 +102,11 @@ export class TurnEndOrchestrator {
 			turnsSinceLastStalenessCheck = 0;
 		}
 		const steering = {
-			recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
+			recentChanged: state.steeringHistory
+				.filter((event) => event.classification === "changed_course")
+				.reverse(),
 		};
-		const effectiveConfig = this.deps.variantStore?.getEffectiveConfig(this.deps.config) ?? this.deps.config;
+		const effectiveConfig = this.deps.config;
 		const startedAt = Date.now();
 		const suggestion = await this.deps.suggestionEngine.suggest(
 			turn,
@@ -104,7 +117,9 @@ export class TurnEndOrchestrator {
 					effectiveConfig.inference.suggesterModel === "session-default"
 						? undefined
 						: effectiveConfig.inference.suggesterModel,
-				thinkingLevel: toInvocationThinkingLevel(effectiveConfig.inference.suggesterThinking),
+				thinkingLevel: toInvocationThinkingLevel(
+					effectiveConfig.inference.suggesterThinking,
+				),
 			},
 			effectiveConfig,
 		);
@@ -114,7 +129,9 @@ export class TurnEndOrchestrator {
 			variantName: activeVariantName,
 			latencyMs,
 		};
-		const nextUsage = suggestion.usage ? addUsageStats(state.suggestionUsage, suggestion.usage) : state.suggestionUsage;
+		const nextUsage = suggestion.usage
+			? addUsageStats(state.suggestionUsage, suggestion.usage)
+			: state.suggestionUsage;
 		if (suggestion.usage) {
 			await this.deps.stateStore.recordUsage("suggester", suggestion.usage);
 		}
@@ -137,7 +154,10 @@ export class TurnEndOrchestrator {
 				cost: suggestion.usage?.costTotal,
 			});
 			await this.deps.suggestionSink.clearSuggestion({ generationId });
-			await this.deps.suggestionSink.setUsage({ suggester: nextUsage, seeder: state.seederUsage });
+			await this.deps.suggestionSink.setUsage({
+				suggester: nextUsage,
+				seeder: state.seederUsage,
+			});
 			await this.deps.stateStore.save({
 				...state,
 				lastSuggestion: undefined,
@@ -148,11 +168,14 @@ export class TurnEndOrchestrator {
 			return;
 		}
 
-		const normalizedSuggestion = normalizeSuggestionForComparison(suggestion.text);
+		const normalizedSuggestion = normalizeSuggestionForComparison(
+			suggestion.text,
+		);
 		const repeatedRejectedSuggestion = state.steeringHistory.find(
 			(event) =>
 				event.classification === "changed_course" &&
-				normalizeSuggestionForComparison(event.suggestedPrompt) === normalizedSuggestion,
+				normalizeSuggestionForComparison(event.suggestedPrompt) ===
+					normalizedSuggestion,
 		);
 		if (repeatedRejectedSuggestion) {
 			this.deps.logger.info("suggestion.suppressed.repeated_rejected", {
@@ -165,7 +188,10 @@ export class TurnEndOrchestrator {
 				preview: suggestion.text.slice(0, 200),
 			});
 			await this.deps.suggestionSink.clearSuggestion({ generationId });
-			await this.deps.suggestionSink.setUsage({ suggester: nextUsage, seeder: state.seederUsage });
+			await this.deps.suggestionSink.setUsage({
+				suggester: nextUsage,
+				seeder: state.seederUsage,
+			});
 			await this.deps.stateStore.save({
 				...state,
 				lastSuggestion: undefined,
@@ -176,8 +202,13 @@ export class TurnEndOrchestrator {
 			return;
 		}
 
-		await this.deps.suggestionSink.showSuggestion(suggestion.text, { generationId });
-		await this.deps.suggestionSink.setUsage({ suggester: nextUsage, seeder: state.seederUsage });
+		await this.deps.suggestionSink.showSuggestion(suggestion.text, {
+			generationId,
+		});
+		await this.deps.suggestionSink.setUsage({
+			suggester: nextUsage,
+			seeder: state.seederUsage,
+		});
 		await this.deps.stateStore.save({
 			...state,
 			lastSuggestion: {

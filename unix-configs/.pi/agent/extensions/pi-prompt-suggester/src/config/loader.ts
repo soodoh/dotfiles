@@ -2,10 +2,9 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { projectStateDir } from "../infra/pi/state-root.js";
-import { readJsonIfExists, writeJson } from "../infra/storage/json-file.js";
+import { readJsonIfExists } from "../infra/storage/json-file.js";
+import { normalizeConfig, validateConfig } from "./schema.js";
 import type { PromptSuggesterConfig } from "./types.js";
-import { normalizeConfig, normalizeOverrideConfig, validateConfig } from "./schema.js";
 
 export interface ConfigLoader {
 	load(): Promise<PromptSuggesterConfig>;
@@ -32,32 +31,17 @@ function deepMerge<T>(base: T, override: unknown): T {
 	return result as T;
 }
 
-async function readOverrideConfig(
+async function readRequiredConfig(
 	filePath: string,
-	defaultConfig: PromptSuggesterConfig,
-): Promise<Record<string, unknown> | undefined> {
-	let parsed: unknown;
-	try {
-		parsed = await readJsonIfExists(filePath);
-	} catch (error) {
-		throw new Error(`Failed to load config ${filePath}: ${(error as Error).message}`);
-	}
-	if (parsed === undefined) return undefined;
-
-	const normalized = normalizeOverrideConfig(parsed, defaultConfig);
-	if (normalized.changed) {
-		await writeJson(filePath, normalized.config);
-	}
-	return normalized.config;
-}
-
-async function readRequiredConfig(filePath: string): Promise<PromptSuggesterConfig> {
+): Promise<PromptSuggesterConfig> {
 	let parsed: unknown;
 	try {
 		const raw = await fs.readFile(filePath, "utf8");
 		parsed = JSON.parse(raw);
 	} catch (error) {
-		throw new Error(`Failed to load required default config ${filePath}: ${(error as Error).message}`);
+		throw new Error(
+			`Failed to load required default config ${filePath}: ${(error as Error).message}`,
+		);
 	}
 
 	if (!validateConfig(parsed)) {
@@ -71,38 +55,66 @@ const PACKAGE_DEFAULT_CONFIG_PATH = path.resolve(
 	"../../config/prompt-suggester.config.json",
 );
 
-async function pathExists(filePath: string): Promise<boolean> {
+async function readPiSettingsSuggesterOverride(
+	settingsPath: string,
+): Promise<Partial<PromptSuggesterConfig> | undefined> {
+	let settings: unknown;
 	try {
-		await fs.access(filePath);
-		return true;
-	} catch {
-		return false;
+		settings = await readJsonIfExists(settingsPath);
+	} catch (error) {
+		throw new Error(
+			`Failed to load Pi settings ${settingsPath}: ${(error as Error).message}`,
+		);
 	}
+	if (!isObject(settings)) return undefined;
+
+	const promptSuggester = settings.promptSuggester;
+	if (!isObject(promptSuggester)) return undefined;
+
+	const suggesterModel = promptSuggester.suggesterModel;
+	if (suggesterModel === undefined) return undefined;
+	if (
+		typeof suggesterModel !== "string" ||
+		suggesterModel.trim().length === 0
+	) {
+		throw new Error(
+			`Pi settings ${settingsPath} promptSuggester.suggesterModel must be a non-empty string.`,
+		);
+	}
+
+	return {
+		inference: {
+			suggesterModel,
+		} as Partial<
+			PromptSuggesterConfig["inference"]
+		> as PromptSuggesterConfig["inference"],
+	};
 }
 
 export class FileConfigLoader implements ConfigLoader {
 	public constructor(
-		private readonly cwd: string = process.cwd(),
+		_cwd: string = process.cwd(),
 		private readonly homeDir: string = os.homedir(),
 	) {}
 
 	public async load(): Promise<PromptSuggesterConfig> {
-		const cwdDefaultPath = path.join(this.cwd, "config", "prompt-suggester.config.json");
-		const defaultPath = (await pathExists(cwdDefaultPath)) ? cwdDefaultPath : PACKAGE_DEFAULT_CONFIG_PATH;
-		const userPath = path.join(this.homeDir, ".pi", "suggester", "config.json");
-		const projectPath = path.join(projectStateDir(this.cwd, { home: this.homeDir }), "config.json");
+		const defaultPath = PACKAGE_DEFAULT_CONFIG_PATH;
+		const settingsPath = path.join(
+			this.homeDir,
+			".pi",
+			"agent",
+			"settings.json",
+		);
 
 		const defaultConfig = await readRequiredConfig(defaultPath);
-		const [userConfig, projectConfig] = await Promise.all([
-			readOverrideConfig(userPath, defaultConfig),
-			readOverrideConfig(projectPath, defaultConfig),
-		]);
-		const merged = deepMerge(deepMerge(defaultConfig, userConfig), projectConfig);
+		const settingsOverride =
+			await readPiSettingsSuggesterOverride(settingsPath);
+		const merged = deepMerge(defaultConfig, settingsOverride);
 		const normalized = normalizeConfig(merged, defaultConfig);
 
 		if (!validateConfig(normalized.config)) {
 			throw new Error(
-				`Failed to normalize suggester config. Base defaults from ${defaultPath}; overrides from ${userPath} and ${projectPath}.`,
+				`Failed to normalize suggester config. Base defaults from ${defaultPath}; override from ${settingsPath}.`,
 			);
 		}
 		return normalized.config;
