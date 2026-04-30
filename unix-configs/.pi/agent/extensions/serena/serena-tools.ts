@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { closeSync, openSync } from "node:fs";
+import { closeSync, existsSync, openSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -38,6 +38,7 @@ export interface SerenaStatePaths {
   serverStatePath: string;
   lockPath: string;
   logDir: string;
+  leasePath: string;
   projectMapPath: string;
 }
 
@@ -48,6 +49,15 @@ interface ReuseChecks {
 interface SerenaToolRuntime {
   ensureServer(ctx: ExtensionContext, signal?: AbortSignal): Promise<SerenaConnection>;
   getProjectRoot(ctx: ExtensionContext): Promise<string>;
+  registerOwner(ctx: ExtensionContext, state: SerenaServerState): Promise<void>;
+  releaseOwner(ctx: ExtensionContext, state: SerenaServerState): Promise<boolean>;
+}
+
+export interface SerenaOwnerLease {
+  ownerPid: number;
+  serverPid: number;
+  endpoint: string;
+  updatedAt: string;
 }
 
 interface SerenaConnection {
@@ -68,6 +78,31 @@ const STARTUP_TIMEOUT_MS = 90_000;
 const DEFAULT_SERENA_TOOL_TIMEOUT_MS = 20_000;
 const DEFAULT_MAX_BYTES = 50 * 1024;
 const DEFAULT_MAX_LINES = 2000;
+
+export function getDefaultRequestsCaBundleCandidates(): string[] {
+  return [
+    "/opt/homebrew/etc/openssl@3/cert.pem",
+    "/etc/ssl/cert.pem",
+  ];
+}
+
+export function getDefaultSerenaContext(env: NodeJS.ProcessEnv = process.env): string {
+  return env.PI_SERENA_CONTEXT ?? "desktop-app";
+}
+
+export function buildSerenaProcessEnv(
+  baseEnv: NodeJS.ProcessEnv = process.env,
+  requestsCaBundleCandidates: string[] = getDefaultRequestsCaBundleCandidates(),
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...baseEnv };
+
+  if (!env.REQUESTS_CA_BUNDLE) {
+    const certPath = requestsCaBundleCandidates.find((candidate) => candidate && existsSync(candidate));
+    if (certPath) env.REQUESTS_CA_BUNDLE = certPath;
+  }
+
+  return env;
+}
 
 export function getSerenaStateBaseDir(options: SerenaStatePathOptions = {}): string {
   const stateHome = options.xdgStateHome ?? process.env.XDG_STATE_HOME ?? join(options.home ?? homedir(), ".local", "state");
@@ -92,6 +127,7 @@ export function getSerenaStatePaths(projectRootRealpath: string, options: Serena
     serverStatePath: join(namespaceDir, "server-state.json"),
     lockPath: join(namespaceDir, "startup.lock"),
     logDir: join(namespaceDir, "logs"),
+    leasePath: join(namespaceDir, "leases.json"),
     projectMapPath: join(baseDir, "project-map.json"),
   };
 }
@@ -101,6 +137,16 @@ export function shouldReuseServerState(state: SerenaServerState, expectedProject
   if (resolve(state.projectRootRealpath) !== resolve(expectedProjectRootRealpath)) return false;
   if (!state.endpoint || !state.pid || !state.port) return false;
   return (checks.isPidAlive ?? isPidAlive)(state.pid);
+}
+
+export function shouldStopSerenaForOwnerShutdown(
+  leases: SerenaOwnerLease[],
+  ownerPid: number,
+  serverPid: number,
+  checks: ReuseChecks = {},
+): boolean {
+  const isAlive = checks.isPidAlive ?? isPidAlive;
+  return !leases.some((lease) => lease.ownerPid !== ownerPid && lease.serverPid === serverPid && isAlive(lease.ownerPid));
 }
 
 export function parseActiveProjectFromConfig(configText: string): string | undefined {
@@ -660,6 +706,16 @@ export function createSerenaRuntime(): SerenaToolRuntime {
       return realpath(await detectProjectRoot(ctx.cwd));
     },
 
+    async registerOwner(_ctx, state) {
+      const paths = getSerenaStatePaths(state.projectRootRealpath);
+      await registerSerenaOwner(paths, state);
+    },
+
+    async releaseOwner(_ctx, state) {
+      const paths = getSerenaStatePaths(state.projectRootRealpath);
+      return releaseSerenaOwnerAndMaybeStop(paths, state);
+    },
+
     async ensureServer(ctx, signal) {
       const projectRoot = await realpath(await detectProjectRoot(ctx.cwd));
       const paths = getSerenaStatePaths(projectRoot);
@@ -693,6 +749,96 @@ export function createSerenaRuntime(): SerenaToolRuntime {
   };
 }
 
+export async function registerSerenaOwner(paths: SerenaStatePaths, state: SerenaServerState, ownerPid = process.pid): Promise<void> {
+  await mkdir(paths.namespaceDir, { recursive: true });
+  await withStartupLock(paths.lockPath, async () => {
+    const leases = await readOwnerLeases(paths.leasePath);
+    const next = leases.filter((lease) => lease.ownerPid !== ownerPid);
+    next.push({ ownerPid, serverPid: state.pid, endpoint: state.endpoint, updatedAt: new Date().toISOString() });
+    await writeOwnerLeases(paths.leasePath, next);
+  });
+}
+
+export async function releaseSerenaOwnerAndMaybeStop(
+  paths: SerenaStatePaths,
+  state: SerenaServerState,
+  ownerPid = process.pid,
+  checks: ReuseChecks = {},
+  stopServer: (state: SerenaServerState, paths: SerenaStatePaths) => Promise<void> = stopSerenaServer,
+): Promise<boolean> {
+  await mkdir(paths.namespaceDir, { recursive: true });
+  return withStartupLock(paths.lockPath, async () => {
+    const leases = await readOwnerLeases(paths.leasePath);
+    const remaining = leases.filter((lease) => lease.ownerPid !== ownerPid);
+    const liveRemaining = remaining.filter((lease) => (checks.isPidAlive ?? isPidAlive)(lease.ownerPid));
+    await writeOwnerLeases(paths.leasePath, liveRemaining);
+
+    if (!shouldStopSerenaForOwnerShutdown(liveRemaining, ownerPid, state.pid, checks)) return false;
+
+    const currentState = await readServerState(paths.serverStatePath);
+    if (currentState && !isSameSerenaServerState(currentState, state)) return false;
+
+    await stopServer(state, paths);
+    return true;
+  });
+}
+
+async function readOwnerLeases(path: string): Promise<SerenaOwnerLease[]> {
+  try {
+    const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isSerenaOwnerLease);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    return [];
+  }
+}
+
+async function writeOwnerLeases(path: string, leases: SerenaOwnerLease[]): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(leases, null, 2)}\n`, "utf8");
+}
+
+function isSerenaOwnerLease(value: unknown): value is SerenaOwnerLease {
+  if (!value || typeof value !== "object") return false;
+  const lease = value as Partial<SerenaOwnerLease>;
+  return typeof lease.ownerPid === "number" && typeof lease.serverPid === "number" && typeof lease.endpoint === "string" && typeof lease.updatedAt === "string";
+}
+
+function isSameSerenaServerState(a: SerenaServerState, b: SerenaServerState): boolean {
+  return a.pid === b.pid && a.endpoint === b.endpoint && a.namespace === b.namespace;
+}
+
+async function stopSerenaServer(state: SerenaServerState, paths: SerenaStatePaths): Promise<void> {
+  if (isPidAlive(state.pid)) {
+    try {
+      process.kill(-state.pid, "SIGTERM");
+    } catch {
+      try {
+        process.kill(state.pid, "SIGTERM");
+      } catch {
+        // Process may have exited between liveness check and signal.
+      }
+    }
+
+    await delay(500);
+
+    if (isPidAlive(state.pid)) {
+      try {
+        process.kill(-state.pid, "SIGKILL");
+      } catch {
+        try {
+          process.kill(state.pid, "SIGKILL");
+        } catch {
+          // Process may have exited after SIGTERM.
+        }
+      }
+    }
+  }
+
+  await rm(paths.serverStatePath, { force: true });
+}
+
 async function connectToState(state: SerenaServerState, signal?: AbortSignal): Promise<SerenaConnection> {
   const transport = new StreamableHTTPClientTransport(new URL(state.endpoint));
   const client = new Client({ name: "pi-serena-extension", version: "1.0.0" });
@@ -707,15 +853,22 @@ async function connectToState(state: SerenaServerState, signal?: AbortSignal): P
   };
 }
 
+export async function isExpectedActiveProject(activeProject: string, expectedProjectRoot: string): Promise<boolean> {
+  const expectedRealpath = await realpath(expectedProjectRoot).catch(() => resolve(expectedProjectRoot));
+  if (activeProject === basename(expectedRealpath)) return true;
+
+  const activeRealpath = await realpath(activeProject).catch(() => resolve(activeProject));
+  return activeRealpath === expectedRealpath;
+}
+
 async function verifyActiveProject(client: SerenaClient, expectedProjectRoot: string): Promise<void> {
   const activeProject = await getActiveProjectIfAvailable(client);
   if (!activeProject) return;
 
-  const activeRealpath = await realpath(activeProject).catch(() => resolve(activeProject));
-  const expectedRealpath = await realpath(expectedProjectRoot).catch(() => resolve(expectedProjectRoot));
-  if (activeRealpath !== expectedRealpath) {
+  if (!(await isExpectedActiveProject(activeProject, expectedProjectRoot))) {
+    const expectedRealpath = await realpath(expectedProjectRoot).catch(() => resolve(expectedProjectRoot));
     throw new Error(
-      `Serena active project mismatch. Expected '${expectedRealpath}', but Serena reports '${activeRealpath}'. Refusing to use this endpoint.`,
+      `Serena active project mismatch. Expected '${expectedRealpath}', but Serena reports '${activeProject}'. Refusing to use this endpoint.`,
     );
   }
 }
@@ -740,7 +893,7 @@ async function startSerenaServer(projectRoot: string, paths: SerenaStatePaths, s
     cwd: projectRoot,
     detached: true,
     stdio: ["ignore", logFd, logFd],
-    env: process.env,
+    env: buildSerenaProcessEnv(process.env),
   });
   closeSync(logFd);
   child.unref();
@@ -786,7 +939,7 @@ function makeSerenaServerArgs(projectRoot: string, port: number): string[] {
     "--project",
     projectRoot,
     "--context",
-    process.env.PI_SERENA_CONTEXT ?? "ide",
+    getDefaultSerenaContext(process.env),
     "--open-web-dashboard",
     "false",
   ];

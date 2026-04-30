@@ -1,15 +1,21 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import {
+  buildSerenaProcessEnv,
   createSerenaToolDefinitions,
+  getDefaultSerenaContext,
   getSerenaStateBaseDir,
   getSerenaStatePaths,
+  isExpectedActiveProject,
   makeProjectNamespace,
   parseActiveProjectFromConfig,
+  registerSerenaOwner,
+  releaseSerenaOwnerAndMaybeStop,
   shouldReuseServerState,
+  shouldStopSerenaForOwnerShutdown,
   type SerenaServerState,
 } from "./serena-tools";
 
@@ -37,6 +43,7 @@ describe("Serena Pi extension state", () => {
     expect(paths.serverStatePath).toBe(`${paths.namespaceDir}/server-state.json`);
     expect(paths.lockPath).toBe(`${paths.namespaceDir}/startup.lock`);
     expect(paths.logDir).toBe(`${paths.namespaceDir}/logs`);
+    expect(paths.leasePath).toBe(`${paths.namespaceDir}/leases.json`);
     expect(paths.projectMapPath).toBe("/tmp/state/serena/pi/project-map.json");
   });
 
@@ -63,6 +70,161 @@ describe("Serena Pi extension state", () => {
     );
     expect(parseActiveProjectFromConfig("active_project: /repo/main\ncontexts: ide")).toBe("/repo/main");
     expect(parseActiveProjectFromConfig("No active project")).toBeUndefined();
+  });
+
+  test("configures a requests-compatible CA bundle for Serena child processes", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "serena-ca-test-"));
+    const certPath = join(dir, "cert.pem");
+    await writeFile(certPath, "test cert", "utf8");
+
+    try {
+      const env = buildSerenaProcessEnv({ PATH: "/usr/bin" }, [join(dir, "missing.pem"), certPath]);
+
+      expect(env.REQUESTS_CA_BUNDLE).toBe(certPath);
+      expect(env.PATH).toBe("/usr/bin");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("preserves an explicit requests CA bundle for Serena child processes", () => {
+    const env = buildSerenaProcessEnv({ PATH: "/usr/bin", REQUESTS_CA_BUNDLE: "/custom/cert.pem" }, ["/detected/cert.pem"]);
+
+    expect(env.REQUESTS_CA_BUNDLE).toBe("/custom/cert.pem");
+  });
+
+  test("defaults Serena startup to the full-toolset desktop app context", () => {
+    expect(getDefaultSerenaContext({})).toBe("desktop-app");
+    expect(getDefaultSerenaContext({ PI_SERENA_CONTEXT: "ide" })).toBe("ide");
+  });
+
+  test("accepts active project reported by registered project name", async () => {
+    expect(await isExpectedActiveProject("dotfiles", "/Users/me/Projects/dotfiles")).toBe(true);
+    expect(await isExpectedActiveProject("/Users/me/Projects/dotfiles", "/Users/me/Projects/dotfiles")).toBe(true);
+    expect(await isExpectedActiveProject("other", "/Users/me/Projects/dotfiles")).toBe(false);
+  });
+  test("keeps Serena running while another live Pi owner uses the same server", () => {
+    const leases = [
+      { ownerPid: 100, serverPid: 300, endpoint: "http://127.0.0.1:300/mcp", updatedAt: "2026-04-29T00:00:00.000Z" },
+      { ownerPid: 200, serverPid: 300, endpoint: "http://127.0.0.1:300/mcp", updatedAt: "2026-04-29T00:00:01.000Z" },
+    ];
+
+    expect(
+      shouldStopSerenaForOwnerShutdown(leases, 100, 300, { isPidAlive: (pid) => pid === 200 }),
+    ).toBe(false);
+  });
+
+  test("stops Serena when no other live Pi owner uses the same server", () => {
+    const leases = [
+      { ownerPid: 100, serverPid: 300, endpoint: "http://127.0.0.1:300/mcp", updatedAt: "2026-04-29T00:00:00.000Z" },
+      { ownerPid: 200, serverPid: 300, endpoint: "http://127.0.0.1:300/mcp", updatedAt: "2026-04-29T00:00:01.000Z" },
+      { ownerPid: 201, serverPid: 301, endpoint: "http://127.0.0.1:301/mcp", updatedAt: "2026-04-29T00:00:02.000Z" },
+    ];
+
+    expect(
+      shouldStopSerenaForOwnerShutdown(leases, 100, 300, { isPidAlive: (pid) => pid === 201 }),
+    ).toBe(true);
+  });
+
+  test("records owner leases and keeps Serena running for another live owner", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "serena-lease-test-"));
+    const paths = getSerenaStatePaths("/repo/main", { xdgStateHome: dir });
+    const state: SerenaServerState = {
+      schemaVersion: 1,
+      projectRoot: "/repo/main",
+      projectRootRealpath: "/repo/main",
+      namespace: paths.namespace,
+      pid: 300,
+      port: 49300,
+      endpoint: "http://127.0.0.1:49300/mcp",
+      startedAt: "2026-04-29T00:00:00.000Z",
+    };
+    const stopped: number[] = [];
+
+    try {
+      await registerSerenaOwner(paths, state, 100);
+      await registerSerenaOwner(paths, state, 200);
+
+      const didStop = await releaseSerenaOwnerAndMaybeStop(paths, state, 100, { isPidAlive: (pid) => pid === 200 }, async (server) => {
+        stopped.push(server.pid);
+      });
+
+      expect(didStop).toBe(false);
+      expect(stopped).toEqual([]);
+      expect(JSON.parse(await readFile(paths.leasePath, "utf8"))).toMatchObject([{ ownerPid: 200, serverPid: 300 }]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("does not remove a newer live server state when releasing a stale owner", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "serena-lease-test-"));
+    const paths = getSerenaStatePaths("/repo/main", { xdgStateHome: dir });
+    const oldState: SerenaServerState = {
+      schemaVersion: 1,
+      projectRoot: "/repo/main",
+      projectRootRealpath: "/repo/main",
+      namespace: paths.namespace,
+      pid: 300,
+      port: 49300,
+      endpoint: "http://127.0.0.1:49300/mcp",
+      startedAt: "2026-04-29T00:00:00.000Z",
+    };
+    const newerState: SerenaServerState = {
+      ...oldState,
+      pid: 301,
+      port: 49301,
+      endpoint: "http://127.0.0.1:49301/mcp",
+      startedAt: "2026-04-29T00:00:01.000Z",
+    };
+    const stopped: number[] = [];
+
+    try {
+      await registerSerenaOwner(paths, oldState, 100);
+      await registerSerenaOwner(paths, newerState, 200);
+      await writeFile(paths.serverStatePath, `${JSON.stringify(newerState, null, 2)}\n`, "utf8");
+
+      const didStop = await releaseSerenaOwnerAndMaybeStop(paths, oldState, 100, { isPidAlive: (pid) => pid === 200 }, async (server) => {
+        stopped.push(server.pid);
+      });
+
+      expect(didStop).toBe(false);
+      expect(stopped).toEqual([]);
+      expect(JSON.parse(await readFile(paths.serverStatePath, "utf8"))).toMatchObject({ pid: 301 });
+      expect(JSON.parse(await readFile(paths.leasePath, "utf8"))).toMatchObject([{ ownerPid: 200, serverPid: 301 }]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("removes final owner lease and stops Serena on last owner shutdown", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "serena-lease-test-"));
+    const paths = getSerenaStatePaths("/repo/main", { xdgStateHome: dir });
+    const state: SerenaServerState = {
+      schemaVersion: 1,
+      projectRoot: "/repo/main",
+      projectRootRealpath: "/repo/main",
+      namespace: paths.namespace,
+      pid: 300,
+      port: 49300,
+      endpoint: "http://127.0.0.1:49300/mcp",
+      startedAt: "2026-04-29T00:00:00.000Z",
+    };
+    const stopped: number[] = [];
+
+    try {
+      await registerSerenaOwner(paths, state, 100);
+
+      const didStop = await releaseSerenaOwnerAndMaybeStop(paths, state, 100, { isPidAlive: () => false }, async (server) => {
+        stopped.push(server.pid);
+      });
+
+      expect(didStop).toBe(true);
+      expect(stopped).toEqual([300]);
+      expect(JSON.parse(await readFile(paths.leasePath, "utf8"))).toEqual([]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
 

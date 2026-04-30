@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { createSerenaRuntime, registerSerenaTools } from "./serena-tools";
+import { createSerenaRuntime, registerSerenaTools, type SerenaServerState } from "./serena-tools";
 
 const DEFAULT_BLOCKED_TOOL_NAMES = ["read", "write", "edit", "ls", "find", "grep"];
 const DEFAULT_SERENA_TOOL_TIMEOUT_MS = 20_000;
@@ -18,6 +18,7 @@ type SettingsJson = Record<string, unknown> & {
 export default function serenaExtension(pi: ExtensionAPI) {
   const runtime = createSerenaRuntime();
   let blockedToolNames = [...DEFAULT_BLOCKED_TOOL_NAMES];
+  let activeServerState: SerenaServerState | undefined;
 
   registerSerenaTools(pi, runtime);
 
@@ -65,6 +66,8 @@ export default function serenaExtension(pi: ExtensionAPI) {
 
     try {
       const connection = await runtime.ensureServer(ctx, ctx.signal);
+      await runtime.registerOwner(ctx, connection.state);
+      activeServerState = connection.state;
       try {
         await activateSessionProject(connection.client, projectRoot);
       } finally {
@@ -72,6 +75,17 @@ export default function serenaExtension(pi: ExtensionAPI) {
       }
     } catch {
       // Keep startup non-fatal; the Serena tools will surface connection errors when invoked.
+    }
+  });
+
+  pi.on("session_shutdown", async (event, ctx) => {
+    if (event.reason !== "quit" || !activeServerState) return;
+
+    try {
+      await runtime.releaseOwner(ctx, activeServerState);
+      activeServerState = undefined;
+    } catch {
+      // Shutdown should remain best-effort; stale leases are pruned by future Pi sessions.
     }
   });
 }
