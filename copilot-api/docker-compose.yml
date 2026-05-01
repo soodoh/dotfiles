@@ -1,6 +1,6 @@
 services:
   copilot-api:
-    image: ghcr.io/caozhiyuan/copilot-api:v1.6.8
+    image: ghcr.io/caozhiyuan/copilot-api:v1.9.4
     container_name: copilot-api
     ports:
       - "1337:4141"
