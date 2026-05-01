@@ -1,0 +1,13 @@
+{
+  "name": "pi-workflows",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Deterministic YAML-defined workflows for Pi with Plannotator and subagent review loops",
+  "license": "MIT",
+  "main": "index.ts",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

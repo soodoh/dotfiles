@@ -1,0 +1,58 @@
+name: grill-plan-execute
+description: |
+  Use when: You want grill-me clarification, Plannotator approval, and deterministic reviewed implementation.
+  Input: Feature request or change description.
+  Output: Implemented and validated changes from an approved plan.
+
+modelPolicy:
+  default: { model: auto, thinking: auto }
+  planning: { model: auto, thinking: high }
+  reviewer: { model: auto, thinking: high }
+
+nodes:
+  - id: create-plan
+    command: pi-grill-plannotator-plan
+    context: newSession
+    output_artifact: plan
+
+  - id: handoff-to-execution
+    depends_on: [create-plan]
+    handoff:
+      mode: newSession
+      seed: approvedPlanOnly
+      artifacts: [plan]
+      required: true
+
+  - id: classify-plan
+    depends_on: [handoff-to-execution]
+    command: pi-classify-plan-complexity
+    context: fresh
+    output_format:
+      type: object
+      properties:
+        complexity: { type: string, enum: [simple, medium, complex] }
+      required: [complexity]
+
+  - id: simple-implementation
+    depends_on: [classify-plan]
+    when: "$classify-plan.output.complexity == 'simple'"
+    command: pi-implement-simple-reviewed
+    context: fresh
+
+  - id: workers-single-review
+    depends_on: [classify-plan]
+    when: "$classify-plan.output.complexity == 'medium'"
+    command: pi-workers-single-review
+    context: fresh
+
+  - id: task-wave-reviewed
+    depends_on: [classify-plan]
+    when: "$classify-plan.output.complexity == 'complex'"
+    command: pi-task-wave-reviewed
+    context: fresh
+
+  - id: final-validation
+    depends_on: [simple-implementation, workers-single-review, task-wave-reviewed]
+    trigger_rule: none_failed_min_one_success
+    command: pi-final-validation
+    context: fresh
