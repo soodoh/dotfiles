@@ -1,1 +1,0 @@
-export const CURRENT_CONFIG_SCHEMA_VERSION = 8;
