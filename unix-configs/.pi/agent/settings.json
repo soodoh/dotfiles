@@ -16,10 +16,14 @@
     {
       "source": "git:github.com/tmustier/pi-extensions",
       "extensions": [
+        "pi-ralph-wiggum/index.ts",
         "arcade/spice-invaders.ts",
         "arcade/picman.ts",
         "arcade/ping.ts",
         "arcade/tetris.ts"
+      ],
+      "skills": [
+        "pi-ralph-wiggum/SKILL.md"
       ]
     },
     "npm:pi-vim",
