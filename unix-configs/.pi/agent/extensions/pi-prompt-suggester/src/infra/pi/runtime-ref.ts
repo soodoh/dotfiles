@@ -1,7 +1,7 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { TurnContext } from "../../domain/suggestion.js";
 
-export interface EditorHistoryState {
+interface EditorHistoryState {
 	entries: string[];
 	index: number;
 }

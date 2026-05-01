@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { EventLog, LoggedEvent } from "../../app/ports/event-log.js";
 
-export interface NdjsonEventLogOptions {
+interface NdjsonEventLogOptions {
 	maxEntries?: number;
 	maxValueChars?: number;
 }
@@ -16,10 +16,13 @@ function sanitizeValue(value: unknown, maxValueChars: number): unknown {
 	if (value === null || value === undefined) return value;
 	if (typeof value === "string") return truncate(value, maxValueChars);
 	if (typeof value === "number" || typeof value === "boolean") return value;
-	if (Array.isArray(value)) return value.slice(0, 40).map((item) => sanitizeValue(item, maxValueChars));
+	if (Array.isArray(value))
+		return value.slice(0, 40).map((item) => sanitizeValue(item, maxValueChars));
 	if (typeof value === "object") {
 		const out: Record<string, unknown> = {};
-		for (const [key, nested] of Object.entries(value as Record<string, unknown>).slice(0, 40)) {
+		for (const [key, nested] of Object.entries(
+			value as Record<string, unknown>,
+		).slice(0, 40)) {
 			out[key] = sanitizeValue(nested, maxValueChars);
 		}
 		return out;
@@ -46,36 +49,21 @@ export class NdjsonEventLog implements EventLog {
 			await fs.mkdir(dir, { recursive: true });
 			const payload: LoggedEvent = {
 				...event,
-				meta: event.meta ? (sanitizeValue(event.meta, this.maxValueChars) as Record<string, unknown>) : undefined,
+				meta: event.meta
+					? (sanitizeValue(event.meta, this.maxValueChars) as Record<
+							string,
+							unknown
+						>)
+					: undefined,
 			};
-			await fs.appendFile(this.filePath, `${JSON.stringify(payload)}\n`, "utf8");
+			await fs.appendFile(
+				this.filePath,
+				`${JSON.stringify(payload)}\n`,
+				"utf8",
+			);
 			await this.rotateIfNeeded();
 		});
 		await this.queue;
-	}
-
-	public async readRecent(limit: number, options?: { messagePrefix?: string }): Promise<LoggedEvent[]> {
-		try {
-			const raw = await fs.readFile(this.filePath, "utf8");
-			const lines = raw
-				.split(/\r?\n/)
-				.map((line) => line.trim())
-				.filter(Boolean);
-			const parsed = lines
-				.map((line) => {
-					try {
-						return JSON.parse(line) as LoggedEvent;
-					} catch {
-						return null;
-					}
-				})
-				.filter((entry): entry is LoggedEvent => entry !== null)
-				.filter((entry) => !options?.messagePrefix || entry.message.startsWith(options.messagePrefix));
-			return parsed.slice(-Math.max(1, limit));
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-			throw new Error(`Failed to read event log ${this.filePath}: ${(error as Error).message}`);
-		}
 	}
 
 	private async rotateIfNeeded(): Promise<void> {

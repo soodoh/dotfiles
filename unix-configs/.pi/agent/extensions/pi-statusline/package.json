@@ -1,0 +1,16 @@
+{
+  "name": "pi-statusline",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Lean compact powerline statusline for pi",
+  "license": "MIT",
+  "main": "index.ts",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

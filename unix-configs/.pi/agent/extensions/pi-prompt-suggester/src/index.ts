@@ -8,10 +8,6 @@ import {
 	type AppComposition,
 	createAppComposition,
 } from "./composition/root.js";
-import {
-	handleSeedTraceCommand,
-	renderStatus,
-} from "./infra/pi/command-handlers.js";
 import { PiExtensionAdapter } from "./infra/pi/extension-adapter.js";
 import {
 	type GhostEditorInstallState,
@@ -150,34 +146,6 @@ export default function suggester(pi: ExtensionAPI) {
 				userPrompt: event.text,
 				source: event.source,
 			});
-		},
-		onReseedCommand: async (ctx) => {
-			const composition = await setRuntimeContext(ctx);
-			await composition.orchestrators.reseedRunner.trigger({
-				reason: "manual",
-				changedFiles: [],
-			});
-			ctx.ui.notify("suggester reseed queued", "info");
-		},
-		onStatusCommand: async (ctx) => {
-			const composition = await setRuntimeContext(ctx);
-			const [seed, state] = await Promise.all([
-				composition.stores.seedStore.load(),
-				composition.stores.stateStore.load(),
-			]);
-			pi.sendMessage(
-				{
-					customType: "prompt-suggester-status",
-					content: renderStatus(seed, state, composition.config, ctx),
-					display: true,
-				},
-				{ triggerTurn: false },
-			);
-		},
-		onSeedTraceCommand: async (args, ctx) => {
-			const composition = await setRuntimeContext(ctx);
-			await handleSeedTraceCommand(args, pi, composition);
-			ctx.ui.notify("suggester seed trace sent to chat", "info");
 		},
 	});
 

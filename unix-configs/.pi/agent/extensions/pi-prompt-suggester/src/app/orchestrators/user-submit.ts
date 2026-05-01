@@ -4,13 +4,13 @@ import type { StateStore } from "../ports/state-store.js";
 import type { SteeringClassifier } from "../services/steering-classifier.js";
 import type { SuggestionSink } from "./turn-end.js";
 
-export interface UserSubmitContext {
+interface UserSubmitContext {
 	turnId: string;
 	userPrompt: string;
 	source: "interactive" | "rpc" | "extension";
 }
 
-export interface UserSubmitOrchestratorDeps {
+interface UserSubmitOrchestratorDeps {
 	stateStore: StateStore;
 	steeringClassifier: SteeringClassifier;
 	clock: Clock;

@@ -7,5 +7,4 @@ export interface LoggedEvent {
 
 export interface EventLog {
 	append(event: LoggedEvent): Promise<void>;
-	readRecent(limit: number, options?: { messagePrefix?: string }): Promise<LoggedEvent[]>;
 }

@@ -22,7 +22,7 @@ export interface SuggestionSink {
 	}): Promise<void>;
 }
 
-export interface TurnEndOrchestratorDeps {
+interface TurnEndOrchestratorDeps {
 	config: PromptSuggesterConfig;
 	seedStore: SeedStore;
 	stateStore: StateStore;

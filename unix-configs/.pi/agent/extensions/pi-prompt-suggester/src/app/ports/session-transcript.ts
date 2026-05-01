@@ -1,6 +1,6 @@
 import type { Message } from "@mariozechner/pi-ai";
 
-export interface ActiveSessionTranscript {
+interface ActiveSessionTranscript {
 	systemPrompt: string;
 	messages: Message[];
 	contextUsagePercent?: number;

@@ -1,7 +1,6 @@
 import type {
 	AgentEndEvent,
 	ExtensionAPI,
-	ExtensionCommandContext,
 	ExtensionContext,
 	InputEvent,
 	SessionStartEvent,
@@ -10,19 +9,13 @@ import type {
 import { buildTurnContext } from "../../app/services/conversation-signals.js";
 import type { TurnContext } from "../../domain/suggestion.js";
 
-export interface ExtensionWiring {
+interface ExtensionWiring {
 	onSessionStart: (ctx: ExtensionContext) => Promise<void>;
 	onAgentEnd: (
 		turn: ReturnType<typeof buildTurnContext>,
 		ctx: ExtensionContext,
 	) => Promise<void>;
 	onUserSubmit: (event: InputEvent, ctx: ExtensionContext) => Promise<void>;
-	onReseedCommand: (ctx: ExtensionCommandContext) => Promise<void>;
-	onStatusCommand: (ctx: ExtensionCommandContext) => Promise<void>;
-	onSeedTraceCommand: (
-		args: string,
-		ctx: ExtensionCommandContext,
-	) => Promise<void>;
 }
 
 function isStaleExtensionContextError(error: unknown): boolean {
@@ -152,26 +145,6 @@ export class PiExtensionAdapter {
 		this.pi.on("input", async (event: InputEvent, ctx) => {
 			await ignoreStaleContext(() => this.wiring.onUserSubmit(event, ctx));
 			return { action: "continue" };
-		});
-
-		this.pi.registerCommand("suggester", {
-			description: "suggester controls: status | reseed | seed-trace [limit]",
-			handler: async (args, ctx) => {
-				await ignoreStaleContext(async () => {
-					const trimmed = args.trim();
-					const [subcommand, ...rest] =
-						trimmed.length > 0 ? trimmed.split(/\s+/) : ["status"];
-					if (subcommand === "reseed") {
-						await this.wiring.onReseedCommand(ctx);
-						return;
-					}
-					if (subcommand === "seed-trace") {
-						await this.wiring.onSeedTraceCommand(rest.join(" "), ctx);
-						return;
-					}
-					await this.wiring.onStatusCommand(ctx);
-				});
-			},
 		});
 	}
 }

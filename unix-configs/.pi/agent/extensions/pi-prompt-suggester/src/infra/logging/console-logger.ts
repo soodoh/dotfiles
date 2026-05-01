@@ -16,7 +16,7 @@ function truncate(value: string, maxChars: number): string {
 	return `${value.slice(0, maxChars)}…`;
 }
 
-export interface ConsoleLoggerOptions {
+interface ConsoleLoggerOptions {
 	getContext?: () => ExtensionContext | undefined;
 	statusKey?: string;
 	mirrorToConsoleWhenNoUi?: boolean;

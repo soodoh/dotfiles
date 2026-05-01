@@ -32,7 +32,7 @@ interface GeneratedSuggestion {
 	metadata: SuggestionMetadata;
 }
 
-export interface SuggestionEngineDeps {
+interface SuggestionEngineDeps {
 	config: PromptSuggesterConfig;
 	modelClient: ModelClient;
 	promptContextBuilder: PromptContextBuilder;

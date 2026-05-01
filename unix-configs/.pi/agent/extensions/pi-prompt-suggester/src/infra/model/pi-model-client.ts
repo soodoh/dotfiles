@@ -845,13 +845,13 @@ export class PiModelClient implements ModelClient {
 			model: error.model.id,
 			configuredModelRef,
 			resolution:
-				"Set /suggester model suggester <supported-provider/model> or switch the session to a provider that this extension can call directly.",
+				"Set promptSuggester.suggesterModel in ~/.pi/agent/settings.json to a supported provider/model or switch the session to a provider that this extension can call directly.",
 		});
 
 		try {
 			if (ctx.hasUI) {
 				ctx.ui.notify(
-					`Prompt suggester skipped this turn because provider '${error.providerApi}' isn't directly compatible. Set /suggester model suggester <supported-provider/model> to use an explicit model.`,
+					`Prompt suggester skipped this turn because provider '${error.providerApi}' isn't directly compatible. Set promptSuggester.suggesterModel in ~/.pi/agent/settings.json to use an explicit model.`,
 					"warning",
 				);
 			}

@@ -11,7 +11,7 @@ import {
 } from "../../domain/seed.js";
 import { computeConfigFingerprint } from "./seed-metadata.js";
 
-export interface StalenessCheckerDeps {
+interface StalenessCheckerDeps {
 	config: PromptSuggesterConfig;
 	fileHash: FileHash;
 	vcs: VcsClient;

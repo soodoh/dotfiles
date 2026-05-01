@@ -1,6 +1,6 @@
 import type { SeedArtifact, ReseedTrigger } from "../domain/seed.js";
 
-export interface SeederPromptInput {
+interface SeederPromptInput {
 	reseedTrigger: ReseedTrigger;
 	previousSeed: SeedArtifact | null;
 	cwd: string;

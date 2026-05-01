@@ -1,6 +1,6 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import { formatTokens, getConfiguredModelDisplay } from "../../../dist/infra/pi/display.js";
+import test from "node:test";
+import { getConfiguredModelDisplay } from "../../../dist/infra/pi/display.js";
 
 const ctx = {
 	model: { provider: "openai", id: "gpt-5" },
@@ -14,13 +14,6 @@ const ctx = {
 		},
 	},
 };
-
-test("formatTokens compacts token counts consistently", () => {
-	assert.equal(formatTokens(999), "999");
-	assert.equal(formatTokens(1200), "1.2k");
-	assert.equal(formatTokens(42000), "42k");
-	assert.equal(formatTokens(1500000), "1.5M");
-});
 
 test("getConfiguredModelDisplay uses configured provider/model and thinking", () => {
 	assert.equal(

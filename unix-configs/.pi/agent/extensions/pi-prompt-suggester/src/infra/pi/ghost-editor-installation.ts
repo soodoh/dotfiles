@@ -13,7 +13,7 @@ export interface GhostEditorInstallState {
 	sessionFile: string | null;
 }
 
-export interface GhostEditorDecoratorRuntimeOptions {
+interface GhostEditorDecoratorRuntimeOptions {
 	getSuggestion: () => string | undefined;
 	getSuggestionRevision: () => number;
 	ghostAcceptKeys: readonly GhostAcceptKey[];
@@ -111,16 +111,4 @@ export function syncGhostEditorDecorator(params: {
 	runtime.activate();
 	runtime.ensureDefaultEditorInstalled(params.context);
 	return { context: params.context, sessionFile: params.sessionFile };
-}
-
-export function getGhostEditorSyncAction(params: {
-	state: GhostEditorInstallState | undefined;
-	context: object;
-	sessionFile: string | null;
-}): "install" | "noop" {
-	const { state, context, sessionFile } = params;
-	if (state?.context === context && state.sessionFile === sessionFile) {
-		return "noop";
-	}
-	return "install";
 }

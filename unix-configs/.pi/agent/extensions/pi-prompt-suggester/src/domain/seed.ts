@@ -3,7 +3,7 @@ export const CURRENT_GENERATOR_VERSION = "2026-03-11.2";
 export const SEEDER_PROMPT_VERSION = "2026-03-11.2";
 export const SUGGESTION_PROMPT_VERSION = "2026-03-11.1";
 
-export type ReseedReason =
+type ReseedReason =
 	| "initial_missing"
 	| "manual"
 	| "key_file_changed"
@@ -23,7 +23,7 @@ export const REQUIRED_SEED_CATEGORIES: SeedKeyFileCategory[] = [
 	"principles_guidelines",
 ];
 
-export interface SeedCategoryFinding {
+interface SeedCategoryFinding {
 	found: boolean;
 	rationale: string;
 	files: string[];
@@ -31,7 +31,7 @@ export interface SeedCategoryFinding {
 
 export type SeedCategoryFindings = Record<"vision" | "architecture" | "principles_guidelines", SeedCategoryFinding>;
 
-export interface SeedKeyFile {
+interface SeedKeyFile {
 	path: string;
 	hash: string;
 	whyImportant: string;

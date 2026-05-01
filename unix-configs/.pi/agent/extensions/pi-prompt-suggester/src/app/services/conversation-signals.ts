@@ -1,7 +1,11 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { SuggestionUsage, TurnContext, TurnStatus } from "../../domain/suggestion.js";
+import type {
+	SuggestionUsage,
+	TurnContext,
+	TurnStatus,
+} from "../../domain/suggestion.js";
 
-export interface BranchMessageEntry {
+interface BranchMessageEntry {
 	id: string;
 	message: AgentMessage;
 }
@@ -12,7 +16,11 @@ function textFromContent(content: unknown): string {
 	return content
 		.map((block) => {
 			if (block && typeof block === "object") {
-				if ("type" in block && (block as { type?: string }).type === "text" && "text" in block) {
+				if (
+					"type" in block &&
+					(block as { type?: string }).type === "text" &&
+					"text" in block
+				) {
 					return String((block as { text?: unknown }).text ?? "");
 				}
 			}
@@ -22,7 +30,10 @@ function textFromContent(content: unknown): string {
 		.trim();
 }
 
-function extractToolSignals(messages: AgentMessage[]): { toolSignals: string[]; touchedFiles: string[] } {
+function extractToolSignals(messages: AgentMessage[]): {
+	toolSignals: string[];
+	touchedFiles: string[];
+} {
 	const toolSignals: string[] = [];
 	const touchedFiles = new Set<string>();
 
@@ -31,10 +42,14 @@ function extractToolSignals(messages: AgentMessage[]): { toolSignals: string[]; 
 			for (const block of message.content) {
 				if (block.type === "toolCall") {
 					const args = block.arguments as Record<string, unknown>;
-					const pathValue = typeof args.path === "string" ? args.path : undefined;
-					const fileValue = typeof args.file === "string" ? args.file : undefined;
-					const patternValue = typeof args.pattern === "string" ? args.pattern : undefined;
-					const commandValue = typeof args.command === "string" ? args.command : undefined;
+					const pathValue =
+						typeof args.path === "string" ? args.path : undefined;
+					const fileValue =
+						typeof args.file === "string" ? args.file : undefined;
+					const patternValue =
+						typeof args.pattern === "string" ? args.pattern : undefined;
+					const commandValue =
+						typeof args.command === "string" ? args.command : undefined;
 					const target = pathValue ?? fileValue ?? patternValue ?? commandValue;
 					toolSignals.push(`${block.name}${target ? `(${target})` : ""}`);
 					if (pathValue) touchedFiles.add(pathValue.replace(/^@/, ""));
@@ -58,14 +73,16 @@ function extractUnresolvedQuestions(text: string): string[] {
 }
 
 function extractUsage(message: AgentMessage): SuggestionUsage | undefined {
-	const usage = (message as AgentMessage & { usage?: unknown }).usage as Partial<{
-		input: number;
-		output: number;
-		cacheRead: number;
-		cacheWrite: number;
-		totalTokens: number;
-		cost: { total?: number };
-	}> | undefined;
+	const usage = (message as AgentMessage & { usage?: unknown }).usage as
+		| Partial<{
+				input: number;
+				output: number;
+				cacheRead: number;
+				cacheWrite: number;
+				totalTokens: number;
+				cost: { total?: number };
+		  }>
+		| undefined;
 	if (!usage) return undefined;
 	return {
 		inputTokens: Number(usage.input ?? 0),
@@ -96,11 +113,15 @@ function buildPlaceholderTurnContext(params: {
 	if (!lastMessage) return null;
 
 	const recentUserPrompts = extractRecentUserPrompts(params.branchMessages);
-	const { toolSignals, touchedFiles } = extractToolSignals(params.messagesFromPrompt);
+	const { toolSignals, touchedFiles } = extractToolSignals(
+		params.messagesFromPrompt,
+	);
 
 	if (lastMessage.role === "toolResult") {
 		const status: TurnStatus = lastMessage.isError ? "error" : "success";
-		const assistantText = lastMessage.isError ? "[error/toolcall]" : "[toolcall]";
+		const assistantText = lastMessage.isError
+			? "[error/toolcall]"
+			: "[toolcall]";
 		return {
 			turnId: params.turnId,
 			sourceLeafId: params.sourceLeafId,
@@ -147,13 +168,16 @@ export function buildTurnContext(params: {
 	}
 
 	const assistantText = textFromContent(latestMessage.content);
-	const status: TurnStatus = latestMessage.stopReason === "error"
-		? "error"
-		: latestMessage.stopReason === "aborted"
-			? "aborted"
-			: "success";
+	const status: TurnStatus =
+		latestMessage.stopReason === "error"
+			? "error"
+			: latestMessage.stopReason === "aborted"
+				? "aborted"
+				: "success";
 	const recentUserPrompts = extractRecentUserPrompts(params.branchMessages);
-	const { toolSignals, touchedFiles } = extractToolSignals(params.messagesFromPrompt);
+	const { toolSignals, touchedFiles } = extractToolSignals(
+		params.messagesFromPrompt,
+	);
 	return {
 		turnId: params.turnId,
 		sourceLeafId: params.sourceLeafId,
@@ -170,10 +194,6 @@ export function buildTurnContext(params: {
 				? "The previous agent turn ended with stopReason=aborted. The user likely interrupted execution and wants a better next instruction."
 				: undefined,
 	};
-}
-
-export function extractUserText(message: AgentMessage): string {
-	return textFromContent((message as { content?: unknown }).content ?? "");
 }
 
 export function buildLatestHistoricalTurnContext(params: {

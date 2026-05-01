@@ -1,5 +1,5 @@
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
-export type InferenceDefault = "session-default";
+type InferenceDefault = "session-default";
 export type SuggestionStrategy = "compact" | "transcript-steering";
 export type GhostAcceptKey = "space" | "right" | "enter";
 

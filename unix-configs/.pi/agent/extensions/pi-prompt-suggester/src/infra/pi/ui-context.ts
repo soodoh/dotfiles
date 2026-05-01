@@ -3,7 +3,7 @@ import type { PromptSuggesterConfig } from "../../config/types.js";
 import { getConfiguredModelDisplay } from "./display.js";
 import type { RuntimeRef } from "./runtime-ref.js";
 
-export interface WidgetLogStatus {
+interface WidgetLogStatus {
 	level: "debug" | "info" | "warn" | "error";
 	text: string;
 }

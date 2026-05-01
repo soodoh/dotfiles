@@ -1,7 +1,17 @@
 import type { SessionEntry } from "@mariozechner/pi-coding-agent";
-import { CURRENT_RUNTIME_STATE_VERSION, INITIAL_RUNTIME_STATE, type RuntimeState, type SuggestionUsageStats } from "../../domain/state.js";
+import {
+	CURRENT_RUNTIME_STATE_VERSION,
+	INITIAL_RUNTIME_STATE,
+	type RuntimeState,
+	type SuggestionUsageStats,
+} from "../../domain/state.js";
 import type { SuggestionUsage } from "../../domain/suggestion.js";
-import { addUsageStats, cloneUsageStats, emptyUsageStats, normalizeUsageStats } from "../../domain/usage.js";
+import {
+	addUsageStats,
+	cloneUsageStats,
+	emptyUsageStats,
+	normalizeUsageStats,
+} from "../../domain/usage.js";
 import {
 	LEGACY_STATE_CUSTOM_TYPE,
 	LEGACY_USAGE_CUSTOM_TYPE,
@@ -17,14 +27,7 @@ export function emptyUsagePair(): SuggestionUsageStatsPair {
 	};
 }
 
-export function cloneUsagePair(pair: SuggestionUsageStatsPair): SuggestionUsageStatsPair {
-	return {
-		suggester: cloneUsageStats(pair.suggester),
-		seeder: cloneUsageStats(pair.seeder),
-	};
-}
-
-export function parseUsage(raw: unknown): SuggestionUsage | undefined {
+function parseUsage(raw: unknown): SuggestionUsage | undefined {
 	if (!raw || typeof raw !== "object") return undefined;
 	const usage = raw as Partial<SuggestionUsage>;
 	if (
@@ -47,18 +50,30 @@ export function parseUsage(raw: unknown): SuggestionUsage | undefined {
 	};
 }
 
-export function normalizeInteractionState(raw: unknown): PersistedInteractionState {
-	const latest = (raw ?? INITIAL_RUNTIME_STATE) as Partial<RuntimeState> & { steeringHistory?: unknown };
+export function normalizeInteractionState(
+	raw: unknown,
+): PersistedInteractionState {
+	const latest = (raw ?? INITIAL_RUNTIME_STATE) as Partial<RuntimeState> & {
+		steeringHistory?: unknown;
+	};
 	return {
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: latest.lastSuggestion,
 		pendingNextTurnObservation: latest.pendingNextTurnObservation,
-		steeringHistory: Array.isArray(latest.steeringHistory) ? latest.steeringHistory : [],
-		turnsSinceLastStalenessCheck: Math.max(0, Number(latest.turnsSinceLastStalenessCheck ?? 0)),
+		steeringHistory: Array.isArray(latest.steeringHistory)
+			? latest.steeringHistory
+			: [],
+		turnsSinceLastStalenessCheck: Math.max(
+			0,
+			Number(latest.turnsSinceLastStalenessCheck ?? 0),
+		),
 	};
 }
 
-export function toRuntimeState(interaction: PersistedInteractionState, usage: SuggestionUsageStatsPair): RuntimeState {
+export function toRuntimeState(
+	interaction: PersistedInteractionState,
+	usage: SuggestionUsageStatsPair,
+): RuntimeState {
 	return {
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: interaction.lastSuggestion,
@@ -70,7 +85,9 @@ export function toRuntimeState(interaction: PersistedInteractionState, usage: Su
 	};
 }
 
-export function toPersistedInteractionState(state: RuntimeState): PersistedInteractionState {
+export function toPersistedInteractionState(
+	state: RuntimeState,
+): PersistedInteractionState {
 	return normalizeInteractionState({
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: state.lastSuggestion,
@@ -92,7 +109,11 @@ export function extractUsageTotals(entries: SessionEntry[]): {
 	let seeder = emptyUsageStats();
 
 	for (const entry of entries) {
-		if (entry.type !== "custom" || entry.customType !== LEGACY_USAGE_CUSTOM_TYPE) continue;
+		if (
+			entry.type !== "custom" ||
+			entry.customType !== LEGACY_USAGE_CUSTOM_TYPE
+		)
+			continue;
 		legacyUsageEntryCount += 1;
 		const data = entry.data as UsageLedgerEntry;
 		const usage = parseUsage(data?.usage);
@@ -105,19 +126,29 @@ export function extractUsageTotals(entries: SessionEntry[]): {
 	return { hasLedger, suggester, seeder, legacyUsageEntryCount };
 }
 
-export function extractLegacyInteractionSnapshots(entries: SessionEntry[]): Map<string, PersistedInteractionState> {
+export function extractLegacyInteractionSnapshots(
+	entries: SessionEntry[],
+): Map<string, PersistedInteractionState> {
 	const snapshots = new Map<string, PersistedInteractionState>();
 	for (const entry of entries) {
-		if (entry.type !== "custom" || entry.customType !== LEGACY_STATE_CUSTOM_TYPE) continue;
+		if (
+			entry.type !== "custom" ||
+			entry.customType !== LEGACY_STATE_CUSTOM_TYPE
+		)
+			continue;
 		snapshots.set(entry.id, normalizeInteractionState(entry.data));
 	}
 	return snapshots;
 }
 
-export function normalizePersistedUsagePair(raw: {
-	suggestionUsage?: unknown;
-	seederUsage?: unknown;
-} | undefined): SuggestionUsageStatsPair {
+export function normalizePersistedUsagePair(
+	raw:
+		| {
+				suggestionUsage?: unknown;
+				seederUsage?: unknown;
+		  }
+		| undefined,
+): SuggestionUsageStatsPair {
 	return {
 		suggester: normalizeUsageStats(raw?.suggestionUsage, emptyUsageStats()),
 		seeder: normalizeUsageStats(raw?.seederUsage, emptyUsageStats()),

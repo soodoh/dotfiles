@@ -36,14 +36,14 @@ export interface TurnContext {
 	abortContextNote?: string;
 }
 
-export interface PromptSuggestion {
+interface PromptSuggestion {
 	kind: "suggestion";
 	text: string;
 	usage?: SuggestionUsage;
 	metadata?: SuggestionMetadata;
 }
 
-export interface NoSuggestion {
+interface NoSuggestion {
 	kind: "no_suggestion";
 	text: string;
 	usage?: SuggestionUsage;

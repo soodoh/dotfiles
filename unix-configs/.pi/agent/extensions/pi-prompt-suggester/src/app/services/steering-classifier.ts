@@ -1,7 +1,7 @@
 import type { PromptSuggesterConfig } from "../../config/types.js";
 import type { SteeringClassification } from "../../domain/steering.js";
 
-export interface SteeringClassificationResult {
+interface SteeringClassificationResult {
 	classification: SteeringClassification;
 	similarity: number;
 }

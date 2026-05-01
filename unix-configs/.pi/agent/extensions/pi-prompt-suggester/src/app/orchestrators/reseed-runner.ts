@@ -34,7 +34,7 @@ function createRunId(): string {
 	return `seed-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export interface ReseedRunnerDeps {
+interface ReseedRunnerDeps {
 	config: PromptSuggesterConfig;
 	seedStore: SeedStore;
 	stateStore: StateStore;

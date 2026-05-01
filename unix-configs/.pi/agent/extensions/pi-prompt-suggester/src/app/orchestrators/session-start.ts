@@ -5,7 +5,7 @@ import type { StalenessChecker } from "../services/staleness-checker.js";
 import type { ReseedRunner } from "./reseed-runner.js";
 import type { SuggestionSink } from "./turn-end.js";
 
-export interface SessionStartOrchestratorDeps {
+interface SessionStartOrchestratorDeps {
 	seedStore: SeedStore;
 	stateStore: StateStore;
 	stalenessChecker: StalenessChecker;

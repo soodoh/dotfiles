@@ -2,7 +2,7 @@ import path from "node:path";
 import type { SessionEntry } from "@mariozechner/pi-coding-agent";
 import { ROOT_STATE_KEY, type SessionReadableManager, type SessionStorageContext } from "./session-state-types.js";
 
-export function normalizeSessionKey(value: string): string {
+function normalizeSessionKey(value: string): string {
 	return value.replace(/[^A-Za-z0-9._-]/g, "_");
 }
 

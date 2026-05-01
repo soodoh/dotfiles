@@ -2,11 +2,11 @@ import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
 
-export interface StateRootOptions {
+interface StateRootOptions {
 	home?: string;
 }
 
-export function suggesterStateRoot(options: StateRootOptions = {}): string {
+function suggesterStateRoot(options: StateRootOptions = {}): string {
 	const home = options.home ?? homedir();
 	return path.join(home, ".local", "state", "pi", "pi-prompt-suggester");
 }
@@ -16,7 +16,7 @@ function sanitizeProjectName(value: string): string {
 	return sanitized || "project";
 }
 
-export function projectStateKey(cwd: string): string {
+function projectStateKey(cwd: string): string {
 	const resolved = path.resolve(cwd);
 	const name = sanitizeProjectName(path.basename(resolved));
 	const hash = createHash("sha256").update(resolved).digest("hex").slice(0, 12);

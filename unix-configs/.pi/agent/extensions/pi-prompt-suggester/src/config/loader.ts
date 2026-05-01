@@ -6,7 +6,7 @@ import { readJsonIfExists } from "../infra/storage/json-file.js";
 import { normalizeConfig, validateConfig } from "./schema.js";
 import type { PromptSuggesterConfig } from "./types.js";
 
-export interface ConfigLoader {
+interface ConfigLoader {
 	load(): Promise<PromptSuggesterConfig>;
 }
 
@@ -52,7 +52,7 @@ async function readRequiredConfig(
 
 const PACKAGE_DEFAULT_CONFIG_PATH = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
-	"../../config/prompt-suggester.config.json",
+	"../../prompt-suggester.config.json",
 );
 
 async function readPiSettingsSuggesterOverride(

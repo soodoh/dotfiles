@@ -4,7 +4,7 @@ import { emptyUsageStats } from "./usage.js";
 
 export const CURRENT_RUNTIME_STATE_VERSION = 9;
 
-export interface LastSuggestionState {
+interface LastSuggestionState {
 	text: string;
 	shownAt: string;
 	turnId: string;
@@ -14,7 +14,7 @@ export interface LastSuggestionState {
 	requestedStrategy?: SuggestionStrategy;
 }
 
-export interface PendingNextTurnObservation {
+interface PendingNextTurnObservation {
 	suggestionTurnId: string;
 	suggestionShownAt: string;
 	userPromptSubmittedAt: string;
