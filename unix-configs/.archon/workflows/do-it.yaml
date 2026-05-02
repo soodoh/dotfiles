@@ -1,0 +1,552 @@
+name: do-it
+description: |
+  Adaptive Superpowers/BMAD/GSD-style workflow for implementation work.
+  Use when: user wants one ergonomic command that decides whether the request needs quick execution,
+  a standard whole-change PIV loop, or a deep grill/plan/per-task worker-reviewer loop.
+  Does: complexity assessment -> quick OR standard OR deep path -> final report.
+  Uses the configured default Archon assistant from config.yaml; compatible with Pi or Claude when provider/model are omitted.
+  Supports explicit user overrides in the request: --quick, --standard, or --deep.
+
+interactive: true
+worktree:
+  enabled: true
+
+nodes:
+  # ═══════════════════════════════════════════════════════════════
+  # PHASE 0: ASSESS — choose quick, standard, or deep
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: assess-complexity
+    command: do-it-assess-complexity
+    context: fresh
+    effort: medium
+    idle_timeout: 180000
+    output_format:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [quick, standard, deep]
+        confidence:
+          type: string
+          enum: [low, medium, high]
+        reason:
+          type: string
+        estimatedFiles:
+          type: number
+        needsTdd:
+          type: boolean
+        needsPlanningInterview:
+          type: boolean
+      required:
+        [
+          mode,
+          confidence,
+          reason,
+          estimatedFiles,
+          needsTdd,
+          needsPlanningInterview,
+        ]
+
+  # ═══════════════════════════════════════════════════════════════
+  # QUICK PATH — obvious small changes, no PIV loop
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: quick-implement
+    command: do-it-quick
+    depends_on: [assess-complexity]
+    when: "$assess-complexity.output.mode == 'quick'"
+    context: fresh
+    effort: medium
+    idle_timeout: 300000
+
+  # ═══════════════════════════════════════════════════════════════
+  # STANDARD PATH — gray-area/medium work, whole-change PIV loop
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: standard-plan
+    command: do-it-standard-plan
+    depends_on: [assess-complexity]
+    when: "$assess-complexity.output.mode == 'standard'"
+    context: fresh
+    effort: medium
+    idle_timeout: 240000
+
+  - id: standard-loop
+    depends_on: [standard-plan]
+    idle_timeout: 600000
+    loop:
+      prompt: |
+        # Standard Do-It PIV Loop
+
+        This is the medium-complexity path. Implement and review the whole change as one cohesive unit.
+        State lives on disk so each iteration can run with fresh context.
+
+        ## Files
+
+        - Assessment: `$ARTIFACTS_DIR/assessment.json`
+        - Plan: `$ARTIFACTS_DIR/standard-plan.md`
+        - State: `$ARTIFACTS_DIR/standard-state.json`
+        - Progress: `$ARTIFACTS_DIR/progress.md`
+        - Reviews: `$ARTIFACTS_DIR/reviews/`
+
+        ## Original request
+
+        $ARGUMENTS
+
+        ## Required first steps
+
+        1. Read `$ARTIFACTS_DIR/assessment.json`.
+        2. Read `$ARTIFACTS_DIR/standard-plan.md`.
+        3. Read `$ARTIFACTS_DIR/standard-state.json` from disk.
+        4. Read project instructions if present: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, or equivalent.
+        5. Run `git status --short`.
+
+        ## Stop conditions
+
+        If state status is `"complete"` or `"blocked"`, output `<promise>STANDARD_DONE</promise>`.
+
+        ## Worker phase
+
+        If state phase is `"worker"`:
+
+        Implement the standard plan as one focused change. Do not perform unrelated cleanup.
+
+        TDD policy:
+
+        - If state `tdd` is `"required"`:
+          1. Write or update a failing test first.
+          2. Run the targeted test and save failing output to `$ARTIFACTS_DIR/standard-tdd-red.txt`.
+          3. Implement the minimal code to pass.
+          4. Re-run the targeted test and save passing output to `$ARTIFACTS_DIR/standard-tdd-green.txt`.
+        - If state `tdd` is `"optional"`:
+          Use TDD when practical. If not practical, write the reason to progress before implementation.
+        - If state `tdd` is `"skip"`:
+          Do not force TDD, but still validate every acceptance criterion.
+
+        Validation:
+
+        - Run every command listed in state `validationCommands`.
+        - Run targeted type/lint/test commands when discoverable.
+        - Verify every acceptance criterion in the plan explicitly.
+        - If validation fails, fix before review handoff.
+
+        Commit rule:
+
+        - Stage only files changed for this standard plan.
+        - Never use `git add .`, `git add -A`, or `git add -u`.
+        - Never stage `$ARTIFACTS_DIR`.
+        - Commit with a clear conventional commit message.
+        - Do not include co-authored-by trailers.
+
+        After implementation and validation:
+
+        - Set state phase to `"reviewer"`.
+        - Set state status to `"needs_review"`.
+        - Append a worker summary to `$ARTIFACTS_DIR/progress.md`.
+        - End the iteration without a completion signal.
+
+        ## Reviewer phase
+
+        If state phase is `"reviewer"`:
+
+        Act as an adversarial reviewer. Do not modify repository source code.
+
+        Review against:
+
+        - `$ARTIFACTS_DIR/standard-plan.md`
+        - acceptance criteria
+        - validation commands
+        - git diff / recent commits for this workflow run
+        - project conventions
+        - correctness, regressions, security/privacy, maintainability, and test coverage
+
+        You may run read-only validation commands.
+
+        Write review JSON to `$ARTIFACTS_DIR/reviews/standard-round-{N}.json`:
+
+        ```json
+        {
+          "verdict": "pass",
+          "blockingFindings": [],
+          "nonBlockingFindings": [],
+          "validation": []
+        }
+        ```
+
+        If review passes:
+
+        - Set state status to `"complete"`.
+        - Set state phase to `"done"`.
+        - Append reviewer pass summary to progress.
+        - Output `<promise>STANDARD_DONE</promise>`.
+
+        If review fails:
+
+        - Increment `reviewRounds`.
+        - Add blocking findings to state notes.
+        - If `reviewRounds` exceeds `maxReviewRounds`, set state status to `"blocked"`, set phase to `"done"`, append blockers to progress, and output `<promise>STANDARD_DONE</promise>`.
+        - Otherwise set state status to `"review_failed"`, set phase to `"worker"`, append reviewer findings to progress, and end the iteration without a completion signal.
+      until: STANDARD_DONE
+      max_iterations: 10
+      fresh_context: true
+      until_bash: |
+        test -f "$ARTIFACTS_DIR/standard-state.json" && grep -q '"status"[[:space:]]*:[[:space:]]*"\(complete\|blocked\)"' "$ARTIFACTS_DIR/standard-state.json"
+
+  # ═══════════════════════════════════════════════════════════════
+  # DEEP PATH — grill + approved plan + per-task worker/reviewer loop
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: grill
+    depends_on: [assess-complexity]
+    when: "$assess-complexity.output.mode == 'deep'"
+    loop:
+      prompt: |
+        # Deep Do-It Planning Interview
+
+        You are running a grill-me style planning interview for a complex or ambiguous request.
+
+        **Original request**: $ARGUMENTS
+        **Complexity assessment**: $assess-complexity.output
+        **Latest user input**: $LOOP_USER_INPUT
+
+        ## Protocol
+
+        - Interview the user relentlessly until the implementation plan is clear.
+        - Ask exactly one focused question at a time.
+        - For each question, include your recommended answer and why.
+        - If a question can be answered by inspecting the repository, inspect the repository instead of asking.
+        - Resolve dependent design decisions in order; do not jump ahead.
+        - Do not modify repository files.
+        - Do not create the implementation plan until the user explicitly says something like:
+          "ready", "approved", "create the plan", "let's go", or "proceed".
+
+        ## First iteration
+
+        If there is no latest user input yet:
+
+        1. Restate the request in your own words.
+        2. Explain why the request was routed to deep mode.
+        3. Inspect enough of the repository to identify likely touch points and existing patterns.
+        4. Ask the single most important unresolved planning question.
+        5. Include your recommended answer.
+
+        ## Subsequent iterations
+
+        If the user answered a question or redirected the design:
+
+        1. Incorporate their answer.
+        2. Inspect the repository if needed to avoid asking answerable questions.
+        3. Ask the next single highest-leverage question.
+        4. Include your recommended answer.
+
+        ## Ready to plan
+
+        When the design is sufficiently clear, present:
+
+        ```markdown
+        ## Confirmed Understanding
+        - Goal:
+        - Scope:
+        - Non-goals:
+        - Key decisions:
+        - Likely files/areas:
+        - Testing/TDD expectations:
+        - Risks:
+        - Validation expectations:
+        ```
+
+        Then ask the user to say "ready" to generate the implementation plan.
+
+        ## Completion signal
+
+        Only if the user's latest input explicitly approves plan generation, output:
+
+        <promise>PLAN_READY</promise>
+      until: PLAN_READY
+      max_iterations: 12
+      fresh_context: false
+      interactive: true
+      gate_message: |
+        Answer the question above, redirect the plan, or say "ready" to generate the implementation plan.
+
+  - id: write-plan
+    command: do-it-plan
+    depends_on: [grill]
+    context: fresh
+    effort: high
+    idle_timeout: 300000
+
+  - id: approve-plan
+    approval:
+      message: |
+        Review the generated plan and task draft:
+
+        - Plan: $ARTIFACTS_DIR/plan.md
+        - Tasks: $ARTIFACTS_DIR/tasks.draft.json
+
+        Approve to begin implementation, or reject with specific feedback.
+      capture_response: true
+      on_reject:
+        prompt: |
+          Revise `$ARTIFACTS_DIR/plan.md` and `$ARTIFACTS_DIR/tasks.draft.json` using this feedback:
+
+          $REJECTION_REASON
+
+          Preserve the JSON task schema. Re-check dependency order, task size,
+          acceptance criteria, TDD classification, and validation commands.
+        max_attempts: 5
+    depends_on: [write-plan]
+
+  - id: normalize-tasks
+    depends_on: [approve-plan]
+    script: |
+      const fs = require("fs");
+      const path = require("path");
+
+      const artifactsDir = "$ARTIFACTS_DIR";
+      const draftPath = path.join(artifactsDir, "tasks.draft.json");
+      const statePath = path.join(artifactsDir, "task-state.json");
+      const progressPath = path.join(artifactsDir, "progress.md");
+      const reviewsDir = path.join(artifactsDir, "reviews");
+
+      if (!fs.existsSync(draftPath)) {
+        throw new Error(`Missing task draft: ${draftPath}`);
+      }
+
+      const raw = fs.readFileSync(draftPath, "utf8");
+      const parsed = JSON.parse(raw);
+      const tasks = Array.isArray(parsed) ? parsed : parsed.tasks;
+
+      if (!Array.isArray(tasks) || tasks.length === 0) {
+        throw new Error("tasks.draft.json must contain a non-empty tasks array");
+      }
+
+      const ids = new Set();
+      const allowedTdd = new Set(["required", "optional", "skip"]);
+
+      for (const task of tasks) {
+        if (!task || typeof task !== "object") {
+          throw new Error("Every task must be an object");
+        }
+        if (!task.id || typeof task.id !== "string") {
+          throw new Error("Every task needs a string id");
+        }
+        if (!task.title || typeof task.title !== "string") {
+          throw new Error(`Task ${task.id} needs a string title`);
+        }
+        if (ids.has(task.id)) {
+          throw new Error(`Duplicate task id: ${task.id}`);
+        }
+        ids.add(task.id);
+
+        task.type = task.type || "feature";
+        task.dependsOn = Array.isArray(task.dependsOn) ? task.dependsOn : [];
+        task.files = Array.isArray(task.files) ? task.files : [];
+
+        if (!Array.isArray(task.acceptanceCriteria) || task.acceptanceCriteria.length === 0) {
+          throw new Error(`Task ${task.id} needs at least one acceptance criterion`);
+        }
+
+        task.validationCommands = Array.isArray(task.validationCommands) ? task.validationCommands : [];
+
+        if (!allowedTdd.has(task.tdd)) {
+          throw new Error(`Task ${task.id} has invalid tdd value: ${task.tdd}`);
+        }
+
+        task.status = "todo";
+        task.reviewRounds = 0;
+        task.notes = "";
+      }
+
+      for (const task of tasks) {
+        for (const dep of task.dependsOn) {
+          if (!ids.has(dep)) {
+            throw new Error(`Task ${task.id} has unknown dependency: ${dep}`);
+          }
+        }
+      }
+
+      fs.mkdirSync(reviewsDir, { recursive: true });
+
+      const state = {
+        status: "running",
+        phase: "worker",
+        currentTaskId: null,
+        maxReviewRoundsPerTask: 4,
+        tasks
+      };
+
+      fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+      fs.writeFileSync(progressPath, `# Do-It Deep Progress\n\nInitialized ${tasks.length} tasks.\n`);
+
+      console.log(JSON.stringify({ taskCount: tasks.length, statePath, progressPath, reviewsDir }));
+    runtime: bun
+    timeout: 30000
+
+  - id: implement-review-loop
+    depends_on: [normalize-tasks]
+    idle_timeout: 600000
+    loop:
+      prompt: |
+        # Deep Do-It Implementation + Per-Task Review Loop
+
+        You are in a fresh iteration. State lives on disk.
+
+        ## Files
+
+        - Plan: `$ARTIFACTS_DIR/plan.md`
+        - State: `$ARTIFACTS_DIR/task-state.json`
+        - Progress: `$ARTIFACTS_DIR/progress.md`
+        - Reviews: `$ARTIFACTS_DIR/reviews/`
+
+        ## Original request
+
+        $ARGUMENTS
+
+        ## Required first steps
+
+        1. Read `$ARTIFACTS_DIR/plan.md`.
+        2. Read `$ARTIFACTS_DIR/task-state.json` from disk, not from prior context.
+        3. Read project instructions if present: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, or equivalent.
+        4. Run `git status --short`.
+
+        ## Completion check
+
+        If top-level status is `"blocked"`, output `<promise>COMPLETE</promise>` so the final report can explain the blocker.
+
+        If every task has `"status": "done"`:
+
+        1. Run the full validation commands from the plan.
+        2. Set top-level `status` to `"complete"` in `$ARTIFACTS_DIR/task-state.json`.
+        3. Append final validation results to `$ARTIFACTS_DIR/progress.md`.
+        4. Output `<promise>COMPLETE</promise>`.
+
+        Do not output `<promise>COMPLETE</promise>` at any other time.
+
+        ## Task selection
+
+        Pick the first task where:
+
+        - `status` is `"todo"` or `"review_failed"`
+        - every task in `dependsOn` has status `"done"`
+
+        If no task is eligible and not all tasks are done:
+
+        - Write blocker details to progress.
+        - Leave workflow status as `"blocked"` if the dependency situation cannot be resolved.
+        - End the iteration without a completion signal.
+
+        ## Worker phase
+
+        If state phase is `"worker"`:
+
+        Implement exactly one selected task. Do not perform unrelated cleanup.
+
+        ### TDD policy
+
+        - If `tdd` is `"required"`:
+          1. Write or update a failing test first.
+          2. Run the targeted test and save failing output to `$ARTIFACTS_DIR/tdd-{taskId}-red.txt`.
+          3. Implement the minimal code to pass.
+          4. Re-run the targeted test and save passing output to `$ARTIFACTS_DIR/tdd-{taskId}-green.txt`.
+        - If `tdd` is `"optional"`:
+          Use TDD when practical. If not practical, write the reason to progress before implementation.
+        - If `tdd` is `"skip"`:
+          Do not force TDD, but still validate every acceptance criterion.
+
+        ### Validation
+
+        - Run every command listed in the task's `validationCommands`.
+        - Run targeted type/lint/test commands when discoverable.
+        - Verify every acceptance criterion explicitly.
+        - If validation fails, fix before review handoff.
+
+        ### Commit rule
+
+        - Stage only files changed for this task.
+        - Never use `git add .`, `git add -A`, or `git add -u`.
+        - Never stage `$ARTIFACTS_DIR`.
+        - Commit with a clear conventional commit message.
+        - Do not include co-authored-by trailers.
+
+        ### Worker state update
+
+        After implementation and validation:
+
+        - Set task status to `"needs_review"`.
+        - Set `currentTaskId` to the task id.
+        - Set phase to `"reviewer"`.
+        - Append a worker summary to `$ARTIFACTS_DIR/progress.md`.
+        - End the iteration without a completion signal.
+
+        ## Reviewer phase
+
+        If state phase is `"reviewer"`:
+
+        Act as an adversarial reviewer. Do not modify repository source code.
+
+        Review only `currentTaskId` against:
+
+        - `$ARTIFACTS_DIR/plan.md`
+        - the task acceptance criteria
+        - the task's validation commands
+        - `git diff` / recent commits for the task
+        - project conventions
+        - correctness, regressions, security/privacy, maintainability, and test coverage
+
+        You may run read-only validation commands.
+
+        Write review JSON to `$ARTIFACTS_DIR/reviews/{taskId}-round-{N}.json`:
+
+        ```json
+        {
+          "taskId": "T001",
+          "verdict": "pass",
+          "blockingFindings": [],
+          "nonBlockingFindings": [],
+          "validation": []
+        }
+        ```
+
+        ### If review passes
+
+        - Set task status to `"done"`.
+        - Clear `currentTaskId`.
+        - Set phase to `"worker"`.
+        - Append reviewer pass summary to progress.
+        - End the iteration without a completion signal.
+
+        ### If review fails
+
+        - Set task status to `"review_failed"`.
+        - Increment `reviewRounds`.
+        - Add blocking findings to task notes.
+        - Set phase to `"worker"`.
+        - Append reviewer findings to progress.
+        - End the iteration without a completion signal.
+
+        ### If review rounds are exhausted
+
+        If `reviewRounds` exceeds `maxReviewRoundsPerTask`:
+
+        - Set top-level workflow status to `"blocked"`.
+        - Write the blocker to progress.
+        - Do not mark the task done.
+        - Output `<promise>COMPLETE</promise>` so the final report can explain the blocker.
+      until: COMPLETE
+      max_iterations: 40
+      fresh_context: true
+      until_bash: |
+        test -f "$ARTIFACTS_DIR/task-state.json" && grep -q '"status"[[:space:]]*:[[:space:]]*"\(complete\|blocked\)"' "$ARTIFACTS_DIR/task-state.json"
+
+  # ═══════════════════════════════════════════════════════════════
+  # FINAL REPORT — joins whichever branch ran
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: final-report
+    depends_on: [quick-implement, standard-loop, implement-review-loop]
+    trigger_rule: one_success
+    command: do-it-final-report
+    context: fresh
+    idle_timeout: 180000

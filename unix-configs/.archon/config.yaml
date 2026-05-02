@@ -1,0 +1,38 @@
+# Archon Global Configuration
+# See: https://archon.diy/reference/configuration/
+
+# Bot display name (shown in messages)
+botName: Archon
+
+# Global default provider for chats and workflows that do not specify provider/model.
+# Keep this user-scoped; avoid per-project .archon/config.yaml unless a repo truly needs overrides.
+# Archon v0.3.x uses `assistant` internally; `defaultAssistant` is kept for docs compatibility.
+defaultAssistant: pi
+assistant: pi
+
+assistants:
+  # Primary default: Archon's bundled Pi provider, using credentials and model
+  # metadata from ~/.pi/agent/auth.json and ~/.pi/agent/models.json.
+  pi:
+    model: openai-codex/gpt-5.5
+    enableExtensions: true
+  claude:
+    model: opus-4.6
+    settingSources:
+      - project
+      - user
+  codex:
+    model: gpt-5.5
+    modelReasoningEffort: medium
+    webSearchMode: live
+
+# Streaming mode per platform (stream or batch)
+streaming:
+  telegram: stream
+  discord: batch
+  slack: batch
+  github: batch
+
+# Concurrency settings
+concurrency:
+  maxConversations: 10

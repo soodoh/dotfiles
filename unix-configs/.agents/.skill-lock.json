@@ -163,6 +163,15 @@
       "pluginName": "mattpocock-skills",
       "installedAt": "2026-04-30T23:31:47.743Z",
       "updatedAt": "2026-04-30T23:31:47.743Z"
+    },
+    "archon": {
+      "source": "coleam00/archon",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/coleam00/archon.git",
+      "skillPath": ".claude/skills/archon/SKILL.md",
+      "skillFolderHash": "2087c237ccb9c664a036d68982603a5c756ebb6c3b1fb4dd3a446ba210cb8e2c",
+      "installedAt": "2026-05-03T02:51:26.321Z",
+      "updatedAt": "2026-05-03T02:51:26.321Z"
     }
   },
   "dismissed": {
@@ -181,6 +190,7 @@
     "github-copilot",
     "kimi-cli",
     "opencode",
-    "warp"
+    "warp",
+    "claude-code"
   ]
 }
