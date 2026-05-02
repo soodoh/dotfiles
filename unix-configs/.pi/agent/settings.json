@@ -26,6 +26,15 @@
         "pi-ralph-wiggum/SKILL.md"
       ]
     },
+    {
+      "source": "git:github.com/soodoh/pi-extensions",
+      "extensions": [
+        "packages/auto-session-name/index.ts",
+        "packages/prompt-suggester/src/index.ts",
+        "packages/shared-prompt-history/index.ts",
+        "packages/statusline/index.ts"
+      ]
+    },
     "npm:pi-vim",
     "npm:@ollama/pi-web-search",
     "npm:pi-ask-user",
