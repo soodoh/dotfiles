@@ -1,8 +1,9 @@
 return {
-  -- Treesitter (LSP-based syntax highlighting)
+  -- Treesitter syntax highlighting, folding, and indentation
   {
     "nvim-treesitter/nvim-treesitter",
     branch = "main",
+    lazy = false,
     build = ":TSUpdate",
     dependencies = "HiPhish/rainbow-delimiters.nvim",
     config = function()
@@ -29,6 +30,19 @@ return {
 
       require("nvim-treesitter").install(parsers)
 
+      vim.api.nvim_create_autocmd("FileType", {
+        group = vim.api.nvim_create_augroup("treesitter_features", {
+          clear = true,
+        }),
+        pattern = "*",
+        callback = function(event)
+          pcall(vim.treesitter.start, event.buf)
+          vim.wo[0][0].foldexpr = "v:lua.vim.treesitter.foldexpr()"
+          vim.wo[0][0].foldmethod = "expr"
+          vim.bo[event.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+        end,
+      })
+
       -- Rainbow parentheses, powered by treesitter
       local rainbow_delimiters = require("rainbow-delimiters")
       vim.g.rainbow_delimiters = {
@@ -50,14 +64,14 @@ return {
           "RainbowDelimiterCyan",
         },
       }
+
+      require("which-key").add({
+        {
+          "<leader>st",
+          ":InspectTree<CR>",
+          desc = "Inspect AST (Treesitter)",
+        },
+      })
     end,
-    -- Key bindings
-    require("which-key").add({
-      {
-        "<leader>st",
-        ":InspectTree<CR>",
-        desc = "Inspect AST (Treesitter)",
-      },
-    }),
   },
 }

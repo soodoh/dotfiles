@@ -18,8 +18,8 @@ return {
         preset = "default",
         ["<Tab>"] = { "select_next", "fallback" },
         ["<S-Tab>"] = { "select_prev", "fallback" },
-        ["<C-n"] = { "snippet_forward", "fallback_to_mappings" },
-        ["<C-p"] = { "snippet_backward", "fallback_to_mappings" },
+        ["<C-n>"] = { "snippet_forward", "fallback_to_mappings" },
+        ["<C-p>"] = { "snippet_backward", "fallback_to_mappings" },
         ["<CR>"] = { "accept", "fallback" },
       },
       appearance = {

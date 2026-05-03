@@ -3,7 +3,25 @@ return {
     "folke/snacks.nvim",
     priority = 1000,
     lazy = false,
+    keys = {
+      {
+        "<leader>dd",
+        function()
+          Snacks.bufdelete()
+        end,
+        desc = "Close buffer (keep window open)",
+      },
+      {
+        "<leader>dw",
+        ":bd<CR>",
+        desc = "Close buffer & window",
+      },
+    },
     opts = {
+      bigfile = {
+        enabled = true,
+        size = 1.5 * 1024 * 1024,
+      },
       statuscolumn = {
         enabled = true,
         left = { "mark", "sign" }, -- priority of signs on the left (high to low)

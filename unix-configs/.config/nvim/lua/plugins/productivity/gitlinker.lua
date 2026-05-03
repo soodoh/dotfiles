@@ -1,38 +1,34 @@
 return {
   -- Get github URL to current line
   {
-    "ruifm/gitlinker.nvim",
-    dependencies = "nvim-lua/plenary.nvim",
-    config = function()
-      local gitlinker = require("gitlinker")
-      gitlinker.setup({
-        opts = {
-          add_current_line_on_normal_mode = true,
-          action_callback = require("gitlinker.actions").copy_to_cliboard,
-          print_url = true,
+    "linrongbin16/gitlinker.nvim",
+    cmd = "GitLink",
+    keys = {
+      {
+        "<leader>gy",
+        "<cmd>GitLink<cr>",
+        desc = "Copy Git URL (Git)",
+        mode = { "n", "v" },
+      },
+    },
+    opts = function()
+      local routers = require("gitlinker.routers")
+
+      return {
+        router = {
+          browse = {
+            ["^github%..+%.com"] = routers.github_browse,
+          },
+          blame = {
+            ["^github%..+%.com"] = routers.github_blame,
+          },
         },
-        callbacks = {
-          ["github%..+%.com"] = require("gitlinker.hosts").get_github_type_url,
-        },
-      })
+      }
+    end,
+    config = function(_, opts)
+      require("gitlinker").setup(opts)
       require("which-key").add({
         { "<leader>g", group = "Git" },
-        {
-          "<leader>gy",
-          function()
-            gitlinker.get_buf_range_url("n")
-          end,
-          desc = "Copy Git URL (Git)",
-          mode = "n",
-        },
-        {
-          "<leader>gy",
-          function()
-            gitlinker.get_buf_range_url("v")
-          end,
-          desc = "Copy Git URL (Git)",
-          mode = "v",
-        },
       })
     end,
   },

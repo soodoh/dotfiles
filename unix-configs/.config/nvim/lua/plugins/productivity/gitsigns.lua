@@ -78,7 +78,7 @@ return {
             },
             {
               "<leader>gp",
-              gs.prewview_hunk,
+              gs.preview_hunk,
               desc = "Preview hunk (Gitsigns)",
             },
             {
