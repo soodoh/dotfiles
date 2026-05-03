@@ -269,6 +269,13 @@ main() {
       printf '%s\n' "$raw_json" |
         jq -c '.[] | select((has("error") | not) and (.usage.primary.usedPercent != null))' |
         jq -nc '
+          def rounded_percent:
+            if type == "number" then
+              ((. * 10 | round) / 10 | if . == floor then floor else . end)
+            else
+              .
+            end;
+
           [inputs
            | {
                id: .provider,
@@ -276,8 +283,8 @@ main() {
                icon: "",
                source: .source,
                loginMethod: (.usage.loginMethod // .usage.identity.loginMethod // ""),
-               sessionUsedPercent: .usage.primary.usedPercent,
-               weeklyUsedPercent: (.usage.secondary.usedPercent // null),
+               sessionUsedPercent: (.usage.primary.usedPercent | rounded_percent),
+               weeklyUsedPercent: (.usage.secondary.usedPercent // null | rounded_percent),
                sessionResetDescription: (.usage.primary.resetDescription // ""),
                weeklyResetDescription: (.usage.secondary.resetDescription // ""),
                updatedAt: (.usage.updatedAt // "")
