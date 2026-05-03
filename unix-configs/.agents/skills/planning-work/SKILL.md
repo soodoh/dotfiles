@@ -32,13 +32,24 @@ Create an approved plan plus task DAG, then hand off to `implementation-work` th
 
 Use generic wording in artifacts: role, model tier, dependencies, validation. Do not encode pi-only or Claude-only tool calls in the approved plan. Any harness-generated or subagent-generated planning files must be routed into `.agents/planning/<slug>/`, not the project root.
 
+## Canonical Role Prompt Templates
+
+Use the prompt templates in `prompts/` for planning subagent dispatches. These templates are the cross-harness source of truth; fill their placeholders from the user request and current planning artifact directory.
+
+| Role             | Template                      | When to use                                                                           |
+| ---------------- | ----------------------------- | ------------------------------------------------------------------------------------- |
+| Context gatherer | `prompts/context-gatherer.md` | Read-only request/scope, codebase pattern, or validation/risk context gathering       |
+| DAG planner      | `prompts/dag-planner.md`      | Proposing a task DAG from gathered context before the parent writes the approved plan |
+
+In Claude Code, paste the filled template into `Task`. In pi, pass the filled template as the `subagent(...)` task prompt. Do not improvise root-level artifact names; preserve the template's `.agents/planning/<slug>/` artifact boundary.
+
 ## Process
 
 ### 1. Establish Context with Subagents
 
 Before dispatching context-gathering subagents, create a planning artifact directory: `.agents/planning/<slug>/`.
 
-Dispatch read-only context-gathering subagents before interviewing the user. Route every subagent output, progress file, context file, report, and note into `.agents/planning/<slug>/`. Use explicit artifact paths in prompts/tool options such as:
+Dispatch read-only context-gathering subagents before interviewing the user. Use `prompts/context-gatherer.md` for each planning context subagent and route every subagent output, progress file, context file, report, and note into `.agents/planning/<slug>/`. Use explicit artifact paths in prompts/tool options such as:
 
 - `.agents/planning/<slug>/request-scope-context.md`
 - `.agents/planning/<slug>/codebase-patterns.md`
@@ -51,7 +62,7 @@ Use focused prompts such as:
 - Codebase patterns: relevant files, conventions, existing tests, architecture constraints.
 - Validation/risk: test commands, risky areas, migration/rollback concerns.
 
-Ask subagents for evidence-backed findings with file paths and remaining questions. Do not let planning subagents modify files. If a harness defaults to root-level files like `report.md`, `progress.md`, or `context.md`, override the output path or move the artifact into `.agents/planning/<slug>/` immediately and delete the root-level copy.
+Ask subagents for evidence-backed findings with file paths and remaining questions. Do not let planning subagents modify files. If a separate DAG proposal subagent is useful, use `prompts/dag-planner.md` and store its output under `.agents/planning/<slug>/`. If a harness defaults to root-level files like `report.md`, `progress.md`, or `context.md`, override the output path or move the artifact into `.agents/planning/<slug>/` immediately and delete the root-level copy.
 
 ### 2. Infer Model Tiers
 

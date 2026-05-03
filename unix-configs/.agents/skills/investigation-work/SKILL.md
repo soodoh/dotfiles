@@ -29,6 +29,12 @@ Required:
 
 If no subagent mechanism is available for a non-trivial investigation, stop and tell the user this workflow requires subagents.
 
+## Canonical Role Prompt Template
+
+Use `prompts/investigator.md` for investigation subagent dispatches. This template is the cross-harness source of truth; fill its placeholders from the blocker, plan path, run log, failed command output, and relevant files.
+
+In Claude Code, paste the filled template into `Task`. In pi, pass the filled template as the `subagent(...)` task prompt. Do not improvise a shorter investigation prompt unless the template is clearly inapplicable; preserve the role boundary, temporary-edit revert rules, evidence requirements, and output format.
+
 ## Harness Adapters
 
 | Operation             | pi                                                             | Claude Code                                  |
@@ -78,7 +84,7 @@ Temporary edits:
 - Capture evidence produced by the edit.
 - Revert the temporary edit before finalizing unless the caller explicitly promotes it into the approved implementation plan.
 
-Use multiple investigator subagents only when questions are independent, such as one local-code investigator and one external-docs investigator. Synthesize their results before returning.
+Use `prompts/investigator.md` for each investigator subagent. Use multiple investigator subagents only when questions are independent, such as one local-code investigator and one external-docs investigator. Synthesize their results before returning.
 
 ### 3. Validate
 

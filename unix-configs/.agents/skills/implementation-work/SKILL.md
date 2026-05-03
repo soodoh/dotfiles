@@ -31,6 +31,20 @@ Work on the current branch; do not stop merely because it is `main` or `master`.
 
 Child subagents must not invoke `planning-work` or `implementation-work`. The parent orchestrator owns the DAG, run log, review gates, retries, and final commit.
 
+## Canonical Role Prompt Templates
+
+Use the prompt templates in `prompts/` for every subagent dispatch. These templates are the cross-harness source of truth; fill their placeholders from the approved plan, run log, and current task.
+
+| Role                     | Template                           | When to use                                                 |
+| ------------------------ | ---------------------------------- | ----------------------------------------------------------- |
+| Implementer/writer       | `prompts/implementer.md`           | Initial implementation for a DAG task or chunk              |
+| Spec/acceptance verifier | `prompts/spec-verifier.md`         | First review gate after implementer reports completion      |
+| Code-quality reviewer    | `prompts/code-quality-reviewer.md` | Second review gate after spec verification passes           |
+| Fix writer               | `prompts/fix-writer.md`            | Focused fixes after a failed review gate                    |
+| Final reviewer           | `prompts/final-reviewer.md`        | Whole-change review before final validation and auto-commit |
+
+In Claude Code, paste the filled template into `Task`. In pi, pass the filled template as the `subagent(...)` task prompt and choose the agent/model tier according to this skill. Do not improvise shorter role prompts unless the template is clearly inapplicable; if you must adapt, preserve the role boundary, stop rules, TDD evidence requirements, and output format.
+
 ## Model Tier Rules
 
 Re-check model availability at execution and resume time. Use the approved tier mapping when models are still available; otherwise substitute the nearest available tier.
@@ -92,11 +106,11 @@ For each task/chunk, run Plan → Implement → Verify:
 
 - Extract only this task/chunk, dependencies, acceptance criteria, TDD requirement, model tier, and verification commands from the approved artifact.
 - Confirm it is within approved scope.
-- Create a role-specific implementer prompt. Include: task text, relevant context, files/areas, TDD requirement, verification expectations, stop rules, and report format.
+- Fill `prompts/implementer.md` with the task text, relevant context, files/areas, TDD requirement, verification expectations, stop rules, and report format.
 
 **Implement**
 
-- Dispatch exactly one writer subagent per task/chunk/worktree.
+- Dispatch exactly one writer subagent per task/chunk/worktree using the filled `prompts/implementer.md` template.
 - Writer must not recursively invoke planning/implementation skills.
 - Writer must stop for out-of-scope decisions, unclear requirements, or unsafe/destructive changes.
 - For behavior-changing code, writer must use TDD and report RED/GREEN evidence: failing test command/output summary before production code, passing command/output after implementation.
@@ -114,10 +128,10 @@ Writer report statuses:
 **Verify**
 Run two independent review gates before marking complete:
 
-1. **Spec/acceptance verifier:** independently reads the code/diff and checks that the task matches the approved spec, with nothing missing and no unapproved extras.
-2. **Code-quality reviewer:** runs only after spec/acceptance passes; checks maintainability, simplicity, tests, project conventions, and risk.
+1. **Spec/acceptance verifier:** use `prompts/spec-verifier.md`; independently reads the code/diff and checks that the task matches the approved spec, with nothing missing and no unapproved extras.
+2. **Code-quality reviewer:** use `prompts/code-quality-reviewer.md`; runs only after spec/acceptance passes and checks maintainability, simplicity, tests, project conventions, and risk.
 
-If a reviewer finds issues, send a focused fix prompt to a writer subagent. Re-run the same review gate. After two failed fix/review cycles for the same issue, invoke `investigation-work` or escalate to the user with evidence.
+If a reviewer finds issues, send `prompts/fix-writer.md` as a focused fix prompt to a writer subagent. Re-run the same review gate. After two failed fix/review cycles for the same issue, invoke `investigation-work` or escalate to the user with evidence.
 
 Reviewer must reject TDD-required work if RED/GREEN evidence is missing.
 
@@ -146,7 +160,7 @@ When parallel worktrees were used:
 After all DAG nodes pass:
 
 1. Run targeted checks, then affected suites, then broader checks when risk justifies it.
-2. Dispatch a strongest-tier final whole-change reviewer.
+2. Dispatch a strongest-tier final whole-change reviewer using `prompts/final-reviewer.md`.
 3. Apply only in-scope fixes required by final review; re-run relevant gates.
 4. Stage only approved product/test/docs changes. Exclude `.agents/` artifacts by default.
 5. Infer commit message conventions from project instructions and existing history.
