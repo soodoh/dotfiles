@@ -12,7 +12,8 @@ Execute an approved plan+DAG artifact using subagents. This skill is cross-harne
 Stop before writing if any precondition fails:
 
 - A subagent mechanism is available. If not, stop: this workflow requires subagents.
-- The input is an approved `.agents/plans/*.md` artifact with `Approval Status: approved` or equivalent approval stamp. If missing, redirect to `planning-work`.
+- The input is an approved `.agents/plans/*.md` artifact, or a `.agents/handoffs/*-implementation.md` file that points to one, with `Approval Status: approved` or equivalent approval stamp. If missing, redirect to `planning-work`.
+- This skill is running in a fresh/minimal session context, not the same conversation that created the plan. If the planning conversation is still in context, stop and ask the user to clear context or open a new session with the handoff prompt.
 - The git working tree is clean before execution starts, ignoring `.agents/` workflow artifacts created by this workflow.
 - The approved plan contains a task DAG, verification policy, model tier mapping, and out-of-scope decision triggers.
 
@@ -20,12 +21,13 @@ Work on the current branch; do not stop merely because it is `main` or `master`.
 
 ## Harness Adapters
 
-| Operation         | pi                                                                                | Claude Code                                                                 |
-| ----------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Dispatch subagent | Use `subagent(...)` with role-specific prompts and model overrides when available | Use `Task` with role-specific prompts and selected model when available     |
-| Parallel writers  | Prefer isolated git worktrees, or pi `worktree: true` if suitable                 | Create isolated git worktrees manually or through available harness support |
-| Model inventory   | Prefer `pi --list-models`                                                         | Inspect available/current model information exposed by Claude Code          |
-| Skill invocation  | Parent orchestrator loads/activates `investigation-work` when needed              | Parent orchestrator loads/activates `investigation-work` when needed        |
+| Operation         | pi                                                                                                              | Claude Code                                                                                            |
+| ----------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Dispatch subagent | Use `subagent(...)` with role-specific prompts and model overrides when available                               | Use `Task` with role-specific prompts and selected model when available                                |
+| Parallel writers  | Prefer isolated git worktrees, or pi `worktree: true` if suitable                                               | Create isolated git worktrees manually or through available harness support                            |
+| Model inventory   | Prefer `pi --list-models`                                                                                       | Inspect available/current model information exposed by Claude Code                                     |
+| Fresh context     | Prefer a new pi session, or a cleared/minimal context containing only the handoff prompt and approved artifacts | Prefer `/clear` or a new Claude Code session containing only the handoff prompt and approved artifacts |
+| Skill invocation  | Parent orchestrator loads/activates `investigation-work` when needed                                            | Parent orchestrator loads/activates `investigation-work` when needed                                   |
 
 Child subagents must not invoke `planning-work` or `implementation-work`. The parent orchestrator owns the DAG, run log, review gates, retries, and final commit.
 
@@ -63,12 +65,13 @@ On resume, read the approved plan and latest run log, verify the git state, re-c
 
 ### 1. Prepare
 
-1. Read the approved plan artifact.
-2. Verify clean git working tree, ignoring `.agents/` workflow artifacts created by this workflow.
-3. Record base SHA.
-4. Re-check model tiers.
-5. Create/update the run log.
-6. Topologically sort the task DAG.
+1. Read the handoff file if provided, then read the approved plan artifact.
+2. Confirm this is a fresh/minimal implementation session. Do not rely on prior planning conversation context; rely on the approved artifact and handoff file.
+3. Verify clean git working tree, ignoring `.agents/` workflow artifacts created by this workflow.
+4. Record base SHA.
+5. Re-check model tiers.
+6. Create/update the run log.
+7. Topologically sort the task DAG.
 
 If the plan requires a behavior-changing task without tests and without an approved non-TDD exception, stop and ask the user; implementation cannot invent TDD exceptions.
 

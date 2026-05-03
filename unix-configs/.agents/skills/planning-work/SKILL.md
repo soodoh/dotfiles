@@ -5,9 +5,7 @@ description: Use when turning a feature request, bugfix request, refactor, or pr
 
 # Planning Work
 
-Create an approved plan plus task DAG, then hand off automatically to `implementation-work`.
-
-This skill is cross-harness: it must work in pi and Claude Code. Do **not** rely on Superpowers, Ralph Wiggum, or any harness-specific workflow extension.
+Create an approved plan plus task DAG, then hand off to `implementation-work` through a fresh/minimal session boundary.
 
 ## Hard Requirements
 
@@ -16,31 +14,44 @@ This skill is cross-harness: it must work in pi and Claude Code. Do **not** rely
 - Ask exactly one focused question at a time.
 - For every question, include your recommended answer.
 - Persist the plan and DAG under `.agents/plans/` in the current project.
+- Persist all planning support artifacts under `.agents/` too. Do not create root-level planning files like `report.md`, `progress.md`, `context.md`, or ad hoc subagent reports in the project root.
 - Require an explicit approval phrase (`approved`, `approve`, or `ship it`) before implementation.
-- After approval, immediately activate/load `implementation-work` and pass it the approved plan artifact path.
+- After approval, create a fresh-session implementation handoff under `.agents/handoffs/`.
+- Invoke `implementation-work` only from a fresh/minimal session context. If the harness cannot start or clear into a fresh context automatically, stop and give the user the handoff prompt to paste into a new session. Do not run implementation in the same conversation that produced the plan.
 
 ## Harness Adapters
 
-| Operation         | pi                                                                          | Claude Code                                                                                                          |
-| ----------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Dispatch subagent | Use `subagent(...)` with focused role prompts                               | Use the `Task` tool with focused role prompts                                                                        |
-| List models       | Prefer `pi --list-models` when available                                    | Inspect available/current model information exposed by Claude Code; if unavailable, infer from visible/current model |
-| Worktree planning | Record whether git worktrees are available; implementation handles fallback | Same                                                                                                                 |
-| Skill handoff     | Load/activate `implementation-work` after approval                          | Load/activate `implementation-work` after approval                                                                   |
+| Operation                       | pi                                                                                                                                                              | Claude Code                                                                                                                                      |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dispatch subagent               | Use `subagent(...)` with focused role prompts                                                                                                                   | Use the `Task` tool with focused role prompts                                                                                                    |
+| List models                     | Prefer `pi --list-models` when available                                                                                                                        | Inspect available/current model information exposed by Claude Code; if unavailable, infer from visible/current model                             |
+| Worktree planning               | Record whether git worktrees are available; implementation handles fallback                                                                                     | Same                                                                                                                                             |
+| Planning artifacts              | Put subagent outputs/progress/context under `.agents/planning/<slug>/`                                                                                          | Put Task outputs/progress/context under `.agents/planning/<slug>/`                                                                               |
+| Implementation session boundary | Start a new pi session or clear to a minimal context with only the handoff prompt when available; do not use a nested subagent for implementation orchestration | Use `/clear` or a new Claude Code session with only the handoff prompt when available; do not use a nested Task for implementation orchestration |
+| Skill handoff                   | Load/activate `implementation-work` in the fresh/minimal session                                                                                                | Load/activate `implementation-work` in the fresh/minimal session                                                                                 |
 
-Use generic wording in artifacts: role, model tier, dependencies, validation. Do not encode pi-only or Claude-only tool calls in the approved plan.
+Use generic wording in artifacts: role, model tier, dependencies, validation. Do not encode pi-only or Claude-only tool calls in the approved plan. Any harness-generated or subagent-generated planning files must be routed into `.agents/planning/<slug>/`, not the project root.
 
 ## Process
 
 ### 1. Establish Context with Subagents
 
-Dispatch read-only context-gathering subagents before interviewing the user. Use focused prompts such as:
+Before dispatching context-gathering subagents, create a planning artifact directory: `.agents/planning/<slug>/`.
+
+Dispatch read-only context-gathering subagents before interviewing the user. Route every subagent output, progress file, context file, report, and note into `.agents/planning/<slug>/`. Use explicit artifact paths in prompts/tool options such as:
+
+- `.agents/planning/<slug>/request-scope-context.md`
+- `.agents/planning/<slug>/codebase-patterns.md`
+- `.agents/planning/<slug>/validation-risks.md`
+- `.agents/planning/<slug>/progress.md`
+
+Use focused prompts such as:
 
 - Request/scope/context: what is being asked, likely affected areas, ambiguous requirements.
 - Codebase patterns: relevant files, conventions, existing tests, architecture constraints.
 - Validation/risk: test commands, risky areas, migration/rollback concerns.
 
-Ask subagents for evidence-backed findings with file paths and remaining questions. Do not let planning subagents modify files.
+Ask subagents for evidence-backed findings with file paths and remaining questions. Do not let planning subagents modify files. If a harness defaults to root-level files like `report.md`, `progress.md`, or `context.md`, override the output path or move the artifact into `.agents/planning/<slug>/` immediately and delete the root-level copy.
 
 ### 2. Infer Model Tiers
 
@@ -75,6 +86,8 @@ Create `.agents/plans/<slug>.md` with these required sections:
 - `## Non-Goals`
 - `## Acceptance Criteria`
 - `## Constraints and Project Instructions`
+- `## Planning Artifacts`: paths to `.agents/planning/<slug>/` context, progress, and subagent report files.
+- `## Implementation Handoff`: path to `.agents/handoffs/<slug>-implementation.md` and instruction that implementation must run in a fresh/minimal session.
 - `## Model Inventory and Tier Mapping`: table with tier, model(s), and reasoning.
 - `## TDD and Verification Policy`: TDD-required tasks, approved non-TDD exceptions, verification hierarchy.
 - `## Task DAG`: required Markdown table with columns `ID`, `Task/Chunk`, `Dependencies`, `Execution Mode`, `Suggested Model Tier`, `TDD?`, `Verification`, `Notes`.
@@ -85,13 +98,20 @@ Create `.agents/plans/<slug>.md` with these required sections:
 - `## Final Validation and Commit Policy`: auto-commit after final validation, exclude `.agents/` artifacts by default, infer commit message conventions, never add `Co-authored-by` trailers.
 - `## Resume Notes`: implementation logs under `.agents/runs/` and resumes from the first incomplete DAG node.
 
-### 5. Approval
+### 5. Approval and Fresh-Session Handoff
 
 Present the artifact path and a concise summary of plan + DAG. Ask for exactly one approval decision.
 
-- If user explicitly says `approved`, `approve`, or `ship it`: update `Approval Status` in the artifact, then immediately invoke `implementation-work` with the artifact path.
 - If ambiguous: ask one clarification question.
 - If rejected: revise the plan/DAG and repeat approval.
+- If user explicitly says `approved`, `approve`, or `ship it`:
+  1. Update `Approval Status` in the plan artifact.
+  2. Create `.agents/handoffs/<slug>-implementation.md`.
+  3. Include only the minimal context needed to start implementation: approved plan path, planning artifact directory, current branch/base SHA if known, explicit instruction to load `implementation-work`, and a reminder not to use the prior planning conversation as context.
+  4. Start or clear into a fresh/minimal session if the harness provides that capability.
+  5. If the harness cannot reset context automatically, stop and tell the user to open a new session or clear context, then paste/run the handoff prompt.
+
+Do not continue directly into implementation inside the planning conversation. The approved artifact and handoff file are the context boundary.
 
 ## Red Flags
 
