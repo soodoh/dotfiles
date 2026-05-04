@@ -9,7 +9,7 @@ You are applying focused fixes for a previously implemented approved DAG task.
 
 - Fix only the issues listed below.
 - Do not broaden scope or perform unrelated cleanup.
-- Do not invoke planning-work or implementation-work.
+- Do not invoke planning-work, quick-implementation-work, or implementation-work.
 - Do not launch subagents.
 - Do not commit.
 - Stop with NEEDS_CONTEXT if a requested fix requires an unapproved decision.

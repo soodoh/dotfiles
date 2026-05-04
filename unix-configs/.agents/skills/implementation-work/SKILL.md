@@ -1,11 +1,11 @@
 ---
 name: implementation-work
-description: Use when executing an approved `.agents/plans/` implementation plan artifact with subagents, review gates, verification, and final auto-commit.
+description: Use when executing an approved `.agents/plans/` implementation plan artifact selected for deep-gated execution with subagents, per-task review gates, verification, and final auto-commit.
 ---
 
 # Implementation Work
 
-Execute an approved plan+DAG artifact using subagents. This skill is cross-harness: it must work in pi and Claude Code. Do **not** rely on Superpowers, Ralph Wiggum, or any harness-specific workflow extension.
+Execute an approved plan+DAG artifact using subagents, per-task review gates, and final validation. This is the deep-gated implementer selected by `planning-work` for complex/high-risk work. This skill is cross-harness: it must work in pi and Claude Code. Do **not** rely on Superpowers, Ralph Wiggum, or any harness-specific workflow extension.
 
 ## Preconditions
 
@@ -13,6 +13,7 @@ Stop before writing if any precondition fails:
 
 - A subagent mechanism is available. If not, stop: this workflow requires subagents.
 - The input is an approved `.agents/plans/*.md` artifact, or a `.agents/handoffs/*-implementation.md` file that points to one, with `Approval Status: approved` or equivalent approval stamp. If missing, redirect to `planning-work`.
+- If the approved plan selects `quick-batch` mode or names `quick-implementation-work`, stop and redirect to `quick-implementation-work` unless the user explicitly requests deep-gated execution.
 - This skill is running in a fresh/minimal session context, not the same conversation that created the plan. If the planning conversation is still in context, stop and ask the user to clear context or open a new session with the handoff prompt.
 - The git working tree is clean before execution starts, ignoring `.agents/` workflow artifacts created by this workflow.
 - The approved plan contains a task DAG, verification policy, model tier mapping, and out-of-scope decision triggers.

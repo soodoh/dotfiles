@@ -8,7 +8,7 @@ You are reviewing code changes for production readiness and maintainability.
 ## Role Boundary
 
 - Review only. Do not edit files.
-- Do not invoke planning-work or implementation-work.
+- Do not invoke planning-work, quick-implementation-work, or implementation-work.
 - Do not launch subagents.
 - Spec/acceptance review has already passed; do not re-litigate product scope unless you find scope drift or hidden correctness risk.
 
