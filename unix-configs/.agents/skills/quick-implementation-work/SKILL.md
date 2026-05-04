@@ -1,7 +1,6 @@
 ---
 name: quick-implementation-work
-description: |
-  Use when executing an approved `.agents/plans/` DAG selected for quick-batch implementation: subagent writers complete DAG tasks in the current checkout, then one whole-change review/fix PIV loop runs after all tasks are completed.
+description: "Use when executing an approved `.agents/plans/` DAG selected for quick-batch implementation: subagent writers complete low-to-medium-risk DAG tasks in the current checkout, then one whole-change review/fix PIV loop runs after all tasks are completed. Use this instead of deep implementation when planning explicitly selected quick-batch mode."
 ---
 
 # Quick Implementation Work
@@ -15,10 +14,11 @@ This skill is for low-to-medium risk work where `planning-work` decided that per
 Stop before writing if any precondition fails:
 
 - A subagent mechanism is available. If not, stop: this workflow requires subagents.
-- The input is an approved `.agents/plans/*.md` artifact, or a `.agents/handoffs/*-implementation.md` file that points to one, with `Approval Status: approved` or equivalent approval stamp.
-- The approved plan selects `quick-batch` mode or explicitly names `quick-implementation-work` as the implementation skill. If it selects `deep-gated` or `implementation-work`, stop and redirect to `implementation-work`.
+- The input is an approved `.agents/plans/*.md` artifact, or a `.agents/handoffs/*-implementation.md` file that points to one, with `Approval Status: approved`, an approval phrase of `approved`, `approve`, or `ship it`, and an approval timestamp.
+- The approved plan must contain an unambiguous `Complexity Assessment and Implementation Route` with both a selected mode and selected skill. If it clearly selects `deep-gated` / `implementation-work`, stop and redirect to `implementation-work` in a fresh/minimal session.
+- For this skill to proceed, the route must clearly be `selected mode: quick-batch` and `selected skill: quick-implementation-work`. If mode and skill conflict, route data is missing, or the handoff and plan disagree, stop and ask the user/planner to correct the artifact. Do not choose a route by inference.
 - This skill is running in a fresh/minimal session context, not the same conversation that created the plan. If the planning conversation is still in context, stop and ask the user to clear context or open a new session with the handoff prompt.
-- The git working tree is clean before execution starts, ignoring `.agents/` workflow artifacts created by this workflow.
+- For a new run, the git working tree is clean before execution starts, ignoring `.agents/` workflow artifacts created by this workflow. On resume, expected uncommitted workflow changes may exist only when they match the latest run log and base SHA; unrelated non-`.agents/` changes are blocking.
 - The approved plan contains a task DAG, verification policy, model tier mapping, complexity/routing rationale, and out-of-scope decision triggers.
 
 Work on the current branch; do not stop merely because it is `main` or `master`.
@@ -27,10 +27,10 @@ Work on the current branch; do not stop merely because it is `main` or `master`.
 
 - Still uses subagent writers for DAG tasks.
 - Does **not** require isolated git worktrees for parallel writer tasks.
-- Runs writer tasks sequentially by default; may run ready tasks in parallel in the same checkout only when they are independent, low-risk, and non-overlapping.
+- Runs writer tasks sequentially by default; may run ready tasks in parallel in the same checkout only when they are independent, low-risk, non-overlapping, and have explicit file ownership.
 - Does **not** run per-task spec/code-quality review gates.
 - Runs a whole-change review/fix PIV loop only after all DAG tasks complete.
-- Escalates to `implementation-work` or the user if the work proves too risky for quick-batch execution.
+- Escalates via a fresh-session `implementation-work` handoff, or to the user, if the work proves too risky for quick-batch execution.
 
 ## Harness Adapters
 
@@ -42,7 +42,7 @@ Work on the current branch; do not stop merely because it is `main` or `master`.
 | Fresh context    | Prefer a new pi session, or a cleared/minimal context containing only the handoff prompt and approved artifacts | Prefer `/clear` or a new Claude Code session containing only the handoff prompt and approved artifacts |
 | Investigation    | Parent orchestrator loads/activates `investigation-work` when needed                                            | Parent orchestrator loads/activates `investigation-work` when needed                                   |
 
-Child subagents must not invoke `planning-work`, `quick-implementation-work`, or `implementation-work`. The parent orchestrator owns the DAG, run log, review/fix loop, final validation, and commit.
+Child subagents must not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`) and must not launch subagents. The parent orchestrator owns skill routing, the DAG, run log, review/fix loop, final validation, and commit.
 
 ## Canonical Role Prompt Templates
 
@@ -86,7 +86,7 @@ Create `.agents/runs/<plan-slug>-quick-<timestamp>.md` before dispatching writer
 - Whole-change review rounds, findings, fixes, and validation.
 - Final validation result and final commit SHA.
 
-On resume, read the approved plan and latest quick run log, verify the git state, re-check model availability, then continue from the first incomplete DAG node. If all DAG nodes are complete, resume the whole-change review/fix loop. Do not duplicate completed work unless validation shows it is invalid.
+On resume, read the approved plan and latest quick run log, verify the git state against the recorded base SHA and expected changed files, re-check model availability, then continue from the first incomplete DAG node. Resume may continue expected uncommitted workflow diffs, but stop on unrelated changes, route mismatches, or missing run-log evidence. If all DAG nodes are complete, resume the whole-change review/fix loop. Do not duplicate completed work unless validation shows it is invalid.
 
 ## Execution Process
 
@@ -95,7 +95,7 @@ On resume, read the approved plan and latest quick run log, verify the git state
 1. Read the handoff file if provided, then read the approved plan artifact.
 2. Confirm this is a fresh/minimal implementation session.
 3. Verify the plan selected `quick-batch` / `quick-implementation-work`.
-4. Verify clean git working tree, ignoring `.agents/` workflow artifacts created by this workflow.
+4. Verify git state with `git status --porcelain --untracked-files=all`: for new runs, treat any non-`.agents/` change as blocking; for resumes, allow only run-log-matching workflow diffs. Treat staged `.agents/` files as blocking before commit and record ignored `.agents/` paths in the run log.
 5. Record base SHA.
 6. Re-check model tiers.
 7. Create/update the run log.
@@ -108,10 +108,11 @@ If the plan requires a behavior-changing task without tests and without an appro
 For each ready DAG node or compatible ready group:
 
 - Sequential execution is always acceptable and is the default when shared files, ordering, or risk are unclear.
-- Parallel execution in the same checkout is allowed only when the approved DAG and current inspection show tasks are independent, non-overlapping, and low-risk.
+- Parallel execution in the same checkout is allowed only when the approved DAG and current inspection show tasks are independent, non-overlapping, low-risk, and have explicit file ownership.
+- Same-checkout parallelism is not allowed for tasks touching shared generated files, lockfiles, format-all outputs, migrations, global config, or the same source/test files. Serialize verification/formatting commands that can touch shared files.
 - Parallel tasks do **not** need their own worktrees in this skill.
 - If parallel tasks overlap or become risky, degrade to sequential execution.
-- If the work now appears to require isolated worktrees or per-task review gates, stop and recommend switching to `implementation-work` with evidence.
+- If the work now appears to require isolated worktrees or per-task review gates, stop, update the run log, create an escalation handoff, and ask the user to restart in a fresh/minimal `implementation-work` session with evidence.
 
 ### 3. DAG Writer Phase
 
@@ -121,7 +122,7 @@ For each selected task/chunk:
 2. Confirm it is within approved scope.
 3. Fill `../implementation-work/prompts/implementer.md` with the task context.
 4. Dispatch exactly one writer subagent per task/chunk.
-5. Writer must not recursively invoke planning/implementation skills, launch subagents, or commit.
+5. Writer must not recursively invoke any workflow skill, launch subagents, or commit.
 6. Writer must stop for out-of-scope decisions, unclear requirements, or unsafe/destructive changes.
 7. For behavior-changing code, writer must follow the approved TDD policy and report RED/GREEN evidence when TDD is required.
 8. Record the writer report and update the run log.
@@ -134,7 +135,7 @@ Writer report statuses:
 | `DONE`               | Implemented and verified  | Mark task complete when targeted checks are acceptable                                                                                                 |
 | `DONE_WITH_CONCERNS` | Implemented but uncertain | Inspect concerns; either continue to whole-change review, dispatch a focused fix, or invoke `investigation-work` if correctness/scope risk is material |
 | `NEEDS_CONTEXT`      | Missing info              | Provide context, invoke `investigation-work`, or escalate to user                                                                                      |
-| `BLOCKED`            | Cannot complete           | Invoke `investigation-work`, switch to `implementation-work`, or escalate with evidence                                                                |
+| `BLOCKED`            | Cannot complete           | Invoke `investigation-work`, create a fresh-session `implementation-work` escalation handoff, or escalate with evidence                                |
 
 ### 4. Whole-Change Review PIV Loop
 
@@ -148,6 +149,7 @@ For each review round, up to the plan's retry limit or 3 rounds by default:
 4. If spec review passes, dispatch a whole-change code-quality reviewer by adapting `../implementation-work/prompts/code-quality-reviewer.md` to the combined diff and validation evidence.
 5. If quality review fails with Critical or Important issues, dispatch a focused fix writer; then re-run targeted validation and restart the whole-change review round.
 6. If both reviews pass, mark the whole-change review loop complete.
+7. If the retry limit is exhausted, invoke `investigation-work` once when diagnosis can help; if unresolved or out-of-scope, stop as `BLOCKED` and escalate with evidence.
 
 Invoke `investigation-work` when:
 
@@ -164,7 +166,7 @@ After the whole-change review loop passes:
 
 1. Run targeted checks, then affected suites, then broader checks when risk justifies it.
 2. Optionally dispatch a strongest-tier final whole-change reviewer using `../implementation-work/prompts/final-reviewer.md` when the combined diff is larger or riskier than expected.
-3. Apply only in-scope fixes required by final validation/review; re-run relevant checks and the affected review gate.
+3. Apply only in-scope fixes required by final validation/review; re-run relevant checks and the affected review gate. Limit final validation/review fixes to two rounds, then invoke `investigation-work` once if diagnosis may help; if unresolved, stop as `BLOCKED` with evidence.
 4. Stage only approved product/test/docs changes. Exclude `.agents/` artifacts by default.
 5. Infer commit message conventions from project instructions and existing history.
 6. Commit automatically after final validation passes. Do not ask for another approval.

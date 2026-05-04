@@ -12,10 +12,11 @@ Execute an approved plan+DAG artifact using subagents, per-task review gates, an
 Stop before writing if any precondition fails:
 
 - A subagent mechanism is available. If not, stop: this workflow requires subagents.
-- The input is an approved `.agents/plans/*.md` artifact, or a `.agents/handoffs/*-implementation.md` file that points to one, with `Approval Status: approved` or equivalent approval stamp. If missing, redirect to `planning-work`.
-- If the approved plan selects `quick-batch` mode or names `quick-implementation-work`, stop and redirect to `quick-implementation-work` unless the user explicitly requests deep-gated execution.
+- The input is an approved `.agents/plans/*.md` artifact, or a `.agents/handoffs/*-implementation.md` file that points to one, with `Approval Status: approved`, an approval phrase of `approved`, `approve`, or `ship it`, and an approval timestamp. If missing, redirect to `planning-work`.
+- The approved plan must contain an unambiguous `Complexity Assessment and Implementation Route` with both a selected mode and selected skill. If it clearly selects `quick-batch` / `quick-implementation-work`, stop and redirect to `quick-implementation-work` unless the user explicitly requests deep-gated execution and the plan is updated accordingly.
+- For this skill to proceed, the route must clearly be `selected mode: deep-gated` and `selected skill: implementation-work`. If mode and skill conflict, route data is missing, or the handoff and plan disagree, stop and ask the user/planner to correct the artifact. Do not choose a route by inference.
 - This skill is running in a fresh/minimal session context, not the same conversation that created the plan. If the planning conversation is still in context, stop and ask the user to clear context or open a new session with the handoff prompt.
-- The git working tree is clean before execution starts, ignoring `.agents/` workflow artifacts created by this workflow.
+- For a new run, the git working tree is clean before execution starts, ignoring `.agents/` workflow artifacts created by this workflow. On resume, expected uncommitted workflow changes may exist only when they match the latest run log and base SHA; unrelated non-`.agents/` changes are blocking.
 - The approved plan contains a task DAG, verification policy, model tier mapping, and out-of-scope decision triggers.
 
 Work on the current branch; do not stop merely because it is `main` or `master`.
@@ -30,7 +31,7 @@ Work on the current branch; do not stop merely because it is `main` or `master`.
 | Fresh context     | Prefer a new pi session, or a cleared/minimal context containing only the handoff prompt and approved artifacts | Prefer `/clear` or a new Claude Code session containing only the handoff prompt and approved artifacts |
 | Skill invocation  | Parent orchestrator loads/activates `investigation-work` when needed                                            | Parent orchestrator loads/activates `investigation-work` when needed                                   |
 
-Child subagents must not invoke `planning-work` or `implementation-work`. The parent orchestrator owns the DAG, run log, review gates, retries, and final commit.
+Child subagents must not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`) and must not launch subagents. The parent orchestrator owns skill routing, the DAG, run log, review gates, retries, and final commit.
 
 ## Canonical Role Prompt Templates
 
@@ -71,10 +72,10 @@ Create `.agents/runs/<plan-slug>-<timestamp>.md` before dispatching writers. Upd
 - DAG node status: pending, running, blocked, review-failed, complete.
 - Subagent summaries and artifact paths.
 - Verification commands and outcomes.
-- Worktree paths and merge status.
+- Worktree paths and integration status.
 - Final validation result and final commit SHA.
 
-On resume, read the approved plan and latest run log, verify the git state, re-check model availability, then continue from the first incomplete DAG node. Do not duplicate completed work unless validation shows it is invalid.
+On resume, read the approved plan and latest run log, verify the git state against the recorded base SHA and expected changed files, re-check model availability, then continue from the first incomplete DAG node. Resume may continue expected uncommitted workflow diffs, but stop on unrelated changes, route mismatches, or missing run-log evidence. Do not duplicate completed work unless validation shows it is invalid.
 
 ## Execution Process
 
@@ -82,7 +83,7 @@ On resume, read the approved plan and latest run log, verify the git state, re-c
 
 1. Read the handoff file if provided, then read the approved plan artifact.
 2. Confirm this is a fresh/minimal implementation session. Do not rely on prior planning conversation context; rely on the approved artifact and handoff file.
-3. Verify clean git working tree, ignoring `.agents/` workflow artifacts created by this workflow.
+3. Verify git state with `git status --porcelain --untracked-files=all`: for new runs, treat any non-`.agents/` change as blocking; for resumes, allow only run-log-matching workflow diffs. Treat staged `.agents/` files as blocking before commit and record ignored `.agents/` paths in the run log.
 4. Record base SHA.
 5. Re-check model tiers.
 6. Create/update the run log.
@@ -112,10 +113,10 @@ For each task/chunk, run Plan → Implement → Verify:
 **Implement**
 
 - Dispatch exactly one writer subagent per task/chunk/worktree using the filled `prompts/implementer.md` template.
-- Writer must not recursively invoke planning/implementation skills.
+- Writer must not recursively invoke any workflow skill or launch subagents.
 - Writer must stop for out-of-scope decisions, unclear requirements, or unsafe/destructive changes.
-- For behavior-changing code, writer must use TDD and report RED/GREEN evidence: failing test command/output summary before production code, passing command/output after implementation.
-- For non-TDD tasks, writer must report explicit verification evidence.
+- For behavior-changing code, writer must follow the approved TDD policy. If TDD is required, report RED/GREEN evidence: failing test command/output summary before production code, passing command/output after implementation.
+- If an approved non-TDD exception exists, writer must report that exception and explicit verification evidence.
 
 Writer report statuses:
 
@@ -132,7 +133,7 @@ Run two independent review gates before marking complete:
 1. **Spec/acceptance verifier:** use `prompts/spec-verifier.md`; independently reads the code/diff and checks that the task matches the approved spec, with nothing missing and no unapproved extras.
 2. **Code-quality reviewer:** use `prompts/code-quality-reviewer.md`; runs only after spec/acceptance passes and checks maintainability, simplicity, tests, project conventions, and risk.
 
-If a reviewer finds issues, send `prompts/fix-writer.md` as a focused fix prompt to a writer subagent. Re-run the same review gate. After two failed fix/review cycles for the same issue, invoke `investigation-work` or escalate to the user with evidence.
+If a reviewer finds issues, send `prompts/fix-writer.md` as a focused fix prompt to a writer subagent. Re-run the same review gate. After two failed fix/review cycles for the same issue, invoke `investigation-work` once when diagnosis can help; if the issue remains unresolved or requires an out-of-scope decision, mark the task `BLOCKED` and escalate to the user with evidence.
 
 Reviewer must reject TDD-required work if RED/GREEN evidence is missing.
 
@@ -147,12 +148,19 @@ Invoke `investigation-work` when:
 
 Pass the relevant plan path, run log path, task ID, failure evidence, commands, and changed files. Investigation findings may update the run log, but implementation must stay within approved scope.
 
-### 5. Merge Parallel Worktrees
+### 5. Integrate Parallel Worktrees
+
+Parallel worktrees must use one explicit integration method:
+
+- **Patch mode:** writers leave uncommitted changes; after review gates pass, the parent exports `git diff --binary` from the task worktree and applies it sequentially to the main checkout.
+- **Task-commit mode:** only the parent, not writer subagents, may create temporary task commits on task branches after gates pass; the parent merges or cherry-picks them sequentially and may squash/finalize according to the plan.
+
+Record the selected method, task branch/path, base SHA, and integration result in the run log. Do not say “merge worktrees” unless task commits/branches exist.
 
 When parallel worktrees were used:
 
-1. Merge completed worktrees back sequentially in DAG/topological order.
-2. Run affected validation after each merge.
+1. Integrate completed worktrees sequentially in DAG/topological order using the recorded integration method.
+2. Run affected validation after each integration.
 3. If conflicts occur, dispatch an implementation subagent to resolve within approved scope.
 4. Re-run the affected spec and quality gates after conflict resolution.
 
@@ -162,7 +170,7 @@ After all DAG nodes pass:
 
 1. Run targeted checks, then affected suites, then broader checks when risk justifies it.
 2. Dispatch a strongest-tier final whole-change reviewer using `prompts/final-reviewer.md`.
-3. Apply only in-scope fixes required by final review; re-run relevant gates.
+3. Apply only in-scope fixes required by final review; re-run relevant gates. Limit final review/fix to two rounds, then invoke `investigation-work` once if diagnosis may help; if unresolved, stop as `BLOCKED` with evidence.
 4. Stage only approved product/test/docs changes. Exclude `.agents/` artifacts by default.
 5. Infer commit message conventions from project instructions and existing history.
 6. Commit automatically after the final validation gate passes. Do not ask for another approval.

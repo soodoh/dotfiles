@@ -1,6 +1,6 @@
 ---
 name: investigation-work
-description: Use when diagnosing blockers, failing verification, bugs, unclear requirements, regressions, or root-cause questions before or during implementation work.
+description: Use when diagnosing blockers, failing verification, bugs, unclear requirements, regressions, flaky tests, or root-cause questions before or during implementation work. Use this before making more code changes when evidence is missing or repeated fixes are failing.
 ---
 
 # Investigation Work
@@ -25,7 +25,7 @@ Required:
 - Revert all temporary code/test/script/probe edits before finishing unless the caller explicitly promotes them into the approved implementation plan.
 - Report what was changed temporarily and how it was reverted.
 - Do not make permanent product fixes.
-- Do not invoke `planning-work` or `implementation-work` from child investigator subagents.
+- Do not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`) from child investigator subagents; return findings to the parent orchestrator instead.
 
 If no subagent mechanism is available for a non-trivial investigation, stop and tell the user this workflow requires subagents.
 
@@ -60,7 +60,7 @@ Create or update `.agents/investigations/<slug>.md` with:
 - Whether temporary probes/repro artifacts may be needed.
 - Revert plan for any temporary edits.
 
-When invoked by `implementation-work`, include the plan path, run log path, task ID, failed command output, changed files, and reviewer/writer concern.
+When invoked by `implementation-work` or `quick-implementation-work`, include the plan path, run log path, task ID or review scope, failed command output, changed files, and reviewer/writer concern.
 
 ### 2. Investigate
 
@@ -129,7 +129,7 @@ Status: ROOT_CAUSE_FOUND | LIKELY_CAUSE | NEEDS_MORE_INFO | NOT_REPRODUCED | BLO
 - Whether user approval is required before implementation continues
 ```
 
-When invoked from `implementation-work`, also update the run log or provide exact text for the parent orchestrator to paste into it.
+When invoked from `implementation-work` or `quick-implementation-work`, also update the run log or provide exact text for the parent orchestrator to paste into it.
 
 ## Escalate Instead of Guessing
 

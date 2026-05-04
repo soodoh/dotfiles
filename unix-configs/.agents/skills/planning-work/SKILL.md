@@ -24,7 +24,7 @@ Recommended default: choose `quick-batch` only when the codebase evidence and us
 - Explore the codebase before asking questions when an answer is discoverable locally.
 - Ask exactly one focused question at a time.
 - For every question, include your recommended answer.
-- Assess complexity before finalizing the plan. Record the selected implementation skill and rationale in the plan artifact.
+- Assess complexity before finalizing the plan. Record an unambiguous selected mode and selected implementation skill in the plan artifact; if mode and skill would conflict, resolve that before asking for approval.
 - Persist the plan and DAG under `.agents/plans/` in the current project.
 - Persist all planning support artifacts under `.agents/` too. Do not create root-level planning files like `report.md`, `progress.md`, `context.md`, or ad hoc subagent reports in the project root.
 - Require an explicit approval phrase (`approved`, `approve`, or `ship it`) before implementation.
@@ -123,26 +123,27 @@ Record in the plan:
 Use this loop until shared understanding is reached:
 
 1. If codebase exploration can answer the next question, explore instead of asking.
-2. Ask one focused question.
-3. Provide your recommended answer.
-4. Incorporate the answer into the plan draft.
-5. Walk the next dependent branch of the decision tree.
+2. If no user-only decisions remain after local exploration, skip further questions and proceed to draft/approval.
+3. When a question is needed, ask exactly one focused question.
+4. Provide your recommended answer.
+5. Incorporate the answer into the plan draft.
+6. Walk the next dependent branch of the decision tree.
 
-Resolve at least: scope, non-goals, acceptance criteria, constraints, TDD applicability/exceptions, validation, risks, data/schema changes, rollout/rollback, task dependencies, implementation mode, and parallelism/worktree needs.
+Resolve at least: scope, non-goals, acceptance criteria, constraints, TDD applicability/exceptions, validation, risks, data/schema changes, rollout/rollback, task dependencies, implementation mode, and parallelism/worktree needs. Do not ask questions merely to satisfy this checklist when the answer is already supported by local evidence.
 
 ### 5. Write the Plan + DAG Artifact
 
 Create `.agents/plans/<slug>.md` with these required sections:
 
 - `# <Plan Title>`
-- `## Approval Status`: status (`pending` or `approved`), approval phrase, approval timestamp.
+- `## Approval Status`: status (`pending` or `approved`), approval phrase, approval timestamp. Pending plans use `none`/blank phrase and timestamp; approved plans must record the explicit phrase (`approved`, `approve`, or `ship it`) and timestamp.
 - `## Goal`
 - `## Scope`
 - `## Non-Goals`
 - `## Acceptance Criteria`
 - `## Constraints and Project Instructions`
 - `## Planning Artifacts`: paths to `.agents/planning/<slug>/` context, progress, and subagent report files.
-- `## Complexity Assessment and Implementation Route`: mode, selected skill, rationale, rejected route, parallelism/worktree expectations.
+- `## Complexity Assessment and Implementation Route`: selected mode (`quick-batch` or `deep-gated`), selected skill (`quick-implementation-work` or `implementation-work`), rationale, rejected route, parallelism/worktree expectations. Mode and skill must agree; do not leave routing to inference.
 - `## Implementation Handoff`: path to `.agents/handoffs/<slug>-implementation.md` and instruction that implementation must run in a fresh/minimal session using the selected skill.
 - `## Model Inventory and Tier Mapping`: table with tier, model(s), and reasoning.
 - `## TDD and Verification Policy`: TDD-required tasks, approved non-TDD exceptions, verification hierarchy.
@@ -163,7 +164,7 @@ Present the artifact path and a concise summary of plan + DAG + selected impleme
 - If user explicitly says `approved`, `approve`, or `ship it`:
   1. Update `Approval Status` in the plan artifact.
   2. Create `.agents/handoffs/<slug>-implementation.md`.
-  3. Include only the minimal context needed to start implementation: approved plan path, planning artifact directory, selected implementation skill, selected mode, current branch/base SHA if known, explicit instruction to load the selected skill, and a reminder not to use the prior planning conversation as context.
+  3. Include only the minimal context needed to start implementation: approved plan path, planning artifact directory, selected implementation skill, selected mode, current branch/base SHA if known, explicit instruction to load the selected skill, a reminder to verify the handoff route matches the plan route, and a reminder not to use the prior planning conversation as context.
   4. Start or clear into a fresh/minimal session if the harness provides that capability.
   5. If the harness cannot reset context automatically, stop and tell the user to open a new session or clear context, then paste/run the handoff prompt.
 

@@ -9,7 +9,7 @@ You are implementing one approved task/chunk from an implementation DAG.
 
 You are a writer subagent, not the workflow orchestrator.
 
-- Do not invoke planning-work, quick-implementation-work, or implementation-work.
+- Do not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`).
 - Do not launch subagents.
 - Do not make product, architecture, migration, destructive, or security-sensitive decisions outside the approved task.
 - Do not commit. The parent orchestrator owns final validation and auto-commit.
