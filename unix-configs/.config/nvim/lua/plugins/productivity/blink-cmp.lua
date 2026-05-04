@@ -10,7 +10,6 @@ return {
       -- "Kaiser-Yang/blink-cmp-git",
       "MahanRahmati/blink-nerdfont.nvim",
       "moyiz/blink-emoji.nvim",
-      "giuxtaposition/blink-cmp-copilot",
     },
     version = "1.*",
     opts = {
@@ -34,9 +33,7 @@ return {
       },
       sources = {
         default = {
-          "copilot",
           -- "git",
-          "avante",
           "nerdfont",
           "emoji",
           "lsp",
@@ -45,33 +42,6 @@ return {
           "buffer",
         },
         providers = {
-          copilot = {
-            name = "copilot",
-            module = "blink-cmp-copilot",
-            score_offset = 100,
-            async = true,
-          },
-          -- Provider agnostic LLM autocomplete, but using Copilot for now
-          -- minuet = {
-          --   name = "minuet",
-          --   module = "minuet.blink",
-          --   async = true,
-          --   timeout_ms = 3000,
-          --   score_offset = 50, -- Gives minuet higher priority among suggestions
-          -- },
-          avante = {
-            module = "blink-cmp-avante",
-            name = "Avante",
-            opts = {},
-          },
-          -- git = {
-          --   module = "blink-cmp-git",
-          --   name = "Git",
-          --   enabled = function()
-          --     return vim.bo.filetype == "gitcommit"
-          --   end,
-          --   opts = {},
-          -- },
           nerdfont = {
             module = "blink-nerdfont",
             name = "Nerd Fonts",
@@ -95,15 +65,4 @@ return {
     },
     opts_extend = { "sources.default" },
   },
-  -- For provider agnostic LLM autocomplete
-  -- {
-  --   "milanglacier/minuet-ai.nvim",
-  --   config = function()
-  --     require("minute").setup({})
-  --   end,
-  --   dependencies = {
-  --     "nvim-lua/plenary.nvim",
-  --     "saghen/blink.cmp",
-  --   },
-  -- },
 }
