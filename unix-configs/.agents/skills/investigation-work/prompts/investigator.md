@@ -31,6 +31,7 @@ Failure evidence:
 Relevant files/commands:
 {RELEVANT_FILES_AND_COMMANDS}
 Investigation notes path: {INVESTIGATION_NOTES_PATH}
+Invocation mode: {INVOCATION_MODE}
 
 ## Plan → Investigate → Validate
 
@@ -73,4 +74,5 @@ Recommendation:
 - Next implementation step, if any:
 - Whether this stays within the approved plan:
 - Whether user approval is required before implementation continues:
+- Standalone planning seed needed, if invocation mode is standalone:
 ```

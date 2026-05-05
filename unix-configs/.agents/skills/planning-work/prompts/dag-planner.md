@@ -33,14 +33,14 @@ Expected output path:
 
 ## Your Job
 
-Propose an implementation task DAG and complexity-based implementation route that the parent can review with the user.
+Propose an implementation task DAG and complexity-based implementation route that the parent can review with the user. Never recommend direct/inline implementation by the parent planning session; simple or one-task work should still route to quick-batch (`quick-implementation-work`).
 
 Consider:
 - Dependencies and safe ordering.
 - Which tasks can run in parallel.
 - Which parallel writer tasks can safely share the checkout and which require isolated git worktrees.
 - Whether tasks should be split or chunked.
-- Whether the DAG is appropriate for quick-batch (`quick-implementation-work`, whole-change review after all tasks) or deep-gated (`implementation-work`, per-task review gates and worktree isolation for parallel writers).
+- Whether the DAG is appropriate for quick-batch (`quick-implementation-work`, whole-change review after all tasks) or deep-gated (`implementation-work`, per-task review gates and worktree isolation for parallel writers); do not create or imply a third inline route.
 - TDD applicability per task.
 - Verification per task and final validation.
 - Risk and rollback notes.

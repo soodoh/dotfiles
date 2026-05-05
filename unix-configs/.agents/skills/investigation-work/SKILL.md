@@ -1,6 +1,6 @@
 ---
 name: investigation-work
-description: Use when diagnosing blockers, failing verification, bugs, unclear requirements, regressions, flaky tests, or root-cause questions before or during implementation work. Use this before making more code changes when evidence is missing or repeated fixes are failing.
+description: Use when diagnosing blockers, failing verification, bugs, unclear requirements, regressions, flaky tests, or root-cause questions before or during implementation work. Use this before making more code changes when evidence is missing or repeated fixes are failing. For standalone bug/root-cause investigations that lead to implementation, create an evidence-backed planning seed and route to `planning-work`; inside `quick-implementation-work` or `implementation-work`, return findings only to the active implementation parent/run log.
 ---
 
 # Investigation Work
@@ -29,9 +29,29 @@ Required:
 
 If no subagent mechanism is available for a non-trivial investigation, stop and tell the user this workflow requires subagents.
 
+## Invocation Modes and Handoffs
+
+Classify the invocation before dispatching investigators or writing notes:
+
+| Mode                                  | Signals                                                                                                                                                                                            | Handoff behavior                                                                                                                                                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Embedded implementation investigation | Caller provides an approved plan path, run log path, task ID/review scope, failed command output, writer/reviewer concern, or asks from inside `implementation-work` / `quick-implementation-work` | Return findings only to the implementation parent. Update the run log or provide exact paste-ready run-log text. Do **not** invoke or hand off to `planning-work`; the approved plan boundary is already active.                                                  |
+| Standalone pre-planning investigation | Direct user asks to diagnose a bug/blocker/root cause and there is no active implementation run log or approved-plan execution context                                                             | Finish the investigation, write `.agents/investigations/<slug>.md`, then create a planning seed if code/product/test/docs changes are recommended. Continue by activating `planning-work` with that seed unless the user explicitly asked for investigation only. |
+
+A standalone planning seed should live at `.agents/planning/<slug>/investigation-seed.md` and include:
+
+- Investigation note path.
+- User request and diagnosed root cause or likely cause.
+- Evidence with file paths, commands, and relevant source links.
+- Recommended implementation goal and acceptance criteria candidates.
+- Known constraints, risks, validation commands, and out-of-scope decision triggers.
+- Open questions for planning.
+
+This bridge is intentionally disabled for embedded implementation investigations because routing back through planning would reinterpret an already-approved plan and could corrupt the active implementation flow.
+
 ## Canonical Role Prompt Template
 
-Use `prompts/investigator.md` for investigation subagent dispatches. This template is the cross-harness source of truth; fill its placeholders from the blocker, plan path, run log, failed command output, and relevant files.
+Use `prompts/investigator.md` for investigation subagent dispatches. This template is the cross-harness source of truth; fill its placeholders from the invocation mode, blocker, plan path, run log, failed command output, and relevant files.
 
 In Claude Code, paste the filled template into `Task`. In pi, pass the filled template as the `subagent(...)` task prompt. Do not improvise a shorter investigation prompt unless the template is clearly inapplicable; preserve the role boundary, temporary-edit revert rules, evidence requirements, and output format.
 
@@ -52,6 +72,7 @@ Use Plan → Investigate → Validate.
 
 Create or update `.agents/investigations/<slug>.md` with:
 
+- Invocation mode: embedded implementation investigation or standalone pre-planning investigation.
 - Caller and context: direct user request or implementation task/run log path.
 - Question/blocker being investigated.
 - Known facts and evidence.
@@ -130,6 +151,18 @@ Status: ROOT_CAUSE_FOUND | LIKELY_CAUSE | NEEDS_MORE_INFO | NOT_REPRODUCED | BLO
 ```
 
 When invoked from `implementation-work` or `quick-implementation-work`, also update the run log or provide exact text for the parent orchestrator to paste into it.
+
+When invoked standalone and implementation is recommended, add:
+
+```markdown
+### Planning Seed
+
+- Path: `.agents/planning/<slug>/investigation-seed.md`
+- Recommended next skill: `planning-work`
+- Planning prompt: <concise prompt that tells the planner to read the investigation seed and create an approved plan/DAG>
+```
+
+Then activate `planning-work` with the planning prompt when the harness/session supports skill routing. If not, tell the user to start `planning-work` with that prompt. Do not do this for embedded implementation investigations.
 
 ## Escalate Instead of Guessing
 

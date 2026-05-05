@@ -1,27 +1,35 @@
 ---
 name: planning-work
-description: Use when turning a feature request, bugfix request, refactor, or project idea into an approved implementation plan and task DAG, then routing it to the appropriate implementation skill based on complexity.
+description: Use when turning a feature request, bugfix request, refactor, or project idea into an approved implementation plan and task DAG, then routing it to the appropriate implementation skill based on complexity. This skill must not implement changes itself: even simple, one-file, or obvious tasks still require an approved plan and fresh-session handoff to `quick-implementation-work` or `implementation-work` so reviewer/validation gates run.
 ---
 
 # Planning Work
 
 Create an approved plan plus task DAG, classify implementation complexity, then hand off to the appropriate implementation skill through a fresh/minimal session boundary.
 
+Planning is not an implementation mode. Its job is to preserve the workflow boundary that guarantees subagent execution, review, validation, and final commit discipline.
+
+If invoked from a standalone `investigation-work` planning seed, treat the seed as evidence input, not as an approved implementation plan. Read the referenced investigation notes, preserve their findings in planning artifacts, then produce a normal pending plan/DAG that still requires explicit user approval before implementation.
+
 ## Implementation Skill Routing
 
 Planning owns complexity assessment. Implementation skills execute the approved DAG and must not re-plan the feature.
 
-| Complexity / mode | Route to                    | Use when                                                                                                                                                                                                                                                                                                                                   |
-| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `quick-batch`     | `quick-implementation-work` | Low-to-medium risk work with a small or moderate DAG, clear requirements, limited files, no major architectural/migration/security decisions, and changes that can be reviewed as one whole change after all DAG tasks finish. Parallel writer tasks may share the current checkout when independent; isolated worktrees are not required. |
-| `deep-gated`      | `implementation-work`       | Complex, high-risk, ambiguous, architectural, migration/security-sensitive, broad, or regression-prone work; anything needing per-task review gates, strict worktree isolation for parallel writers, or investigation checkpoints between tasks.                                                                                           |
+There is no direct or inline implementation route from this skill. The smallest safe route is `quick-batch` → `quick-implementation-work`; the stricter route is `deep-gated` → `implementation-work`. If the task feels too small for deep gating, select `quick-batch` and keep the plan lightweight rather than implementing it yourself.
+
+| Complexity / mode | Route to                    | Use when                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `quick-batch`     | `quick-implementation-work` | Low-to-medium risk work with a small or moderate DAG, including simple one-file or obvious fixes, when requirements are clear, affected files are limited, no major architectural/migration/security decisions are needed, and changes can be reviewed as one whole change after all DAG tasks finish. Parallel writer tasks may share the current checkout when independent; isolated worktrees are not required. |
+| `deep-gated`      | `implementation-work`       | Complex, high-risk, ambiguous, architectural, migration/security-sensitive, broad, or regression-prone work; anything needing per-task review gates, strict worktree isolation for parallel writers, or investigation checkpoints between tasks.                                                                                                                                                                   |
 
 Recommended default: choose `quick-batch` only when the codebase evidence and user answers make the scope clear and failure blast radius low. Otherwise choose `deep-gated`.
 
 ## Hard Requirements
 
 - Subagents are required. If the current harness/session cannot dispatch subagents, stop and tell the user this workflow requires subagents.
+- Do not implement the requested product/test/docs changes from the planning conversation, even when the task is trivial. Before approval, only gather evidence and write `.agents/` planning artifacts. After approval, only update approval metadata and create the `.agents/handoffs/` file, then hand off to the selected implementation skill.
 - Explore the codebase before asking questions when an answer is discoverable locally.
+- Accept `.agents/planning/<slug>/investigation-seed.md` from standalone `investigation-work` as starting evidence, but do not treat it as approval or as permission to implement.
 - Ask exactly one focused question at a time.
 - For every question, include your recommended answer.
 - Assess complexity before finalizing the plan. Record an unambiguous selected mode and selected implementation skill in the plan artifact; if mode and skill would conflict, resolve that before asking for approval.
@@ -57,9 +65,21 @@ In Claude Code, paste the filled template into `Task`. In pi, pass the filled te
 
 ## Process
 
+### Small-Task Fast Path
+
+For simple or low-risk requests, keep planning proportional but do not skip the workflow:
+
+1. Do enough local and subagent context gathering to confirm scope, affected files, validation, and low-risk status.
+2. Draft a compact `.agents/plans/<slug>.md` with a small DAG, often one task.
+3. Select `quick-batch` / `quick-implementation-work` unless evidence shows deep gates are needed.
+4. Ask for explicit approval.
+5. After approval, create the implementation handoff and stop or start a fresh/minimal session with `quick-implementation-work`.
+
+Do not replace this fast path with inline edits. The quick implementation skill exists specifically to keep simple work fast while still enforcing whole-change review, validation, and commit discipline.
+
 ### 1. Establish Context with Subagents
 
-Before dispatching context-gathering subagents, create a planning artifact directory: `.agents/planning/<slug>/`.
+Before dispatching context-gathering subagents, create a planning artifact directory: `.agents/planning/<slug>/`. If a standalone investigation seed already exists at `.agents/planning/<slug>/investigation-seed.md`, reuse that directory, read the seed and referenced investigation note first, and record them under `## Planning Artifacts` in the final plan.
 
 Dispatch read-only context-gathering subagents before interviewing the user. Use `prompts/context-gatherer.md` for each planning context subagent and route every subagent output, progress file, context file, report, and note into `.agents/planning/<slug>/`. Use explicit artifact paths in prompts/tool options such as:
 
@@ -168,7 +188,7 @@ Present the artifact path and a concise summary of plan + DAG + selected impleme
   4. Start or clear into a fresh/minimal session if the harness provides that capability.
   5. If the harness cannot reset context automatically, stop and tell the user to open a new session or clear context, then paste/run the handoff prompt.
 
-Do not continue directly into implementation inside the planning conversation. The approved artifact and handoff file are the context boundary.
+Do not continue directly into implementation inside the planning conversation. Do not offer to “just make the simple change here.” The approved artifact and handoff file are the context boundary.
 
 ## Red Flags
 
@@ -178,4 +198,5 @@ Stop before implementation if:
 - The working tree state, test infrastructure, model availability, or selected route invalidates the DAG and cannot be resolved in planning.
 - A behavior-changing task lacks viable tests and the plan does not include either test infrastructure work or an explicit non-TDD exception.
 - The user has not provided an explicit approval phrase.
+- The planner is about to edit product/test/docs files or run implementation directly instead of handing off to `quick-implementation-work` or `implementation-work`.
 - The selected `quick-batch` route includes parallel tasks that are not demonstrably independent and the plan does not degrade them to sequential execution.

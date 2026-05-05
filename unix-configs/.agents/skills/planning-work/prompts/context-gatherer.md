@@ -33,7 +33,7 @@ Inspect:
 - Existing patterns and conventions.
 - Likely integration points and dependencies.
 - Ambiguities that cannot be answered from the codebase.
-- Complexity/routing evidence: likely blast radius, DAG size, whether per-task gates are needed, whether parallel tasks can safely share the checkout, and whether worktree isolation is required.
+- Complexity/routing evidence: likely blast radius, DAG size, whether per-task gates are needed, whether parallel tasks can safely share the checkout, and whether worktree isolation is required. Treat simple or one-file changes as candidates for quick-batch, not as permission for inline implementation by the parent.
 
 ## Output Format
 
@@ -52,7 +52,7 @@ Inspect:
 ## Suggested Plan Inputs
 - Candidate tasks or constraints for the DAG.
 - Suggested verification commands.
-- Recommended implementation route: quick-batch (`quick-implementation-work`) or deep-gated (`implementation-work`), with rationale.
+- Recommended implementation route: quick-batch (`quick-implementation-work`) or deep-gated (`implementation-work`), with rationale. Do not recommend direct/inline implementation.
 
 ## Files Inspected
 - List paths inspected.
