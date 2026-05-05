@@ -1,6 +1,7 @@
 ---
 name: planning-work
-description: Use when turning a feature request, bugfix request, refactor, or project idea into an approved implementation plan and task DAG, then routing it to the appropriate implementation skill based on complexity. This skill must not implement changes itself: even simple, one-file, or obvious tasks still require an approved plan and fresh-session handoff to `quick-implementation-work` or `implementation-work` so reviewer/validation gates run.
+description: >-
+  Use when turning a feature request, bugfix request, refactor, or project idea into an approved implementation plan and task DAG, then routing it to the appropriate implementation skill based on complexity. This skill must not implement changes itself: even simple, one-file, or obvious tasks still require an approved plan and fresh-session handoff to `quick-implementation-work` or `implementation-work` so reviewer/validation gates run.
 ---
 
 # Planning Work
