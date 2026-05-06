@@ -12,6 +12,9 @@
   "collapseChangelog": true,
   "quietStartup": true,
   "enableSkillCommands": true,
+  "extensions": [
+    "extensions/*.ts"
+  ],
   "packages": [
     {
       "source": "git:github.com/tmustier/pi-extensions",

@@ -39,14 +39,14 @@ Recommended default: choose `quick-batch` only when the codebase evidence and us
 - Persist all planning support artifacts under `.agents/` too. Do not create root-level planning files like `report.md`, `progress.md`, `context.md`, or ad hoc subagent reports in the project root.
 - Require an explicit approval phrase (`approved`, `approve`, or `ship it`) before implementation.
 - After approval, create a fresh-session implementation handoff under `.agents/handoffs/` that names the selected implementation skill.
-- Invoke the selected implementation skill only from a fresh/minimal pi session context. Prefer a new pi session, or a cleared/minimal pi context containing only the handoff prompt and approved artifacts. Do not run implementation in the same conversation that produced the plan.
+- Invoke the selected implementation skill only from a fresh/minimal pi session context. Prefer the pi `/handoff .agents/handoffs/<slug>-implementation.md` command, which creates a new session and auto-submits the handoff prompt. If `/handoff` is unavailable, use another new-session/cleared-context mechanism containing only the handoff prompt and approved artifacts. Do not run implementation in the same conversation that produced the plan.
 
 ## Pi Runtime Rules
 
 - Dispatch planning helpers with pi `subagent(...)`, using focused role prompts and explicit artifact paths.
 - Prefer `pi --list-models` when model inventory is needed; if unavailable, infer tiers from the visible/current model names.
 - Put every subagent output, progress file, context file, report, and note under `.agents/planning/<slug>/`.
-- Do not use a nested subagent for implementation orchestration. The selected implementation skill must run as the parent in a fresh/minimal pi session.
+- Do not use a nested subagent for implementation orchestration. The selected implementation skill must run as the parent in a fresh/minimal pi session. Prefer launching that parent with `/handoff .agents/handoffs/<slug>-implementation.md` after approval.
 - Use pi `ask_user` for approval and other user-only decisions so each handshake is explicit and single-question.
 - If planning becomes unusually long-running, Ralph Wiggum can be used as a pacing/checkpoint helper, but it is not required for normal planning.
 
@@ -73,7 +73,7 @@ For simple or low-risk requests, keep planning proportional but do not skip the 
 2. Draft a compact `.agents/plans/<slug>.md` with a small DAG, often one task.
 3. Select `quick-batch` / `quick-implementation-work` unless evidence shows deep gates are needed.
 4. Ask for explicit approval.
-5. After approval, create the implementation handoff and stop or start a fresh/minimal session with `quick-implementation-work`.
+5. After approval, create the implementation handoff and run `/handoff .agents/handoffs/<slug>-implementation.md` to start a fresh auto-submitted implementation session with `quick-implementation-work`.
 
 Do not replace this fast path with inline edits. The quick implementation skill exists specifically to keep simple work fast while still enforcing whole-change review, validation, and commit discipline.
 
@@ -164,7 +164,7 @@ Create `.agents/plans/<slug>.md` with these required sections:
 - `## Constraints and Project Instructions`
 - `## Planning Artifacts`: paths to `.agents/planning/<slug>/` context, progress, and subagent report files.
 - `## Complexity Assessment and Implementation Route`: selected mode (`quick-batch` or `deep-gated`), selected skill (`quick-implementation-work` or `implementation-work`), rationale, rejected route, parallelism/worktree expectations. Mode and skill must agree; do not leave routing to inference.
-- `## Implementation Handoff`: path to `.agents/handoffs/<slug>-implementation.md` and instruction that implementation must run in a fresh/minimal session using the selected skill.
+- `## Implementation Handoff`: path to `.agents/handoffs/<slug>-implementation.md`; instruction that implementation must run in a fresh/minimal session using the selected skill; and the preferred launch command `/handoff .agents/handoffs/<slug>-implementation.md`.
 - `## Model Inventory and Tier Mapping`: table with tier, model(s), and reasoning.
 - `## TDD and Verification Policy`: TDD-required tasks, approved non-TDD exceptions, verification hierarchy.
 - `## Task DAG`: required Markdown table with columns `ID`, `Task/Chunk`, `Dependencies`, `Execution Mode`, `Suggested Model Tier`, `TDD?`, `Verification`, `Notes`.
@@ -185,8 +185,8 @@ Present the artifact path and a concise summary of plan + DAG + selected impleme
   1. Update `Approval Status` in the plan artifact.
   2. Create `.agents/handoffs/<slug>-implementation.md`.
   3. Include only the minimal context needed to start implementation: approved plan path, planning artifact directory, selected implementation skill, selected mode, current branch/base SHA if known, explicit instruction to load the selected skill, a reminder to verify the handoff route matches the plan route, and a reminder not to use the prior planning conversation as context.
-  4. Start a new pi session or clear into a fresh/minimal pi context if available.
-  5. If pi cannot reset context automatically, stop and tell the user to open a new pi session or clear context, then paste/run the handoff prompt.
+  4. Prefer running `/handoff .agents/handoffs/<slug>-implementation.md`; this must create a new pi session and auto-submit the handoff prompt as the first user message in that session.
+  5. If `/handoff` or another automatic reset is unavailable, stop and tell the user to open a new pi session or clear context, then paste/run the handoff prompt.
 
 Do not continue directly into implementation inside the planning conversation. Do not offer to “just make the simple change here.” The approved artifact and handoff file are the context boundary.
 
