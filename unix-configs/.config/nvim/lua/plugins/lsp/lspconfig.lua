@@ -69,13 +69,13 @@ return {
             },
             {
               "<leader>sR",
-              ":LspRestart<CR>",
+              ":lsp restart<CR>",
               desc = "Restart LSP Sources",
             },
             {
               "<leader>sI",
-              ":LspInfo<CR>",
-              desc = "Show attached LSP clients",
+              ":checkhealth vim.lsp<CR>",
+              desc = "Diagnose LSP Clients",
             },
           })
         end,
