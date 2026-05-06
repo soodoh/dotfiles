@@ -1,6 +1,6 @@
 ---
 name: quick-implementation-work
-description: "Use in pi when executing an approved `.agents/plans/` DAG selected for quick-batch implementation: pi subagent writers complete low-to-medium-risk DAG tasks in the current checkout, then one whole-change review/fix PIV loop runs after all tasks are completed. Use this instead of deep implementation when planning explicitly selected quick-batch mode."
+description: "Use in pi when executing or resuming an approved `.agents/plans/` DAG selected for quick-batch implementation: pi subagent writers complete low-to-medium-risk DAG tasks in the current checkout, then one whole-change review/fix PIV loop runs after all tasks are completed. Use this when the user says to continue, resume, pick up, or recover a long-running quick-batch implementation after context compaction. Use this instead of deep implementation when planning explicitly selected quick-batch mode."
 ---
 
 # Quick Implementation Work
@@ -85,8 +85,53 @@ Create `.agents/runs/<plan-slug>-quick-<timestamp>.md` before dispatching writer
 - Verification commands and outcomes.
 - Whole-change review rounds, findings, fixes, and validation.
 - Final validation result and final commit SHA.
+- A current `## Resume Snapshot` block using the template below.
+
+Keep `.agents/runs/ACTIVE.md` updated while the implementation is unfinished. It should contain the active run log path, plan path, selected mode, selected skill, branch, base SHA, current phase, and next action. Remove or mark it complete after the final commit is recorded.
+
+Use this exact run-log block and refresh it after every significant step:
+
+```md
+## Resume Snapshot
+
+- Selected skill: quick-implementation-work
+- Selected mode: quick-batch
+- Plan path:
+- Handoff path:
+- Run log path:
+- Branch:
+- Base SHA:
+- Current phase:
+- Last completed action:
+- Next action:
+- Current DAG node:
+- Completed DAG nodes:
+- Blocked DAG nodes:
+- Pending review/fix loop:
+- Expected changed files:
+- Active subagent IDs:
+- Worktree paths:
+- Verification already run:
+- Resume prompt: Use `quick-implementation-work`, read this run log and the approved plan, verify route/state, then continue from `Next action`.
+```
 
 On resume, read the approved plan and latest quick run log, verify the git state against the recorded base SHA and expected changed files, re-check model availability, then continue from the first incomplete DAG node. Resume may continue expected uncommitted workflow diffs, but stop on unrelated changes, route mismatches, or missing run-log evidence. If all DAG nodes are complete, resume the whole-change review/fix loop. Do not duplicate completed work unless validation shows it is invalid.
+
+## Compaction / Resume Bootstrap
+
+When context is compacted, thin, or the user says “continue”, “resume”, “pick up where you left off”, or similar, treat this as a resume, not a new implementation:
+
+1. Do not rely on conversation memory. Reconstruct state only from `.agents/` artifacts and git state.
+2. Read `.agents/runs/ACTIVE.md` if present. If absent, inspect `.agents/runs/` for the latest incomplete quick run log for this repository.
+3. If exactly one plausible active run exists, use it. If multiple plausible incomplete runs exist, ask the user which run log to resume.
+4. Read the run log's `## Resume Snapshot`, referenced approved plan, and handoff file when present.
+5. Verify the route still matches this skill: selected mode `quick-batch` and selected skill `quick-implementation-work`. If the artifacts select `deep-gated` / `implementation-work`, stop and redirect to that skill instead of continuing here.
+6. Verify git branch, base SHA, expected changed files, and active/finished subagent evidence against the run log. Stop on unrelated changes or missing evidence that makes safe continuation impossible.
+7. Re-check model availability and record any substitutions in the run log.
+8. Rebuild parent progress tracking from the run log and approved DAG: completed nodes stay complete, blocked nodes stay blocked, and execution resumes from the first incomplete node or the recorded whole-change review/final-validation phase.
+9. Before dispatching new subagents, record the resume decision and refreshed `## Resume Snapshot` in the run log.
+
+After any non-final checkpoint response, include the run log path and the resume prompt from the snapshot so a future compacted session can restart reliably.
 
 ## Execution Process
 

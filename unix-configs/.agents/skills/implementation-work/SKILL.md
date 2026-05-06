@@ -1,6 +1,6 @@
 ---
 name: implementation-work
-description: Use in pi when executing an approved `.agents/plans/` implementation plan artifact selected for deep-gated execution with pi subagents, per-task review gates, verification, and final auto-commit.
+description: Use in pi when executing or resuming an approved `.agents/plans/` implementation plan artifact selected for deep-gated execution with pi subagents, per-task review gates, verification, and final auto-commit. Use this when the user says to continue, resume, pick up, or recover a long-running deep-gated implementation after context compaction.
 ---
 
 # Implementation Work
@@ -74,8 +74,53 @@ Create `.agents/runs/<plan-slug>-<timestamp>.md` before dispatching writers. Upd
 - Verification commands and outcomes.
 - Worktree paths and integration status.
 - Final validation result and final commit SHA.
+- A current `## Resume Snapshot` block using the template below.
+
+Keep `.agents/runs/ACTIVE.md` updated while the implementation is unfinished. It should contain the active run log path, plan path, selected mode, selected skill, branch, base SHA, current phase, and next action. Remove or mark it complete after the final commit is recorded.
+
+Use this exact run-log block and refresh it after every significant step:
+
+```md
+## Resume Snapshot
+
+- Selected skill: implementation-work
+- Selected mode: deep-gated
+- Plan path:
+- Handoff path:
+- Run log path:
+- Branch:
+- Base SHA:
+- Current phase:
+- Last completed action:
+- Next action:
+- Current DAG node:
+- Completed DAG nodes:
+- Blocked DAG nodes:
+- Pending review/fix loop:
+- Expected changed files:
+- Active subagent IDs:
+- Worktree paths:
+- Verification already run:
+- Resume prompt: Use `implementation-work`, read this run log and the approved plan, verify route/state, then continue from `Next action`.
+```
 
 On resume, read the approved plan and latest run log, verify the git state against the recorded base SHA and expected changed files, re-check model availability, then continue from the first incomplete DAG node. Resume may continue expected uncommitted workflow diffs, but stop on unrelated changes, route mismatches, or missing run-log evidence. Do not duplicate completed work unless validation shows it is invalid.
+
+## Compaction / Resume Bootstrap
+
+When context is compacted, thin, or the user says “continue”, “resume”, “pick up where you left off”, or similar, treat this as a resume, not a new implementation:
+
+1. Do not rely on conversation memory. Reconstruct state only from `.agents/` artifacts and git state.
+2. Read `.agents/runs/ACTIVE.md` if present. If absent, inspect `.agents/runs/` for the latest incomplete run log for this repository.
+3. If exactly one plausible active run exists, use it. If multiple plausible incomplete runs exist, ask the user which run log to resume.
+4. Read the run log's `## Resume Snapshot`, referenced approved plan, and handoff file when present.
+5. Verify the route still matches this skill: selected mode `deep-gated` and selected skill `implementation-work`. If the artifacts select `quick-batch` / `quick-implementation-work`, stop and redirect to that skill instead of continuing here.
+6. Verify git branch, base SHA, expected changed files, worktree paths, and active/finished subagent evidence against the run log. Stop on unrelated changes or missing evidence that makes safe continuation impossible.
+7. Re-check model availability and record any substitutions in the run log.
+8. Rebuild parent progress tracking from the run log and approved DAG: completed nodes stay complete, blocked nodes stay blocked, and execution resumes from the first incomplete node or the recorded review/final-validation phase.
+9. Before dispatching new subagents, record the resume decision and refreshed `## Resume Snapshot` in the run log.
+
+After any non-final checkpoint response, include the run log path and the resume prompt from the snapshot so a future compacted session can restart reliably.
 
 ## Execution Process
 
