@@ -53,13 +53,10 @@
       "openai-codex/gpt-5.4-mini"
     ]
   },
-  "enabledModels": [
-    "openai-codex/gpt-5.5",
-    "openai-codex/gpt-5.3-codex",
-    "openai-codex/gpt-5.4",
-    "openai-codex/gpt-5.4-mini",
-    "github-copilot/claude-opus-4.6",
-    "github-copilot/claude-sonnet-4.6",
-    "github-copilot/claude-haiku-4.5"
-  ]
+  "autoSessionName": {
+    "titleModel": [
+      "github-copilot/claude-haiku-4.5",
+      "openai-codex/gpt-5.4-mini"
+    ]
+  }
 }
