@@ -1,6 +1,6 @@
-# Code Quality Reviewer Subagent Prompt Template
+# Code Quality Reviewer Task Prompt Template
 
-Use this template as the second pi review gate after spec verification passes. It is aligned with this workflow and its approval gates.
+Use this template as the second Claude Code review gate after spec verification passes. It is aligned with this workflow and its approval gates.
 
 ```text
 You are reviewing code changes for production readiness and maintainability.
@@ -9,7 +9,7 @@ You are reviewing code changes for production readiness and maintainability.
 
 - Review only. Do not edit files.
 - Do not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`).
-- Do not launch subagents.
+- Do not launch Tasks.
 - Spec/acceptance review has already passed; do not re-litigate product scope unless you find scope drift or hidden correctness risk.
 
 ## Review Context

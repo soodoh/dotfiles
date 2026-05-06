@@ -1,14 +1,14 @@
 ---
 name: planning-work
 description: >-
-  Use in pi when turning a feature request, bugfix request, refactor, or project idea into an approved implementation plan and task DAG, then routing it to the appropriate implementation skill based on complexity. This skill must not implement changes itself: even simple, one-file, or obvious tasks still require an approved plan and fresh-session handoff to `quick-implementation-work` or `implementation-work` so reviewer/validation gates run.
+  Use in Claude Code when turning a feature request, bugfix request, refactor, or project idea into an approved implementation plan and task DAG, then routing it to the appropriate implementation skill based on complexity. This skill must not implement changes itself: even simple, one-file, or obvious tasks still require an approved plan and fresh-session handoff to `quick-implementation-work` or `implementation-work` so reviewer/validation gates run.
 ---
 
 # Planning Work
 
 Create an approved plan plus task DAG, classify implementation complexity, then hand off to the appropriate implementation skill through a fresh/minimal session boundary.
 
-Planning is not an implementation mode. Its job is to preserve the workflow boundary that guarantees subagent execution, review, validation, and final commit discipline.
+Planning is not an implementation mode. Its job is to preserve the Claude Code workflow boundary that guarantees Task execution, review, validation, and final commit discipline.
 
 If invoked from a standalone `investigation-work` planning seed, treat the seed as evidence input, not as an approved implementation plan. Read the referenced investigation notes, preserve their findings in planning artifacts, then produce a normal pending plan/DAG that still requires explicit user approval before implementation.
 
@@ -27,41 +27,40 @@ Recommended default: choose `quick-batch` only when the codebase evidence and us
 
 ## Hard Requirements
 
-- The pi `subagent` tool/extension is required. If this pi session cannot dispatch subagents, stop and tell the user this workflow requires pi subagents.
+- Claude Code's `Task` tool is required for planning Tasks. If this Claude Code session cannot dispatch Tasks, stop and tell the user this workflow requires Claude Code Tasks.
 - Do not implement the requested product/test/docs changes from the planning conversation, even when the task is trivial. Before approval, only gather evidence and write `.agents/` planning artifacts. After approval, only update approval metadata and create the `.agents/handoffs/` file, then hand off to the selected implementation skill.
 - Explore the codebase before asking questions when an answer is discoverable locally.
 - Accept `.agents/planning/<slug>/investigation-seed.md` from standalone `investigation-work` as starting evidence, but do not treat it as approval or as permission to implement.
-- Use pi's `ask_user` tool for user-only decisions and approval handshakes when available.
-- Ask exactly one focused question at a time.
+- Use Claude Code's user-facing response for exactly one focused question or approval decision at a time.
 - For every question, include your recommended answer.
+- Use `TodoWrite` for planning progress tracking when it is available.
 - Assess complexity before finalizing the plan. Record an unambiguous selected mode and selected implementation skill in the plan artifact; if mode and skill would conflict, resolve that before asking for approval.
 - Persist the plan and DAG under `.agents/plans/` in the current project.
-- Persist all planning support artifacts under `.agents/` too. Do not create root-level planning files like `report.md`, `progress.md`, `context.md`, or ad hoc subagent reports in the project root.
+- Persist all planning support artifacts under `.agents/` too. Do not create root-level planning files like `report.md`, `progress.md`, `context.md`, or ad hoc Task reports in the project root.
 - Require an explicit approval phrase (`approved`, `approve`, or `ship it`) before implementation.
 - After approval, create a fresh-session implementation handoff under `.agents/handoffs/` that names the selected implementation skill.
-- Invoke the selected implementation skill only from a fresh/minimal pi session context. Prefer a new pi session, or a cleared/minimal pi context containing only the handoff prompt and approved artifacts. Do not run implementation in the same conversation that produced the plan.
+- Invoke the selected implementation skill only from a fresh/minimal Claude Code session context. Prefer `/clear` or a new Claude Code session containing only the handoff prompt and approved artifacts. Do not run implementation in the same conversation that produced the plan.
 
-## Pi Runtime Rules
+## Claude Code Runtime Rules
 
-- Dispatch planning helpers with pi `subagent(...)`, using focused role prompts and explicit artifact paths.
-- Prefer `pi --list-models` when model inventory is needed; if unavailable, infer tiers from the visible/current model names.
-- Put every subagent output, progress file, context file, report, and note under `.agents/planning/<slug>/`.
-- Do not use a nested subagent for implementation orchestration. The selected implementation skill must run as the parent in a fresh/minimal pi session.
-- Use pi `ask_user` for approval and other user-only decisions so each handshake is explicit and single-question.
-- If planning becomes unusually long-running, Ralph Wiggum can be used as a pacing/checkpoint helper, but it is not required for normal planning.
+- Dispatch planning helpers with the Claude Code `Task` tool, using focused role prompts and explicit artifact paths.
+- Inspect available/current model information exposed by Claude Code when model inventory is needed; if unavailable, infer tiers from the visible/current model.
+- Put every Task output, progress file, context file, report, and note under `.agents/planning/<slug>/`.
+- Do not use a nested Task for implementation orchestration. The selected implementation skill must run as the parent in a fresh/minimal Claude Code session.
+- Use `TodoWrite` for parent progress tracking when available.
 
-Keep approved artifacts focused on workflow facts future readers need: record role, model tier, dependencies, validation, and route decisions. Keep pi-specific tool calls in workflow instructions and run logs rather than encoding them as requirements for implementation code. Any pi-generated or subagent-generated planning files must be routed into `.agents/planning/<slug>/`, not the project root.
+Keep approved artifacts focused on workflow facts future readers need: record role, model tier, dependencies, validation, and route decisions. Keep Claude Code-specific tool calls in workflow instructions and run logs rather than encoding them as requirements for implementation code. Any Claude Code Task-generated planning files must be routed into `.agents/planning/<slug>/`, not the project root.
 
 ## Canonical Role Prompt Templates
 
-Use the prompt templates in `prompts/` for pi planning subagent dispatches. These templates are the source of truth for pi planning roles; fill their placeholders from the user request and current planning artifact directory.
+Use the prompt templates in `prompts/` for Claude Code planning Task dispatches. These templates are the source of truth for Claude Code planning roles; fill their placeholders from the user request and current planning artifact directory.
 
 | Role             | Template                      | When to use                                                                                                                       |
 | ---------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Context gatherer | `prompts/context-gatherer.md` | Read-only request/scope, codebase pattern, validation/risk, or complexity evidence gathering                                      |
 | DAG planner      | `prompts/dag-planner.md`      | Proposing a task DAG, implementation mode, and parallelism shape from gathered context before the parent writes the approved plan |
 
-Pass the filled template as the pi `subagent(...)` task prompt. Do not improvise root-level artifact names; preserve the template's `.agents/planning/<slug>/` artifact boundary.
+Paste the filled template into the Claude Code `Task` tool. Do not improvise root-level artifact names; preserve the template's `.agents/planning/<slug>/` artifact boundary.
 
 ## Process
 
@@ -69,7 +68,7 @@ Pass the filled template as the pi `subagent(...)` task prompt. Do not improvise
 
 For simple or low-risk requests, keep planning proportional but do not skip the workflow:
 
-1. Do enough local and subagent context gathering to confirm scope, affected files, validation, and low-risk status.
+1. Do enough local and Task-based context gathering to confirm scope, affected files, validation, and low-risk status.
 2. Draft a compact `.agents/plans/<slug>.md` with a small DAG, often one task.
 3. Select `quick-batch` / `quick-implementation-work` unless evidence shows deep gates are needed.
 4. Ask for explicit approval.
@@ -77,11 +76,11 @@ For simple or low-risk requests, keep planning proportional but do not skip the 
 
 Do not replace this fast path with inline edits. The quick implementation skill exists specifically to keep simple work fast while still enforcing whole-change review, validation, and commit discipline.
 
-### 1. Establish Context with Subagents
+### 1. Establish Context with Claude Code Tasks
 
-Before dispatching context-gathering subagents, create a planning artifact directory: `.agents/planning/<slug>/`. If a standalone investigation seed already exists at `.agents/planning/<slug>/investigation-seed.md`, reuse that directory, read the seed and referenced investigation note first, and record them under `## Planning Artifacts` in the final plan.
+Before dispatching context-gathering Tasks, create a planning artifact directory: `.agents/planning/<slug>/`. If a standalone investigation seed already exists at `.agents/planning/<slug>/investigation-seed.md`, reuse that directory, read the seed and referenced investigation note first, and record them under `## Planning Artifacts` in the final plan.
 
-Dispatch read-only context-gathering subagents before interviewing the user. Use `prompts/context-gatherer.md` for each planning context subagent and route every subagent output, progress file, context file, report, and note into `.agents/planning/<slug>/`. Pass explicit artifact paths in the pi `subagent(...)` prompt/options such as:
+Dispatch read-only context-gathering Tasks before interviewing the user. Use `prompts/context-gatherer.md` for each planning context Task and route every Task output, progress file, context file, report, and note into `.agents/planning/<slug>/`. Include explicit artifact paths in Task prompts such as:
 
 - `.agents/planning/<slug>/request-scope-context.md`
 - `.agents/planning/<slug>/codebase-patterns.md`
@@ -96,7 +95,7 @@ Use focused prompts such as:
 - Validation/risk: test commands, risky areas, migration/rollback concerns.
 - Complexity/routing: likely DAG size, blast radius, whether per-task gates/worktrees are needed, and whether whole-change review after all tasks is sufficient.
 
-Ask subagents for evidence-backed findings with file paths and remaining questions. Do not let planning subagents modify files. If a separate DAG proposal subagent is useful, use `prompts/dag-planner.md` and store its output under `.agents/planning/<slug>/`. If a pi subagent writes root-level files like `report.md`, `progress.md`, or `context.md`, move the artifact into `.agents/planning/<slug>/` immediately and delete the root-level copy.
+Ask Tasks for evidence-backed findings with file paths and remaining questions. Do not let planning Tasks modify files. If a separate DAG proposal Task is useful, use `prompts/dag-planner.md` and store its output under `.agents/planning/<slug>/`. If a Claude Code Task writes root-level files like `report.md`, `progress.md`, or `context.md`, move the artifact into `.agents/planning/<slug>/` immediately and delete the root-level copy.
 
 ### 2. Infer Model Tiers
 
@@ -162,7 +161,7 @@ Create `.agents/plans/<slug>.md` with these required sections:
 - `## Non-Goals`
 - `## Acceptance Criteria`
 - `## Constraints and Project Instructions`
-- `## Planning Artifacts`: paths to `.agents/planning/<slug>/` context, progress, and subagent report files.
+- `## Planning Artifacts`: paths to `.agents/planning/<slug>/` context, progress, and Task report files.
 - `## Complexity Assessment and Implementation Route`: selected mode (`quick-batch` or `deep-gated`), selected skill (`quick-implementation-work` or `implementation-work`), rationale, rejected route, parallelism/worktree expectations. Mode and skill must agree; do not leave routing to inference.
 - `## Implementation Handoff`: path to `.agents/handoffs/<slug>-implementation.md` and instruction that implementation must run in a fresh/minimal session using the selected skill.
 - `## Model Inventory and Tier Mapping`: table with tier, model(s), and reasoning.
@@ -185,8 +184,8 @@ Present the artifact path and a concise summary of plan + DAG + selected impleme
   1. Update `Approval Status` in the plan artifact.
   2. Create `.agents/handoffs/<slug>-implementation.md`.
   3. Include only the minimal context needed to start implementation: approved plan path, planning artifact directory, selected implementation skill, selected mode, current branch/base SHA if known, explicit instruction to load the selected skill, a reminder to verify the handoff route matches the plan route, and a reminder not to use the prior planning conversation as context.
-  4. Start a new pi session or clear into a fresh/minimal pi context if available.
-  5. If pi cannot reset context automatically, stop and tell the user to open a new pi session or clear context, then paste/run the handoff prompt.
+  4. Use `/clear` or start a new Claude Code session with only the handoff prompt and approved artifacts.
+  5. If you cannot reset context automatically, stop and tell the user to open a new Claude Code session or run `/clear`, then paste/run the handoff prompt.
 
 Do not continue directly into implementation inside the planning conversation. Do not offer to “just make the simple change here.” The approved artifact and handoff file are the context boundary.
 
@@ -194,7 +193,7 @@ Do not continue directly into implementation inside the planning conversation. D
 
 Stop before implementation if:
 
-- The pi `subagent` mechanism is unavailable.
+- Claude Code `Task` is unavailable.
 - The working tree state, test infrastructure, model availability, or selected route invalidates the DAG and cannot be resolved in planning.
 - A behavior-changing task lacks viable tests and the plan does not include either test infrastructure work or an explicit non-TDD exception.
 - The user has not provided an explicit approval phrase.

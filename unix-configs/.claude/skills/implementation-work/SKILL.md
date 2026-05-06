@@ -1,41 +1,40 @@
 ---
 name: implementation-work
-description: Use in pi when executing an approved `.agents/plans/` implementation plan artifact selected for deep-gated execution with pi subagents, per-task review gates, verification, and final auto-commit.
+description: Use in Claude Code when executing an approved `.agents/plans/` implementation plan artifact selected for deep-gated execution with Task writers/reviewers, per-task review gates, verification, and final auto-commit.
 ---
 
 # Implementation Work
 
-Execute an approved plan+DAG artifact in pi using `subagent(...)`, per-task review gates, and final validation. This is the deep-gated implementer selected by `planning-work` for complex/high-risk work.
+Execute an approved plan+DAG artifact in Claude Code using Claude Code Tasks, per-task review gates, and final validation. This is the deep-gated implementer selected by `planning-work` for complex/high-risk work.
 
 ## Preconditions
 
 Stop before writing if any precondition fails:
 
-- The pi `subagent` tool/extension is available. If not, stop: this workflow requires pi subagents.
+- Claude Code's `Task` tool is available. If not, stop: this workflow requires Claude Code Tasks.
 - The input is an approved `.agents/plans/*.md` artifact, or a `.agents/handoffs/*-implementation.md` file that points to one, with `Approval Status: approved`, an approval phrase of `approved`, `approve`, or `ship it`, and an approval timestamp. If missing, redirect to `planning-work`.
 - The approved plan must contain an unambiguous `Complexity Assessment and Implementation Route` with both a selected mode and selected skill. If it clearly selects `quick-batch` / `quick-implementation-work`, stop and redirect to `quick-implementation-work` unless the user explicitly requests deep-gated execution and the plan is updated accordingly.
 - For this skill to proceed, the route must clearly be `selected mode: deep-gated` and `selected skill: implementation-work`. If mode and skill conflict, route data is missing, or the handoff and plan disagree, stop and ask the user/planner to correct the artifact. Do not choose a route by inference.
-- This skill is running in a fresh/minimal pi session context, not the same conversation that created the plan. If the planning conversation is still in context, stop and ask the user to clear context or open a new pi session with the handoff prompt.
+- This skill is running in a fresh/minimal Claude Code session context, not the same conversation that created the plan. If the planning conversation is still in context, stop and ask the user to run `/clear` or open a new Claude Code session with the handoff prompt.
 - For a new run, the git working tree is clean before execution starts, ignoring `.agents/` workflow artifacts created by this workflow. On resume, expected uncommitted workflow changes may exist only when they match the latest run log and base SHA; unrelated non-`.agents/` changes are blocking.
 - The approved plan contains a task DAG, verification policy, model tier mapping, and out-of-scope decision triggers.
 
 Work on the current branch; do not stop merely because it is `main` or `master`.
 
-## Pi Runtime Rules
+## Claude Code Runtime Rules
 
-- Dispatch every writer, reviewer, and fixer with pi `subagent(...)`, using the role prompt templates below and model overrides when available.
-- For parallel writers, prefer isolated git worktrees; use pi `worktree: true` only when it matches the approved DAG and current repo state.
-- Prefer `pi --list-models` for model inventory and tier substitutions.
-- Run only from a fresh/minimal pi session containing the handoff prompt and approved artifacts.
-- The parent orchestrator loads/activates `investigation-work` when diagnosis is needed; do not delegate workflow orchestration to a child subagent.
-- Use pi `ask_user` when a required out-of-scope decision must be escalated to the user.
-- If the run becomes unusually long, Ralph Wiggum can be used for pacing/checkpoints, but normal implementation does not require it.
+- Dispatch every writer, reviewer, and fixer with the Claude Code `Task` tool, using the role prompt templates below and selected models when available.
+- For parallel writers, create isolated git worktrees manually when the approved DAG requires isolation; degrade to sequential execution when safe isolation is unavailable.
+- Inspect available/current model information exposed by Claude Code for model inventory and tier substitutions.
+- Run only from a fresh/minimal Claude Code session containing the handoff prompt and approved artifacts; use `/clear` or a new session for the boundary.
+- The parent orchestrator loads/activates `investigation-work` when diagnosis is needed; do not delegate workflow orchestration to a child Task.
+- Use `TodoWrite` for parent progress tracking when available.
 
-Child subagents must not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`) and must not launch subagents. The parent orchestrator owns skill routing, the DAG, run log, review gates, retries, and final commit.
+Child Tasks must not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`) and must not launch additional Tasks. The parent orchestrator owns skill routing, the DAG, run log, review gates, retries, and final commit.
 
 ## Canonical Role Prompt Templates
 
-Use the prompt templates in `prompts/` for every pi subagent dispatch. These templates are the source of truth for pi implementation roles; fill their placeholders from the approved plan, run log, and current task.
+Use the prompt templates in `prompts/` for every Claude Code Task dispatch. These templates are the source of truth for Claude Code implementation roles; fill their placeholders from the approved plan, run log, and current task.
 
 | Role                     | Template                           | When to use                                                 |
 | ------------------------ | ---------------------------------- | ----------------------------------------------------------- |
@@ -45,7 +44,7 @@ Use the prompt templates in `prompts/` for every pi subagent dispatch. These tem
 | Fix writer               | `prompts/fix-writer.md`            | Focused fixes after a failed review gate                    |
 | Final reviewer           | `prompts/final-reviewer.md`        | Whole-change review before final validation and auto-commit |
 
-Pass the filled template as the pi `subagent(...)` task prompt and choose the agent/model tier according to this skill. Do not improvise shorter role prompts unless the template is clearly inapplicable; if you must adapt, preserve the role boundary, stop rules, TDD evidence requirements, and output format.
+Paste the filled template into the Claude Code `Task` tool and choose the selected model/tier according to this skill. Do not improvise shorter role prompts unless the template is clearly inapplicable; if you must adapt, preserve the role boundary, stop rules, TDD evidence requirements, and output format.
 
 ## Model Tier Rules
 
@@ -70,7 +69,7 @@ Create `.agents/runs/<plan-slug>-<timestamp>.md` before dispatching writers. Upd
 - Git base SHA and branch.
 - Model inventory and substitutions.
 - DAG node status: pending, running, blocked, review-failed, complete.
-- Subagent summaries and artifact paths.
+- Task summaries and artifact paths.
 - Verification commands and outcomes.
 - Worktree paths and integration status.
 - Final validation result and final commit SHA.
@@ -82,7 +81,7 @@ On resume, read the approved plan and latest run log, verify the git state again
 ### 1. Prepare
 
 1. Read the handoff file if provided, then read the approved plan artifact.
-2. Confirm this is a fresh/minimal pi implementation session. Do not rely on prior planning conversation context; rely on the approved artifact and handoff file.
+2. Confirm this is a fresh/minimal Claude Code implementation session. Do not rely on prior planning conversation context; rely on the approved artifact and handoff file.
 3. Verify git state with `git status --porcelain --untracked-files=all`: for new runs, treat any non-`.agents/` change as blocking; for resumes, allow only run-log-matching workflow diffs. Treat staged `.agents/` files as blocking before commit and record ignored `.agents/` paths in the run log.
 4. Record base SHA.
 5. Re-check model tiers.
@@ -112,8 +111,8 @@ For each task/chunk, run Plan → Implement → Verify:
 
 **Implement**
 
-- Dispatch exactly one writer subagent per task/chunk/worktree using the filled `prompts/implementer.md` template.
-- Writer must not recursively invoke any workflow skill or launch subagents.
+- Dispatch exactly one writer Task per task/chunk/worktree using the filled `prompts/implementer.md` template.
+- Writer must not recursively invoke any workflow skill or launch Tasks.
 - Writer must stop for out-of-scope decisions, unclear requirements, or unsafe/destructive changes.
 - For behavior-changing code, writer must follow the approved TDD policy. If TDD is required, report RED/GREEN evidence: failing test command/output summary before production code, passing command/output after implementation.
 - If an approved non-TDD exception exists, writer must report that exception and explicit verification evidence.
@@ -133,7 +132,7 @@ Run two independent review gates before marking complete:
 1. **Spec/acceptance verifier:** use `prompts/spec-verifier.md`; independently reads the code/diff and checks that the task matches the approved spec, with nothing missing and no unapproved extras.
 2. **Code-quality reviewer:** use `prompts/code-quality-reviewer.md`; runs only after spec/acceptance passes and checks maintainability, simplicity, tests, project conventions, and risk.
 
-If a reviewer finds issues, send `prompts/fix-writer.md` as a focused fix prompt to a writer subagent. Re-run the same review gate. After two failed fix/review cycles for the same issue, invoke `investigation-work` once when diagnosis can help; if the issue remains unresolved or requires an out-of-scope decision, mark the task `BLOCKED` and escalate to the user with evidence.
+If a reviewer finds issues, send `prompts/fix-writer.md` as a focused fix prompt to a writer Task. Re-run the same review gate. After two failed fix/review cycles for the same issue, invoke `investigation-work` once when diagnosis can help; if the issue remains unresolved or requires an out-of-scope decision, mark the task `BLOCKED` and escalate to the user with evidence.
 
 Reviewer must reject TDD-required work if RED/GREEN evidence is missing.
 
@@ -153,7 +152,7 @@ Pass the relevant plan path, run log path, task ID, failure evidence, commands, 
 Parallel worktrees must use one explicit integration method:
 
 - **Patch mode:** writers leave uncommitted changes; after review gates pass, the parent exports `git diff --binary` from the task worktree and applies it sequentially to the main checkout.
-- **Task-commit mode:** only the parent, not writer subagents, may create temporary task commits on task branches after gates pass; the parent merges or cherry-picks them sequentially and may squash/finalize according to the plan.
+- **Task-commit mode:** only the parent, not writer Tasks, may create temporary task commits on task branches after gates pass; the parent merges or cherry-picks them sequentially and may squash/finalize according to the plan.
 
 Record the selected method, task branch/path, base SHA, and integration result in the run log. Do not say “merge worktrees” unless task commits/branches exist.
 
@@ -161,7 +160,7 @@ When parallel worktrees were used:
 
 1. Integrate completed worktrees sequentially in DAG/topological order using the recorded integration method.
 2. Run affected validation after each integration.
-3. If conflicts occur, dispatch an implementation subagent to resolve within approved scope.
+3. If conflicts occur, dispatch an implementation Task to resolve within approved scope.
 4. Re-run the affected spec and quality gates after conflict resolution.
 
 ### 6. Final Validation and Auto-Commit
@@ -185,7 +184,7 @@ Stop for user input only when:
 - A destructive, security-sensitive, migration, product, or architecture choice was not approved.
 - TDD is required but impossible and no exception was approved.
 - The repo state makes safe auto-commit impossible.
-- Subagents or worktree isolation required by the active DAG cannot be provided and sequential fallback is not safe.
+- Claude Code Tasks or worktree isolation required by the active DAG cannot be provided and sequential fallback is not safe.
 
 ## Final Response
 

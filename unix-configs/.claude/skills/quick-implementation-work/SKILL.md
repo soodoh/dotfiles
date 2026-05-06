@@ -1,11 +1,11 @@
 ---
 name: quick-implementation-work
-description: "Use in pi when executing an approved `.agents/plans/` DAG selected for quick-batch implementation: pi subagent writers complete low-to-medium-risk DAG tasks in the current checkout, then one whole-change review/fix PIV loop runs after all tasks are completed. Use this instead of deep implementation when planning explicitly selected quick-batch mode."
+description: "Use in Claude Code when executing an approved `.agents/plans/` DAG selected for quick-batch implementation: Task writers complete low-to-medium-risk DAG tasks in the current checkout, then one whole-change review/fix PIV loop runs after all tasks are completed. Use this instead of deep implementation when planning explicitly selected quick-batch mode."
 ---
 
 # Quick Implementation Work
 
-Execute an approved `quick-batch` plan+DAG with subagent writers, no required parallel worktrees, and a whole-change review PIV loop after all DAG tasks are implemented.
+Execute an approved `quick-batch` plan+DAG with Claude Code Task writers, no required parallel worktrees, and a whole-change review PIV loop after all DAG tasks are implemented.
 
 This skill is for low-to-medium risk work where `planning-work` decided that per-task review gates and isolated worktrees are unnecessary. For deep/high-risk work, use `implementation-work` instead.
 
@@ -13,11 +13,11 @@ This skill is for low-to-medium risk work where `planning-work` decided that per
 
 Stop before writing if any precondition fails:
 
-- The pi `subagent` tool/extension is available. If not, stop: this workflow requires pi subagents.
+- Claude Code's `Task` tool is available. If not, stop: this workflow requires Claude Code Tasks.
 - The input is an approved `.agents/plans/*.md` artifact, or a `.agents/handoffs/*-implementation.md` file that points to one, with `Approval Status: approved`, an approval phrase of `approved`, `approve`, or `ship it`, and an approval timestamp.
 - The approved plan must contain an unambiguous `Complexity Assessment and Implementation Route` with both a selected mode and selected skill. If it clearly selects `deep-gated` / `implementation-work`, stop and redirect to `implementation-work` in a fresh/minimal session.
 - For this skill to proceed, the route must clearly be `selected mode: quick-batch` and `selected skill: quick-implementation-work`. If mode and skill conflict, route data is missing, or the handoff and plan disagree, stop and ask the user/planner to correct the artifact. Do not choose a route by inference.
-- This skill is running in a fresh/minimal pi session context, not the same conversation that created the plan. If the planning conversation is still in context, stop and ask the user to clear context or open a new pi session with the handoff prompt.
+- This skill is running in a fresh/minimal Claude Code session context, not the same conversation that created the plan. If the planning conversation is still in context, stop and ask the user to run `/clear` or open a new Claude Code session with the handoff prompt.
 - For a new run, the git working tree is clean before execution starts, ignoring `.agents/` workflow artifacts created by this workflow. On resume, expected uncommitted workflow changes may exist only when they match the latest run log and base SHA; unrelated non-`.agents/` changes are blocking.
 - The approved plan contains a task DAG, verification policy, model tier mapping, complexity/routing rationale, and out-of-scope decision triggers.
 
@@ -25,24 +25,23 @@ Work on the current branch; do not stop merely because it is `main` or `master`.
 
 ## Key Differences from `implementation-work`
 
-- Still uses subagent writers for DAG tasks.
+- Still uses Claude Code Task writers for DAG tasks.
 - Does **not** require isolated git worktrees for parallel writer tasks.
 - Runs writer tasks sequentially by default; may run ready tasks in parallel in the same checkout only when they are independent, low-risk, non-overlapping, and have explicit file ownership.
 - Does **not** run per-task spec/code-quality review gates.
 - Runs a whole-change review/fix PIV loop only after all DAG tasks complete.
 - Escalates via a fresh-session `implementation-work` handoff, or to the user, if the work proves too risky for quick-batch execution.
 
-## Pi Runtime Rules
+## Claude Code Runtime Rules
 
-- Dispatch writer, reviewer, and fixer roles with pi `subagent(...)`, using the prompt templates below and model tiers when available.
-- Same-checkout parallelism may use parallel pi subagent dispatch only when tasks are independent, non-overlapping, low-risk, and explicitly file-owned.
-- Prefer `pi --list-models` for model inventory and tier substitutions.
-- Run only from a fresh/minimal pi session containing the handoff prompt and approved artifacts.
-- The parent orchestrator loads/activates `investigation-work` when diagnosis is needed; do not delegate workflow orchestration to a child subagent.
-- Use pi `ask_user` when a required out-of-scope decision must be escalated to the user.
-- If the run becomes unusually long, Ralph Wiggum can be used for pacing/checkpoints, but normal quick-batch execution does not require it.
+- Dispatch writer, reviewer, and fixer roles with the Claude Code `Task` tool, using the prompt templates below and selected models when available.
+- Same-checkout parallelism may use parallel Task dispatch only when tasks are independent, non-overlapping, low-risk, and explicitly file-owned.
+- Inspect available/current model information exposed by Claude Code for model inventory and tier substitutions.
+- Run only from a fresh/minimal Claude Code session containing the handoff prompt and approved artifacts; use `/clear` or a new session for the boundary.
+- The parent orchestrator loads/activates `investigation-work` when diagnosis is needed; do not delegate workflow orchestration to a child Task.
+- Use `TodoWrite` for parent progress tracking when available.
 
-Child subagents must not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`) and must not launch subagents. The parent orchestrator owns skill routing, the DAG, run log, review/fix loop, final validation, and commit.
+Child Tasks must not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`) and must not launch additional Tasks. The parent orchestrator owns skill routing, the DAG, run log, review/fix loop, final validation, and commit.
 
 ## Canonical Role Prompt Templates
 
@@ -81,7 +80,7 @@ Create `.agents/runs/<plan-slug>-quick-<timestamp>.md` before dispatching writer
 - Selected route: `quick-batch` / `quick-implementation-work`.
 - Model inventory and substitutions.
 - DAG node status: pending, running, blocked, complete.
-- Subagent summaries and artifact paths.
+- Task summaries and artifact paths.
 - Verification commands and outcomes.
 - Whole-change review rounds, findings, fixes, and validation.
 - Final validation result and final commit SHA.
@@ -93,7 +92,7 @@ On resume, read the approved plan and latest quick run log, verify the git state
 ### 1. Prepare
 
 1. Read the handoff file if provided, then read the approved plan artifact.
-2. Confirm this is a fresh/minimal pi implementation session.
+2. Confirm this is a fresh/minimal Claude Code implementation session.
 3. Verify the plan selected `quick-batch` / `quick-implementation-work`.
 4. Verify git state with `git status --porcelain --untracked-files=all`: for new runs, treat any non-`.agents/` change as blocking; for resumes, allow only run-log-matching workflow diffs. Treat staged `.agents/` files as blocking before commit and record ignored `.agents/` paths in the run log.
 5. Record base SHA.
@@ -121,8 +120,8 @@ For each selected task/chunk:
 1. Extract only this task/chunk, dependencies, acceptance criteria, TDD requirement, model tier, and verification commands from the approved artifact.
 2. Confirm it is within approved scope.
 3. Fill `../implementation-work/prompts/implementer.md` with the task context.
-4. Dispatch exactly one writer subagent per task/chunk.
-5. Writer must not recursively invoke any workflow skill, launch subagents, or commit.
+4. Dispatch exactly one writer Task per task/chunk.
+5. Writer must not recursively invoke any workflow skill, launch Tasks, or commit.
 6. Writer must stop for out-of-scope decisions, unclear requirements, or unsafe/destructive changes.
 7. For behavior-changing code, writer must follow the approved TDD policy and report RED/GREEN evidence when TDD is required.
 8. Record the writer report and update the run log.
@@ -182,7 +181,7 @@ Stop for user input only when:
 - TDD is required but impossible and no exception was approved.
 - The repo state makes safe auto-commit impossible.
 - The approved `quick-batch` route is no longer safe because per-task review gates or isolated worktrees are required.
-- The pi `subagent` tool/extension is unavailable.
+- Claude Code `Task` is unavailable.
 
 ## Final Response
 

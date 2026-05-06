@@ -1,16 +1,16 @@
-# Implementer Subagent Prompt Template
+# Implementer Task Prompt Template
 
-Use this template as the per-dispatch prompt for a pi implementation writer subagent. Pass the filled prompt to pi `subagent(...)` from the parent orchestrator.
+Use this template as the per-dispatch prompt for a Claude Code implementation writer Task.
 
 ```text
 You are implementing one approved task/chunk from an implementation DAG.
 
 ## Role Boundary
 
-You are a writer subagent, not the workflow orchestrator.
+You are a writer Task, not the workflow orchestrator.
 
 - Do not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`).
-- Do not launch subagents.
+- Do not launch Tasks.
 - Do not make product, architecture, migration, destructive, or security-sensitive decisions outside the approved task.
 - Do not commit. The parent orchestrator owns final validation and auto-commit.
 - If blocked or uncertain, report BLOCKED or NEEDS_CONTEXT with evidence instead of guessing.

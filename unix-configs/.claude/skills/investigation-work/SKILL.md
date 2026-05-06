@@ -1,11 +1,11 @@
 ---
 name: investigation-work
-description: Use in pi when diagnosing blockers, failing verification, bugs, unclear requirements, regressions, flaky tests, or root-cause questions before or during implementation work. Use this before making more code changes when evidence is missing or repeated fixes are failing. For standalone bug/root-cause investigations that lead to implementation, create an evidence-backed planning seed and route to `planning-work`; inside `quick-implementation-work` or `implementation-work`, return findings only to the active implementation parent/run log.
+description: Use in Claude Code when diagnosing blockers, failing verification, bugs, unclear requirements, regressions, flaky tests, or root-cause questions before or during implementation work. Use this before making more code changes when evidence is missing or repeated fixes are failing. For standalone bug/root-cause investigations that lead to implementation, create an evidence-backed planning seed and route to `planning-work`; inside `quick-implementation-work` or `implementation-work`, return findings only to the active implementation parent/run log.
 ---
 
 # Investigation Work
 
-Diagnose uncertainty with evidence in pi, then hand findings back to the caller. Use local repo evidence, focused diagnostics, and pi subagents when the investigation benefits from parallel read-only analysis.
+Diagnose uncertainty with evidence in Claude Code, then hand findings back to the caller. Use local repo evidence, focused diagnostics, and Tasks when the investigation benefits from parallel read-only analysis.
 
 ## Role Boundary
 
@@ -25,9 +25,9 @@ Required:
 - Revert all temporary code/test/script/probe edits before finishing unless the caller explicitly promotes them into the approved implementation plan.
 - Report what was changed temporarily and how it was reverted.
 - Do not make permanent product fixes.
-- Do not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`) from child investigator subagents; return findings to the parent orchestrator instead.
+- Do not invoke any workflow skill (`planning-work`, `quick-implementation-work`, `implementation-work`, or `investigation-work`) from child investigator Tasks; return findings to the parent orchestrator instead.
 
-If the pi `subagent` tool/extension is unavailable for a non-trivial investigation, stop and tell the user this workflow requires pi subagents.
+If Claude Code `Task` is unavailable for a non-trivial investigation, stop and tell the user this workflow requires Claude Code Tasks.
 
 ## Invocation Modes and Handoffs
 
@@ -51,17 +51,17 @@ This bridge is intentionally disabled for embedded implementation investigations
 
 ## Canonical Role Prompt Template
 
-Use `prompts/investigator.md` for investigation subagent dispatches. This template is the source of truth for pi investigator roles; fill its placeholders from the invocation mode, blocker, plan path, run log, failed command output, and relevant files.
+Use `prompts/investigator.md` for investigation Task dispatches. This template is the source of truth for Claude Code investigator roles; fill its placeholders from the invocation mode, blocker, plan path, run log, failed command output, and relevant files.
 
-Pass the filled template as the pi `subagent(...)` task prompt. Do not improvise a shorter investigation prompt unless the template is clearly inapplicable; preserve the role boundary, temporary-edit revert rules, evidence requirements, and output format.
+Paste the filled template into the Claude Code `Task` tool. Do not improvise a shorter investigation prompt unless the template is clearly inapplicable; preserve the role boundary, temporary-edit revert rules, evidence requirements, and output format.
 
-## Pi Runtime Rules
+## Claude Code Runtime Rules
 
-- Dispatch investigator helpers with pi `subagent(...)` and a read/diagnostic scope.
-- Use available pi web/search tools when external research materially affects the answer.
+- Dispatch investigator helpers with the Claude Code `Task` tool and a read/diagnostic scope.
+- Use available web/search tools when external research materially affects the answer.
 - Use normal read/bash/edit/write tools for local diagnostics; record temporary diffs and revert probes before finishing.
 - Write notes under `.agents/investigations/<slug>.md`.
-- Use pi `ask_user` only when evidence shows the next step requires user-only context or an out-of-scope decision.
+- Use `TodoWrite` for parent progress tracking when available.
 
 ## Investigation PIV Loop
 
@@ -104,7 +104,7 @@ Temporary edits:
 - Capture evidence produced by the edit.
 - Revert the temporary edit before finalizing unless the caller explicitly promotes it into the approved implementation plan.
 
-Use `prompts/investigator.md` for each investigator subagent. Use multiple investigator subagents only when questions are independent, such as one local-code investigator and one external-docs investigator. Synthesize their results before returning.
+Use `prompts/investigator.md` for each investigator Task. Use multiple investigator Tasks only when questions are independent, such as one local-code investigator and one external-docs investigator. Synthesize their results before returning.
 
 ### 3. Validate
 
@@ -161,7 +161,7 @@ When invoked standalone and implementation is recommended, add:
 - Planning prompt: <concise prompt that tells the planner to read the investigation seed and create an approved plan/DAG>
 ```
 
-Then activate `planning-work` with the planning prompt in the parent pi session when skill routing is available. If not, tell the user to start `planning-work` with that prompt. Do not do this for embedded implementation investigations.
+Then activate `planning-work` with the planning prompt in the parent Claude Code session when skill routing is available. If not, tell the user to start `planning-work` with that prompt. Do not do this for embedded implementation investigations.
 
 ## Escalate Instead of Guessing
 
