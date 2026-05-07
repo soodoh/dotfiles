@@ -5,6 +5,7 @@ MAX_VISIBLE_WORKSPACE_APPS="${MAX_VISIBLE_WORKSPACE_APPS:-4}"
 GENERIC_APP_ICON="${GENERIC_APP_ICON:-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns}"
 WORKSPACE_GROUP_GAP="${WORKSPACE_GROUP_GAP:-8}"
 WORKSPACE_GROUP_PADDING_X="${WORKSPACE_GROUP_PADDING_X:-8}"
+EMPTY_WORKSPACE_GROUP_WIDTH="${EMPTY_WORKSPACE_GROUP_WIDTH:-12}"
 WORKSPACE_ICON_PADDING_X="${WORKSPACE_ICON_PADDING_X:-1}"
 WORKSPACE_ICON_SCALE="${WORKSPACE_ICON_SCALE:-0.65}"
 
@@ -170,7 +171,6 @@ hide_workspace_icon_items() {
 render_workspace_items() {
   local workspace_id="$1"
   local raw_apps="${2:-}"
-  local keep_visible_when_empty="${3:-false}"
   local distinct_apps
   local overflow_count
   local slot=1
@@ -180,19 +180,16 @@ render_workspace_items() {
   distinct_apps="$(printf '%s' "$raw_apps" | ordered_distinct_apps)"
 
   if [[ -z "$distinct_apps" ]]; then
-    if [[ "$keep_visible_when_empty" == "true" ]]; then
-      sketchybar --set "space.$workspace_id.group" drawing=on
-      sketchybar --set "space.$workspace_id" drawing=on label.drawing=off label=
-    else
-      sketchybar --set "space.$workspace_id.group" drawing=off
-      sketchybar --set "space.$workspace_id" drawing=off label.drawing=off label=
-    fi
+    sketchybar --set "space.$workspace_id.group" drawing=on
+    sketchybar --set "space.$workspace_id" drawing=on label.drawing=off label=
+    sketchybar --set "space.$workspace_id" width="$EMPTY_WORKSPACE_GROUP_WIDTH"
     hide_workspace_icon_items "$workspace_id"
     return
   fi
 
   sketchybar --set "space.$workspace_id.group" drawing=on
   sketchybar --set "space.$workspace_id" drawing=on label.drawing=off label=
+  sketchybar --set "space.$workspace_id" width=0
 
   while IFS= read -r app_name; do
     [[ -z "$app_name" ]] && continue
