@@ -33,6 +33,10 @@ streaming:
   slack: batch
   github: batch
 
+# Hide Archon's bundled workflows; keep only custom workflows from this config.
+defaults:
+  loadDefaultWorkflows: false
+
 # Concurrency settings
 concurrency:
-  maxConversations: 10
+  maxConversations: 15
