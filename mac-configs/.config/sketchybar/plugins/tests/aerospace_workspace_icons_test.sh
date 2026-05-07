@@ -65,7 +65,7 @@ assert_call '--set space.7.app.4 drawing=off'
 assert_call '--set space.7.overflow drawing=off label='
 assert_no_call_matching 'space\.7\.app\.[0-9].*background\.image='
 assert_no_call_matching 'space\.7\.overflow.*label=\+'
-assert_call '--set space.7 width=24'
+assert_call '--set space.7 width=12'
 
 : >"$log_file"
 render_workspace_items 3 "Ghostty

@@ -67,7 +67,11 @@ for sid in $(aerospace list-workspaces --all); do
     background.border_color="$INACTIVE_BORDER_COLOR" \
     background.border_width=1 \
     background.height=25
-  render_workspace_items "$sid" "$(aerospace list-windows --workspace "$sid" | extract_workspace_apps_from_windows)"
+  sketchybar --set space."$sid" \
+    drawing=on \
+    label.drawing=off \
+    label= \
+    width="$EMPTY_WORKSPACE_GROUP_WIDTH"
   NAME="space.$sid" FOCUSED_WORKSPACE="$focused_workspace" "$CONFIG_DIR/plugins/aerospace.sh" "$sid"
 
 done
@@ -117,6 +121,9 @@ sketchybar --add item clock right \
 
 ##### Force all scripts to run the first time (never do this in a script) #####
 sketchybar --update
+
+##### Hydrate workspace app icons after the bar has rendered #####
+"$PLUGIN_DIR/aerospace_workspace_change.sh" --all >/dev/null 2>&1 &
 
 ##### AI Usage #####
 sketchybar --add item ai_usage.refresh right \
