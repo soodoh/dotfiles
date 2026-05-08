@@ -22,11 +22,10 @@ unix-configs/.config/fish/completions/
 unix-configs/.config/fish/functions/
 unix-configs/.config/fish/conf.d/
 
-unix-configs/.archon/
-!unix-configs/.archon/config.yaml
-!unix-configs/.archon/commands
-!unix-configs/.archon/scripts
-!unix-configs/.archon/workflows
+unix-configs/.archon/archon.db*
+unix-configs/.archon/update-check.json
+unix-configs/.archon/workspaces/
+unix-configs/.archon/web-dist/
 
 # Machine-specific Docker Compose overrides
 docker-compose.override.yml
