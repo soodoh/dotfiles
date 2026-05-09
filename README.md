@@ -180,6 +180,10 @@ brew install azure-cli
 
 # Google Workspace
 brew install gogcli
+
+# Context7
+bun install -g ctx7
+ctx7 login # or set CONTEXT7_API_KEY
 ```
 
 1. Setup shell config
