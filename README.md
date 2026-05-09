@@ -162,7 +162,21 @@ npm i -g @openai/codex
 
 Pi:
 ```bash
-bun add -g @mariozechner/pi-coding-agent
+bun add -g @earendil-works/pi-coding-agent
+```
+
+CLI agent tools (for work, so macOS only):
+```bash
+# Atlassian
+brew tap atlassian/twg
+brew install twg
+twg setup
+
+# Glean
+brew install gleanwork/tap/glean-cli
+
+# Azure
+brew install azure-cli
 ```
 
 1. Setup shell config

@@ -1,0 +1,7 @@
+{
+  "skillName": "twg",
+  "target": "Claude Code",
+  "installPath": "/Users/paul.diloreto/.claude/skills/twg-workflows",
+  "binaryPath": "/opt/homebrew/Cellar/twg/0.9.7/libexec/twg-bin",
+  "installedAt": "2026-05-08T17:09:15.524Z"
+}
