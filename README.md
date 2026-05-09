@@ -167,6 +167,13 @@ bun add -g @earendil-works/pi-coding-agent
 
 CLI agent tools (for work, so macOS only):
 ```bash
+# Context7
+bun install -g ctx7
+ctx7 login # or set CONTEXT7_API_KEY
+
+# ast-grep
+brew install ast-grep
+
 # Atlassian
 brew tap atlassian/twg
 brew install twg
@@ -180,10 +187,6 @@ brew install azure-cli
 
 # Google Workspace
 brew install gogcli
-
-# Context7
-bun install -g ctx7
-ctx7 login # or set CONTEXT7_API_KEY
 ```
 
 1. Setup shell config
