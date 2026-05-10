@@ -30,7 +30,8 @@
     "npm:pi-ask-user",
     "npm:pi-subagents",
     "npm:pi-intercom",
-    "npm:@plannotator/pi-extension"
+    "npm:@plannotator/pi-extension",
+    "npm:@lnilluv/pi-ralph-loop"
   ],
   "steeringMode": "all",
   "promptSuggester": {
