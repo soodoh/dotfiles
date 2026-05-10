@@ -5,6 +5,7 @@ provider_icon() {
   codex) echo "../assets/codex.png" ;;
   claude) echo "../assets/claude.png" ;;
   copilot) echo "../assets/copilot.png" ;;
+  litellm_monthly_spend) echo "" ;;
   *) echo "../assets/codex.png" ;;
   esac
 }

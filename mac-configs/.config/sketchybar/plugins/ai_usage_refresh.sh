@@ -16,6 +16,8 @@ AI_USAGE_NOW_EPOCH="${AI_USAGE_NOW_EPOCH:-$(date +%s)}"
 CODEXBAR_BIN="${CODEXBAR_BIN:-$(command -v codexbar || true)}"
 SKETCHYBAR_BIN="${SKETCHYBAR_BIN:-$(command -v sketchybar || true)}"
 AI_USAGE_TEXT_FONT="${AI_USAGE_TEXT_FONT:-FiraCode Nerd Font:Bold:14.0}"
+CLAUDE_SETTINGS_PATH="${CLAUDE_SETTINGS_PATH:-$HOME/.claude/settings.json}"
+LITELLM_USAGE_PROVIDER_ID="litellm_monthly_spend"
 
 mkdir -p "$(dirname "$AI_USAGE_CACHE_PATH")" "$(dirname "$AI_USAGE_STATE_PATH")"
 
@@ -57,11 +59,45 @@ resolve_icon_path() {
   fi
 }
 
+fetch_litellm_monthly_spend_provider() {
+  if [[ ! -f "$CLAUDE_SETTINGS_PATH" ]]; then
+    return 1
+  fi
+
+  local settings
+  if ! settings="$(jq -er '.env | select(type == "object") | {baseUrl: .ANTHROPIC_BASE_URL, token: .ANTHROPIC_AUTH_TOKEN} | select(.baseUrl != null and .baseUrl != "" and .token != null and .token != "")' "$CLAUDE_SETTINGS_PATH" 2>/dev/null)"; then
+    return 1
+  fi
+
+  local base_url
+  base_url="$(jq -r '.baseUrl | sub("/+$"; "")' <<<"$settings")"
+  local token
+  token="$(jq -r '.token' <<<"$settings")"
+
+  local response
+  if ! response="$(curl -fsS --connect-timeout 2 --max-time 5 -H "Authorization: Bearer $token" "$base_url/key/info" 2>/dev/null)"; then
+    return 1
+  fi
+
+  local spend
+  if ! spend="$(jq -er '.info.spend | select(type == "number")' <<<"$response" 2>/dev/null)"; then
+    return 1
+  fi
+
+  local label
+  label="$(awk -v spend="$spend" 'BEGIN { printf "$%.2f", spend }')"
+
+  jq -nc \
+    --arg id "$LITELLM_USAGE_PROVIDER_ID" \
+    --arg label "$label" \
+    '{id: $id, order: -1, icon: "", displayName: "DS", label: $label, source: "litellm", loginMethod: "", sessionUsedPercent: null, weeklyUsedPercent: null, sessionResetDescription: "", weeklyResetDescription: "", updatedAt: ""}'
+}
+
 render_provider_item() {
   local item_name="$1"
   local provider_name="$2"
   local resolved_icon_path="$3"
-  local session_used="$4"
+  local label_text="$4"
   local label_color="$5"
 
   if [[ -n "$resolved_icon_path" ]]; then
@@ -74,7 +110,7 @@ render_provider_item() {
       icon.background.image="$resolved_icon_path" \
       icon.background.image.drawing=on \
       icon.background.image.scale=0.5 \
-      label="${session_used}%" \
+      label="$label_text" \
       label.color="$label_color" >/dev/null 2>&1 || true
     return 0
   fi
@@ -88,7 +124,7 @@ render_provider_item() {
     icon.background.drawing=off \
     icon.background.image="" \
     icon.background.image.drawing=off \
-    label="${session_used}%" \
+    label="$label_text" \
     label.color="$label_color" >/dev/null 2>&1 || true
 }
 
@@ -158,12 +194,14 @@ sync_provider_items_unlocked() {
     provider_id="$(jq -r '.id' <<<"$provider_json")"
     current_provider_ids+=("$provider_id")
     local item_name="ai_usage.$provider_id"
+    local provider_name
+    provider_name="$(jq -r '.displayName // .id' <<<"$provider_json")"
     local icon_path
     icon_path="$(jq -r '.icon' <<<"$provider_json")"
     local resolved_icon_path
     resolved_icon_path="$(resolve_icon_path "$icon_path")"
-    local session_used
-    session_used="$(jq -r '.sessionUsedPercent' <<<"$provider_json")"
+    local label_text
+    label_text="$(jq -r 'if has("label") then .label else "\(.sessionUsedPercent)%" end' <<<"$provider_json")"
     local label_color="$ACCENT_COLOR"
     if [[ "$stale_cache" == "true" ]]; then
       label_color="$DIMMED_COLOR"
@@ -173,7 +211,7 @@ sync_provider_items_unlocked() {
     render_args+=(
       --set "$item_name"
       drawing=on
-      label="${session_used}%"
+      label="$label_text"
       label.color="$label_color"
     )
 
@@ -188,7 +226,7 @@ sync_provider_items_unlocked() {
       )
     else
       render_args+=(
-        icon="$provider_id"
+        icon="$provider_name"
         icon.font="$AI_USAGE_TEXT_FONT"
         icon.color="$label_color"
         icon.background.drawing=off
@@ -204,18 +242,20 @@ sync_provider_items_unlocked() {
         local fallback_provider_id
         for fallback_provider_id in "${current_provider_ids[@]}"; do
           local fallback_item_name="ai_usage.$fallback_provider_id"
+          local fallback_provider_name
+          fallback_provider_name="$(jq -r --arg provider_id "$fallback_provider_id" '.providers[] | select(.id == $provider_id) | .displayName // .id' "$AI_USAGE_CACHE_PATH")"
           local fallback_icon_path
           fallback_icon_path="$(jq -r --arg provider_id "$fallback_provider_id" '.providers[] | select(.id == $provider_id) | .icon' "$AI_USAGE_CACHE_PATH")"
           local fallback_resolved_icon_path
           fallback_resolved_icon_path="$(resolve_icon_path "$fallback_icon_path")"
-          local fallback_session_used
-          fallback_session_used="$(jq -r --arg provider_id "$fallback_provider_id" '.providers[] | select(.id == $provider_id) | .sessionUsedPercent' "$AI_USAGE_CACHE_PATH")"
+          local fallback_label_text
+          fallback_label_text="$(jq -r --arg provider_id "$fallback_provider_id" '.providers[] | select(.id == $provider_id) | if has("label") then .label else "\(.sessionUsedPercent)%" end' "$AI_USAGE_CACHE_PATH")"
           local fallback_label_color="$ACCENT_COLOR"
           if [[ "$stale_cache" == "true" ]]; then
             fallback_label_color="$DIMMED_COLOR"
           fi
 
-          render_provider_item "$fallback_item_name" "$fallback_provider_id" "$fallback_resolved_icon_path" "$fallback_session_used" "$fallback_label_color"
+          render_provider_item "$fallback_item_name" "$fallback_provider_name" "$fallback_resolved_icon_path" "$fallback_label_text" "$fallback_label_color"
         done
       fi
     fi
@@ -229,9 +269,9 @@ sync_provider_items_unlocked() {
   if [[ ${#current_provider_ids[@]} -gt 0 ]]; then
     sync_ai_separator true
     "$SKETCHYBAR_BIN" --move right_separator.ai after ram >/dev/null 2>&1 || true
-    local reverse_index
-    for (( reverse_index=${#current_provider_ids[@]}-1; reverse_index>=0; reverse_index-- )); do
-      provider_id="${current_provider_ids[$reverse_index]}"
+    local provider_index
+    for (( provider_index=0; provider_index<${#current_provider_ids[@]}; provider_index++ )); do
+      provider_id="${current_provider_ids[$provider_index]}"
       "$SKETCHYBAR_BIN" --move "ai_usage.$provider_id" after right_separator.ai >/dev/null 2>&1 || true
     done
   else
@@ -292,6 +332,16 @@ main() {
           ]'
     )"
 
+    local litellm_provider_json=""
+    if litellm_provider_json="$(fetch_litellm_monthly_spend_provider 2>/dev/null)"; then
+      providers_json="$(
+        jq -nc \
+          --argjson litellm_provider "$litellm_provider_json" \
+          --argjson providers "$providers_json" \
+          '[$litellm_provider] + $providers'
+      )"
+    fi
+
     local cache_json
     cache_json="$(
       jq -n \
@@ -318,7 +368,7 @@ main() {
 
   if [[ -f "$AI_USAGE_CACHE_PATH" ]]; then
     local stale_cache=""
-    if stale_cache="$(jq '.stale = true' "$AI_USAGE_CACHE_PATH" 2>/dev/null)"; then
+    if stale_cache="$(jq --arg provider_id "$LITELLM_USAGE_PROVIDER_ID" '.stale = true | .providers = ((.providers // []) | map(select(.id != $provider_id)))' "$AI_USAGE_CACHE_PATH" 2>/dev/null)"; then
       write_cache "$stale_cache"
     else
       write_cache '{"generatedAt":"","stale":true,"providers":[]}'
