@@ -2,7 +2,7 @@
   "lastChangelogVersion": "0.74.0",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.5",
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "high",
   "theme": "dark",
   "compaction": {
     "enabled": true,
@@ -31,7 +31,7 @@
     "npm:pi-subagents",
     "npm:pi-intercom",
     "npm:@plannotator/pi-extension",
-    "npm:@lnilluv/pi-ralph-loop"
+    "npm:@tmustier/pi-ralph-wiggum"
   ],
   "steeringMode": "all",
   "promptSuggester": {
