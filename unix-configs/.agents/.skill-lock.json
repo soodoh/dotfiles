@@ -45,7 +45,7 @@
       "skillPath": ".claude/skills/archon/SKILL.md",
       "skillFolderHash": "2087c237ccb9c664a036d68982603a5c756ebb6c3b1fb4dd3a446ba210cb8e2c",
       "installedAt": "2026-05-03T02:51:26.321Z",
-      "updatedAt": "2026-05-03T02:51:26.321Z"
+      "updatedAt": "2026-05-12T01:10:54.961Z"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
