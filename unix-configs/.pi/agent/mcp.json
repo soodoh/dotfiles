@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "codanna": {
+      "command": "codanna",
+      "args": ["serve", "--watch"],
+      "lifecycle": "lazy",
+      "directTools": true
+    }
+  }
+}
