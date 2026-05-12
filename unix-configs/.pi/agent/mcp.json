@@ -1,8 +1,11 @@
 {
   "mcpServers": {
     "codanna": {
-      "command": "codanna",
-      "args": ["serve", "--watch"],
+      "command": "sh",
+      "args": [
+        "-lc",
+        "codanna --config .codanna/settings.toml index --no-progress . && exec codanna --config .codanna/settings.toml serve --watch"
+      ],
       "lifecycle": "lazy",
       "directTools": true
     }

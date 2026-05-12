@@ -31,7 +31,6 @@
     "npm:pi-subagents",
     "npm:pi-intercom",
     "npm:@plannotator/pi-extension",
-    "npm:@tmustier/pi-ralph-wiggum",
     "npm:pi-mcp-adapter"
   ],
   "steeringMode": "all",
