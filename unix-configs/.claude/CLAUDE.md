@@ -3,20 +3,6 @@
 ## Commit metadata
 - When making commits, never include any `Co-authored-by` trailers.
 
-## Code Search: rg vs ast-grep
-
-- Use `rg` by default for plain text search: filenames, symbols, string literals, comments, docs, config keys, logs, and quick repository exploration.
-- Use `ast-grep` for syntax-aware code search when the query depends on code structure rather than exact text:
-  - finding function/class/import/call/JSX patterns
-  - distinguishing declarations vs calls vs references
-  - matching code regardless of whitespace/formatting
-  - finding patterns inside other constructs, e.g. calls inside functions/components
-  - finding missing or negative patterns, e.g. async functions without try/catch
-  - preparing safe structural rewrites or codemods
-- If unsure, start with `rg` to learn names and file locations, then switch to `ast-grep` when regex becomes brittle or produces many false positives.
-- Do not use `ast-grep` as a replacement for text search in markdown, comments, logs, or unsupported languages.
-- When using `ast-grep`, read the ast-grep skill first. Prefer simple `ast-grep run --pattern ... --lang ...` searches before writing YAML rules; use `scan` rules for relational/composite logic. For relational rules like `inside` or `has`, include `stopBy: end` unless there is a specific reason not to.
-
 ## Coding Guidelines
 
 - Do not manually cast types, this indicates we need better typing holistically.

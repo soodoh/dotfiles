@@ -1,4 +1,8 @@
 /.serena/
+/.codanna/
+/.codannaignore
+/.fastembed_cache
 /.pi/
 .pi-lens/
 /.agents/
+/.ralph/
