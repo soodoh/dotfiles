@@ -31,7 +31,9 @@
     "npm:pi-subagents",
     "npm:pi-intercom",
     "npm:@plannotator/pi-extension",
-    "npm:pi-mcp-adapter"
+    "npm:pi-mcp-adapter",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:@casualjim/pi-superpowers"
   ],
   "steeringMode": "all",
   "promptSuggester": {
