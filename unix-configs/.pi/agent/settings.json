@@ -29,11 +29,9 @@
     "npm:@ollama/pi-web-search",
     "npm:pi-ask-user",
     "npm:pi-subagents",
-    "npm:pi-intercom",
     "npm:@plannotator/pi-extension",
     "npm:pi-mcp-adapter",
-    "npm:@juicesharp/rpiv-todo",
-    "npm:@casualjim/pi-superpowers"
+    "npm:@juicesharp/rpiv-todo"
   ],
   "steeringMode": "all",
   "promptSuggester": {
