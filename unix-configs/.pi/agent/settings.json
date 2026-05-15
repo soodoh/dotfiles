@@ -26,12 +26,13 @@
       ]
     },
     "npm:pi-vim",
-    "npm:@ollama/pi-web-search",
-    "npm:pi-ask-user",
-    "npm:pi-subagents",
     "npm:@plannotator/pi-extension",
     "npm:pi-mcp-adapter",
-    "npm:@juicesharp/rpiv-todo"
+    "npm:@tintinweb/pi-subagents",
+    "npm:@juicesharp/rpiv-web-tools",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:@juicesharp/rpiv-pi"
   ],
   "steeringMode": "all",
   "promptSuggester": {
