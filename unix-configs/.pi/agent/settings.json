@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.74.0",
+  "lastChangelogVersion": "0.74.1",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.5",
   "defaultThinkingLevel": "high",
@@ -31,11 +31,7 @@
     "npm:@tintinweb/pi-subagents",
     "npm:@juicesharp/rpiv-web-tools",
     "npm:@juicesharp/rpiv-todo",
-    "npm:@juicesharp/rpiv-ask-user-question",
-    "npm:@juicesharp/rpiv-pi",
-    "npm:@juicesharp/rpiv-advisor",
-    "npm:@juicesharp/rpiv-i18n",
-    "npm:@juicesharp/rpiv-args"
+    "npm:@juicesharp/rpiv-ask-user-question"
   ],
   "steeringMode": "all",
   "promptSuggester": {
