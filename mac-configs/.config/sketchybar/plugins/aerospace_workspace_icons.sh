@@ -10,15 +10,50 @@ WORKSPACE_ICON_PADDING_X="${WORKSPACE_ICON_PADDING_X:-1}"
 WORKSPACE_ICON_SCALE="${WORKSPACE_ICON_SCALE:-0.65}"
 
 extract_workspace_apps_from_windows() {
-	awk -F'|' '{gsub(/^ *| *$/, "", $2); if ($2 != "") print $2}'
+	awk -F'|' '
+		function trim(value) {
+			gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+			return value
+		}
+		{
+			app_name = trim($2)
+			bundle_id = trim($3)
+			if (app_name != "" || bundle_id != "") {
+				print app_name "|" bundle_id
+			}
+		}
+	'
 }
 
 ordered_distinct_apps() {
-	awk '
-    NF && !seen[$0]++ {
-      print
-    }
-  '
+	awk -F'|' '
+		function trim(value) {
+			gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+			return value
+		}
+		NF {
+			app_name = trim($1)
+			bundle_id = trim($2)
+			identity = bundle_id != "" ? bundle_id : app_name
+			if (identity != "" && !seen[identity]++) {
+				print app_name "|" bundle_id
+			}
+		}
+	'
+}
+
+parse_workspace_app_record() {
+	local record="$1"
+
+	WORKSPACE_APP_RECORD_NAME=""
+	WORKSPACE_APP_RECORD_BUNDLE_ID=""
+
+	if [[ "$record" == *"|"* ]]; then
+		WORKSPACE_APP_RECORD_NAME="${record%%|*}"
+		WORKSPACE_APP_RECORD_BUNDLE_ID="${record#*|}"
+	else
+		WORKSPACE_APP_RECORD_NAME="$record"
+	fi
 }
 
 visible_workspace_apps() {
@@ -42,29 +77,11 @@ workspace_overflow_count() {
 
 resolve_workspace_app_image() {
 	local app_name="$1"
-	local escaped_app_name
-	local spotlight_query
-	local bundle_path
+	local bundle_id="${2:-}"
 
-	if [[ -z "$app_name" ]]; then
-		printf '%s\n' "$GENERIC_APP_ICON"
-		return
-	fi
-
-	# Let SketchyBar resolve app bundle icons directly. Verifying every app with
-	# Spotlight (`mdfind`) makes startup noticeably slower on machines with many
-	# workspaces/windows, so keep the expensive lookup as an opt-in fallback path.
-	if [[ "${WORKSPACE_VERIFY_APP_ICONS:-0}" != "1" ]]; then
-		printf 'app.%s\n' "$app_name"
-		return
-	fi
-
-	escaped_app_name="${app_name//\\/\\\\}"
-	escaped_app_name="${escaped_app_name//\"/\\\"}"
-	spotlight_query="kMDItemContentTypeTree == \"com.apple.application-bundle\" && (kMDItemFSName == \"$escaped_app_name.app\" || kMDItemDisplayName == \"$escaped_app_name\")"
-
-	bundle_path="$(mdfind "$spotlight_query" | head -n 1)"
-	if [[ -n "$bundle_path" ]]; then
+	if [[ -n "$bundle_id" ]]; then
+		printf 'app.%s\n' "$bundle_id"
+	elif [[ -n "$app_name" ]]; then
 		printf 'app.%s\n' "$app_name"
 	else
 		printf '%s\n' "$GENERIC_APP_ICON"
@@ -182,7 +199,9 @@ render_workspace_items() {
 	local distinct_apps
 	local overflow_count
 	local slot=1
+	local app_record
 	local app_name
+	local bundle_id
 	local image_value
 
 	distinct_apps="$(printf '%s' "$raw_apps" | ordered_distinct_apps)"
@@ -199,9 +218,12 @@ render_workspace_items() {
 	sketchybar --set "space.$workspace_id" drawing=on label.drawing=off label=
 	sketchybar --set "space.$workspace_id" width=0
 
-	while IFS= read -r app_name; do
-		[[ -z "$app_name" ]] && continue
-		image_value="$(resolve_workspace_app_image "$app_name")"
+	while IFS= read -r app_record; do
+		[[ -z "$app_record" ]] && continue
+		parse_workspace_app_record "$app_record"
+		app_name="$WORKSPACE_APP_RECORD_NAME"
+		bundle_id="$WORKSPACE_APP_RECORD_BUNDLE_ID"
+		image_value="$(resolve_workspace_app_image "$app_name" "$bundle_id")"
 		sketchybar --set "space.$workspace_id.app.$slot" drawing=on background.image="$image_value"
 		slot=$((slot + 1))
 		if [[ "$slot" -gt "$MAX_VISIBLE_WORKSPACE_APPS" ]]; then
