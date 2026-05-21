@@ -78,6 +78,8 @@ return {
           },
         },
         defaults = {
+          -- Keep the end of long paths/file names visible in Telescope results.
+          path_display = { "truncate" },
           vimgrep_arguments = {
             "rg",
             "--color=never",
