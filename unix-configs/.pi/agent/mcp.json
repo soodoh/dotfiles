@@ -1,4 +1,7 @@
 {
+  "settings": {
+    "autoAuth": true
+  },
   "mcpServers": {
     "codanna": {
       "command": "sh",
@@ -16,6 +19,11 @@
       },
       "lifecycle": "lazy",
       "directTools": true
+    },
+    "glean": {
+      "url": "https://docusign-prod-be.glean.com/mcp/default",
+      "auth": "oauth",
+      "lifecycle": "lazy"
     }
   }
 }
