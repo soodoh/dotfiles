@@ -16,8 +16,18 @@ return {
         ":bd<CR>",
         desc = "Close buffer & window",
       },
+      {
+        "<leader>gg",
+        function()
+          Snacks.lazygit()
+        end,
+        desc = "LazyGit",
+      },
     },
     opts = {
+      lazygit = {
+        enabled = true,
+      },
       bigfile = {
         enabled = true,
         size = 1.5 * 1024 * 1024,
