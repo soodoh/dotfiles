@@ -1,4 +1,8 @@
-# ~/.config/jesseduffield/lazygit/config.yml
 os:
-  editCommand: "nvim"
-  editCommandTemplate: '{{editor}} --server /tmp/nvim-server.pipe --remote-tab "$(pwd)/{{filename}}"'
+  # Use LazyGit's nvim-remote behavior for suspend handling, but override
+  # the edit commands to use --remote instead of --remote-tab so files open
+  # as buffers in the current Neovim tab.
+  editPreset: "nvim-remote"
+  edit: 'sh -c ''if [ -z "$NVIM" ]; then nvim -- "$1"; else nvim --server "$NVIM" --remote-send "q" && nvim --server "$NVIM" --remote "$1"; fi'' -- "{{filename}}"'
+  editAtLine: 'sh -c ''if [ -z "$NVIM" ]; then nvim +"$1" -- "$2"; else nvim --server "$NVIM" --remote-send "q" && nvim --server "$NVIM" --remote "$2" && nvim --server "$NVIM" --remote-send ":$1<CR>"; fi'' -- "{{line}}" "{{filename}}"'
+  openDirInEditor: 'sh -c ''if [ -z "$NVIM" ]; then nvim -- "$1"; else nvim --server "$NVIM" --remote-send "q" && nvim --server "$NVIM" --remote "$1"; fi'' -- "{{dir}}"'
