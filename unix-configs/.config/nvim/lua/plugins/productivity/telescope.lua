@@ -1,7 +1,60 @@
+local is_inside_work_tree = {}
+
+local function project_files()
+  local telescope_builtin = require("telescope.builtin")
+  local cwd = vim.fn.getcwd()
+
+  if is_inside_work_tree[cwd] == nil then
+    vim.fn.system("git rev-parse --is-inside-work-tree")
+    is_inside_work_tree[cwd] = vim.v.shell_error == 0
+  end
+
+  if is_inside_work_tree[cwd] then
+    telescope_builtin.git_files()
+  else
+    telescope_builtin.find_files()
+  end
+end
+
 return {
   -- Telescope
   {
     "nvim-telescope/telescope.nvim",
+    cmd = "Telescope",
+    keys = {
+      {
+        "<leader>ff",
+        project_files,
+        desc = "Find files",
+      },
+      {
+        "<leader>fg",
+        function()
+          require("telescope").extensions.live_grep_args.live_grep_args()
+        end,
+        desc = "Grep files",
+      },
+      {
+        "<leader>fb",
+        "<cmd>Telescope buffers<CR>",
+        desc = "Find buffer",
+      },
+      {
+        "<leader>fh",
+        "<cmd>Telescope oldfiles<CR>",
+        desc = "Find recent files",
+      },
+      {
+        "<leader>fc",
+        function()
+          require("telescope.builtin").colorscheme({
+            enable_preview = true,
+            ignore_builtins = true,
+          })
+        end,
+        desc = "Switch/Preview colorscheme",
+      },
+    },
     dependencies = {
       "nvim-lua/plenary.nvim",
       "nvim-telescope/telescope-live-grep-raw.nvim",
@@ -13,59 +66,6 @@ return {
     },
     config = function()
       local telescope = require("telescope")
-      local telescope_builtin = require("telescope.builtin")
-      -- We cache the results of "git rev-parse"
-      -- Process creation is expensive in Windows, so this reduces latency
-      local is_inside_work_tree = {}
-
-      local project_files = function()
-        local cwd = vim.fn.getcwd()
-        if is_inside_work_tree[cwd] == nil then
-          vim.fn.system("git rev-parse --is-inside-work-tree")
-          is_inside_work_tree[cwd] = vim.v.shell_error == 0
-        end
-
-        if is_inside_work_tree[cwd] then
-          telescope_builtin.git_files()
-        else
-          telescope_builtin.find_files()
-        end
-      end
-
-      require("which-key").add({
-        { "<leader>f", group = "Telescope" },
-        {
-          "<leader>ff",
-          project_files,
-          desc = "Find files",
-        },
-        {
-          "<leader>fg",
-          ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>",
-          desc = "Grep files",
-        },
-        {
-          "<leader>fb",
-          ":Telescope buffers<CR>",
-          desc = "Find buffer",
-        },
-        {
-          "<leader>fh",
-          ":Telescope oldfiles<CR>",
-          desc = "Find recent files",
-        },
-        {
-          "<leader>fc",
-          function()
-            require("telescope.builtin").colorscheme({
-              enable_preview = true,
-              ignore_builtins = true,
-            })
-          end,
-          desc = "Switch/Preview colorscheme",
-        },
-      })
-
       local actions = require("telescope.actions")
       local trouble = require("trouble.sources.telescope")
 
@@ -118,6 +118,8 @@ return {
           )
         end)
       end
+
+      pcall(telescope.load_extension, "live_grep_args")
     end,
   },
 }

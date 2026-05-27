@@ -2,6 +2,7 @@ return {
   -- Better UI for LSP (code actions, diagnostics)
   {
     "nvimdev/lspsaga.nvim",
+    event = "LspAttach",
     dependencies = {
       "nvim-tree/nvim-web-devicons",
       "nvim-treesitter/nvim-treesitter",

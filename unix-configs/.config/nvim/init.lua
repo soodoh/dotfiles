@@ -16,7 +16,6 @@ vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
   spec = {
-    { "folke/which-key.nvim" }, -- load first
     { import = "plugins.lsp" },
     { import = "plugins.productivity" },
     { import = "plugins.ui" },
