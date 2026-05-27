@@ -76,15 +76,6 @@
       "installedAt": "2026-05-04T02:23:23.179Z",
       "updatedAt": "2026-05-04T02:23:23.179Z"
     },
-    "glean-cli": {
-      "source": "gleanwork/glean-cli",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/gleanwork/glean-cli.git",
-      "skillPath": "skills/glean-cli/SKILL.md",
-      "skillFolderHash": "fec671a43826bd3758ec00e6732e4c06fedd7b7226f3d978e794a6e95ef2eafb",
-      "installedAt": "2026-05-08T17:42:47.698Z",
-      "updatedAt": "2026-05-08T17:42:47.698Z"
-    },
     "azure-devops-cli": {
       "source": "github/awesome-copilot",
       "sourceType": "github",
@@ -111,15 +102,6 @@
       "skillFolderHash": "e428c2ff5b716ac41da72c3218ddf494b0b47f1997f03d21677097d7f07fd12d",
       "installedAt": "2026-05-09T01:24:32.563Z",
       "updatedAt": "2026-05-09T01:24:32.563Z"
-    },
-    "context7-cli": {
-      "source": "upstash/context7",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/upstash/context7.git",
-      "skillPath": "skills/context7-cli/SKILL.md",
-      "skillFolderHash": "6077b3c638fb7efb31d9b2c815436650de4aef73e7b671edec2f1c63f6a1e105",
-      "installedAt": "2026-05-09T01:56:10.408Z",
-      "updatedAt": "2026-05-09T01:56:10.408Z"
     }
   },
   "dismissed": {

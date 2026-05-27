@@ -1,4 +1,7 @@
 {
+  "settings": {
+    "autoAuth": true
+  },
   "mcpServers": {
     "codanna": {
       "command": "sh",
@@ -8,6 +11,48 @@
       ],
       "lifecycle": "lazy",
       "directTools": true
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      },
+      "lifecycle": "lazy",
+      "directTools": true
+    },
+    "glean": {
+      "url": "https://docusign-prod-be.glean.com/mcp/default",
+      "auth": "oauth",
+      "lifecycle": "lazy"
+    },
+    "azure": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@azure/mcp@latest",
+        "server",
+        "start"
+      ],
+      "lifecycle": "lazy",
+      "directTools": false
+    },
+    "kusto": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "kusto-mcp@latest"
+      ],
+      "lifecycle": "lazy",
+      "directTools": false
+    },
+    "ado-pipelines": {
+      "command": "sh",
+      "args": [
+        "-lc",
+        "test -n \"$AZURE_DEVOPS_ORG\" || { echo 'Set AZURE_DEVOPS_ORG to your Azure DevOps organization name (for https://dev.azure.com/<org>).' >&2; exit 1; }; set -- -y @azure-devops/mcp@latest \"$AZURE_DEVOPS_ORG\" --authentication azcli -d core pipelines; if [ -n \"$AZURE_TENANT_ID\" ]; then set -- \"$@\" --tenant \"$AZURE_TENANT_ID\"; fi; exec npx \"$@\""
+      ],
+      "lifecycle": "lazy",
+      "directTools": false
     }
   }
 }
