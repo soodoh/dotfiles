@@ -6,3 +6,7 @@ os:
   edit: 'sh -c ''if [ -z "$NVIM" ]; then nvim -- "$1"; else nvim --server "$NVIM" --remote-send "q" && nvim --server "$NVIM" --remote "$1"; fi'' -- "{{filename}}"'
   editAtLine: 'sh -c ''if [ -z "$NVIM" ]; then nvim +"$1" -- "$2"; else nvim --server "$NVIM" --remote-send "q" && nvim --server "$NVIM" --remote "$2" && nvim --server "$NVIM" --remote-send ":$1<CR>"; fi'' -- "{{line}}" "{{filename}}"'
   openDirInEditor: 'sh -c ''if [ -z "$NVIM" ]; then nvim -- "$1"; else nvim --server "$NVIM" --remote-send "q" && nvim --server "$NVIM" --remote "$1"; fi'' -- "{{dir}}"'
+
+gui:
+  nerdFontsVersion: "3"
+  showFileIcons: true
