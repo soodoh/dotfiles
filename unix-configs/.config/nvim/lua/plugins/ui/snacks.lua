@@ -28,6 +28,9 @@ return {
       lazygit = {
         enabled = true,
       },
+      image = {
+        enabled = true,
+      },
       bigfile = {
         enabled = true,
         size = 1.5 * 1024 * 1024,
