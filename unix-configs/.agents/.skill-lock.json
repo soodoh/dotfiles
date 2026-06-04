@@ -102,6 +102,15 @@
       "skillFolderHash": "e428c2ff5b716ac41da72c3218ddf494b0b47f1997f03d21677097d7f07fd12d",
       "installedAt": "2026-05-09T01:24:32.563Z",
       "updatedAt": "2026-05-09T01:24:32.563Z"
+    },
+    "thermo-nuclear-code-quality-review": {
+      "source": "cursor/plugins",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/cursor/plugins.git",
+      "skillPath": "cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md",
+      "skillFolderHash": "d9c8935dd560b3b6f5941247d04a1843f8c7cc35",
+      "installedAt": "2026-06-04T16:25:51.032Z",
+      "updatedAt": "2026-06-04T16:25:51.032Z"
     }
   },
   "dismissed": {
@@ -110,17 +119,17 @@
   "lastSelectedAgents": [
     "amp",
     "antigravity",
+    "antigravity-cli",
     "cline",
     "codex",
     "cursor",
     "deepagents",
-    "dexto",
-    "firebender",
     "gemini-cli",
     "github-copilot",
-    "kimi-cli",
+    "kimi-code-cli",
     "opencode",
     "warp",
+    "zed",
     "claude-code"
   ]
 }

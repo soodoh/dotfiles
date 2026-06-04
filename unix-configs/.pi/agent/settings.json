@@ -36,13 +36,11 @@
   "steeringMode": "all",
   "promptSuggester": {
     "suggesterModel": [
-      "github-copilot/claude-haiku-4.5",
       "openai-codex/gpt-5.4-mini"
     ]
   },
   "autoSessionName": {
     "titleModel": [
-      "github-copilot/claude-haiku-4.5",
       "openai-codex/gpt-5.4-mini"
     ]
   }
