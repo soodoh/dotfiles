@@ -19,6 +19,7 @@ export PATH=$PATH:/opt/homebrew/bin
 Mac:
 ```bash
 brew install \
+  atuin \
   borders \
   cmake \
   coreutils \
@@ -137,6 +138,7 @@ Linux only (otherwise handled by homebrew):
 ```bash
 cargo install --force yazi-build
 cargo install starship --locked
+cargo install atuin
 ```
 
 1.Install Agents

@@ -1,0 +1,9 @@
+# Atuin history configuration
+# Keep history local by default. Run `atuin login` and set this to true if sync is desired.
+auto_sync = false
+
+# Do not store failed commands, matching the main behavior previously provided by Sponge.
+store_failed = false
+
+# Keep Atuin's built-in secret redaction/filtering enabled.
+secrets_filter = true
