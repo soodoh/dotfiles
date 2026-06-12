@@ -138,7 +138,7 @@ Linux only (otherwise handled by homebrew):
 ```bash
 cargo install --force yazi-build
 cargo install starship --locked
-cargo install atuin
+cargo install atuin --locked
 ```
 
 1.Install Agents
