@@ -75,12 +75,20 @@ fetch_litellm_monthly_spend_provider() {
   token="$(jq -r '.token' <<<"$settings")"
 
   local response
-  if ! response="$(curl -fsS --connect-timeout 2 --max-time 5 -H "Authorization: Bearer $token" "$base_url/key/info" 2>/dev/null)"; then
+  if ! response="$(curl -sS --connect-timeout 2 --max-time 5 -H "Authorization: Bearer $token" "$base_url/key/info" 2>/dev/null)"; then
     return 1
   fi
 
   local spend
-  if ! spend="$(jq -er '.info.spend | select(type == "number")' <<<"$response" 2>/dev/null)"; then
+  if ! spend="$(jq -er '
+    if (.info.spend | type) == "number" then
+      .info.spend
+    elif .error.type == "budget_exceeded" then
+      (.error.message // "" | capture("Current cost: (?<spend>[0-9]+(\\.[0-9]+)?)").spend | tonumber)
+    else
+      empty
+    end
+  ' <<<"$response" 2>/dev/null)"; then
     return 1
   fi
 
