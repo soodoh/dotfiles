@@ -19,6 +19,15 @@
       },
       "lifecycle": "lazy",
       "directTools": true
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--extension"
+      ],
+      "lifecycle": "lazy"
     }
   }
 }
