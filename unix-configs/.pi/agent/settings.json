@@ -32,7 +32,7 @@
     "npm:@juicesharp/rpiv-web-tools",
     "npm:@juicesharp/rpiv-todo",
     "npm:@juicesharp/rpiv-ask-user-question",
-    "npm:pi-dynamic-workflows"
+    "npm:@quintinshaw/pi-dynamic-workflows"
   ],
   "steeringMode": "all",
   "promptSuggester": {
