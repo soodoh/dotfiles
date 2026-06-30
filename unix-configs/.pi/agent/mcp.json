@@ -1,6 +1,7 @@
 {
   "settings": {
-    "autoAuth": true
+    "autoAuth": true,
+    "samplingAutoApprove": true
   },
   "mcpServers": {
     "codanna": {
