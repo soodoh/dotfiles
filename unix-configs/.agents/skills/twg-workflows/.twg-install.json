@@ -1,7 +1,0 @@
-{
-  "skillName": "twg",
-  "target": "global",
-  "installPath": "/Users/paul.diloreto/.agents/skills/twg-workflows",
-  "binaryPath": "/opt/homebrew/Cellar/twg/0.9.7/libexec/twg-bin",
-  "installedAt": "2026-05-08T17:09:15.520Z"
-}

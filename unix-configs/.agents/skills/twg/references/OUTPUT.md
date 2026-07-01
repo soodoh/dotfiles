@@ -56,7 +56,7 @@ complete inventory. For `context` commands this matters most: external artifact 
 **tail** of relationship arrays and are the entries most likely to be absent from
 `stdout_shape` samples. If the goal is relationship or URL discovery, always read
 `output_files.stdout` rather than treating shape samples as the full result. The
-related compensation rules live in `twg-workflows/SKILL.md` under "Tool Gaps".
+related workflow guidance lives in `twg-context-discovery/SKILL.md`.
 
 ## Output Budget Controls
 
@@ -77,6 +77,16 @@ twg <cmd> --agent-fields data.items.key,data.items.status
 If `output_files.compact` is present, use it instead of probing the raw JSON.
 If field paths are unknown, run `twg help describe "<exact command>"` and use
 the advertised output view or jq snippet.
+
+For structured JSON, inspect the top-level shape once and then write a targeted
+projection. Do not retry multiple incompatible `.data.*`, `.result.*`, or
+array-vs-object guesses. Combine related facts in one `jq` projection per output
+file instead of running repeated `jq .` or one-field probes.
+
+When comparing many compact files, avoid a sequence of one-file wrappers such as
+`jq '{Alice:.}' file`. Use one combined projection with `jq -n`/slurp inputs, or
+read the compact summaries directly and only filter the few raw files that will
+change the answer.
 
 ## When To Pass `--output-file`
 

@@ -19,7 +19,7 @@ Common patterns:
 
 ```jql
 assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC
-project = PROJ AND statusCategory != Done ORDER BY priority DESC
+project = PROJ AND statusCategory != Done ORDER BY priority DESC, updated DESC
 project = PROJ AND issuetype in (Bug, Task) AND statusCategory != Done
 parent = PROJ-123 ORDER BY updated DESC
 key in (PROJ-1, PROJ-2, PROJ-3)
@@ -31,6 +31,10 @@ Guidance:
 
 - Prefer `statusCategory != Done` for open work when exact statuses vary.
 - Use `updated >= -14d` or similar windows for recent activity.
+- For "top items from a board" where the supplied board name is also a Jira
+  project key, start with project-key JQL and limit the output before hydrating
+  individual issues. Use `jira board backlog` when exact board backlog order is
+  required or a numeric board ID is supplied.
 - Agile sprint functions can require board permissions; if denied, fall back to
   date/status filters.
 - For issue relationships and linked artifacts, use Jira context in addition to

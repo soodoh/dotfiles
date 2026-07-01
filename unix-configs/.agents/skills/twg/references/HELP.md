@@ -12,9 +12,9 @@ arguments it emits the compact YAML command map for routing.
 ```bash
 twg help
 twg help jira
-twg help page get
-twg help workitem link goal
 twg help jira workitem
+twg help jira workitem link goal
+twg help confluence page get
 twg help describe "jira"
 twg help describe "jira workitem"
 ```
@@ -84,16 +84,21 @@ twg -o text help describe "jira workitem query"
   project key, resolve that value before executing the command.
 - Keep experimental commands out of parallel batches until help confirms the
   shape.
+- After search/Rovo returns candidates, hydrate selected candidates through the
+  exact executable `get` contract for that surface. Use `query` for filters; do
+  not pass candidate keys to namespace commands.
 
 ## Common Discovery Patterns
 
 | Need | Discovery path |
 | --- | --- |
-| Person lookup | `twg help user search`, then use `--name` or `--email` |
+| Person lookup | `twg help user search`, then use positional name, `--name`, or `--email` |
 | Jira workitem detail or JQL | `twg help describe "jira workitem"`, then inspect the chosen exact command |
-| Confluence page by title or URL | `twg help page get` and `twg help confluence page` |
+| Jira required/custom fields on create/update | `twg help jira custom fields`, then use `jira workitem field create-metadata` or `update-metadata`; prefer returned `customfield_*` IDs; do not duplicate keys across `--field` and `--fields-json` |
+| Jira custom field value readback | `twg jira workitem get <KEY> --field customfield_*`, or `--fields customfield_*,summary` for comma-separated REST fields |
+| Confluence page by title, ID, or URL | `twg help confluence page` and `twg help describe "confluence page get"` |
 | Bitbucket PR/repo | `twg help bitbucket`, then `twg help describe "bitbucket"` |
-| Atlas project/goal/focus area | `twg help projects`, `twg help goals`, `twg help focus-areas` |
+| Project/goal/focus area key or search result | `twg help projects`, `twg help goals`, `twg help focus-areas`, then describe the exact `get` or `query` command |
 | Relationships or dependencies | `twg help context`, then `twg help describe "context"` |
 | Assets / CMDB | `twg help assets`, then inspect object schema/type help before AQL |
 

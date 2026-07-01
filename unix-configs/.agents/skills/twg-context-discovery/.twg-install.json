@@ -1,9 +1,9 @@
 {
   "skillName": "twg",
-  "target": "Claude Code",
-  "installPath": "/Users/paul.diloreto/.claude/skills/twg",
+  "target": "global",
+  "installPath": "/Users/paul.diloreto/.agents/skills/twg-context-discovery",
   "binaryPath": "/opt/homebrew/Cellar/twg/1.0.1/libexec/twg-bin",
-  "installedAt": "2026-07-01T17:53:23.721Z",
+  "installedAt": "2026-07-01T17:53:23.701Z",
   "installedVersion": "1.0.1",
   "buildProfile": "external",
   "buildCommit": "771d92ebc63d",

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 resolve_twg() {
-  printf '%s\n' "/opt/homebrew/Cellar/twg/0.9.7/libexec/twg-bin"
+  printf '%s\n' "/opt/homebrew/Cellar/twg/1.0.1/libexec/twg-bin"
   return 0
 }
 
