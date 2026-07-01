@@ -28,7 +28,7 @@
     "npm:pi-vim",
     "npm:@plannotator/pi-extension",
     "npm:pi-mcp-adapter",
-    "npm:@tintinweb/pi-subagents",
+    "npm:pi-subagents",
     "npm:@juicesharp/rpiv-web-tools",
     "npm:@juicesharp/rpiv-todo",
     "npm:@juicesharp/rpiv-ask-user-question",
