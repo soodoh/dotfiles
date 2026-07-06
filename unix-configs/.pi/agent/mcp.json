@@ -4,15 +4,6 @@
     "samplingAutoApprove": true
   },
   "mcpServers": {
-    "codanna": {
-      "command": "sh",
-      "args": [
-        "-lc",
-        "codanna --config .codanna/settings.toml index --no-progress . && exec codanna --config .codanna/settings.toml serve --watch"
-      ],
-      "lifecycle": "lazy",
-      "directTools": true
-    },
     "context7": {
       "url": "https://mcp.context7.com/mcp",
       "headers": {

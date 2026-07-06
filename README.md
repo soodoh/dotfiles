@@ -173,9 +173,6 @@ CLI agent tools (for work, so macOS only):
 bun install -g ctx7
 ctx7 login # or set CONTEXT7_API_KEY
 
-# Codanna
-brew install codanna
-
 # Atlassian
 brew tap atlassian/twg
 brew install twg
