@@ -161,14 +161,29 @@ sync_ai_separator() {
 
 with_ai_usage_state_lock() {
   local lock_dir="${AI_USAGE_STATE_PATH}.lock"
+  local stale_lock_break_seconds="${AI_USAGE_STATE_LOCK_STALE_SECONDS:-30}"
+  local waited_iterations=0
+  local max_wait_iterations=$((stale_lock_break_seconds * 20))
 
   while ! mkdir "$lock_dir" 2>/dev/null; do
+    if [[ $waited_iterations -ge $max_wait_iterations ]]; then
+      # Break a stale lock left behind by a crashed prior invocation.
+      rm -rf "$lock_dir" 2>/dev/null || true
+      waited_iterations=0
+      continue
+    fi
     sleep 0.05
+    waited_iterations=$((waited_iterations + 1))
   done
 
-  "$@"
-  local command_status=$?
-  rmdir "$lock_dir"
+  # Ensure the lock is always released, even on error/signal exits.
+  trap 'rm -rf "$lock_dir" 2>/dev/null || true' EXIT INT TERM
+
+  local command_status=0
+  "$@" || command_status=$?
+
+  rm -rf "$lock_dir" 2>/dev/null || true
+  trap - EXIT INT TERM
   return "$command_status"
 }
 
