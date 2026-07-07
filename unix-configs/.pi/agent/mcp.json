@@ -23,6 +23,16 @@
       "lifecycle": "lazy",
       "directTools": true
     },
+    "cadquery": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "cadquery-mcp",
+        "cadquery-mcp"
+      ],
+      "lifecycle": "lazy",
+      "directTools": true
+    },
     "playwright": {
       "command": "npx",
       "args": [
