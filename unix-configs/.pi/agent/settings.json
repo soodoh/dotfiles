@@ -31,8 +31,7 @@
     "npm:pi-subagents",
     "npm:@juicesharp/rpiv-web-tools",
     "npm:@juicesharp/rpiv-todo",
-    "npm:@juicesharp/rpiv-ask-user-question",
-    "npm:@quintinshaw/pi-dynamic-workflows"
+    "npm:@juicesharp/rpiv-ask-user-question"
   ],
   "steeringMode": "all",
   "promptSuggester": {
