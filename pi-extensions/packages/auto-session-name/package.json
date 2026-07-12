@@ -1,0 +1,25 @@
+{
+	"name": "auto-session-name",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "Pi extension that names new unnamed sessions from the first user message.",
+	"main": "index.ts",
+	"files": [
+		"index.ts",
+		"auto-session-name.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"scripts": {
+		"build": "tsc --noEmit",
+		"test": "vitest run --root ../.. packages/auto-session-name",
+		"typecheck": "tsc --noEmit"
+	},
+	"peerDependencies": {
+		"@mariozechner/pi-ai": "*"
+	}
+}

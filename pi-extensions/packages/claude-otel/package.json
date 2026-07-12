@@ -1,0 +1,31 @@
+{
+	"name": "claude-otel",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "Pi extension that emits OTEL metrics with exact parity to Claude Code's telemetry.",
+	"main": "index.ts",
+	"files": [
+		"index.ts",
+		"otel-metrics.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"scripts": {
+		"build": "tsc --noEmit",
+		"test": "vitest run --root ../.. packages/claude-otel",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@opentelemetry/api": "^1.9.1",
+		"@opentelemetry/exporter-metrics-otlp-http": "^0.220.0",
+		"@opentelemetry/resources": "^2.9.0",
+		"@opentelemetry/sdk-metrics": "^2.9.0"
+	},
+	"peerDependencies": {
+		"@mariozechner/pi-coding-agent": "*"
+	}
+}

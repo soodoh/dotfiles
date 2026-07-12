@@ -233,13 +233,17 @@ Mac:
 ```bash
 mkdir ~/.config && \
 stow -vRt $HOME unix-configs && \
-stow -vRt $HOME mac-configs
+stow -vRt $HOME mac-configs && \
+mkdir -p $HOME/.pi/agent/pi-extensions && \
+stow -vRt $HOME/.pi/agent/pi-extensions pi-extensions
 ```
 
 Linux:
 ```bash
 mkdir ~/.config && \
-stow -vRt $HOME unix-configs
+stow -vRt $HOME unix-configs && \
+mkdir -p $HOME/.pi/agent/pi-extensions && \
+stow -vRt $HOME/.pi/agent/pi-extensions pi-extensions
 ```
 (Optional)
 ```bash

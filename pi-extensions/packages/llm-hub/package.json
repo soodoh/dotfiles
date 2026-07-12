@@ -1,0 +1,25 @@
+{
+	"name": "llm-hub",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "Pi extension that registers an Anthropic-compatible LLM Hub provider.",
+	"main": "index.ts",
+	"files": [
+		"index.ts",
+		"llm-hub.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"scripts": {
+		"build": "tsc --noEmit",
+		"test": "vitest run --root ../.. packages/llm-hub",
+		"typecheck": "tsc --noEmit"
+	},
+	"peerDependencies": {
+		"@mariozechner/pi-coding-agent": "*"
+	}
+}

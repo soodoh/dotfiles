@@ -17,7 +17,7 @@
   ],
   "packages": [
     {
-      "source": "git:github.com/soodoh/pi-extensions",
+      "source": "./pi-extensions",
       "extensions": [
         "packages/auto-session-name/index.ts",
         "packages/prompt-suggester/src/index.ts",

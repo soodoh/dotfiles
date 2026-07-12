@@ -1,0 +1,25 @@
+{
+	"name": "statusline",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "Lean compact powerline statusline for Pi.",
+	"main": "index.ts",
+	"files": [
+		"index.ts",
+		"src/index.ts",
+		"src/git-status.ts",
+		"src/pi-types.ts",
+		"src/provider-usage.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"scripts": {
+		"build": "tsc --noEmit",
+		"test": "vitest run --root ../.. packages/statusline",
+		"typecheck": "tsc --noEmit"
+	}
+}

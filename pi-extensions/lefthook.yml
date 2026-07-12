@@ -1,0 +1,9 @@
+pre-commit:
+  commands:
+    biome:
+      run: bun run check
+
+commit-msg:
+  commands:
+    commitlint:
+      run: bunx commitlint --edit {1}
