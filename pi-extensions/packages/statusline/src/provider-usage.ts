@@ -110,6 +110,37 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+type DsCredentials = {
+	baseUrl: string;
+	token: string;
+};
+
+function readDsCredentials(): DsCredentials | undefined {
+	const claudeConfigDir =
+		process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude");
+	try {
+		const settings: unknown = JSON.parse(
+			readFileSync(join(claudeConfigDir, "settings.json"), "utf8"),
+		);
+		if (!isRecord(settings) || !isRecord(settings.env)) return undefined;
+
+		const baseUrl = settings.env.ANTHROPIC_BASE_URL;
+		const token =
+			settings.env.ANTHROPIC_AUTH_TOKEN ?? settings.env.ANTHROPIC_API_KEY;
+		if (typeof baseUrl !== "string" || typeof token !== "string") {
+			return undefined;
+		}
+
+		const normalizedBaseUrl = baseUrl.trim();
+		const normalizedToken = token.trim();
+		return normalizedBaseUrl && normalizedToken
+			? { baseUrl: normalizedBaseUrl, token: normalizedToken }
+			: undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function sharedCachePath(): string {
 	return (
 		process.env.PI_PROVIDER_USAGE_CACHE_PATH ??
@@ -499,10 +530,7 @@ export function discoverProviderUsageTargets(
 	const activeAuthKind = ctx.model ? modelAuthKind(ctx, ctx.model) : undefined;
 	const candidates: ProviderUsageTarget[] = [];
 
-	if (
-		process.env.ANTHROPIC_BASE_URL?.trim() &&
-		process.env.ANTHROPIC_AUTH_TOKEN?.trim()
-	) {
+	if (readDsCredentials()) {
 		addProviderCandidate(
 			candidates,
 			DS_USAGE_PROVIDER_ID,
@@ -1126,11 +1154,10 @@ async function fetchProviderUsage(
 		target.providerId === DS_USAGE_PROVIDER_ID &&
 		target.authKind === "api_key"
 	) {
-		const baseUrl = process.env.ANTHROPIC_BASE_URL?.trim();
-		const token = process.env.ANTHROPIC_AUTH_TOKEN?.trim();
-		if (!baseUrl || !token) return { ...statusBase, state: "unknown" };
+		const credentials = readDsCredentials();
+		if (!credentials) return { ...statusBase, state: "unknown" };
 
-		const scope = await fetchDsSpend(baseUrl, token);
+		const scope = await fetchDsSpend(credentials.baseUrl, credentials.token);
 		return scope
 			? { ...statusBase, state: "ready", scope }
 			: { ...statusBase, state: "unknown" };

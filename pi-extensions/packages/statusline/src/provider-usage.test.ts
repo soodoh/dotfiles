@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -76,17 +76,23 @@ function jwtWithPayload(payload: Record<string, unknown>): string {
 	return `${header}.${body}.signature`;
 }
 
-const sharedTestCachePath = join(
-	tmpdir(),
-	`pi-provider-usage-test-${process.pid}.json`,
-);
+const sharedTestRoot = join(tmpdir(), `pi-provider-usage-test-${process.pid}`);
+const sharedTestCachePath = join(sharedTestRoot, "provider-usage.json");
+const claudeConfigDir = join(sharedTestRoot, "claude");
+mkdirSync(claudeConfigDir, { recursive: true });
 process.env.PI_PROVIDER_USAGE_CACHE_PATH = sharedTestCachePath;
-process.env.ANTHROPIC_BASE_URL = "";
-process.env.ANTHROPIC_AUTH_TOKEN = "";
+process.env.CLAUDE_CONFIG_DIR = claudeConfigDir;
 const originalEnv = { ...process.env };
 
 function stubEnv(name: string, value: string): void {
 	process.env[name] = value;
+}
+
+function writeClaudeSettings(env: Record<string, string>): void {
+	writeFileSync(
+		join(claudeConfigDir, "settings.json"),
+		JSON.stringify({ env }),
+	);
 }
 
 afterEach(() => {
@@ -472,9 +478,11 @@ describe("provider usage", () => {
 		expect(render(targets)).toContain(" M50%");
 	});
 
-	test("discovers DS spend from environment without Pi auth", async () => {
-		stubEnv("ANTHROPIC_BASE_URL", "https://litellm.example.com/");
-		stubEnv("ANTHROPIC_AUTH_TOKEN", "ds-token");
+	test("discovers DS spend from Claude settings without Pi auth", async () => {
+		writeClaudeSettings({
+			ANTHROPIC_BASE_URL: "https://litellm.example.com/",
+			ANTHROPIC_AUTH_TOKEN: "ds-token",
+		});
 		const { calls } = fetchCalls(() =>
 			Response.json({ info: { spend: 123.456 } }),
 		);
@@ -495,9 +503,27 @@ describe("provider usage", () => {
 		expect(render(targets)).toBe("DS $123.46");
 	});
 
+	test("falls back to ANTHROPIC_API_KEY in Claude settings", async () => {
+		writeClaudeSettings({
+			ANTHROPIC_BASE_URL: "https://litellm.example.com",
+			ANTHROPIC_API_KEY: "ds-api-key",
+		});
+		const { calls } = fetchCalls(() => Response.json({ info: { spend: 10 } }));
+		const ctx: ProviderUsageContext = {};
+		const targets = discoverProviderUsageTargets(ctx);
+
+		await refreshAndWait(ctx, targets);
+
+		expect(headersRecord(calls[0].init.headers)).toMatchObject({
+			Authorization: "Bearer ds-api-key",
+		});
+	});
+
 	test("parses DS spend from budget exceeded responses", async () => {
-		stubEnv("ANTHROPIC_BASE_URL", "https://litellm.example.com");
-		stubEnv("ANTHROPIC_AUTH_TOKEN", "ds-token");
+		writeClaudeSettings({
+			ANTHROPIC_BASE_URL: "https://litellm.example.com",
+			ANTHROPIC_AUTH_TOKEN: "ds-token",
+		});
 		fetchCalls(() =>
 			Response.json(
 				{
@@ -518,9 +544,8 @@ describe("provider usage", () => {
 		expect(render(targets)).toBe("DS $322.29");
 	});
 
-	test("does not discover DS when either environment variable is missing", () => {
-		stubEnv("ANTHROPIC_BASE_URL", "https://litellm.example.com");
-		stubEnv("ANTHROPIC_AUTH_TOKEN", "");
+	test("does not discover DS when Claude settings are missing credentials", () => {
+		writeClaudeSettings({ ANTHROPIC_BASE_URL: "https://litellm.example.com" });
 
 		expect(discoverProviderUsageTargets({})).toEqual([]);
 	});

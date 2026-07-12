@@ -83,8 +83,9 @@ beforeEach(async () => {
 		"PI_PROVIDER_USAGE_CACHE_PATH",
 		join(cacheDir, "provider-usage.json"),
 	);
-	vi.stubEnv("ANTHROPIC_BASE_URL", "");
-	vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
+	const claudeConfigDir = await tempDir("pi-statusline-claude-config");
+	await writeFile(join(claudeConfigDir, "settings.json"), "{}");
+	vi.stubEnv("CLAUDE_CONFIG_DIR", claudeConfigDir);
 });
 
 afterEach(async () => {
