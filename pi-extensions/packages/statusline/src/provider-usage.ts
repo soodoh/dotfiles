@@ -17,7 +17,7 @@ import type {
 } from "./pi-types";
 
 const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
-const PROVIDER_USAGE_CACHE_VERSION = 2;
+const PROVIDER_USAGE_CACHE_VERSION = 3;
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
 const PROVIDER_BADGE_SEPARATOR = " · ";
 const GITHUB_LOGO = "\uF09B";
@@ -37,6 +37,7 @@ export type ProviderUsageScope = {
 	percentUsed?: number;
 	balanceUsd?: number;
 	creditsUsd?: number;
+	spendUsd?: number;
 	sections?: ProviderUsageScopeSection[];
 };
 
@@ -78,7 +79,9 @@ const API_KEY_PROVIDER_IDS = new Set([
 	"litellm",
 ]);
 const REMOVED_PROVIDER_IDS = new Set(["google-vertex"]);
+const DS_USAGE_PROVIDER_ID = "litellm-ds";
 const PROVIDER_FAMILY_ORDER = [
+	DS_USAGE_PROVIDER_ID,
 	"anthropic",
 	"openai",
 	"openrouter",
@@ -160,6 +163,7 @@ function parseCachedScope(value: unknown): ProviderUsageScope | undefined {
 			typeof value.balanceUsd === "number" ? value.balanceUsd : undefined,
 		creditsUsd:
 			typeof value.creditsUsd === "number" ? value.creditsUsd : undefined,
+		spendUsd: typeof value.spendUsd === "number" ? value.spendUsd : undefined,
 		sections,
 	};
 }
@@ -494,6 +498,19 @@ export function discoverProviderUsageTargets(
 	const activeAuthKind = ctx.model ? modelAuthKind(ctx, ctx.model) : undefined;
 	const candidates: ProviderUsageTarget[] = [];
 
+	if (
+		process.env.ANTHROPIC_BASE_URL?.trim() &&
+		process.env.ANTHROPIC_AUTH_TOKEN?.trim()
+	) {
+		addProviderCandidate(
+			candidates,
+			DS_USAGE_PROVIDER_ID,
+			"api_key",
+			activeProviderId,
+			true,
+		);
+	}
+
 	if (activeProviderId && activeAuthKind) {
 		addProviderCandidate(
 			candidates,
@@ -738,6 +755,33 @@ async function fetchOpenRouterCredits(
 		headers: { Authorization: `Bearer ${token}` },
 	});
 	return parseOpenRouterCreditsBody(body);
+}
+
+function parseDsSpend(body: unknown): ProviderUsageScope | undefined {
+	if (!isRecord(body)) return undefined;
+	const info = nestedRecord(body, "info");
+	const spend = info ? numericField(info.spend) : undefined;
+	if (spend !== undefined) return { spendUsd: spend };
+
+	const error = nestedRecord(body, "error");
+	if (error?.type !== "budget_exceeded" || typeof error.message !== "string") {
+		return undefined;
+	}
+	const match = error.message.match(/Current cost:\s*([0-9]+(?:\.[0-9]+)?)/i);
+	const exceededSpend = match?.[1] ? numericField(match[1]) : undefined;
+	return exceededSpend !== undefined ? { spendUsd: exceededSpend } : undefined;
+}
+
+async function fetchDsSpend(
+	baseUrl: string,
+	token: string,
+): Promise<ProviderUsageScope | undefined> {
+	const response = await fetch(`${normalizeBaseUrl(baseUrl)}/key/info`, {
+		headers: { Authorization: `Bearer ${token}` },
+		signal: AbortSignal.timeout(PROVIDER_USAGE_FETCH_TIMEOUT_MS),
+	});
+	const body: unknown = await response.json();
+	return parseDsSpend(body);
 }
 
 async function fetchLitellmPassthroughCredits(
@@ -1064,6 +1108,20 @@ async function fetchProviderUsage(
 			: { ...statusBase, state: "unknown" };
 	}
 
+	if (
+		target.providerId === DS_USAGE_PROVIDER_ID &&
+		target.authKind === "api_key"
+	) {
+		const baseUrl = process.env.ANTHROPIC_BASE_URL?.trim();
+		const token = process.env.ANTHROPIC_AUTH_TOKEN?.trim();
+		if (!baseUrl || !token) return { ...statusBase, state: "unknown" };
+
+		const scope = await fetchDsSpend(baseUrl, token);
+		return scope
+			? { ...statusBase, state: "ready", scope }
+			: { ...statusBase, state: "unknown" };
+	}
+
 	if (target.providerId === "openrouter" && target.authKind === "api_key") {
 		const token = await getProviderToken(ctx, target.providerId);
 		if (!token) return { ...statusBase, state: "unknown" };
@@ -1175,6 +1233,8 @@ export function refreshProviderUsage(
 
 function providerDisplayLabel(providerId: string): string {
 	switch (providerFamily(providerId)) {
+		case DS_USAGE_PROVIDER_ID:
+			return "DS";
 		case "anthropic":
 			return "Anthropic";
 		case "openai":
@@ -1229,6 +1289,7 @@ function formatProviderScope(
 	if (usageParts.length > 0) return usageParts.join("/");
 	if (scope.balanceUsd !== undefined) return formatMoney(scope.balanceUsd);
 	if (scope.creditsUsd !== undefined) return formatMoney(scope.creditsUsd);
+	if (scope.spendUsd !== undefined) return formatMoney(scope.spendUsd);
 	return undefined;
 }
 

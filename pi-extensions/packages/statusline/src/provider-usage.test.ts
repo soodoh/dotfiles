@@ -81,6 +81,8 @@ const sharedTestCachePath = join(
 	`pi-provider-usage-test-${process.pid}.json`,
 );
 process.env.PI_PROVIDER_USAGE_CACHE_PATH = sharedTestCachePath;
+process.env.ANTHROPIC_BASE_URL = "";
+process.env.ANTHROPIC_AUTH_TOKEN = "";
 const originalEnv = { ...process.env };
 
 function stubEnv(name: string, value: string): void {
@@ -99,7 +101,7 @@ describe("provider usage", () => {
 		writeFileSync(
 			sharedTestCachePath,
 			JSON.stringify({
-				version: 2,
+				version: 3,
 				entries: {
 					"anthropic:oauth": {
 						providerId: "anthropic",
@@ -468,6 +470,59 @@ describe("provider usage", () => {
 			Authorization: "token fallback-api-token",
 		});
 		expect(render(targets)).toContain(" M50%");
+	});
+
+	test("discovers DS spend from environment without Pi auth", async () => {
+		stubEnv("ANTHROPIC_BASE_URL", "https://litellm.example.com/");
+		stubEnv("ANTHROPIC_AUTH_TOKEN", "ds-token");
+		const { calls } = fetchCalls(() =>
+			Response.json({ info: { spend: 123.456 } }),
+		);
+		const ctx: ProviderUsageContext = {};
+
+		const targets = discoverProviderUsageTargets(ctx);
+		expect(targets).toEqual([
+			{ providerId: "litellm-ds", authKind: "api_key", active: false },
+		]);
+		await refreshAndWait(ctx, targets);
+
+		expect(calls.map((call) => call.url)).toEqual([
+			"https://litellm.example.com/key/info",
+		]);
+		expect(headersRecord(calls[0].init.headers)).toMatchObject({
+			Authorization: "Bearer ds-token",
+		});
+		expect(render(targets)).toBe("DS $123.46");
+	});
+
+	test("parses DS spend from budget exceeded responses", async () => {
+		stubEnv("ANTHROPIC_BASE_URL", "https://litellm.example.com");
+		stubEnv("ANTHROPIC_AUTH_TOKEN", "ds-token");
+		fetchCalls(() =>
+			Response.json(
+				{
+					error: {
+						type: "budget_exceeded",
+						message:
+							"Budget has been exceeded! Current cost: 322.29367038, Max budget: 320.0",
+					},
+				},
+				{ status: 400 },
+			),
+		);
+		const ctx: ProviderUsageContext = {};
+		const targets = discoverProviderUsageTargets(ctx);
+
+		await refreshAndWait(ctx, targets);
+
+		expect(render(targets)).toBe("DS $322.29");
+	});
+
+	test("does not discover DS when either environment variable is missing", () => {
+		stubEnv("ANTHROPIC_BASE_URL", "https://litellm.example.com");
+		stubEnv("ANTHROPIC_AUTH_TOKEN", "");
+
+		expect(discoverProviderUsageTargets({})).toEqual([]);
 	});
 
 	test("fetches LiteLLM proxied OpenRouter and ChatGPT usage via passthrough endpoints", async () => {

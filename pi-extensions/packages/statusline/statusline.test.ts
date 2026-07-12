@@ -83,6 +83,8 @@ beforeEach(async () => {
 		"PI_PROVIDER_USAGE_CACHE_PATH",
 		join(cacheDir, "provider-usage.json"),
 	);
+	vi.stubEnv("ANTHROPIC_BASE_URL", "");
+	vi.stubEnv("ANTHROPIC_AUTH_TOKEN", "");
 });
 
 afterEach(async () => {
