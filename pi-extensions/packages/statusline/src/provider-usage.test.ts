@@ -60,8 +60,8 @@ async function refreshAndWait(
 	targets: ProviderUsageTarget[],
 ): Promise<void> {
 	const onUpdate = vi.fn();
-	refreshProviderUsage(ctx, targets, onUpdate);
-	await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+	await refreshProviderUsage(ctx, targets, onUpdate);
+	expect(onUpdate).toHaveBeenCalled();
 }
 
 function render(targets: ProviderUsageTarget[], activeOnly = false): string {
@@ -99,7 +99,7 @@ describe("provider usage", () => {
 		writeFileSync(
 			sharedTestCachePath,
 			JSON.stringify({
-				version: 1,
+				version: 2,
 				entries: {
 					"anthropic:oauth": {
 						providerId: "anthropic",
@@ -115,7 +115,7 @@ describe("provider usage", () => {
 			{ providerId: "anthropic", authKind: "oauth", active: true },
 		];
 
-		expect(formatProviderUsage(targets)).toBe("Anth S12%/W55%");
+		expect(formatProviderUsage(targets)).toBe("Anthropic S12%/W55%");
 		expect(render(targets)).toBe(formatProviderUsage(targets));
 	});
 
@@ -145,7 +145,7 @@ describe("provider usage", () => {
 		await refreshAndWait(ctx, targets);
 
 		expect(fetchMock).toHaveBeenCalled();
-		expect(render(targets)).toContain("OR $8.50");
+		expect(render(targets)).toContain("OpenRouter $8.50");
 	});
 
 	test("falls back from OpenRouter key status to credits", async () => {
@@ -173,7 +173,7 @@ describe("provider usage", () => {
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
 			Authorization: "Bearer openrouter-token",
 		});
-		expect(render(targets)).toContain("OR $6.75");
+		expect(render(targets)).toContain("OpenRouter $6.75");
 	});
 
 	test("uses stored Anthropic OAuth access and renders session and weekly percentages", async () => {
@@ -208,7 +208,7 @@ describe("provider usage", () => {
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
 			Authorization: "Bearer stored-anthropic-token",
 		});
-		expect(render(targets)).toContain("Anth S12%/W55%");
+		expect(render(targets)).toContain("Anthropic S12%/W55%");
 	});
 
 	test("uses OpenAI Codex JWT account header and renders credit balance", async () => {
@@ -241,7 +241,7 @@ describe("provider usage", () => {
 			Authorization: `Bearer ${token}`,
 			"chatgpt-account-id": "account-123",
 		});
-		expect(render(targets)).toContain("OAI $4.50");
+		expect(render(targets)).toContain("OpenAI $4.50");
 	});
 
 	test("classifies a seven-day OpenAI primary window as weekly usage", async () => {
@@ -275,7 +275,7 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(render(targets)).toContain("OAI W12%");
+		expect(render(targets)).toContain("OpenAI W12%");
 		expect(render(targets)).not.toContain("S12%");
 	});
 
@@ -292,7 +292,8 @@ describe("provider usage", () => {
 				},
 				authStorage: {
 					get: (provider) =>
-						provider === "google-gemini-cli"
+						provider === "google-gemini-cli" ||
+						provider === "google-antigravity"
 							? {
 									type: "oauth",
 									access: JSON.stringify({
@@ -306,6 +307,7 @@ describe("provider usage", () => {
 		};
 		const targets: ProviderUsageTarget[] = [
 			{ providerId: "google-gemini-cli", authKind: "oauth", active: true },
+			{ providerId: "google-antigravity", authKind: "oauth", active: false },
 		];
 
 		await refreshAndWait(ctx, targets);
@@ -314,7 +316,7 @@ describe("provider usage", () => {
 			Authorization: "Bearer google-token",
 		});
 		expect(calls[0].init.body).toBe(JSON.stringify({ project: "project-1" }));
-		expect(render(targets)).toContain("Gem 75%");
+		expect(render(targets)).toBe("󰊭 75% · 󰊭 75%");
 	});
 
 	test("omits Google Vertex from provider usage targets", () => {
@@ -347,7 +349,7 @@ describe("provider usage", () => {
 		];
 
 		await refreshAndWait(openRouterCtx, openRouterTargets);
-		expect(render(openRouterTargets)).toContain("OR ?");
+		expect(render(openRouterTargets)).toContain("OpenRouter ?");
 
 		invalidateProviderUsageCache();
 		fetchCalls(() => {
@@ -365,7 +367,7 @@ describe("provider usage", () => {
 		];
 
 		await refreshAndWait(anthropicCtx, anthropicTargets);
-		expect(render(anthropicTargets)).toContain("Anth ?");
+		expect(render(anthropicTargets)).toContain("Anthropic ?");
 	});
 
 	test("renders multiple provider badges and filters active-only output", async () => {
@@ -389,8 +391,8 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(render(targets)).toBe("OR $2.50 · Anth S10%");
-		expect(render(targets, true)).toBe("Anth S10%");
+		expect(render(targets)).toBe("OpenRouter $2.50 · Anthropic S10%");
+		expect(render(targets, true)).toBe("Anthropic S10%");
 	});
 
 	test("uses GitHub Copilot refresh token instead of access token for usage endpoint", async () => {
@@ -427,7 +429,7 @@ describe("provider usage", () => {
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
 			Authorization: "token github-oauth-token",
 		});
-		expect(render(targets)).toContain("GH M30%");
+		expect(render(targets)).toContain(" M30%");
 	});
 
 	test("falls back to getApiKeyForProvider when GitHub Copilot has no refresh token", async () => {
@@ -465,7 +467,7 @@ describe("provider usage", () => {
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
 			Authorization: "token fallback-api-token",
 		});
-		expect(render(targets)).toContain("GH M50%");
+		expect(render(targets)).toContain(" M50%");
 	});
 
 	test("fetches LiteLLM proxied OpenRouter and ChatGPT usage via passthrough endpoints", async () => {
@@ -512,7 +514,7 @@ describe("provider usage", () => {
 		expect(headersRecord(calls[1].init.headers)).toMatchObject({
 			Authorization: "Bearer litellm-key",
 		});
-		expect(render(targets)).toContain("OR $8.75 · OAI S25%/W50%");
+		expect(render(targets)).toContain("OpenRouter $8.75 · OpenAI S25%/W50%");
 	});
 
 	test("derives LiteLLM base url from model baseUrl when env is unset", async () => {
@@ -544,7 +546,7 @@ describe("provider usage", () => {
 			"https://litellm.example.com/openrouter/credits",
 			"https://litellm.example.com/chatgpt/usage",
 		]);
-		expect(render(targets)).toContain("OR $5.00");
+		expect(render(targets)).toContain("OpenRouter $5.00");
 	});
 
 	test("surfaces non-active LiteLLM when configured even without models", () => {

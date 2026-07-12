@@ -17,9 +17,11 @@ import type {
 } from "./pi-types";
 
 const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
-const PROVIDER_USAGE_CACHE_VERSION = 1;
+const PROVIDER_USAGE_CACHE_VERSION = 2;
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
 const PROVIDER_BADGE_SEPARATOR = " · ";
+const GITHUB_LOGO = "\uF09B";
+const GOOGLE_LOGO = "\u{F02AD}";
 
 type ThemeLike = {
 	fg(color: string, text: string): string;
@@ -770,8 +772,8 @@ async function fetchLitellmPassthroughUsage(
 		fetchLitellmChatGptUsage(baseUrl, token),
 	]);
 	const sections: ProviderUsageScopeSection[] = [];
-	if (openRouter) sections.push({ label: "OR", scope: openRouter });
-	if (openAi) sections.push({ label: "OAI", scope: openAi });
+	if (openRouter) sections.push({ label: "OpenRouter", scope: openRouter });
+	if (openAi) sections.push({ label: "OpenAI", scope: openAi });
 	return sections.length > 0 ? { sections } : undefined;
 }
 
@@ -1171,23 +1173,23 @@ export function refreshProviderUsage(
 	return Promise.all(pendingRequests).then(() => undefined);
 }
 
-function providerShortLabel(providerId: string): string {
+function providerDisplayLabel(providerId: string): string {
 	switch (providerFamily(providerId)) {
 		case "anthropic":
-			return "Anth";
+			return "Anthropic";
 		case "openai":
-			return "OAI";
+			return "OpenAI";
 		case "openrouter":
+			return "OpenRouter";
 		case "litellm":
-			return "OR";
+			return "LiteLLM";
 		case "github-copilot":
-			return "GH";
+			return GITHUB_LOGO;
 		case "google-gemini-cli":
-			return "Gem";
 		case "google-antigravity":
-			return "AG";
+			return GOOGLE_LOGO;
 		default:
-			return providerId.slice(0, 6);
+			return providerId;
 	}
 }
 
@@ -1246,7 +1248,7 @@ function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
 	const scopeText =
 		status?.state === "ready" ? formatProviderScope(status.scope) : undefined;
 	if (!scopeText && !target.active) return [];
-	return [`${providerShortLabel(target.providerId)} ${scopeText ?? "?"}`];
+	return [`${providerDisplayLabel(target.providerId)} ${scopeText ?? "?"}`];
 }
 
 export function formatProviderUsage(

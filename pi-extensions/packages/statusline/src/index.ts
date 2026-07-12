@@ -112,13 +112,6 @@ const NERD_ICONS = {
 	branch: "\uF126",
 	context: "\uE70F",
 	auto: "\u{F0068}",
-	provider: "\uF544",
-	anthropic: "\uF544",
-	openai: "\uE7CF",
-	openrouter: "\uF135",
-	github: "\uF09B",
-	google: "\uE7B2",
-	antigravity: "\uF11E",
 };
 
 const ASCII_ICONS = {
@@ -126,13 +119,6 @@ const ASCII_ICONS = {
 	branch: "⎇",
 	context: "◫",
 	auto: "AC",
-	provider: "",
-	anthropic: "",
-	openai: "",
-	openrouter: "",
-	github: "",
-	google: "",
-	antigravity: "",
 };
 
 type ThemeColor = Parameters<Theme["fg"]>[0];
