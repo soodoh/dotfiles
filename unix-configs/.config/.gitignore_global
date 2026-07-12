@@ -1,9 +1,4 @@
-/.playwright-mcp/
-/.serena/
-/.codanna/
-/.codannaignore
-/.fastembed_cache
+.playwright-mcp/
+.serena/
 /.pi/
-.pi-lens/
-/.ralph/
-/thoughts/
+.pi-subagents/
