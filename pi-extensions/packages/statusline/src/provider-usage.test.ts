@@ -572,6 +572,47 @@ describe("provider usage", () => {
 		expect(render(targets)).toContain("OpenRouter $8.75 · OpenAI S25%/W50%");
 	});
 
+	test("fetches LiteLLM passthrough usage with stored OAuth credentials", async () => {
+		stubEnv("LITELLM_BASE_URL", "");
+		fetchCalls((url) => {
+			if (url.endsWith("/chatgpt/usage")) {
+				return Response.json({
+					rate_limit: { primary_window: { used_percent: 20 } },
+				});
+			}
+			return Response.json({ data: { total_credits: 10, total_usage: 2 } });
+		});
+		const ctx: ProviderUsageContext = {
+			model: { id: "chatgpt/gpt-5.6-sol", provider: "litellm" },
+			modelRegistry: {
+				authStorage: {
+					get(provider) {
+						return provider === "litellm"
+							? {
+									type: "oauth",
+									access: "litellm-token",
+									refresh: "litellm-refresh",
+									expires: Date.now() + 60_000,
+									baseUrl: "https://litellm.example.com/v1",
+								}
+							: undefined;
+					},
+				},
+				isUsingOAuth() {
+					return true;
+				},
+			},
+		};
+
+		const targets = discoverProviderUsageTargets(ctx);
+		expect(targets).toEqual([
+			{ providerId: "litellm", authKind: "oauth", active: true },
+		]);
+		await refreshAndWait(ctx, targets);
+
+		expect(render(targets)).toContain("OpenRouter $8.00 · OpenAI S20%");
+	});
+
 	test("derives LiteLLM base url from model baseUrl when env is unset", async () => {
 		stubEnv("LITELLM_BASE_URL", "");
 		const { calls } = fetchCalls(() =>

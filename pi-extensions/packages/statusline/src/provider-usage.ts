@@ -71,6 +71,7 @@ const OAUTH_PROVIDER_IDS = new Set([
 	"github-copilot",
 	"google-gemini-cli",
 	"google-antigravity",
+	"litellm",
 ]);
 const API_KEY_PROVIDER_IDS = new Set([
 	"anthropic",
@@ -334,7 +335,7 @@ function isProviderSupportedAuth(
 }
 
 function supportedApiKeyProviderIds(): string[] {
-	return [...API_KEY_PROVIDER_IDS].filter((id) => !OAUTH_PROVIDER_IDS.has(id));
+	return [...API_KEY_PROVIDER_IDS];
 }
 
 function addProviderCandidate(
@@ -1075,6 +1076,19 @@ async function fetchProviderUsage(
 		fetchedAt: Date.now(),
 	};
 
+	if (target.providerId === "litellm") {
+		const token = await getOAuthProviderToken(ctx, target.providerId);
+		if (!token) return { ...statusBase, state: "unknown" };
+
+		const baseUrl = resolveLitellmBaseUrl(ctx);
+		if (!baseUrl) return { ...statusBase, state: "unknown" };
+
+		const scope = await fetchLitellmPassthroughUsage(baseUrl, token);
+		return scope
+			? { ...statusBase, state: "ready", scope }
+			: { ...statusBase, state: "unknown" };
+	}
+
 	if (target.authKind === "oauth") {
 		let scope: ProviderUsageScope | undefined;
 		if (target.providerId === "github-copilot") {
@@ -1129,19 +1143,6 @@ async function fetchProviderUsage(
 		const scope =
 			(await fetchOpenRouterKeyStatus(token)) ??
 			(await fetchOpenRouterCredits(token));
-		return scope
-			? { ...statusBase, state: "ready", scope }
-			: { ...statusBase, state: "unknown" };
-	}
-
-	if (target.providerId === "litellm" && target.authKind === "api_key") {
-		const token = await getProviderToken(ctx, target.providerId);
-		if (!token) return { ...statusBase, state: "unknown" };
-
-		const baseUrl = resolveLitellmBaseUrl(ctx);
-		if (!baseUrl) return { ...statusBase, state: "unknown" };
-
-		const scope = await fetchLitellmPassthroughUsage(baseUrl, token);
 		return scope
 			? { ...statusBase, state: "ready", scope }
 			: { ...statusBase, state: "unknown" };
