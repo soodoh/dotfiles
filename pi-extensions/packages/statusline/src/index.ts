@@ -9,7 +9,7 @@ import {
 import type { ModelLike, ModelRegistryLike } from "./pi-types";
 import {
 	discoverProviderUsageTargets,
-	invalidateProviderUsageCache,
+	invalidateProviderUsageDiscovery,
 	refreshProviderUsage,
 	renderProviderUsage,
 } from "./provider-usage";
@@ -559,7 +559,7 @@ export default function statusline(pi: ExtensionAPI): void {
 	}
 
 	pi.on("session_start", (_event, ctx) => {
-		invalidateProviderUsageCache();
+		invalidateProviderUsageDiscovery();
 		install(ctx);
 	});
 	pi.on("session_shutdown", (_event, ctx) => {
@@ -578,7 +578,7 @@ export default function statusline(pi: ExtensionAPI): void {
 		requestRender();
 	});
 	pi.on("model_select", (_event, ctx) => {
-		invalidateProviderUsageCache();
+		invalidateProviderUsageDiscovery();
 		refreshCurrentProviderUsage(ctx);
 		requestRender();
 	});

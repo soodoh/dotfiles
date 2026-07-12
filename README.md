@@ -51,7 +51,6 @@ brew tap homebrew/command-not-found && \
 brew install --cask \
   dotnet-sdk \
   nikitabobko/tap/aerospace \
-  steipete/tap/codexbar \
 && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
 ```

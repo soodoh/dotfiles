@@ -10,6 +10,7 @@
 		"src/git-status.ts",
 		"src/pi-types.ts",
 		"src/provider-usage.ts",
+		"src/provider-usage-cli.ts",
 		"README.md"
 	],
 	"pi": {
@@ -19,6 +20,7 @@
 	},
 	"scripts": {
 		"build": "tsc --noEmit",
+		"provider-usage": "bun src/provider-usage-cli.ts",
 		"test": "vitest run --root ../.. packages/statusline",
 		"typecheck": "tsc --noEmit"
 	}

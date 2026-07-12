@@ -1,3 +1,14 @@
+import {
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	statSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import type {
 	AuthCredentialLike,
 	ModelLike,
@@ -6,6 +17,7 @@ import type {
 } from "./pi-types";
 
 const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
+const PROVIDER_USAGE_CACHE_VERSION = 1;
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
 const PROVIDER_BADGE_SEPARATOR = " · ";
 
@@ -16,7 +28,7 @@ type ThemeLike = {
 type ProviderUsageAuthKind = "oauth" | "api_key" | "unknown";
 type ProviderUsageState = "ready" | "unknown" | "error" | "unsupported";
 
-type ProviderUsageScope = {
+export type ProviderUsageScope = {
 	sessionPercentUsed?: number;
 	weeklyPercentUsed?: number;
 	monthlyPercentUsed?: number;
@@ -31,7 +43,7 @@ type ProviderUsageScopeSection = {
 	scope: ProviderUsageScope;
 };
 
-type ProviderUsageStatus = {
+export type ProviderUsageStatus = {
 	providerId: string;
 	authKind: ProviderUsageAuthKind;
 	state: ProviderUsageState;
@@ -81,6 +93,7 @@ type AvailableModelsCacheEntry = {
 };
 
 const providerUsageCache = new Map<string, ProviderUsageCacheEntry>();
+let providerUsageCachePath: string | undefined;
 let availableModelsCache = new WeakMap<
 	ModelRegistryLike,
 	AvailableModelsCacheEntry
@@ -89,6 +102,194 @@ let providerUsageInvalidation = 0;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sharedCachePath(): string {
+	return (
+		process.env.PI_PROVIDER_USAGE_CACHE_PATH ??
+		join(
+			process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"),
+			"pi",
+			"provider-usage.json",
+		)
+	);
+}
+
+function isProviderUsageAuthKind(
+	value: unknown,
+): value is ProviderUsageAuthKind {
+	return value === "oauth" || value === "api_key" || value === "unknown";
+}
+
+function isProviderUsageState(value: unknown): value is ProviderUsageState {
+	return (
+		value === "ready" ||
+		value === "unknown" ||
+		value === "error" ||
+		value === "unsupported"
+	);
+}
+
+function parseCachedScope(value: unknown): ProviderUsageScope | undefined {
+	if (!isRecord(value)) return undefined;
+	const sections = Array.isArray(value.sections)
+		? value.sections.flatMap((section) => {
+				if (!isRecord(section) || typeof section.label !== "string") return [];
+				const scope = parseCachedScope(section.scope);
+				return scope ? [{ label: section.label, scope }] : [];
+			})
+		: undefined;
+	return {
+		sessionPercentUsed:
+			typeof value.sessionPercentUsed === "number"
+				? value.sessionPercentUsed
+				: undefined,
+		weeklyPercentUsed:
+			typeof value.weeklyPercentUsed === "number"
+				? value.weeklyPercentUsed
+				: undefined,
+		monthlyPercentUsed:
+			typeof value.monthlyPercentUsed === "number"
+				? value.monthlyPercentUsed
+				: undefined,
+		percentUsed:
+			typeof value.percentUsed === "number" ? value.percentUsed : undefined,
+		balanceUsd:
+			typeof value.balanceUsd === "number" ? value.balanceUsd : undefined,
+		creditsUsd:
+			typeof value.creditsUsd === "number" ? value.creditsUsd : undefined,
+		sections,
+	};
+}
+
+function parseCacheEntry(value: unknown): ProviderUsageCacheEntry | undefined {
+	if (!isRecord(value)) return undefined;
+	if (
+		typeof value.providerId !== "string" ||
+		!isProviderUsageAuthKind(value.authKind) ||
+		!isProviderUsageState(value.state)
+	) {
+		return undefined;
+	}
+
+	const scope = parseCachedScope(value.scope);
+	return {
+		providerId: value.providerId,
+		authKind: value.authKind,
+		state: value.state,
+		scope,
+		fetchedAt:
+			typeof value.fetchedAt === "number" ? value.fetchedAt : undefined,
+		lastAttemptAt:
+			typeof value.lastAttemptAt === "number" ? value.lastAttemptAt : undefined,
+	};
+}
+
+function readSharedCache(): Map<string, ProviderUsageCacheEntry> {
+	const entries = new Map<string, ProviderUsageCacheEntry>();
+	try {
+		const parsed: unknown = JSON.parse(readFileSync(sharedCachePath(), "utf8"));
+		if (!isRecord(parsed) || parsed.version !== PROVIDER_USAGE_CACHE_VERSION) {
+			return entries;
+		}
+		if (!isRecord(parsed.entries)) return entries;
+		for (const [key, value] of Object.entries(parsed.entries)) {
+			const entry = parseCacheEntry(value);
+			if (entry) entries.set(key, entry);
+		}
+	} catch {
+		// A missing or malformed cache is equivalent to an empty cache.
+	}
+	return entries;
+}
+
+function hydrateSharedCache(): void {
+	const path = sharedCachePath();
+	if (providerUsageCachePath !== path) {
+		providerUsageCache.clear();
+		providerUsageCachePath = path;
+	}
+	for (const [key, diskEntry] of readSharedCache()) {
+		const memoryEntry = providerUsageCache.get(key);
+		if (
+			!memoryEntry?.pending &&
+			(diskEntry.lastAttemptAt ?? 0) > (memoryEntry?.lastAttemptAt ?? 0)
+		) {
+			providerUsageCache.set(key, diskEntry);
+		}
+	}
+}
+
+const cacheLockWaitArray = new Int32Array(new SharedArrayBuffer(4));
+
+function acquireCacheLock(lockPath: string): boolean {
+	for (let attempt = 0; attempt < 50; attempt++) {
+		try {
+			mkdirSync(lockPath);
+			return true;
+		} catch {
+			try {
+				if (Date.now() - statSync(lockPath).mtimeMs > 10_000) {
+					rmSync(lockPath, { recursive: true, force: true });
+					continue;
+				}
+			} catch {
+				// Another process may have released the lock.
+			}
+			Atomics.wait(cacheLockWaitArray, 0, 0, 10);
+		}
+	}
+	return false;
+}
+
+function persistSharedCache(): void {
+	const path = sharedCachePath();
+	mkdirSync(dirname(path), { recursive: true });
+	const lockPath = `${path}.lock`;
+	if (!acquireCacheLock(lockPath)) return;
+
+	const temporaryPath = `${path}.${process.pid}.tmp`;
+	try {
+		const merged = readSharedCache();
+		for (const [key, memoryEntry] of providerUsageCache) {
+			if (memoryEntry.pending) continue;
+			const diskEntry = merged.get(key);
+			if (
+				!diskEntry ||
+				(memoryEntry.lastAttemptAt ?? 0) >= (diskEntry.lastAttemptAt ?? 0)
+			) {
+				merged.set(key, memoryEntry);
+			}
+		}
+
+		const entries = Object.fromEntries(
+			[...merged.entries()].map(([key, entry]) => [
+				key,
+				{
+					providerId: entry.providerId,
+					authKind: entry.authKind,
+					state: entry.state,
+					scope: entry.scope,
+					fetchedAt: entry.fetchedAt,
+					lastAttemptAt: entry.lastAttemptAt,
+				},
+			]),
+		);
+		writeFileSync(
+			temporaryPath,
+			`${JSON.stringify({ version: PROVIDER_USAGE_CACHE_VERSION, entries })}\n`,
+			{ mode: 0o600 },
+		);
+		renameSync(temporaryPath, path);
+	} catch {
+		try {
+			unlinkSync(temporaryPath);
+		} catch {
+			// Best-effort cache writes must not affect the statusline.
+		}
+	} finally {
+		rmSync(lockPath, { recursive: true, force: true });
+	}
 }
 
 function normalizeProviderId(providerId: string): string {
@@ -262,6 +463,24 @@ function preferProviderCandidate(
 	return providerOrder(candidate.providerId) < providerOrder(current.providerId)
 		? candidate
 		: current;
+}
+
+export async function discoverProviderUsageTargetsAsync(
+	ctx: ProviderUsageContext,
+): Promise<ProviderUsageTarget[]> {
+	const registry = ctx.modelRegistry;
+	const available = registry?.getAvailable?.();
+	if (registry && available) {
+		try {
+			availableModelsCache.set(registry, {
+				models: Array.isArray(available) ? available : await available,
+				callbacks: new Set(),
+			});
+		} catch {
+			// Discovery still falls back to configured models and auth storage.
+		}
+	}
+	return discoverProviderUsageTargets(ctx);
 }
 
 export function discoverProviderUsageTargets(
@@ -874,6 +1093,16 @@ async function fetchProviderUsage(
 export function invalidateProviderUsageCache(): void {
 	providerUsageInvalidation++;
 	providerUsageCache.clear();
+	providerUsageCachePath = undefined;
+	try {
+		unlinkSync(sharedCachePath());
+	} catch {
+		// The cache may not exist.
+	}
+	invalidateProviderUsageDiscovery();
+}
+
+export function invalidateProviderUsageDiscovery(): void {
 	availableModelsCache = new WeakMap<
 		ModelRegistryLike,
 		AvailableModelsCacheEntry
@@ -884,14 +1113,19 @@ export function refreshProviderUsage(
 	ctx: ProviderUsageContext,
 	targets: ProviderUsageTarget[],
 	onUpdate: () => void,
-): void {
+): Promise<void> {
 	getConfiguredModels(ctx, onUpdate);
+	hydrateSharedCache();
 	const now = Date.now();
 	const fetchId = providerUsageInvalidation;
+	const pendingRequests: Promise<void>[] = [];
 	for (const target of targets) {
 		const key = providerCacheKey(target.providerId, target.authKind);
 		const entry = providerUsageCache.get(key);
-		if (entry?.pending) continue;
+		if (entry?.pending) {
+			pendingRequests.push(entry.pending);
+			continue;
+		}
 		if (
 			entry?.lastAttemptAt &&
 			now - entry.lastAttemptAt < PROVIDER_USAGE_TTL_MS
@@ -906,6 +1140,7 @@ export function refreshProviderUsage(
 					...status,
 					lastAttemptAt: now,
 				});
+				persistSharedCache();
 			})
 			.catch(() => {
 				if (fetchId !== providerUsageInvalidation) return;
@@ -916,6 +1151,7 @@ export function refreshProviderUsage(
 					fetchedAt: Date.now(),
 					lastAttemptAt: now,
 				});
+				persistSharedCache();
 			})
 			.finally(() => {
 				if (fetchId === providerUsageInvalidation) onUpdate();
@@ -930,7 +1166,9 @@ export function refreshProviderUsage(
 			lastAttemptAt: now,
 			pending,
 		});
+		pendingRequests.push(pending);
 	}
+	return Promise.all(pendingRequests).then(() => undefined);
 }
 
 function providerShortLabel(providerId: string): string {
@@ -992,34 +1230,34 @@ function formatProviderScope(
 	return undefined;
 }
 
-function renderProviderBadge(
-	target: ProviderUsageTarget,
-	theme: ThemeLike,
-): string | undefined {
+function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
 	const status = providerUsageCache.get(
 		providerCacheKey(target.providerId, target.authKind),
 	);
 	const sections =
 		status?.state === "ready" ? status.scope?.sections : undefined;
 	if (sections && sections.length > 0) {
-		const badges = sections
-			.map((section) => {
-				const scopeText = formatProviderScope(section.scope);
-				return scopeText
-					? theme.fg("dim", `${section.label} ${scopeText}`)
-					: undefined;
-			})
-			.filter((badge): badge is string => Boolean(badge));
-		if (badges.length > 0) return badges.join(PROVIDER_BADGE_SEPARATOR);
+		return sections.flatMap((section) => {
+			const scopeText = formatProviderScope(section.scope);
+			return scopeText ? [`${section.label} ${scopeText}`] : [];
+		});
 	}
 
 	const scopeText =
 		status?.state === "ready" ? formatProviderScope(status.scope) : undefined;
-	if (!scopeText && !target.active) return undefined;
+	if (!scopeText && !target.active) return [];
+	return [`${providerShortLabel(target.providerId)} ${scopeText ?? "?"}`];
+}
 
-	const usageText = scopeText ?? "?";
-	const label = providerShortLabel(target.providerId);
-	return theme.fg("dim", `${label} ${usageText}`);
+export function formatProviderUsage(
+	targets: ProviderUsageTarget[],
+	activeOnly = false,
+): string | undefined {
+	hydrateSharedCache();
+	const labels = targets
+		.filter((target) => !activeOnly || target.active)
+		.flatMap(providerUsageLabelsForTarget);
+	return labels.length > 0 ? labels.join(PROVIDER_BADGE_SEPARATOR) : undefined;
 }
 
 export function renderProviderUsage(
@@ -1027,10 +1265,6 @@ export function renderProviderUsage(
 	theme: ThemeLike,
 	activeOnly: boolean,
 ): string | undefined {
-	const badges = targets
-		.filter((target) => !activeOnly || target.active)
-		.map((target) => renderProviderBadge(target, theme))
-		.filter((badge): badge is string => Boolean(badge));
-
-	return badges.length > 0 ? badges.join(PROVIDER_BADGE_SEPARATOR) : undefined;
+	const text = formatProviderUsage(targets, activeOnly);
+	return text ? theme.fg("dim", text) : undefined;
 }

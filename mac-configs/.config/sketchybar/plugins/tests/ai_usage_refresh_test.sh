@@ -4,24 +4,8 @@ set -eu
 
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/../../../../.." && pwd)"
 plugin_dir="$repo_root/mac-configs/.config/sketchybar/plugins"
-
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT INT TERM
-
-cat >"$tmp_dir/curl" <<'EOF'
-#!/bin/sh
-cat <<'JSON'
-{
-  "error": {
-    "message": "Budget has been exceeded! Current cost: 322.29367038, Max budget: 320.0",
-    "type": "budget_exceeded",
-    "param": null,
-    "code": "400"
-  }
-}
-JSON
-EOF
-chmod +x "$tmp_dir/curl"
 
 cat >"$tmp_dir/sketchybar" <<'EOF'
 #!/bin/sh
@@ -29,24 +13,23 @@ printf '%s\n' "$*" >> "$SKETCHYBAR_LOG"
 EOF
 chmod +x "$tmp_dir/sketchybar"
 
-cat >"$tmp_dir/codexbar.json" <<'EOF'
-[]
+mkdir -p "$tmp_dir/home/.bun/bin"
+cat >"$tmp_dir/home/.bun/bin/bun" <<'EOF'
+#!/bin/sh
+printf '%s\n' '{"text":"Anth S12%/W55% · OAI W30%"}'
+EOF
+chmod +x "$tmp_dir/home/.bun/bin/bun"
+: >"$tmp_dir/provider-usage-cli.ts"
+
+cat >"$tmp_dir/usage.json" <<'EOF'
+{"text":"Anth S12%/W55% · OAI W30%"}
 EOF
 
-cat >"$tmp_dir/settings.json" <<'EOF'
-{
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://llm.example.com",
-    "ANTHROPIC_AUTH_TOKEN": "test-token"
-  }
-}
-EOF
-
-assert_equals() {
-  expected="$1"
-  actual="$2"
-  if [ "$actual" != "$expected" ]; then
-    printf 'expected: %s\nactual:   %s\n' "$expected" "$actual" >&2
+assert_contains() {
+  needle="$1"
+  haystack="$2"
+  if ! grep -Fq -- "$needle" "$haystack"; then
+    printf 'expected %s to contain: %s\n' "$haystack" "$needle" >&2
     exit 1
   fi
 }
@@ -54,15 +37,35 @@ assert_equals() {
 log_file="$tmp_dir/sketchybar.log"
 : >"$log_file"
 
-PATH="$tmp_dir:$PATH" \
+HOME="$tmp_dir/home" \
+  PATH="$tmp_dir:/usr/bin:/bin" \
   SKETCHYBAR_LOG="$log_file" \
-  CODEXBAR_FIXTURE_PATH="$tmp_dir/codexbar.json" \
-  CLAUDE_SETTINGS_PATH="$tmp_dir/settings.json" \
-  CACHE_DIR="$tmp_dir/cache" \
-  AI_USAGE_NOW_EPOCH=1770000000 \
+  SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
+  PROVIDER_USAGE_CLI="$tmp_dir/provider-usage-cli.ts" \
   bash "$plugin_dir/ai_usage_refresh.sh"
 
-cache_path="$tmp_dir/cache/ai_usage.json"
-assert_equals 'litellm_monthly_spend' "$(jq -r '.providers[0].id' "$cache_path")"
-assert_equals '$322.29' "$(jq -r '.providers[0].label' "$cache_path")"
-assert_equals 'false' "$(jq -r '.stale' "$cache_path")"
+assert_contains 'icon.drawing=off label=Anth S12%/W55% · OAI W30%' "$log_file"
+assert_contains '--set right_separator.ai drawing=on' "$log_file"
+assert_contains '--move ai_usage.providers after right_separator.ai' "$log_file"
+
+before_failure="$(cat "$log_file")"
+PATH="$tmp_dir:$PATH" \
+  SKETCHYBAR_LOG="$log_file" \
+  SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
+  PROVIDER_USAGE_FIXTURE_PATH="$tmp_dir/usage.json" \
+  PROVIDER_USAGE_FIXTURE_EXIT_CODE=1 \
+  bash "$plugin_dir/ai_usage_refresh.sh"
+
+if [ "$before_failure" != "$(cat "$log_file")" ]; then
+  printf 'failed provider refresh should leave Sketchybar unchanged\n' >&2
+  exit 1
+fi
+
+printf '{"text":""}\n' >"$tmp_dir/usage.json"
+PATH="$tmp_dir:$PATH" \
+  SKETCHYBAR_LOG="$log_file" \
+  SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
+  PROVIDER_USAGE_FIXTURE_PATH="$tmp_dir/usage.json" \
+  bash "$plugin_dir/ai_usage_refresh.sh"
+
+assert_contains '--set ai_usage.providers drawing=off --set right_separator.ai drawing=off' "$log_file"

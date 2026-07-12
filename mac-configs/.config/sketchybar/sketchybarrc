@@ -126,7 +126,11 @@ sketchybar --update
 "$PLUGIN_DIR/aerospace_workspace_change.sh" --all >/dev/null 2>&1 &
 
 ##### AI Usage #####
-sketchybar --add item ai_usage.refresh right \
+sketchybar --add item ai_usage.providers right \
+           --set ai_usage.providers \
+           drawing=off \
+           icon.drawing=off \
+           --add item ai_usage.refresh right \
            --set ai_usage.refresh \
            drawing=off \
            update_freq=60 \

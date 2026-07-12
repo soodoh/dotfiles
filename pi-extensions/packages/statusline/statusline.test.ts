@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { visibleWidth } from "@mariozechner/pi-tui";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import statusline from "./index";
 
 const execFileAsync = promisify(execFile);
@@ -76,6 +76,14 @@ function createPi() {
 		},
 	};
 }
+
+beforeEach(async () => {
+	const cacheDir = await tempDir("pi-statusline-provider-cache");
+	vi.stubEnv(
+		"PI_PROVIDER_USAGE_CACHE_PATH",
+		join(cacheDir, "provider-usage.json"),
+	);
+});
 
 afterEach(async () => {
 	vi.unstubAllEnvs();

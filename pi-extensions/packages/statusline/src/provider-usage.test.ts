@@ -1,8 +1,12 @@
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ProviderUsageContext } from "./pi-types";
 
 import {
 	discoverProviderUsageTargets,
+	formatProviderUsage,
 	invalidateProviderUsageCache,
 	type ProviderUsageTarget,
 	refreshProviderUsage,
@@ -72,6 +76,11 @@ function jwtWithPayload(payload: Record<string, unknown>): string {
 	return `${header}.${body}.signature`;
 }
 
+const sharedTestCachePath = join(
+	tmpdir(),
+	`pi-provider-usage-test-${process.pid}.json`,
+);
+process.env.PI_PROVIDER_USAGE_CACHE_PATH = sharedTestCachePath;
 const originalEnv = { ...process.env };
 
 function stubEnv(name: string, value: string): void {
@@ -86,6 +95,30 @@ afterEach(() => {
 });
 
 describe("provider usage", () => {
+	test("hydrates formatted usage from the shared persistent cache", () => {
+		writeFileSync(
+			sharedTestCachePath,
+			JSON.stringify({
+				version: 1,
+				entries: {
+					"anthropic:oauth": {
+						providerId: "anthropic",
+						authKind: "oauth",
+						state: "ready",
+						scope: { sessionPercentUsed: 12, weeklyPercentUsed: 55 },
+						lastAttemptAt: Date.now(),
+					},
+				},
+			}),
+		);
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "anthropic", authKind: "oauth", active: true },
+		];
+
+		expect(formatProviderUsage(targets)).toBe("Anth S12%/W55%");
+		expect(render(targets)).toBe(formatProviderUsage(targets));
+	});
+
 	test("resolves async available models before discovering provider targets", async () => {
 		const { fetchMock } = fetchCalls(() =>
 			Response.json({ data: { limit_remaining: 8.5 } }),
