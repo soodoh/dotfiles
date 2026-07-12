@@ -403,6 +403,42 @@ describe("provider usage", () => {
 		expect(render(targets, true)).toBe("Anthropic S10%");
 	});
 
+	test("orders provider targets consistently regardless of active provider", () => {
+		writeClaudeSettings({
+			ANTHROPIC_BASE_URL: "https://litellm.example.com",
+			ANTHROPIC_AUTH_TOKEN: "ds-token",
+		});
+		const credentials = new Map([
+			["openrouter", { type: "api_key" as const }],
+			["anthropic", { type: "oauth" as const, access: "anthropic-token" }],
+			["openai", { type: "api_key" as const }],
+			["github-copilot", { type: "oauth" as const, access: "copilot-token" }],
+			["litellm", { type: "api_key" as const }],
+			["google-gemini-cli", { type: "oauth" as const, access: "google-token" }],
+		]);
+		const ctx: ProviderUsageContext = {
+			model: { id: "openrouter/model", provider: "openrouter" },
+			modelRegistry: {
+				authStorage: {
+					list: () => [...credentials.keys()],
+					get: (provider) => credentials.get(provider),
+				},
+			},
+		};
+
+		expect(
+			discoverProviderUsageTargets(ctx).map((target) => target.providerId),
+		).toEqual([
+			"litellm-ds",
+			"github-copilot",
+			"litellm",
+			"openai",
+			"openrouter",
+			"anthropic",
+			"google-gemini-cli",
+		]);
+	});
+
 	test("uses GitHub Copilot refresh token instead of access token for usage endpoint", async () => {
 		const { calls } = fetchCalls(() =>
 			Response.json({
@@ -594,7 +630,7 @@ describe("provider usage", () => {
 		expect(headersRecord(calls[1].init.headers)).toMatchObject({
 			Authorization: "Bearer litellm-key",
 		});
-		expect(render(targets)).toContain("OpenRouter $8.75 · OpenAI S25%/W50%");
+		expect(render(targets)).toContain("OpenAI S25%/W50% · OpenRouter $8.75");
 	});
 
 	test("fetches LiteLLM passthrough usage with stored OAuth credentials", async () => {
@@ -635,7 +671,7 @@ describe("provider usage", () => {
 		]);
 		await refreshAndWait(ctx, targets);
 
-		expect(render(targets)).toContain("OpenRouter $8.00 · OpenAI S20%");
+		expect(render(targets)).toContain("OpenAI S20% · OpenRouter $8.00");
 	});
 
 	test("derives LiteLLM base url from model baseUrl when env is unset", async () => {

@@ -83,13 +83,10 @@ const REMOVED_PROVIDER_IDS = new Set(["google-vertex"]);
 const DS_USAGE_PROVIDER_ID = "litellm-ds";
 const PROVIDER_FAMILY_ORDER = [
 	DS_USAGE_PROVIDER_ID,
-	"anthropic",
+	"github-copilot",
+	"litellm",
 	"openai",
 	"openrouter",
-	"litellm",
-	"github-copilot",
-	"google-gemini-cli",
-	"google-antigravity",
 ];
 
 type AvailableModelsCacheEntry = {
@@ -342,10 +339,14 @@ function providerFamily(providerId: string): string {
 	return normalized;
 }
 
-function providerOrder(providerId: string): number {
-	const family = providerFamily(providerId);
-	const index = PROVIDER_FAMILY_ORDER.indexOf(family);
-	return index === -1 ? PROVIDER_FAMILY_ORDER.length : index;
+function compareProviderIds(a: string, b: string): number {
+	const aFamily = providerFamily(a);
+	const bFamily = providerFamily(b);
+	const aIndex = PROVIDER_FAMILY_ORDER.indexOf(aFamily);
+	const bIndex = PROVIDER_FAMILY_ORDER.indexOf(bFamily);
+	const aOrder = aIndex === -1 ? PROVIDER_FAMILY_ORDER.length : aIndex;
+	const bOrder = bIndex === -1 ? PROVIDER_FAMILY_ORDER.length : bIndex;
+	return aOrder - bOrder || aFamily.localeCompare(bFamily);
 }
 
 function providerCacheKey(
@@ -498,7 +499,7 @@ function preferProviderCandidate(
 			: current;
 	}
 
-	return providerOrder(candidate.providerId) < providerOrder(current.providerId)
+	return compareProviderIds(candidate.providerId, current.providerId) < 0
 		? candidate
 		: current;
 }
@@ -630,10 +631,9 @@ export function discoverProviderUsageTargets(
 		);
 	}
 
-	return [...byFamily.values()].sort((a, b) => {
-		if (a.active !== b.active) return a.active ? -1 : 1;
-		return providerOrder(a.providerId) - providerOrder(b.providerId);
-	});
+	return [...byFamily.values()].sort((a, b) =>
+		compareProviderIds(a.providerId, b.providerId),
+	);
 }
 
 async function getProviderToken(
@@ -845,8 +845,8 @@ async function fetchLitellmPassthroughUsage(
 		fetchLitellmChatGptUsage(baseUrl, token),
 	]);
 	const sections: ProviderUsageScopeSection[] = [];
-	if (openRouter) sections.push({ label: "OpenRouter", scope: openRouter });
 	if (openAi) sections.push({ label: "OpenAI", scope: openAi });
+	if (openRouter) sections.push({ label: "OpenRouter", scope: openRouter });
 	return sections.length > 0 ? { sections } : undefined;
 }
 
@@ -1347,6 +1347,7 @@ export function formatProviderUsage(
 	hydrateSharedCache();
 	const labels = targets
 		.filter((target) => !activeOnly || target.active)
+		.sort((a, b) => compareProviderIds(a.providerId, b.providerId))
 		.flatMap(providerUsageLabelsForTarget);
 	return labels.length > 0 ? labels.join(PROVIDER_BADGE_SEPARATOR) : undefined;
 }
