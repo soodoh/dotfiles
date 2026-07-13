@@ -22,7 +22,8 @@
         "packages/auto-session-name/index.ts",
         "packages/prompt-suggester/src/index.ts",
         "packages/shared-prompt-history/index.ts",
-        "packages/statusline/index.ts"
+        "packages/statusline/index.ts",
+        "packages/llm-hub/index.ts"
       ]
     },
     "npm:pi-vim",

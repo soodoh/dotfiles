@@ -13,7 +13,6 @@
 			"./packages/prompt-suggester/src/index.ts",
 			"./packages/shared-prompt-history/index.ts",
 			"./packages/statusline/index.ts",
-			"./packages/claude-otel/index.ts",
 			"./packages/workflows/index.ts",
 			"./packages/llm-hub/index.ts"
 		]

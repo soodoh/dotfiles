@@ -27,8 +27,8 @@
         "@mariozechner/pi-ai": "*",
       },
     },
-    "packages/claude-otel": {
-      "name": "claude-otel",
+    "packages/llm-hub": {
+      "name": "llm-hub",
       "version": "0.1.0",
       "dependencies": {
         "@opentelemetry/api": "^1.9.1",
@@ -37,13 +37,7 @@
         "@opentelemetry/sdk-metrics": "^2.9.0",
       },
       "peerDependencies": {
-        "@mariozechner/pi-coding-agent": "*",
-      },
-    },
-    "packages/llm-hub": {
-      "name": "llm-hub",
-      "version": "0.1.0",
-      "peerDependencies": {
+        "@mariozechner/pi-ai": "*",
         "@mariozechner/pi-coding-agent": "*",
       },
     },
@@ -573,8 +567,6 @@
     "chai": ["chai@6.2.2", "", {}, "sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg=="],
 
     "chalk": ["chalk@5.6.2", "", {}, "sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA=="],
-
-    "claude-otel": ["claude-otel@workspace:packages/claude-otel"],
 
     "cli-highlight": ["cli-highlight@2.1.11", "", { "dependencies": { "chalk": "^4.0.0", "highlight.js": "^10.7.1", "mz": "^2.4.0", "parse5": "^5.1.1", "parse5-htmlparser2-tree-adapter": "^6.0.0", "yargs": "^16.0.0" }, "bin": { "highlight": "bin/highlight" } }, "sha512-9KDcoEVwyUXrjcJNvHD0NFc/hiwe/WPVYIleQh2O1N2Zro5gWJZ/K+3DGn8w8P/F6FxOgzyC5bxDyHIgCSPhGg=="],
 

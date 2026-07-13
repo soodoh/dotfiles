@@ -1,4 +1,4 @@
 {
 	"extends": "../../tsconfig.base.json",
-	"include": ["index.ts", "llm-hub.ts"]
+	"include": ["index.ts", "llm-hub.ts", "otel-metrics.ts"]
 }

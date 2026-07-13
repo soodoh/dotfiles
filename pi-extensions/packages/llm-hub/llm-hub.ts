@@ -1,15 +1,30 @@
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import type {
+	OAuthCredentials,
+	OAuthLoginCallbacks,
+} from "@mariozechner/pi-ai";
+import { getModels } from "@mariozechner/pi-ai";
+import {
+	AuthStorage,
+	type ExtensionAPI,
+	getAgentDir,
+	type ProviderConfig,
+	type ProviderModelConfig,
+} from "@mariozechner/pi-coding-agent";
+import {
+	createClaudeOtelExtension,
+	type OtelExtensionApi,
+} from "./otel-metrics";
 
 const DEFAULT_PROVIDER_NAME = "llm-hub";
+const PROVIDER_DISPLAY_NAME = "LLM Hub";
+const ENV_BASE_URL = "LLMHUB_BASE_URL";
+const ENV_AUTH_TOKEN = "LLMHUB_AUTH_TOKEN";
 const ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_TIMEOUT_MS = 2000;
+const LOGIN_TIMEOUT_MS = 10_000;
 const MAX_DISCOVERY_PAGES = 20;
-
-type LlmHubSettings = {
-	providerName?: unknown;
-};
+const PERMANENT_CREDENTIAL_EXPIRY = Number.MAX_SAFE_INTEGER;
 
 type DiscoveredModel = {
 	id: string;
@@ -20,60 +35,6 @@ type ParsedModelsResponse = {
 	models: DiscoveredModel[];
 	hasMore: boolean;
 	lastId?: string;
-};
-
-type ModelCost = {
-	input: number;
-	output: number;
-	cacheRead: number;
-	cacheWrite: number;
-};
-
-type ProviderModelConfig = {
-	id: string;
-	name: string;
-	reasoning: boolean;
-	input: ("text" | "image")[];
-	cost: ModelCost;
-	contextWindow: number;
-	maxTokens: number;
-	thinkingLevelMap?: unknown;
-	compat?: unknown;
-};
-
-type ModelLike = ProviderModelConfig & {
-	provider: string;
-	api?: string;
-	baseUrl?: string;
-};
-
-type ModelRegistryLike = {
-	getAll(): ModelLike[];
-};
-
-type ExtensionContextLike = {
-	cwd?: string;
-	hasUI?: boolean;
-	ui?: {
-		notify(message: string, type?: "info" | "warning" | "error"): void;
-	};
-	modelRegistry: ModelRegistryLike;
-};
-
-type ProviderRegistrationConfig = {
-	name: string;
-	baseUrl: string;
-	apiKey: string;
-	api: "anthropic-messages";
-	models: ProviderModelConfig[];
-};
-
-type ExtensionApiLike = {
-	on(
-		eventName: "session_start",
-		handler: (event: unknown, ctx: ExtensionContextLike) => void,
-	): void;
-	registerProvider(name: string, config: ProviderRegistrationConfig): void;
 };
 
 type FetchLike = (
@@ -87,12 +48,30 @@ type FetchLike = (
 	json(): Promise<unknown>;
 }>;
 
+export type LlmHubExtensionApi = Pick<ExtensionAPI, "registerProvider"> &
+	OtelExtensionApi;
+
 type RegisterOptions = {
 	env?: Record<string, string | undefined>;
-	cwd?: string;
-	homeDir?: string;
 	fetch?: FetchLike;
 	timeoutMs?: number;
+	authStorage?: Pick<AuthStorage, "get">;
+	telemetry?: Omit<
+		Parameters<typeof createClaudeOtelExtension>[0],
+		"providerName"
+	>;
+};
+
+type ResolvedCredentials = {
+	baseUrl?: string;
+	token?: string;
+};
+
+type LoginCredentials = OAuthCredentials & { baseUrl: string };
+
+type LoginResult = {
+	credentials: LoginCredentials;
+	models: DiscoveredModel[];
 };
 
 type DiscoverOptions = {
@@ -105,48 +84,13 @@ type DiscoverOptions = {
 const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
 	typeof value === "object" && value !== null;
 
-const hasOwn = (value: Record<PropertyKey, unknown>, key: string): boolean =>
-	Object.hasOwn(value, key);
-
-const readSettingsFile = async (
-	path: string,
-): Promise<LlmHubSettings | undefined> => {
-	try {
-		const content = await readFile(path, "utf8");
-		const parsed = JSON.parse(content);
-		if (!isRecord(parsed) || !hasOwn(parsed, "llm-hub")) return undefined;
-		const config = parsed["llm-hub"];
-		if (!isRecord(config)) return {};
-		return hasOwn(config, "providerName")
-			? { providerName: config.providerName }
-			: {};
-	} catch {
-		return undefined;
-	}
-};
-
-export const readLlmHubSettings = async (
-	cwd: string,
-	homeDir: string,
-): Promise<LlmHubSettings> => {
-	const globalSettings = await readSettingsFile(
-		join(homeDir, ".pi", "agent", "settings.json"),
-	);
-	const projectSettings = await readSettingsFile(
-		join(cwd, ".pi", "settings.json"),
-	);
-
-	return { ...(globalSettings ?? {}), ...(projectSettings ?? {}) };
-};
-
-export const normalizeProviderName = (value: unknown): string => {
-	if (typeof value !== "string") return DEFAULT_PROVIDER_NAME;
+const cleanString = (value: unknown): string | undefined => {
+	if (typeof value !== "string") return undefined;
 	const trimmed = value.trim();
-	if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(trimmed)) {
-		return DEFAULT_PROVIDER_NAME;
-	}
-	return trimmed;
+	return trimmed || undefined;
 };
+
+const getAuthPath = (): string => join(getAgentDir(), "auth.json");
 
 export const normalizeBaseUrl = (value: unknown): string | undefined => {
 	if (typeof value !== "string") return undefined;
@@ -161,6 +105,28 @@ export const normalizeBaseUrl = (value: unknown): string | undefined => {
 	}
 
 	return trimmed.replace(/\/+$/, "");
+};
+
+export const resolveLlmHubCredentials = (
+	authStorage: Pick<AuthStorage, "get">,
+	env: Record<string, string | undefined> = process.env,
+): ResolvedCredentials => {
+	const credential = authStorage.get(DEFAULT_PROVIDER_NAME);
+	const savedBaseUrl =
+		credential?.type === "oauth"
+			? normalizeBaseUrl(credential.baseUrl)
+			: undefined;
+	const savedToken =
+		credential?.type === "oauth"
+			? cleanString(credential.access)
+			: credential?.type === "api_key"
+				? cleanString(credential.key)
+				: undefined;
+
+	return {
+		baseUrl: savedBaseUrl ?? normalizeBaseUrl(env[ENV_BASE_URL]),
+		token: savedToken ?? cleanString(env[ENV_AUTH_TOKEN]),
+	};
 };
 
 export const buildModelsUrl = (baseUrl: string, afterId?: string): string => {
@@ -207,7 +173,7 @@ const fallbackModel = (id: string): ProviderModelConfig => ({
 
 export const toProviderModel = (
 	discoveredModel: DiscoveredModel,
-	anthropicDefaults: ModelLike | undefined,
+	anthropicDefaults: ProviderModelConfig | undefined,
 ): ProviderModelConfig => {
 	if (!anthropicDefaults) return fallbackModel(discoveredModel.id);
 
@@ -227,12 +193,6 @@ export const toProviderModel = (
 			: {}),
 	};
 };
-
-export const providerNameExists = (
-	providerName: string,
-	modelRegistry: ModelRegistryLike,
-): boolean =>
-	modelRegistry.getAll().some((model) => model.provider === providerName);
 
 const fetchModelsPage = async ({
 	url,
@@ -294,87 +254,128 @@ export const discoverModels = async ({
 	return undefined;
 };
 
-const notifyCollision = (
-	providerName: string,
-	ctx: ExtensionContextLike,
-): void => {
-	const message = `llm-hub provider name "${providerName}" already exists; skipping registration.`;
-	if (ctx.hasUI && ctx.ui?.notify) {
-		ctx.ui.notify(message, "error");
-		return;
-	}
-	console.error(message);
-};
+const permanentCredentials = (
+	baseUrl: string,
+	token: string,
+): LoginCredentials => ({
+	access: token,
+	refresh: "",
+	expires: PERMANENT_CREDENTIAL_EXPIRY,
+	baseUrl,
+});
 
-export const registerLlmHubProvider = async (
-	pi: Pick<ExtensionApiLike, "registerProvider">,
-	ctx: ExtensionContextLike,
-	options: RegisterOptions = {},
-): Promise<string | undefined> => {
-	const env = options.env ?? process.env;
-	const baseUrl = normalizeBaseUrl(env.ANTHROPIC_BASE_URL);
-	const token = env.ANTHROPIC_AUTH_TOKEN?.trim();
-	if (!baseUrl || !token) return undefined;
+export const loginLlmHub = async (
+	callbacks: OAuthLoginCallbacks,
+	options: Pick<DiscoverOptions, "fetch"> & { timeoutMs?: number },
+): Promise<LoginResult> => {
+	const rawBaseUrl = await callbacks.onPrompt({
+		message: "Enter LLM Hub base URL:",
+		placeholder: "https://llm-hub.example.com",
+	});
+	const baseUrl = normalizeBaseUrl(rawBaseUrl);
+	if (!baseUrl) throw new Error("A valid HTTP(S) base URL is required");
 
-	const settings = await readLlmHubSettings(
-		options.cwd ?? ctx.cwd ?? process.cwd(),
-		options.homeDir ?? homedir(),
+	const token = cleanString(
+		await callbacks.onPrompt({ message: "Enter LLM Hub API key:" }),
 	);
-	const providerName = normalizeProviderName(settings.providerName);
+	if (!token) throw new Error("API key is required");
 
-	if (providerNameExists(providerName, ctx.modelRegistry)) {
-		notifyCollision(providerName, ctx);
-		return undefined;
-	}
-
-	const fetchImpl = options.fetch ?? globalThis.fetch;
-	const discoveredModels = await discoverModels({
+	const models = await discoverModels({
 		baseUrl,
 		token,
-		fetch: fetchImpl,
-		timeoutMs: options.timeoutMs,
+		fetch: options.fetch,
+		timeoutMs: options.timeoutMs ?? LOGIN_TIMEOUT_MS,
 	});
-	if (!discoveredModels || discoveredModels.length === 0) return undefined;
-
-	const anthropicDefaults = new Map(
-		ctx.modelRegistry
-			.getAll()
-			.filter((model) => model.provider === "anthropic")
-			.map((model) => [model.id, model]),
-	);
-	const models = discoveredModels.map((model) =>
-		toProviderModel(model, anthropicDefaults.get(model.id)),
-	);
-
-	pi.registerProvider(providerName, {
-		name: providerName,
-		baseUrl,
-		apiKey: "ANTHROPIC_AUTH_TOKEN",
-		api: "anthropic-messages",
-		models,
-	});
-	return providerName;
+	if (!models?.length) {
+		throw new Error("LLM Hub returned no usable models");
+	}
+	callbacks.onProgress?.(`LLM Hub: discovered ${models.length} model(s)`);
+	return { credentials: permanentCredentials(baseUrl, token), models };
 };
 
-export const createLlmHubExtension = (
-	options: RegisterOptions = {},
-): ((pi: ExtensionApiLike) => void) => {
-	return (pi: ExtensionApiLike): void => {
-		let registeredProviderName: string | undefined;
+const createProviderAuth = (
+	fetch: FetchLike,
+	timeoutMs: number,
+	onLogin: (result: LoginResult) => void,
+): NonNullable<ProviderConfig["oauth"]> => ({
+	name: PROVIDER_DISPLAY_NAME,
+	async login(callbacks) {
+		const result = await loginLlmHub(callbacks, { fetch, timeoutMs });
+		onLogin(result);
+		return result.credentials;
+	},
+	async refreshToken(credentials) {
+		return credentials;
+	},
+	getApiKey(credentials) {
+		return credentials.access;
+	},
+	modifyModels(models, credentials) {
+		const baseUrl = normalizeBaseUrl(credentials.baseUrl);
+		if (!baseUrl) return models;
+		return models.map((model) =>
+			model.provider === DEFAULT_PROVIDER_NAME ? { ...model, baseUrl } : model,
+		);
+	},
+});
 
-		pi.on("session_start", (_event, ctx) => {
-			if (registeredProviderName) return;
-			void registerLlmHubProvider(pi, ctx, options)
-				.then((providerName) => {
-					if (providerName) registeredProviderName = providerName;
-				})
-				.catch(() => {
-					// silent
-				});
+export const createLlmHubExtension = (options: RegisterOptions = {}) => {
+	return async (pi: LlmHubExtensionApi): Promise<void> => {
+		const env = options.env ?? process.env;
+		const authStorage =
+			options.authStorage ?? AuthStorage.create(getAuthPath());
+		const fetch = options.fetch ?? globalThis.fetch;
+		const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+		const credentials = resolveLlmHubCredentials(authStorage, env);
+		const baseUrl = credentials.baseUrl ?? "https://llm-hub.example.com";
+		const token = credentials.token;
+		const discoveredModels =
+			credentials.baseUrl && token
+				? await discoverModels({ baseUrl, token, fetch, timeoutMs })
+				: undefined;
+
+		const anthropicDefaults = new Map(
+			getModels("anthropic").map((model): [string, ProviderModelConfig] => [
+				model.id,
+				{
+					id: model.id,
+					name: model.name,
+					reasoning: model.reasoning,
+					thinkingLevelMap: model.thinkingLevelMap,
+					input: model.input,
+					cost: model.cost,
+					contextWindow: model.contextWindow,
+					maxTokens: model.maxTokens,
+					compat: model.compat,
+				},
+			]),
+		);
+		const toProviderModels = (discovered: DiscoveredModel[]) =>
+			discovered.map((model) =>
+				toProviderModel(model, anthropicDefaults.get(model.id)),
+			);
+		let models = toProviderModels(discoveredModels ?? []);
+		let oauth: NonNullable<ProviderConfig["oauth"]>;
+		const registerProvider = (providerBaseUrl: string): void => {
+			pi.registerProvider(DEFAULT_PROVIDER_NAME, {
+				name: PROVIDER_DISPLAY_NAME,
+				baseUrl: providerBaseUrl,
+				apiKey: `$${ENV_AUTH_TOKEN}`,
+				api: "anthropic-messages",
+				models,
+				oauth,
+			});
+		};
+		oauth = createProviderAuth(fetch, LOGIN_TIMEOUT_MS, (result) => {
+			models = toProviderModels(result.models);
+			registerProvider(result.credentials.baseUrl);
 		});
+		registerProvider(baseUrl);
+		createClaudeOtelExtension({
+			providerName: DEFAULT_PROVIDER_NAME,
+			...options.telemetry,
+		})(pi);
 	};
 };
 
-export default function llmHub(pi: ExtensionApiLike): void {
-	createLlmHubExtension()(pi);
-}
+export default createLlmHubExtension();
