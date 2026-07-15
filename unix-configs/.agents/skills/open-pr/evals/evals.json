@@ -1,0 +1,53 @@
+{
+  "skill_name": "open-pr",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Dry-run only: prepare a GitHub PR for the current dotfiles repository changes. The prompt supplies Jira ticket OB-2468; for this simulated case, assume Jira verification confirms it is active and relevant to the current work. You are currently on the GitHub default branch with one local commit and no working-tree changes. Explain the exact repository-aware plan, proposed branch, title, body shape, checks, and reviewer decision, but do not mutate git, Jira, GitHub, or the filesystem. Treat these scenario facts as authoritative rather than querying live Jira or relying on unrelated local files.",
+      "expected_output": "A non-mutating PR plan that verifies GitHub's real default branch, creates branch OB-2468, follows repository commit/check conventions, uses the required title, and does not invent a template or reviewers when none exist.",
+      "files": [],
+      "expectations": [
+        "The response preserves dry-run safety and does not claim to create a ticket, branch, push, reviewer request, or PR.",
+        "The response verifies or proposes verifying the GitHub default branch instead of assuming main solely from its name.",
+        "The proposed head branch is exactly OB-2468 because the starting branch is the default branch.",
+        "The proposed PR title follows the exact form '[OB-2468] short description of changes'.",
+        "The response identifies repository-specific validation and commit conventions from the current dotfiles repository.",
+        "The response does not invent a PR template or reviewer and explains that neither is evidenced in this repository.",
+        "The response treats the supplied clean-worktree and active relevant Jira facts as authoritative and does not substitute unrelated live state."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Dry-run only. I'm on a clean local branch feat/cache-key that has never been pushed and has no upstream. The GitHub repo's default branch is develop. Commit messages in develop..HEAD include '[OB-731] normalize cache keys'. Prepare the PR without changing anything. Describe Jira verification, branch choice, rebase, checks, title/body, and reviewer selection. Repository evidence says .github/CODEOWNERS maps the changed src/cache/** paths to @acme/cache-team and the PR template has Summary, Jira, Testing, and Risk sections.",
+      "expected_output": "A safe preview that reuses the clean unpublished branch, verifies OB-731, rebases onto origin/develop, fills the stated template, and requests the evidenced team reviewer.",
+      "files": [],
+      "expectations": [
+        "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+        "The response reuses feat/cache-key because it is clean, has no upstream, and has no remote counterpart.",
+        "The response fetches origin and proposes rebasing onto origin/develop before pushing.",
+        "The proposed title begins '[OB-731]' and contains a concise change description.",
+        "The proposed body preserves and fills Summary, Jira, Testing, and Risk sections without claiming unrun tests passed.",
+        "The response selects @acme/cache-team based on CODEOWNERS and excludes speculative reviewers.",
+        "The response performs no mutations because the prompt is a dry run.",
+        "The proposed Testing section labels every unexecuted command as not run and contains no unchecked evidence presented as passed."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Dry-run only: plan opening a GitHub PR for my current work. I'm on feature/session-cleanup with unstaged changes, and origin/feature/session-cleanup already exists. The default branch discovered from GitHub is trunk. There is no Jira key in my prompt, branch, or commits. Explain exactly what you would do, including the Jira fallback, branch handling, conflict safety, validation, PR metadata, and duplicate-PR check. Do not actually create or modify anything.",
+      "expected_output": "A non-mutating plan that drafts a Jira issue via the jira skill, commits intended changes, creates a Jira-named child branch rather than rewriting the published branch, rebases safely onto origin/trunk, validates, and avoids duplicate PRs.",
+      "files": [],
+      "expectations": [
+        "The response invokes or explicitly follows the jira skill as the fallback while only drafting the issue in dry-run mode.",
+        "The response commits only reviewed intended changes before creating a fresh child branch and does not rewrite the published feature/session-cleanup branch.",
+        "The proposed child branch is named from the canonical Jira key returned by the fallback workflow.",
+        "The response fetches and rebases the child branch onto origin/trunk and stops or aborts if conflict intent is ambiguous.",
+        "The response derives validation from repository guidance and refuses to bypass or suppress failing checks.",
+        "The response checks for an existing PR for the selected head before any push or PR creation.",
+        "The proposed PR title uses the exact '[JIRA-KEY] short description' shape and the body links Jira and records validation evidence.",
+        "The response performs no mutation because the prompt is a dry run.",
+        "The response does not claim that any inspection or validation command ran unless the transcript or output contains execution evidence."
+      ]
+    }
+  ]
+}
