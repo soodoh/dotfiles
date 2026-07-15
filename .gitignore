@@ -6,6 +6,10 @@ node_modules/
 .DS_Store
 *.pem
 
+# Python cache
+__pycache__/
+*.py[cod]
+
 # local env files
 .env
 .env.local
@@ -32,6 +36,9 @@ docker-compose.override.yml
 
 # Local git worktrees
 .worktrees/
+
+# Generated skill evaluation workspaces
+unix-configs/.agents/skills/*-workspace/
 
 # Build output
 unix-configs/.pi/agent/extensions/pi-prompt-suggester/dist/

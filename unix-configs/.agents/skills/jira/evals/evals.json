@@ -1,0 +1,41 @@
+{
+  "skill_name": "jira",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Dry run only: draft the Jira ticket you would create for the current branch changes. Inspect the repository context, infer the issue type, and show the TWG workflow, but do not mutate Jira.",
+      "expected_output": "A repository-grounded OB ticket draft with an inferred type, clear Markdown description, assignment to me, active-sprint discovery, and no Jira mutation.",
+      "files": [],
+      "expectations": [
+        "The response explicitly respects the dry-run instruction and does not create or update a Jira issue.",
+        "The proposed work item targets project OB, is assigned to me, and resolves the active sprint dynamically.",
+        "The ticket content is grounded in inspected current changes rather than invented details.",
+        "The description is structured Markdown and the workflow avoids passing Markdown through an HTML-default description input."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Preview only—do not create anything. I need an Onboarding bug ticket because the welcome checklist sometimes remains in a loading state after all tasks have loaded. Put it under the 'Getting started experiences' epic if that is the unambiguous matching OB epic. Show me the proposed ticket and exact discovery/create/update approach.",
+      "expected_output": "A Bug draft with behavior-focused context and acceptance criteria, safe epic resolution, current sprint placement, and explicit Markdown formatting via TWG without performing writes.",
+      "files": [],
+      "expectations": [
+        "The response proposes issue type Bug and includes observable expected/actual behavior or equivalent bug context.",
+        "The epic is looked up and verified as an OB Epic rather than selected from the supplied phrase without validation.",
+        "The workflow assigns the ticket to me and discovers the OB board's single active sprint instead of hardcoding a sprint ID.",
+        "The response uses explicit Markdown formatting on a supported command or a create-then-update fallback, preventing raw HTML or literal markup in Jira."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Draft only: write an OB Jira ticket for adding telemetry around onboarding task completion latency. There is no epic requirement. Include enough detail for another engineer to implement and validate it, but don't invent metric names or thresholds.",
+      "expected_output": "A Task or Enhancement draft that has bounded scope and verifiable validation, does not force an epic, avoids invented telemetry specifics, and shows safe assignment/sprint/formatting workflow.",
+      "files": [],
+      "expectations": [
+        "The response does not set or search for an epic because none was requested.",
+        "The description clearly states context, scope, acceptance criteria, and validation without inventing metric names or thresholds.",
+        "The proposed work item targets OB, is assigned to me, and is placed into the dynamically resolved active sprint.",
+        "No Jira mutation occurs because the user requested a draft only."
+      ]
+    }
+  ]
+}
