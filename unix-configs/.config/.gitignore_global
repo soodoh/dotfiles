@@ -1,4 +1,5 @@
 .playwright-mcp/
+.playwright-cli/
 .serena/
 /.pi/
 .pi-subagents/
