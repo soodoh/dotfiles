@@ -1,0 +1,11 @@
+{
+  "skillName": "twg",
+  "target": "global",
+  "installPath": "/Users/paul.diloreto/.agents/skills/twg-bench-lite",
+  "binaryPath": "/Users/paul.diloreto/.local/bin/twg",
+  "installedAt": "2026-07-16T19:22:59.197Z",
+  "installedVersion": "1.0.24",
+  "buildProfile": "external",
+  "buildCommit": "d5c3498171a7",
+  "builtAt": "2026-07-13T18:59:35.976Z"
+}

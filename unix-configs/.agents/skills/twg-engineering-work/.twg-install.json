@@ -2,10 +2,10 @@
   "skillName": "twg",
   "target": "global",
   "installPath": "/Users/paul.diloreto/.agents/skills/twg-engineering-work",
-  "binaryPath": "/opt/homebrew/Cellar/twg/1.0.1/libexec/twg-bin",
-  "installedAt": "2026-07-01T17:53:23.701Z",
-  "installedVersion": "1.0.1",
+  "binaryPath": "/Users/paul.diloreto/.local/bin/twg",
+  "installedAt": "2026-07-16T19:22:59.197Z",
+  "installedVersion": "1.0.24",
   "buildProfile": "external",
-  "buildCommit": "771d92ebc63d",
-  "builtAt": "2026-05-21T16:35:38.872Z"
+  "buildCommit": "d5c3498171a7",
+  "builtAt": "2026-07-13T18:59:35.976Z"
 }
