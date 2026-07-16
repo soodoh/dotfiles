@@ -1,12 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import {
-	completeSimple,
-	type Message,
-	type Model,
-	type UserMessage,
-} from "@mariozechner/pi-ai";
+import type { Message, Model, UserMessage } from "@earendil-works/pi-ai";
+import { completeSimple } from "@earendil-works/pi-ai/compat";
 
 type ExtensionAPI = {
 	getSessionName(): string | undefined;

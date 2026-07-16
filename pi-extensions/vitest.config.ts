@@ -8,7 +8,6 @@ export default defineConfig({
 				"**/*.spec.*",
 				"**/dist/**",
 				"**/node_modules/**",
-				"**/.turbo/**",
 				"**/.pi-lens/**",
 				"coverage/**",
 				"packages/auto-session-name/index.ts",

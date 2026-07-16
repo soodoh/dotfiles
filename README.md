@@ -236,16 +236,16 @@ Mac:
 mkdir ~/.config && \
 stow -vRt $HOME unix-configs && \
 stow -vRt $HOME mac-configs && \
-mkdir -p $HOME/.pi/agent/pi-extensions && \
-stow -vRt $HOME/.pi/agent/pi-extensions pi-extensions
+mkdir -p "$HOME/.pi/agent" && \
+ln -sfn "$PWD/pi-extensions" "$HOME/.pi/agent/pi-extensions"
 ```
 
 Linux:
 ```bash
 mkdir ~/.config && \
 stow -vRt $HOME unix-configs && \
-mkdir -p $HOME/.pi/agent/pi-extensions && \
-stow -vRt $HOME/.pi/agent/pi-extensions pi-extensions
+mkdir -p "$HOME/.pi/agent" && \
+ln -sfn "$PWD/pi-extensions" "$HOME/.pi/agent/pi-extensions"
 ```
 (Optional)
 ```bash
@@ -258,7 +258,10 @@ stow -vRt $HOME sway-configs
 
     ```bash
     curl -fsSL https://bun.com/install | bash
+    bun install
     ```
+
+    The root Bun workspace installs both the repository tooling and the runtime dependencies for `pi-extensions`. No separate install inside `pi-extensions/` is needed.
 
 1. Setup git config
 

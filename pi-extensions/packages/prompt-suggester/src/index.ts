@@ -1,10 +1,10 @@
 import path from "node:path";
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
 	InputEvent,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { buildLatestHistoricalTurnContext } from "./app/services/conversation-signals";
 import { type AppComposition, createAppComposition } from "./composition/root";
 import {

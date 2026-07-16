@@ -2,15 +2,15 @@ import { join } from "node:path";
 import type {
 	OAuthCredentials,
 	OAuthLoginCallbacks,
-} from "@mariozechner/pi-ai";
-import { getModels } from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-ai";
+import { getModels } from "@earendil-works/pi-ai/compat";
 import {
 	AuthStorage,
 	type ExtensionAPI,
 	getAgentDir,
 	type ProviderConfig,
 	type ProviderModelConfig,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
 	createClaudeOtelExtension,
 	type OtelExtensionApi,

@@ -2,7 +2,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 import type { GhostAcceptKey } from "../../config/types";
 import {
 	matchesGhostAcceptKey,

@@ -2,8 +2,12 @@
   "name": "dotfiles",
   "author": "Paul DiLoreto <soodohh@pm.me>",
   "version": "1.0.0",
+  "private": true,
   "license": "MIT",
-  "packageManager": "bun@1.3.10",
+  "packageManager": "bun@1.3.12",
+  "workspaces": [
+    "pi-extensions"
+  ],
   "bugs": {
     "url": "https://github.com/soodoh/dotfiles/issues"
   },
@@ -12,14 +16,29 @@
     "url": "git+https://github.com/soodoh/dotfiles.git"
   },
   "description": "Dot files used in my personal developer environments across multiple OSs.",
-  "scripts": {},
+  "scripts": {
+    "check": "bun run --cwd pi-extensions check",
+    "check:write": "bun run --cwd pi-extensions check:write",
+    "ci": "bun run --cwd pi-extensions ci",
+    "test": "bun run --cwd pi-extensions test",
+    "test:coverage": "bun run --cwd pi-extensions test:coverage",
+    "test:typecheck": "bun run --cwd pi-extensions test:typecheck",
+    "typecheck": "bun run --cwd pi-extensions typecheck"
+  },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.3",
     "@commitlint/cli": "^21.2.1",
     "@commitlint/config-conventional": "^21.2.0",
     "@commitlint/types": "^21.2.0",
+    "@earendil-works/pi-agent-core": "0.80.7",
+    "@earendil-works/pi-ai": "0.80.7",
+    "@earendil-works/pi-coding-agent": "0.80.7",
+    "@earendil-works/pi-tui": "0.80.7",
     "@types/node": "^26.1.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "bun-types": "^1.3.14",
     "lefthook": "^2.1.10",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }

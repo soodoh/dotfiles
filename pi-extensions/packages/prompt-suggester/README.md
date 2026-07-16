@@ -16,12 +16,11 @@ This package is derived from the idea behind [`pi-prompt-suggester`](https://git
 
 ## Install
 
-These packages are not published to npm. Use Pi's Git package source.
-
-To install the whole repo package:
+This extension is part of the local `pi-extensions` package. From the dotfiles repository root, install dependencies and link the package once:
 
 ```bash
-pi install git:github.com/soodoh/pi-extensions
+bun install
+ln -sfn "$PWD/pi-extensions" "$HOME/.pi/agent/pi-extensions"
 ```
 
 To load only `prompt-suggester`, add a filtered package entry to `~/.pi/agent/settings.json` for a global install, or `.pi/settings.json` for a project-local install:
@@ -30,7 +29,7 @@ To load only `prompt-suggester`, add a filtered package entry to `~/.pi/agent/se
 {
   "packages": [
     {
-      "source": "git:github.com/soodoh/pi-extensions",
+      "source": "./pi-extensions",
       "extensions": ["packages/prompt-suggester/src/index.ts"],
       "skills": [],
       "prompts": [],
@@ -38,12 +37,6 @@ To load only `prompt-suggester`, add a filtered package entry to `~/.pi/agent/se
     }
   ]
 }
-```
-
-If you prefer SSH, use this source instead:
-
-```text
-git:git@github.com:soodoh/pi-extensions
 ```
 
 Restart Pi or run `/reload` after installing.

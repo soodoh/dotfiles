@@ -1,11 +1,11 @@
 import path from "node:path";
-import {
-	type ThinkingLevel as AiThinkingLevel,
-	completeSimple,
-	type Message,
-	type Model,
-	type UserMessage,
-} from "@mariozechner/pi-ai";
+import type {
+	ThinkingLevel as AiThinkingLevel,
+	Message,
+	Model,
+	UserMessage,
+} from "@earendil-works/pi-ai";
+import { completeSimple } from "@earendil-works/pi-ai/compat";
 import type { Logger } from "../../app/ports/logger";
 import type {
 	ModelClient,

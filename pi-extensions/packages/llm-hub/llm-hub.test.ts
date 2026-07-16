@@ -244,8 +244,10 @@ describe("llm-hub login", () => {
 			loginLlmHub(
 				{
 					onAuth() {},
+					onDeviceCode() {},
 					onPrompt: async () => prompts.shift() ?? "",
 					onProgress: (message) => progress.push(message),
+					onSelect: async () => undefined,
 				},
 				{ fetch },
 			),
@@ -270,7 +272,9 @@ describe("llm-hub login", () => {
 			loginLlmHub(
 				{
 					onAuth() {},
+					onDeviceCode() {},
 					onPrompt: async () => prompts.shift() ?? "",
+					onSelect: async () => undefined,
 				},
 				{ fetch },
 			),

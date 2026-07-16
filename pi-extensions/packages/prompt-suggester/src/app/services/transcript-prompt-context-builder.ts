@@ -1,4 +1,4 @@
-import type { Message } from "@mariozechner/pi-ai";
+import type { Message } from "@earendil-works/pi-ai";
 import type { PromptSuggesterConfig } from "../../config/types";
 import type { SeedArtifact } from "../../domain/seed";
 import type { SteeringSlice } from "../../domain/steering";

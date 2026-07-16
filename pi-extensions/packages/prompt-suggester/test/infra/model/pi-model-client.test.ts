@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { Model, SimpleStreamOptions } from "@mariozechner/pi-ai";
+import type { Model, SimpleStreamOptions } from "@earendil-works/pi-ai";
 import { afterEach, expect, test } from "vitest";
 import type { Logger } from "../../../src/app/ports/logger";
 import type { SuggestionPromptContext } from "../../../src/app/services/prompt-context-builder";
@@ -14,10 +14,7 @@ import { globToRegExp } from "../../../src/infra/model/seeder-tools";
 
 const { registerApiProvider, unregisterApiProviders } = await import(
 	pathToFileURL(
-		join(
-			process.cwd(),
-			"node_modules/@mariozechner/pi-ai/dist/api-registry.js",
-		),
+		join(process.cwd(), "node_modules/@earendil-works/pi-ai/dist/compat.js"),
 	).href
 );
 

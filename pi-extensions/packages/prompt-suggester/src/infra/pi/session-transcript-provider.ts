@@ -1,9 +1,9 @@
-import type { Message } from "@mariozechner/pi-ai";
+import type { Message } from "@earendil-works/pi-ai";
 import {
 	buildSessionContext,
 	type SessionContext,
 	type SessionEntry,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import type { SessionTranscriptProvider } from "../../app/ports/session-transcript";
 
 function isMessage(value: unknown): value is Message {
