@@ -197,6 +197,9 @@ twg setup
 # Glean
 brew install gleanwork/tap/glean-cli
 
+# Snowflake
+brew install snowflake-cli
+
 # Azure
 brew install azure-cli
 
