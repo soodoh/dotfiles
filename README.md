@@ -190,8 +190,7 @@ cd /path/to/repo && serena project index
 Agent tools (for work, so macOS only):
 ```bash
 # Atlassian
-brew tap atlassian/twg
-brew install twg
+curl -fsSL --retry 2 https://teamwork-graph.atlassian.com/cli/install | bash
 twg setup
 
 # Glean
