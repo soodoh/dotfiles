@@ -156,21 +156,30 @@ leave conflict markers.
 After a successful rebase, review `git diff origin/<base>...HEAD` and the commit
 list again for scope and secrets.
 
-## 5. Run repository-specific quality gates
+## 5. Run lightweight repository quality gates
 
-Infer required checks from repository instructions, CI workflows, changed
-packages, hooks, and package scripts. Run the narrowest authoritative set that
-covers the change, including applicable formatting/lint, type checking, tests,
-and builds. Do not invent commands when the repository defines them.
+Infer commands from repository instructions, changed packages, hooks, and package
+scripts. Run only the narrowest authoritative checks for applicable formatting,
+linting, and unit tests. Prefer targeted package or file-level commands when the
+repository provides them.
+
+Do not run Playwright, browser automation, end-to-end, integration, smoke,
+acceptance, visual-regression, performance, or other expensive test suites as
+part of PR preparation. Do not run broad `test`, `check`, or CI-equivalent
+commands when they transitively include those suites; select the repository's
+unit-test command or unit-test project instead. Also leave builds and standalone
+type-check commands to CI unless repository guidance explicitly classifies them
+as part of linting or the user asks for them.
 
 Apply safe formatter or lint fixes, inspect the resulting diff, and commit those
 fixes using repository conventions. For substantive failures, fix the root cause
-when it is within scope, then rerun the failing check. Do not use suppression
-comments, `--no-verify`, skipped hooks, or reduced checks to manufacture a pass.
+when it is within scope, then rerun only the failing lightweight check. Do not use
+suppression comments, `--no-verify`, or skipped hooks to manufacture a pass.
 
-Record each command and outcome for the PR body. If an authoritative check cannot
-run because of an environment or dependency problem, stop before pushing unless
-the user explicitly accepts that limitation.
+Record each command and outcome for the PR body, including that excluded suites
+were intentionally left to CI when useful. If an authoritative lightweight check
+cannot run because of an environment or dependency problem, stop before pushing
+unless the user explicitly accepts that limitation.
 
 If fixes create a new commit, fetch and rebase again when the remote base moved
 since the prior fetch.
