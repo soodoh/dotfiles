@@ -52,12 +52,15 @@ type StatuslineContext = {
 			| Promise<Array<{ provider?: string }>>;
 		getApiKeyForProvider(provider: string): Promise<string | undefined>;
 		isUsingOAuth?(model: { provider?: string }): boolean;
-		authStorage?: {
-			get(
-				provider: string,
-			): { type: "oauth"; access?: string; refresh?: string } | undefined;
-		};
 	};
+	readStoredCredential?(provider: string):
+		| {
+				type: "oauth";
+				access: string;
+				refresh: string;
+				expires: number;
+		  }
+		| undefined;
 	sessionManager: { getBranch(): unknown[]; getCwd?(): string };
 	settingsManager: {
 		getCompactionSettings(): { enabled: boolean };
@@ -591,17 +594,16 @@ describe("statusline extension", () => {
 					isUsingOAuth() {
 						return true;
 					},
-					authStorage: {
-						get(provider) {
-							return provider === "github-copilot"
-								? {
-										type: "oauth",
-										access: "stored-access-token",
-										refresh: "stored-refresh-token",
-									}
-								: undefined;
-						},
-					},
+				},
+				readStoredCredential(provider) {
+					return provider === "github-copilot"
+						? {
+								type: "oauth",
+								access: "stored-access-token",
+								refresh: "stored-refresh-token",
+								expires: Date.now() + 60_000,
+							}
+						: undefined;
 				},
 				sessionManager: { getBranch: () => [] },
 				settingsManager: { getCompactionSettings: () => ({ enabled: true }) },

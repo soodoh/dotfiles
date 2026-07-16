@@ -1,15 +1,14 @@
-import { join } from "node:path";
 import type {
+	Credential,
 	OAuthCredentials,
 	OAuthLoginCallbacks,
 } from "@earendil-works/pi-ai";
 import { getModels } from "@earendil-works/pi-ai/compat";
 import {
-	AuthStorage,
 	type ExtensionAPI,
-	getAgentDir,
 	type ProviderConfig,
 	type ProviderModelConfig,
+	readStoredCredential,
 } from "@earendil-works/pi-coding-agent";
 import {
 	createClaudeOtelExtension,
@@ -55,7 +54,7 @@ type RegisterOptions = {
 	env?: Record<string, string | undefined>;
 	fetch?: FetchLike;
 	timeoutMs?: number;
-	authStorage?: Pick<AuthStorage, "get">;
+	readCredential?: (providerId: string) => Credential | undefined;
 	telemetry?: Omit<
 		Parameters<typeof createClaudeOtelExtension>[0],
 		"providerName"
@@ -90,8 +89,6 @@ const cleanString = (value: unknown): string | undefined => {
 	return trimmed || undefined;
 };
 
-const getAuthPath = (): string => join(getAgentDir(), "auth.json");
-
 export const normalizeBaseUrl = (value: unknown): string | undefined => {
 	if (typeof value !== "string") return undefined;
 	const trimmed = value.trim();
@@ -108,10 +105,10 @@ export const normalizeBaseUrl = (value: unknown): string | undefined => {
 };
 
 export const resolveLlmHubCredentials = (
-	authStorage: Pick<AuthStorage, "get">,
+	readCredential: (providerId: string) => Credential | undefined,
 	env: Record<string, string | undefined> = process.env,
 ): ResolvedCredentials => {
-	const credential = authStorage.get(DEFAULT_PROVIDER_NAME);
+	const credential = readCredential(DEFAULT_PROVIDER_NAME);
 	const savedBaseUrl =
 		credential?.type === "oauth"
 			? normalizeBaseUrl(credential.baseUrl)
@@ -322,11 +319,10 @@ const createProviderAuth = (
 export const createLlmHubExtension = (options: RegisterOptions = {}) => {
 	return async (pi: LlmHubExtensionApi): Promise<void> => {
 		const env = options.env ?? process.env;
-		const authStorage =
-			options.authStorage ?? AuthStorage.create(getAuthPath());
+		const readCredential = options.readCredential ?? readStoredCredential;
 		const fetch = options.fetch ?? globalThis.fetch;
 		const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-		const credentials = resolveLlmHubCredentials(authStorage, env);
+		const credentials = resolveLlmHubCredentials(readCredential, env);
 		const baseUrl = credentials.baseUrl ?? "https://llm-hub.example.com";
 		const token = credentials.token;
 		const discoveredModels =

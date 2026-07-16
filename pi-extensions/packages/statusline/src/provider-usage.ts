@@ -331,6 +331,13 @@ function normalizeProviderId(providerId: string): string {
 	return providerId.trim().toLowerCase();
 }
 
+function getStoredCredential(
+	ctx: ProviderUsageContext,
+	providerId: string,
+): AuthCredentialLike | undefined {
+	return ctx.readStoredCredential?.(providerId);
+}
+
 function providerFamily(providerId: string): string {
 	const normalized = normalizeProviderId(providerId);
 	if (normalized === "openai-codex" || normalized === "openai") {
@@ -400,7 +407,7 @@ function modelAuthKind(
 		? normalizeProviderId(model.provider)
 		: undefined;
 	const credential = providerId
-		? ctx.modelRegistry?.authStorage?.get?.(providerId)
+		? getStoredCredential(ctx, providerId)
 		: undefined;
 	if (credential?.type === "oauth") return "oauth";
 	if (credential?.type === "api_key") return "api_key";
@@ -592,21 +599,23 @@ export function discoverProviderUsageTargets(
 		}
 	}
 
-	const authStorage = ctx.modelRegistry?.authStorage;
-	for (const providerId of authStorage?.list?.() ?? []) {
-		const normalized = normalizeProviderId(providerId);
-		const credential = authStorage?.get?.(normalized);
-		if (credential?.type === "oauth") {
-			addProviderCandidate(candidates, normalized, "oauth", activeProviderId);
-		} else if (credential?.type === "api_key") {
-			addProviderCandidate(candidates, normalized, "api_key", activeProviderId);
-		}
-	}
-
-	for (const provider of authStorage?.getOAuthProviders?.() ?? []) {
-		const normalized = normalizeProviderId(provider.id);
-		if (authStorage?.hasAuth?.(normalized)) {
-			addProviderCandidate(candidates, normalized, "oauth", activeProviderId);
+	if (ctx.readStoredCredential) {
+		const storedProviderIds = new Set([
+			...OAUTH_PROVIDER_IDS,
+			...API_KEY_PROVIDER_IDS,
+		]);
+		for (const providerId of storedProviderIds) {
+			const credential = getStoredCredential(ctx, providerId);
+			if (credential?.type === "oauth") {
+				addProviderCandidate(candidates, providerId, "oauth", activeProviderId);
+			} else if (credential?.type === "api_key") {
+				addProviderCandidate(
+					candidates,
+					providerId,
+					"api_key",
+					activeProviderId,
+				);
+			}
 		}
 	}
 
@@ -647,7 +656,7 @@ function getStoredOAuthCredential(
 	ctx: ProviderUsageContext,
 	providerId: string,
 ): Extract<AuthCredentialLike, { type: "oauth" }> | undefined {
-	const credential = ctx.modelRegistry?.authStorage?.get?.(providerId);
+	const credential = getStoredCredential(ctx, providerId);
 	return credential?.type === "oauth" ? credential : undefined;
 }
 
@@ -683,7 +692,7 @@ function storedCredentialBaseUrl(
 	ctx: ProviderUsageContext,
 	providerId: string,
 ): string | undefined {
-	const credential = ctx.modelRegistry?.authStorage?.get?.(providerId);
+	const credential = getStoredCredential(ctx, providerId);
 	const baseUrl = recordField(credential, "baseUrl");
 	return typeof baseUrl === "string" && baseUrl.trim()
 		? baseUrl.trim()

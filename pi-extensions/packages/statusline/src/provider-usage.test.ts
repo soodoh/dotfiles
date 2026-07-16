@@ -194,16 +194,11 @@ describe("provider usage", () => {
 		);
 		const getApiKeyForProvider = vi.fn(async () => "provider-token");
 		const ctx: ProviderUsageContext = {
-			modelRegistry: {
-				getApiKeyForProvider,
-				authStorage: {
-					list: () => ["anthropic"],
-					get: (provider) =>
-						provider === "anthropic"
-							? { type: "oauth", access: "stored-anthropic-token" }
-							: undefined,
-				},
-			},
+			modelRegistry: { getApiKeyForProvider },
+			readStoredCredential: (provider) =>
+				provider === "anthropic"
+					? { type: "oauth", access: "stored-anthropic-token" }
+					: undefined,
 		};
 		const targets = discoverProviderUsageTargets(ctx);
 
@@ -231,13 +226,11 @@ describe("provider usage", () => {
 				async getApiKeyForProvider() {
 					return undefined;
 				},
-				authStorage: {
-					get: (provider) =>
-						provider === "openai-codex"
-							? { type: "oauth", access: token }
-							: undefined,
-				},
 			},
+			readStoredCredential: (provider) =>
+				provider === "openai-codex"
+					? { type: "oauth", access: token }
+					: undefined,
 		};
 		const targets: ProviderUsageTarget[] = [
 			{ providerId: "openai-codex", authKind: "oauth", active: true },
@@ -268,14 +261,10 @@ describe("provider usage", () => {
 			}),
 		);
 		const ctx: ProviderUsageContext = {
-			modelRegistry: {
-				authStorage: {
-					get: (provider) =>
-						provider === "openai-codex"
-							? { type: "oauth", access: token }
-							: undefined,
-				},
-			},
+			readStoredCredential: (provider) =>
+				provider === "openai-codex"
+					? { type: "oauth", access: token }
+					: undefined,
 		};
 		const targets: ProviderUsageTarget[] = [
 			{ providerId: "openai-codex", authKind: "oauth", active: true },
@@ -298,20 +287,17 @@ describe("provider usage", () => {
 				async getApiKeyForProvider() {
 					return undefined;
 				},
-				authStorage: {
-					get: (provider) =>
-						provider === "google-gemini-cli" ||
-						provider === "google-antigravity"
-							? {
-									type: "oauth",
-									access: JSON.stringify({
-										token: "google-token",
-										projectId: "project-1",
-									}),
-								}
-							: undefined,
-				},
 			},
+			readStoredCredential: (provider) =>
+				provider === "google-gemini-cli" || provider === "google-antigravity"
+					? {
+							type: "oauth",
+							access: JSON.stringify({
+								token: "google-token",
+								projectId: "project-1",
+							}),
+						}
+					: undefined,
 		};
 		const targets: ProviderUsageTarget[] = [
 			{ providerId: "google-gemini-cli", authKind: "oauth", active: true },
@@ -418,12 +404,7 @@ describe("provider usage", () => {
 		]);
 		const ctx: ProviderUsageContext = {
 			model: { id: "openrouter/model", provider: "openrouter" },
-			modelRegistry: {
-				authStorage: {
-					list: () => [...credentials.keys()],
-					get: (provider) => credentials.get(provider),
-				},
-			},
+			readStoredCredential: (provider) => credentials.get(provider),
 		};
 
 		expect(
@@ -452,17 +433,15 @@ describe("provider usage", () => {
 				async getApiKeyForProvider() {
 					return "fallback-token";
 				},
-				authStorage: {
-					get: (provider) =>
-						provider === "github-copilot"
-							? {
-									type: "oauth",
-									access: "copilot-session-token",
-									refresh: "github-oauth-token",
-								}
-							: undefined,
-				},
 			},
+			readStoredCredential: (provider) =>
+				provider === "github-copilot"
+					? {
+							type: "oauth",
+							access: "copilot-session-token",
+							refresh: "github-oauth-token",
+						}
+					: undefined,
 		};
 		const targets: ProviderUsageTarget[] = [
 			{ providerId: "github-copilot", authKind: "oauth", active: true },
@@ -491,16 +470,14 @@ describe("provider usage", () => {
 						? "fallback-api-token"
 						: undefined;
 				},
-				authStorage: {
-					get: (provider) =>
-						provider === "github-copilot"
-							? {
-									type: "oauth",
-									access: "copilot-session-token",
-								}
-							: undefined,
-				},
 			},
+			readStoredCredential: (provider) =>
+				provider === "github-copilot"
+					? {
+							type: "oauth",
+							access: "copilot-session-token",
+						}
+					: undefined,
 		};
 		const targets: ProviderUsageTarget[] = [
 			{ providerId: "github-copilot", authKind: "oauth", active: true },
@@ -646,22 +623,20 @@ describe("provider usage", () => {
 		const ctx: ProviderUsageContext = {
 			model: { id: "chatgpt/gpt-5.6-sol", provider: "litellm" },
 			modelRegistry: {
-				authStorage: {
-					get(provider) {
-						return provider === "litellm"
-							? {
-									type: "oauth",
-									access: "litellm-token",
-									refresh: "litellm-refresh",
-									expires: Date.now() + 60_000,
-									baseUrl: "https://litellm.example.com/v1",
-								}
-							: undefined;
-					},
-				},
 				isUsingOAuth() {
 					return true;
 				},
+			},
+			readStoredCredential(provider) {
+				return provider === "litellm"
+					? {
+							type: "oauth",
+							access: "litellm-token",
+							refresh: "litellm-refresh",
+							expires: Date.now() + 60_000,
+							baseUrl: "https://litellm.example.com/v1",
+						}
+					: undefined;
 			},
 		};
 

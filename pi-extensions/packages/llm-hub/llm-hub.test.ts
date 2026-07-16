@@ -102,18 +102,16 @@ describe("llm-hub settings", () => {
 	});
 
 	test("saved login credentials take precedence over LLMHUB environment variables", () => {
-		const authStorage = {
-			get: () => ({
-				type: "oauth" as const,
-				access: "saved-token",
-				refresh: "",
-				expires: Number.MAX_SAFE_INTEGER,
-				baseUrl: "https://saved.example.com/",
-			}),
-		};
+		const readCredential = () => ({
+			type: "oauth" as const,
+			access: "saved-token",
+			refresh: "",
+			expires: Number.MAX_SAFE_INTEGER,
+			baseUrl: "https://saved.example.com/",
+		});
 
 		expect(
-			resolveLlmHubCredentials(authStorage, {
+			resolveLlmHubCredentials(readCredential, {
 				LLMHUB_BASE_URL: "https://env.example.com",
 				LLMHUB_AUTH_TOKEN: "env-token",
 			}),
@@ -125,13 +123,10 @@ describe("llm-hub settings", () => {
 
 	test("falls back to LLMHUB environment variables", () => {
 		expect(
-			resolveLlmHubCredentials(
-				{ get: () => undefined },
-				{
-					LLMHUB_BASE_URL: "https://env.example.com/",
-					LLMHUB_AUTH_TOKEN: " env-token ",
-				},
-			),
+			resolveLlmHubCredentials(() => undefined, {
+				LLMHUB_BASE_URL: "https://env.example.com/",
+				LLMHUB_AUTH_TOKEN: " env-token ",
+			}),
 		).toEqual({
 			baseUrl: "https://env.example.com",
 			token: "env-token",
@@ -340,7 +335,7 @@ describe("llm-hub extension", () => {
 
 		await createLlmHubExtension({
 			env: {},
-			authStorage: { get: () => undefined },
+			readCredential: () => undefined,
 		})(pi);
 
 		expect(registrations).toHaveLength(1);
@@ -366,7 +361,7 @@ describe("llm-hub extension", () => {
 				LLMHUB_BASE_URL: "https://llm-hub.example.com",
 				LLMHUB_AUTH_TOKEN: "secret",
 			},
-			authStorage: { get: () => undefined },
+			readCredential: () => undefined,
 		})(pi);
 
 		expect(registrations).toHaveLength(1);
@@ -388,7 +383,7 @@ describe("llm-hub extension", () => {
 				LLMHUB_BASE_URL: "https://llm-hub.example.com/",
 				LLMHUB_AUTH_TOKEN: " secret ",
 			},
-			authStorage: { get: () => undefined },
+			readCredential: () => undefined,
 		})(pi);
 
 		expect(registrations).toHaveLength(1);
@@ -412,7 +407,7 @@ describe("llm-hub extension", () => {
 		await createLlmHubExtension({
 			fetch,
 			env: {},
-			authStorage: { get: () => undefined },
+			readCredential: () => undefined,
 		})(pi);
 
 		const registration = registrations[0];
@@ -454,7 +449,7 @@ describe("llm-hub extension", () => {
 				LLMHUB_BASE_URL: "https://llm-hub.example.com",
 				LLMHUB_AUTH_TOKEN: "secret",
 			},
-			authStorage: { get: () => undefined },
+			readCredential: () => undefined,
 			telemetry: {
 				managerFactory: () => manager,
 				versionResolver: async () => "9.8.7",

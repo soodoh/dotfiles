@@ -1,15 +1,32 @@
 #!/usr/bin/env bun
 
-import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
+import {
+	ModelRuntime,
+	readStoredCredential,
+} from "@earendil-works/pi-coding-agent";
+import type { ModelRegistryLike, ProviderUsageContext } from "./pi-types";
 import {
 	discoverProviderUsageTargetsAsync,
 	formatProviderUsage,
 	refreshProviderUsage,
 } from "./provider-usage";
 
-const authStorage = AuthStorage.create();
-const modelRegistry = ModelRegistry.create(authStorage);
-const ctx = { modelRegistry };
+const modelRuntime = await ModelRuntime.create();
+const modelRegistry: ModelRegistryLike = {
+	getAll: () => [...modelRuntime.getModels()],
+	getAvailable: async () => [...(await modelRuntime.getAvailable())],
+	hasConfiguredAuth: (model) =>
+		model.provider ? modelRuntime.hasConfiguredAuth(model.provider) : false,
+	getProviderAuthStatus: (provider) =>
+		modelRuntime.getProviderAuthStatus(provider),
+	getProviderDisplayName: (provider) =>
+		modelRuntime.getProvider(provider)?.name ?? provider,
+	getApiKeyForProvider: async (provider) =>
+		(await modelRuntime.getAuth(provider))?.auth.apiKey,
+	isUsingOAuth: (model) =>
+		model.provider ? modelRuntime.isUsingOAuth(model.provider) : false,
+};
+const ctx: ProviderUsageContext = { modelRegistry, readStoredCredential };
 const targets = await discoverProviderUsageTargetsAsync(ctx);
 
 await refreshProviderUsage(ctx, targets, () => {});

@@ -15,13 +15,6 @@ export type AuthCredentialLike =
 	  }
 	| { type: "api_key" };
 
-export type AuthStorageLike = {
-	get?(provider: string): AuthCredentialLike | undefined;
-	list?(): string[];
-	hasAuth?(provider: string): boolean;
-	getOAuthProviders?(): { id: string; name?: string }[];
-};
-
 export type MaybePromise<T> = T | Promise<T>;
 
 export type ModelRegistryLike = {
@@ -36,10 +29,10 @@ export type ModelRegistryLike = {
 	getProviderDisplayName?(provider: string): string;
 	getApiKeyForProvider?(provider: string): Promise<string | undefined>;
 	isUsingOAuth?(model: ModelLike): boolean;
-	authStorage?: AuthStorageLike;
 };
 
 export type ProviderUsageContext = {
 	model?: ModelLike;
 	modelRegistry?: ModelRegistryLike;
+	readStoredCredential?(providerId: string): AuthCredentialLike | undefined;
 };

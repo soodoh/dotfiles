@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { readStoredCredential } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import {
 	type GitStatus,
@@ -6,7 +7,11 @@ import {
 	invalidateGit,
 	type ReadonlyFooterDataProvider,
 } from "./git-status";
-import type { ModelLike, ModelRegistryLike } from "./pi-types";
+import type {
+	ModelLike,
+	ModelRegistryLike,
+	ProviderUsageContext,
+} from "./pi-types";
 import {
 	discoverProviderUsageTargets,
 	invalidateProviderUsageDiscovery,
@@ -59,6 +64,7 @@ type ExtensionContext = {
 	};
 	model?: ModelLike;
 	modelRegistry?: ModelRegistryLike;
+	readStoredCredential?: typeof readStoredCredential;
 	settingsManager?: {
 		getCompactionSettings?(): { enabled?: boolean } | undefined;
 		getGlobalSettings?(): Record<string, unknown>;
@@ -246,6 +252,14 @@ function hasProviderUsageSection(ctx: ExtensionContext): boolean {
 	);
 }
 
+function toProviderUsageContext(ctx: ExtensionContext): ProviderUsageContext {
+	return {
+		model: ctx.model,
+		modelRegistry: ctx.modelRegistry,
+		readStoredCredential: ctx.readStoredCredential ?? readStoredCredential,
+	};
+}
+
 function hasNerdFonts(): boolean {
 	if (process.env.POWERLINE_NERD_FONTS === "1") return true;
 	if (process.env.POWERLINE_NERD_FONTS === "0") return false;
@@ -413,11 +427,12 @@ function buildStatusLines(
 	const layout = getStatuslineLayout(ctx);
 	const allSections = layout.flat();
 	const providerUsageEnabled = allSections.includes("provider_usage");
+	const providerUsageCtx = toProviderUsageContext(ctx);
 	const providerUsageTargets = providerUsageEnabled
-		? discoverProviderUsageTargets(ctx)
+		? discoverProviderUsageTargets(providerUsageCtx)
 		: [];
 	if (providerUsageEnabled) {
-		refreshProviderUsage(ctx, providerUsageTargets, onUpdate);
+		refreshProviderUsage(providerUsageCtx, providerUsageTargets, onUpdate);
 	}
 
 	const contextTokens = allSections.includes("context")
@@ -487,9 +502,10 @@ export default function statusline(pi: ExtensionAPI): void {
 	const refreshCurrentProviderUsage = (ctx: ExtensionContext): void => {
 		currentCtx = ctx;
 		if (hasProviderUsageSection(ctx)) {
+			const providerUsageCtx = toProviderUsageContext(ctx);
 			refreshProviderUsage(
-				ctx,
-				discoverProviderUsageTargets(ctx),
+				providerUsageCtx,
+				discoverProviderUsageTargets(providerUsageCtx),
 				requestRender,
 			);
 		}
@@ -499,9 +515,10 @@ export default function statusline(pi: ExtensionAPI): void {
 		if (!ctx.hasUI) return;
 		currentCtx = ctx;
 		if (hasProviderUsageSection(ctx)) {
+			const providerUsageCtx = toProviderUsageContext(ctx);
 			refreshProviderUsage(
-				ctx,
-				discoverProviderUsageTargets(ctx),
+				providerUsageCtx,
+				discoverProviderUsageTargets(providerUsageCtx),
 				requestRender,
 			);
 		}
