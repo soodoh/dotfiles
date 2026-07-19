@@ -201,9 +201,6 @@ brew install snowflake-cli
 
 # Azure
 brew install azure-cli
-
-# Google Workspace
-brew install gogcli
 ```
 
 1. Setup shell config
