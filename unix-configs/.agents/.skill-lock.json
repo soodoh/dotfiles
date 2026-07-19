@@ -1,107 +1,117 @@
 {
-	"version": 3,
-	"skills": {
-		"obsidian-cli": {
-			"source": "kepano/obsidian-skills",
-			"sourceType": "github",
-			"sourceUrl": "https://github.com/kepano/obsidian-skills.git",
-			"skillPath": "skills/obsidian-cli/SKILL.md",
-			"skillFolderHash": "f46ae626875f7e47c410c2ee93896c4526024ebe127719e8fb430261b5677edc",
-			"installedAt": "2026-04-28T23:20:17.545Z",
-			"updatedAt": "2026-04-28T23:20:17.545Z"
-		},
-		"find-skills": {
-			"source": "vercel-labs/skills",
-			"sourceType": "github",
-			"sourceUrl": "https://github.com/vercel-labs/skills.git",
-			"skillPath": "skills/find-skills/SKILL.md",
-			"skillFolderHash": "d31e234f0c90694a670222cdd1dafa853e051d7066beda389f1097c22dadd461",
-			"installedAt": "2026-04-28T23:20:22.773Z",
-			"updatedAt": "2026-04-28T23:20:22.773Z"
-		},
-		"playwright-cli": {
-			"source": "microsoft/playwright-cli",
-			"sourceType": "github",
-			"sourceUrl": "https://github.com/microsoft/playwright-cli.git",
-			"skillPath": "skills/playwright-cli/SKILL.md",
-			"skillFolderHash": "17b68556620db6799a69ce72946b42eea69547856486847d42d004237f07256d",
-			"installedAt": "2026-04-29T01:21:13.083Z",
-			"updatedAt": "2026-04-29T01:21:13.083Z"
-		},
-		"vercel-react-best-practices": {
-			"source": "vercel-labs/agent-skills",
-			"sourceType": "github",
-			"sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
-			"skillPath": "skills/react-best-practices/SKILL.md",
-			"skillFolderHash": "343db72180d05814949fef7d46be96b5c6ee86b3",
-			"installedAt": "2026-05-04T02:22:32.655Z",
-			"updatedAt": "2026-05-04T02:22:32.655Z"
-		},
-		"skill-creator": {
-			"source": "anthropics/skills",
-			"sourceType": "github",
-			"sourceUrl": "https://github.com/anthropics/skills.git",
-			"skillPath": "skills/skill-creator/SKILL.md",
-			"skillFolderHash": "3cf9a8db32597ba3e24b584a3d696f4e11c7d7b6",
-			"pluginName": "example-skills",
-			"installedAt": "2026-05-04T02:23:23.173Z",
-			"updatedAt": "2026-05-04T02:23:23.173Z"
-		},
-		"azure-devops-cli": {
-			"source": "github/awesome-copilot",
-			"sourceType": "github",
-			"sourceUrl": "https://github.com/github/awesome-copilot.git",
-			"skillPath": "skills/azure-devops-cli/SKILL.md",
-			"skillFolderHash": "da5ebe107d2f8618f0ae41a5c48d5cfde11cb7b86789ba8fbfddc34a18dc17ab",
-			"installedAt": "2026-05-09T01:14:02.888Z",
-			"updatedAt": "2026-05-09T01:14:02.888Z"
-		},
-		"azure-kusto": {
-			"source": "microsoft/azure-skills",
-			"sourceType": "github",
-			"sourceUrl": "https://github.com/microsoft/azure-skills.git",
-			"skillPath": "skills/azure-kusto/SKILL.md",
-			"skillFolderHash": "88a3b6ded86237a0f082917685989fb0a1484e967a7869bbdd944ae994c27556",
-			"installedAt": "2026-05-09T01:16:25.577Z",
-			"updatedAt": "2026-05-09T01:16:25.577Z"
-		},
-		"thermo-nuclear-code-quality-review": {
-			"source": "cursor/plugins",
-			"sourceType": "github",
-			"sourceUrl": "https://github.com/cursor/plugins.git",
-			"skillPath": "cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md",
-			"skillFolderHash": "d9c8935dd560b3b6f5941247d04a1843f8c7cc35",
-			"installedAt": "2026-06-04T16:25:51.032Z",
-			"updatedAt": "2026-06-04T16:25:51.032Z"
-		},
-		"handoff": {
-			"source": "mattpocock/skills",
-			"sourceType": "github",
-			"sourceUrl": "https://github.com/mattpocock/skills.git",
-			"skillPath": "skills/productivity/handoff/SKILL.md",
-			"skillFolderHash": "184d485ae68a2132893a94239b2b85d253e6152b",
-			"pluginName": "mattpocock-skills",
-			"installedAt": "2026-07-19T18:21:59.552Z",
-			"updatedAt": "2026-07-19T18:21:59.552Z"
-		}
-	},
-	"dismissed": {
-		"findSkillsPrompt": true
-	},
-	"lastSelectedAgents": [
-		"amp",
-		"antigravity",
-		"antigravity-cli",
-		"cline",
-		"codex",
-		"cursor",
-		"deepagents",
-		"gemini-cli",
-		"github-copilot",
-		"kimi-code-cli",
-		"opencode",
-		"warp",
-		"zed",
-		"claude-code"
-	]
+  "version": 3,
+  "skills": {
+    "obsidian-cli": {
+      "source": "kepano/obsidian-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/kepano/obsidian-skills.git",
+      "skillPath": "skills/obsidian-cli/SKILL.md",
+      "skillFolderHash": "f46ae626875f7e47c410c2ee93896c4526024ebe127719e8fb430261b5677edc",
+      "installedAt": "2026-04-28T23:20:17.545Z",
+      "updatedAt": "2026-04-28T23:20:17.545Z"
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/skills.git",
+      "skillPath": "skills/find-skills/SKILL.md",
+      "skillFolderHash": "d31e234f0c90694a670222cdd1dafa853e051d7066beda389f1097c22dadd461",
+      "installedAt": "2026-04-28T23:20:22.773Z",
+      "updatedAt": "2026-04-28T23:20:22.773Z"
+    },
+    "playwright-cli": {
+      "source": "microsoft/playwright-cli",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/microsoft/playwright-cli.git",
+      "skillPath": "skills/playwright-cli/SKILL.md",
+      "skillFolderHash": "17b68556620db6799a69ce72946b42eea69547856486847d42d004237f07256d",
+      "installedAt": "2026-04-29T01:21:13.083Z",
+      "updatedAt": "2026-04-29T01:21:13.083Z"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "skillFolderHash": "343db72180d05814949fef7d46be96b5c6ee86b3",
+      "installedAt": "2026-05-04T02:22:32.655Z",
+      "updatedAt": "2026-05-04T02:22:32.655Z"
+    },
+    "skill-creator": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "skillPath": "skills/skill-creator/SKILL.md",
+      "skillFolderHash": "3cf9a8db32597ba3e24b584a3d696f4e11c7d7b6",
+      "pluginName": "example-skills",
+      "installedAt": "2026-05-04T02:23:23.173Z",
+      "updatedAt": "2026-05-04T02:23:23.173Z"
+    },
+    "azure-devops-cli": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/github/awesome-copilot.git",
+      "skillPath": "skills/azure-devops-cli/SKILL.md",
+      "skillFolderHash": "da5ebe107d2f8618f0ae41a5c48d5cfde11cb7b86789ba8fbfddc34a18dc17ab",
+      "installedAt": "2026-05-09T01:14:02.888Z",
+      "updatedAt": "2026-05-09T01:14:02.888Z"
+    },
+    "azure-kusto": {
+      "source": "microsoft/azure-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/microsoft/azure-skills.git",
+      "skillPath": "skills/azure-kusto/SKILL.md",
+      "skillFolderHash": "88a3b6ded86237a0f082917685989fb0a1484e967a7869bbdd944ae994c27556",
+      "installedAt": "2026-05-09T01:16:25.577Z",
+      "updatedAt": "2026-05-09T01:16:25.577Z"
+    },
+    "thermo-nuclear-code-quality-review": {
+      "source": "cursor/plugins",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/cursor/plugins.git",
+      "skillPath": "cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md",
+      "skillFolderHash": "d9c8935dd560b3b6f5941247d04a1843f8c7cc35",
+      "installedAt": "2026-06-04T16:25:51.032Z",
+      "updatedAt": "2026-06-04T16:25:51.032Z"
+    },
+    "handoff": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/mattpocock/skills.git",
+      "skillPath": "skills/productivity/handoff/SKILL.md",
+      "skillFolderHash": "184d485ae68a2132893a94239b2b85d253e6152b",
+      "pluginName": "mattpocock-skills",
+      "installedAt": "2026-07-19T18:21:59.552Z",
+      "updatedAt": "2026-07-19T18:21:59.552Z"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/mattpocock/skills.git",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "skillFolderHash": "c817f6f36acd483294144694a935a76d3e3eb101",
+      "pluginName": "mattpocock-skills",
+      "installedAt": "2026-07-19T18:42:41.559Z",
+      "updatedAt": "2026-07-19T18:42:41.559Z"
+    }
+  },
+  "dismissed": {
+    "findSkillsPrompt": true
+  },
+  "lastSelectedAgents": [
+    "amp",
+    "antigravity",
+    "antigravity-cli",
+    "cline",
+    "codex",
+    "cursor",
+    "deepagents",
+    "gemini-cli",
+    "github-copilot",
+    "kimi-code-cli",
+    "opencode",
+    "warp",
+    "zed",
+    "claude-code"
+  ]
 }
