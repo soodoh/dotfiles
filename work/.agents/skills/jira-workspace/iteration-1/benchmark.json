@@ -1,0 +1,293 @@
+{
+  "metadata": {
+    "skill_name": "jira",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-07-15T01:47:50Z",
+    "evals_run": [
+      1,
+      2,
+      3
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response explicitly respects the dry-run instruction and does not create or update a Jira issue.",
+          "passed": true,
+          "evidence": "Explicitly states no Jira issue was created or updated and lists only read-only discovery."
+        },
+        {
+          "text": "The proposed work item targets project OB, is assigned to me, and resolves the active sprint dynamically.",
+          "passed": true,
+          "evidence": "Targets OB, assignee me, and dynamically resolves the sole active sprint from the OB Scrum board."
+        },
+        {
+          "text": "The ticket content is grounded in inspected current changes rather than invented details.",
+          "passed": true,
+          "evidence": "Inspects git status and the untracked skill/eval files, then drafts a Task describing those exact changes."
+        },
+        {
+          "text": "The description is structured Markdown and the workflow avoids passing Markdown through an HTML-default description input.",
+          "passed": true,
+          "evidence": "Uses structured Markdown and a create-without-description followed by update --description-format markdown."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response proposes issue type Bug and includes observable expected/actual behavior or equivalent bug context.",
+          "passed": true,
+          "evidence": "Proposes Bug and includes reproduction, actual behavior, expected behavior, and acceptance criteria."
+        },
+        {
+          "text": "The epic is looked up and verified as an OB Epic rather than selected from the supplied phrase without validation.",
+          "passed": true,
+          "evidence": "Runs focused epic JQL and hydrates OB-2875 to verify project and issue type."
+        },
+        {
+          "text": "The workflow assigns the ticket to me and discovers the OB board's single active sprint instead of hardcoding a sprint ID.",
+          "passed": true,
+          "evidence": "Assigns to me and dynamically discovers the sole active sprint on board 473."
+        },
+        {
+          "text": "The response uses explicit Markdown formatting on a supported command or a create-then-update fallback, preventing raw HTML or literal markup in Jira.",
+          "passed": true,
+          "evidence": "Avoids create description default and proposes update --description-format markdown."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response does not set or search for an epic because none was requested.",
+          "passed": true,
+          "evidence": "Explicitly sets Epic: None and performs no epic search."
+        },
+        {
+          "text": "The description clearly states context, scope, acceptance criteria, and validation without inventing metric names or thresholds.",
+          "passed": true,
+          "evidence": "Provides Context, Scope, Acceptance criteria, and Validation while deferring names and thresholds to existing conventions."
+        },
+        {
+          "text": "The proposed work item targets OB, is assigned to me, and is placed into the dynamically resolved active sprint.",
+          "passed": true,
+          "evidence": "Targets OB, assigns me, and uses the active sprint resolved through live discovery."
+        },
+        {
+          "text": "No Jira mutation occurs because the user requested a draft only.",
+          "passed": true,
+          "evidence": "Explicitly states no Jira item was created or updated."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.75,
+        "passed": 3,
+        "failed": 1,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response explicitly respects the dry-run instruction and does not create or update a Jira issue.",
+          "passed": true,
+          "evidence": "Explicitly states no Jira item was created or updated."
+        },
+        {
+          "text": "The proposed work item targets project OB, is assigned to me, and resolves the active sprint dynamically.",
+          "passed": true,
+          "evidence": "Targets OB, assignee me, and dynamically queries the board and active sprint."
+        },
+        {
+          "text": "The ticket content is grounded in inspected current changes rather than invented details.",
+          "passed": false,
+          "evidence": "It observes the current untracked Jira skill files but deliberately drafts from HEAD instead, so the ticket is not grounded in the actual current working-tree changes."
+        },
+        {
+          "text": "The description is structured Markdown and the workflow avoids passing Markdown through an HTML-default description input.",
+          "passed": true,
+          "evidence": "Uses structured Markdown and proposes create then update with --description-format markdown."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.5,
+        "passed": 2,
+        "failed": 2,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response proposes issue type Bug and includes observable expected/actual behavior or equivalent bug context.",
+          "passed": true,
+          "evidence": "Proposes Bug with problem, actual/expected results, and acceptance criteria."
+        },
+        {
+          "text": "The epic is looked up and verified as an OB Epic rather than selected from the supplied phrase without validation.",
+          "passed": true,
+          "evidence": "Queries and validates the unique OB epic OB-2875 rather than trusting the phrase alone."
+        },
+        {
+          "text": "The workflow assigns the ticket to me and discovers the OB board's single active sprint instead of hardcoding a sprint ID.",
+          "passed": false,
+          "evidence": "Leaves the ticket unassigned/default and never discovers or sets the active sprint."
+        },
+        {
+          "text": "The response uses explicit Markdown formatting on a supported command or a create-then-update fallback, preventing raw HTML or literal markup in Jira.",
+          "passed": false,
+          "evidence": "Passes a Markdown description directly to create, whose description defaults to HTML, without an explicit Markdown format or safe fallback."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.75,
+        "passed": 3,
+        "failed": 1,
+        "total": 4,
+        "time_seconds": 0.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response does not set or search for an epic because none was requested.",
+          "passed": true,
+          "evidence": "Sets Epic: None and does not search for one."
+        },
+        {
+          "text": "The description clearly states context, scope, acceptance criteria, and validation without inventing metric names or thresholds.",
+          "passed": true,
+          "evidence": "Provides detailed scope, acceptance criteria, and validation without naming a metric or threshold."
+        },
+        {
+          "text": "The proposed work item targets OB, is assigned to me, and is placed into the dynamically resolved active sprint.",
+          "passed": false,
+          "evidence": "The draft omits assignment to me, active-sprint discovery, and sprint placement."
+        },
+        {
+          "text": "No Jira mutation occurs because the user requested a draft only.",
+          "passed": true,
+          "evidence": "It is explicitly a draft and no Jira mutation occurs."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.6667,
+        "stddev": 0.1443,
+        "min": 0.5,
+        "max": 0.75
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.33",
+      "time_seconds": "+0.0",
+      "tokens": "+0"
+    }
+  },
+  "notes": []
+}

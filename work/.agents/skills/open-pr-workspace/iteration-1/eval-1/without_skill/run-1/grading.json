@@ -1,0 +1,106 @@
+{
+  "expectations": [
+    {
+      "text": "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+      "passed": true,
+      "evidence": "The first preparation step extracts `OB-731` from the supplied prospective-range commit message `[OB-731] normalize cache keys` and describes confirming that the existing issue is accessible, active, and scope-aligned. It explicitly leaves verification pending rather than inventing completion, and nowhere proposes creating a Jira issue."
+    },
+    {
+      "text": "The response reuses feat/cache-key because it is clean, has no upstream, and has no remote counterpart.",
+      "passed": true,
+      "evidence": "The branch section says to use the current local `feat/cache-key` as head, not create or switch branches, and notes that it has never been pushed and has no upstream. The response also proposes initial publication with `git push --set-upstream`, consistent with the supplied fact that no remote counterpart exists. Its checks section requires confirming the worktree is clean before opening."
+    },
+    {
+      "text": "The response fetches origin and proposes rebasing onto origin/develop before pushing.",
+      "passed": true,
+      "evidence": "The rebase section states: `Before publication in a real run, fetch the remote ... then rebase feat/cache-key onto the latest origin/develop`. The branch section places `git push --set-upstream origin feat/cache-key` only after validation. It correctly does not execute either operation in the requested dry run."
+    },
+    {
+      "text": "The proposed title begins '[OB-731]' and contains a concise change description.",
+      "passed": true,
+      "evidence": "The proposed title is exactly `[OB-731] Normalize cache keys`, with the required prefix and a concise description."
+    },
+    {
+      "text": "The proposed body preserves and fills Summary, Jira, Testing, and Risk sections without claiming unrun tests passed.",
+      "passed": true,
+      "evidence": "The body contains all four headings (`Summary`, `Jira`, `Testing`, and `Risk`) with substantive content. Testing explicitly says `Not run (dry-run preparation only)` and instructs recording exact outcomes later, so no unrun check is represented as passing."
+    },
+    {
+      "text": "The response selects @acme/cache-team based on CODEOWNERS and excludes speculative reviewers.",
+      "passed": true,
+      "evidence": "Reviewer selection requests only `@acme/cache-team`, cites `.github/CODEOWNERS` ownership of changed `src/cache/**` paths, and explicitly says `Add no speculative reviewers unsupported by repository evidence.`"
+    },
+    {
+      "text": "The response performs no mutations because the prompt is a dry run.",
+      "passed": true,
+      "evidence": "The transcript contains no tool calls, and `metrics.json` reports `total_tool_calls: 0`. The response repeatedly states that fetch, rebase, push, Jira access, checks, PR creation, and reviewer requests were not performed; the only executor output artifact is `response.md`."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "total": 7,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 4813,
+    "transcript_chars": 4813
+  },
+  "timing": {
+    "total_tokens": 0,
+    "duration_ms": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime did not expose token or duration metrics in the completion notification."
+  },
+  "claims": [
+    {
+      "claim": "No repository or remote changes were made.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The execution transcript records no tools or commands, and metrics report zero tool calls; only the response artifact was created by the evaluation harness."
+    },
+    {
+      "claim": "Jira verification remains pending.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The response clearly labels verification pending and the transcript contains no Jira access or external tool call."
+    },
+    {
+      "claim": "No checks were run.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The response says `No commands are executed here`, while metrics show zero tool calls and zero steps."
+    },
+    {
+      "claim": "No files are staged.",
+      "type": "factual",
+      "verified": false,
+      "evidence": "The acceptance report acknowledges that `noStagedFiles` relies on the prompt's stated clean-branch condition and was not independently verified with Git. This does not undermine the dry-run task, but it is not directly evidenced by execution."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The response reuses feat/cache-key because it is clean, has no upstream, and has no remote counterpart.",
+        "reason": "The assertion bundles three branch facts, but the response can rely on prompt-supplied facts in a no-command dry run. Consider requiring the response to explicitly state all three, especially `no remote counterpart`, rather than accepting implications from `never been pushed`."
+      },
+      {
+        "assertion": "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+        "reason": "The word `verifies` is ambiguous in a dry run where Jira access is intentionally not performed. Consider specifying that the response must describe extracting the key from `develop..HEAD` and leave live Jira verification pending, rather than requiring actual verification."
+      }
+    ],
+    "overall": "The assertions cover the important workflow outcomes and are generally discriminating. Clarifying dry-run evidence requirements for Jira and remote-branch state would reduce ambiguity."
+  }
+}

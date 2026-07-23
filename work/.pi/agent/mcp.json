@@ -1,0 +1,70 @@
+{
+	"settings": {
+		"autoAuth": true,
+		"samplingAutoApprove": true
+	},
+	"mcpServers": {
+		"serena": {
+			"command": "serena",
+			"args": [
+				"start-mcp-server",
+				"--context",
+				"claude-code",
+				"--project-from-cwd"
+			],
+			"lifecycle": "lazy",
+			"directTools": true
+		},
+		"context7": {
+			"url": "https://mcp.context7.com/mcp",
+			"headers": {
+				"CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+			},
+			"lifecycle": "lazy",
+			"directTools": true
+		},
+		"mixpanel": {
+			"url": "https://mcp.mixpanel.com/mcp",
+			"auth": "oauth",
+			"lifecycle": "lazy",
+			"directTools": false
+		},
+		"playwright": {
+			"command": "npx",
+			"args": ["-y", "@playwright/mcp@latest", "--extension"],
+			"lifecycle": "lazy"
+		},
+		"glean": {
+			"url": "https://docusign-prod-be.glean.com/mcp/default",
+			"auth": "oauth",
+			"lifecycle": "lazy",
+			"directTools": true
+		},
+		"azure": {
+			"command": "npx",
+			"args": ["-y", "@azure/mcp@latest", "server", "start"],
+			"lifecycle": "lazy",
+			"directTools": false
+		},
+		"kusto": {
+			"command": "npx",
+			"args": ["-y", "kusto-mcp@latest"],
+			"lifecycle": "lazy",
+			"directTools": false
+		},
+		"azure-devops": {
+			"command": "npx",
+			"args": ["-y", "@azure-devops/mcp@latest", "DocusignOrg"],
+			"lifecycle": "lazy",
+			"directTools": false
+		},
+		"figma": {
+			"command": "npx",
+			"args": ["-y", "figma-developer-mcp", "--stdio"],
+			"env": {
+				"FIGMA_API_KEY": "${FIGMA_API_KEY}"
+			},
+			"lifecycle": "lazy"
+		}
+	}
+}

@@ -1,0 +1,116 @@
+{
+  "expectations": [
+    {
+      "text": "The response preserves dry-run safety and does not claim to create a ticket, branch, push, reviewer request, or PR.",
+      "passed": true,
+      "evidence": "The response explicitly states: 'Dry run completed without changing Git, Jira, or GitHub. I did not create a branch, rebase, push, request reviewers, or open a PR.' All mutation steps are presented only as a future plan."
+    },
+    {
+      "text": "The response verifies or proposes verifying the GitHub default branch instead of assuming main solely from its name.",
+      "passed": true,
+      "evidence": "The response reports that GitHub 'confirms the real default branch is `main`,' and the command evidence includes `gh repo view --json nameWithOwner,defaultBranchRef,pullRequestTemplates`, which directly queries the default branch."
+    },
+    {
+      "text": "The proposed head branch is exactly OB-2468 because the starting branch is the default branch.",
+      "passed": false,
+      "evidence": "The primary proposed branch is `<VALID-OB-KEY>`, not `OB-2468`: 'Branch: `<VALID-OB-KEY>` after Jira resolution. `OB-2468` is explicitly rejected.' Although the response mentions `OB-2468` as a conditional mechanical branch if the user overrides the mismatch, it does not propose it for the current run."
+    },
+    {
+      "text": "The proposed PR title follows the exact form '[OB-2468] short description of changes'.",
+      "passed": false,
+      "evidence": "The primary proposed title is `'[<VALID-OB-KEY>] add custom Jira ticket skill'`, so it does not use the required `OB-2468` prefix. The exact title `'[OB-2468] add custom Jira ticket skill'` appears only as a hypothetical requiring explicit user authorization, not as the current proposed PR title."
+    },
+    {
+      "text": "The response identifies repository-specific validation and commit conventions from the current dotfiles repository.",
+      "passed": true,
+      "evidence": "It identifies the `AGENTS.md` conventional-commit rule and valid `agents` scope, notes that `feat(agents): custom jira ticket skill` conforms, and gives repository-relevant checks including `git diff --check`, `jq empty` for the eval JSON, credential scanning, commitlint, and an authoritative skill evaluator if available."
+    },
+    {
+      "text": "The response does not invent a PR template or reviewer and explains that neither is evidenced in this repository.",
+      "passed": true,
+      "evidence": "It states: 'No repository PR template or `CODEOWNERS` file exists,' labels its body as the skill's fallback rather than a repository template, and says to create the PR without `--reviewer` because there are no explicit reviewer rules, no `CODEOWNERS`, and no defensible human-reviewer evidence."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 2,
+    "total": 6,
+    "pass_rate": 0.6666666666666666
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 10109,
+    "transcript_chars": 10109
+  },
+  "timing": {
+    "total_tokens": 0,
+    "duration_ms": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime did not expose token or duration metrics in the completion notification."
+  },
+  "claims": [
+    {
+      "claim": "The run made no Git, Jira, GitHub, or filesystem mutations.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The transcript describes only read-only inspection and explicitly denies creating a branch, rebasing, pushing, requesting reviewers, or opening a PR; the output metrics list only `response.md` as created."
+    },
+    {
+      "claim": "GitHub confirms `main` is the repository default branch.",
+      "type": "factual",
+      "verified": true,
+      "evidence": "The transcript records a successful `gh repo view --json nameWithOwner,defaultBranchRef,pullRequestTemplates` query and reports default branch `main`."
+    },
+    {
+      "claim": "OB-2468 is closed, resolved, and unrelated to the prospective Jira-skill change.",
+      "type": "factual",
+      "verified": true,
+      "evidence": "The transcript records a successful Jira lookup returning the closed/resolved Task 'Disable Upload document walkthrough & Update unit tests'; its subject is plainly different from the inspected commit `feat(agents): custom jira ticket skill`."
+    },
+    {
+      "claim": "The observed worktree was not clean because `unix-configs/.agents/skills/open-pr/` was untracked.",
+      "type": "factual",
+      "verified": true,
+      "evidence": "The response quotes `git status --short --branch` as showing `main...origin/main [ahead 1]` plus untracked `unix-configs/.agents/skills/open-pr/`."
+    },
+    {
+      "claim": "No repository PR template, CODEOWNERS file, or defensible reviewer rule was found.",
+      "type": "factual",
+      "verified": true,
+      "evidence": "The transcript reports the GitHub repository query returned no PR template and describes searches for `CODEOWNERS` and reviewer guidance as yielding none; no output contradicts this finding."
+    },
+    {
+      "claim": "`git diff --check`, JSON parsing, and a targeted credential scan passed.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The command report explicitly lists all three as run and passed, while separately acknowledging that commitlint and behavioral skill evaluations were not run."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The proposed head branch is exactly OB-2468 because the starting branch is the default branch.",
+        "reason": "This assertion conflicts with the observed Jira state: OB-2468 was closed and unrelated. A robust eval should specify that the fixture ticket is active and relevant, or explicitly test whether the skill stops on a stale/unrelated supplied key rather than requiring unsafe reuse."
+      },
+      {
+        "assertion": "The proposed PR title follows the exact form '[OB-2468] short description of changes'.",
+        "reason": "Like the branch assertion, this forces metadata for a ticket that live verification found unsuitable. Consider accepting a clearly explained stop-and-replace outcome when Jira evidence contradicts the prompt premise, while separately checking the title format for a valid ticket fixture."
+      },
+      {
+        "reason": "No assertion checks how the response handles the prompt's clean-worktree premise being contradicted by an actual untracked directory. The response appropriately surfaced this as a blocker; an assertion should reward detecting and refusing to silently include unexpected files."
+      }
+    ],
+    "overall": "The eval covers dry-run safety, default-branch verification, repository conventions, and reviewer/template evidence well. However, two exact-metadata assertions assume OB-2468 remains usable despite live Jira evidence to the contrary, penalizing a safety-preserving stop rather than distinguishing correct execution from blind compliance."
+  }
+}

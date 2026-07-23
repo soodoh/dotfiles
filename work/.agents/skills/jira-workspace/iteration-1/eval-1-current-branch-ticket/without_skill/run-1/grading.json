@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "The response explicitly respects the dry-run instruction and does not create or update a Jira issue.",
+      "passed": true,
+      "evidence": "Explicitly states no Jira item was created or updated."
+    },
+    {
+      "text": "The proposed work item targets project OB, is assigned to me, and resolves the active sprint dynamically.",
+      "passed": true,
+      "evidence": "Targets OB, assignee me, and dynamically queries the board and active sprint."
+    },
+    {
+      "text": "The ticket content is grounded in inspected current changes rather than invented details.",
+      "passed": false,
+      "evidence": "It observes the current untracked Jira skill files but deliberately drafts from HEAD instead, so the ticket is not grounded in the actual current working-tree changes."
+    },
+    {
+      "text": "The description is structured Markdown and the workflow avoids passing Markdown through an HTML-default description input.",
+      "passed": true,
+      "evidence": "Uses structured Markdown and proposes create then update with --description-format markdown."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 1,
+    "total": 4,
+    "pass_rate": 0.75
+  },
+  "claims": [],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [],
+    "overall": "Assertions discriminate the core workflow requirements."
+  }
+}

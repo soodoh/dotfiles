@@ -1,0 +1,15 @@
+{
+  "eval_id": 3,
+  "eval_name": "published-dirty-missing-jira",
+  "prompt": "Dry-run only: plan opening a GitHub PR for my current work. I'm on feature/session-cleanup with unstaged changes, and origin/feature/session-cleanup already exists. The default branch discovered from GitHub is trunk. There is no Jira key in my prompt, branch, or commits. Explain exactly what you would do, including the Jira fallback, branch handling, conflict safety, validation, PR metadata, and duplicate-PR check. Do not actually create or modify anything.",
+  "assertions": [
+    "The response invokes or explicitly follows the jira skill as the fallback while only drafting the issue in dry-run mode.",
+    "The response commits only reviewed intended changes before creating a fresh child branch and does not rewrite the published feature/session-cleanup branch.",
+    "The proposed child branch is named from the canonical Jira key returned by the fallback workflow.",
+    "The response fetches and rebases the child branch onto origin/trunk and stops or aborts if conflict intent is ambiguous.",
+    "The response derives validation from repository guidance and refuses to bypass or suppress failing checks.",
+    "The response checks for an existing PR for the selected head before any push or PR creation.",
+    "The proposed PR title uses the exact '[JIRA-KEY] short description' shape and the body links Jira and records validation evidence.",
+    "The response performs no mutation because the prompt is a dry run."
+  ]
+}

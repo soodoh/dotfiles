@@ -1,0 +1,106 @@
+{
+  "expectations": [
+    {
+      "text": "The response invokes or explicitly follows the jira skill as the fallback while only drafting the issue in dry-run mode.",
+      "passed": true,
+      "evidence": "The Jira fallback section says, 'I would therefore follow the installed `jira` skill rather than invent a key. In this dry run I would only draft the ticket; no TWG mutation would run,' and provides a proposed ticket draft."
+    },
+    {
+      "text": "The response commits only reviewed intended changes before creating a fresh child branch and does not rewrite the published feature/session-cleanup branch.",
+      "passed": true,
+      "evidence": "The response says it would review every status/diff entry, use explicit `git add <paths>`, commit on the current branch, and only then create a fresh child branch. It explicitly says it would not reuse, rename, rebase, force-push, or otherwise rewrite the published `feature/session-cleanup` branch."
+    },
+    {
+      "text": "The proposed child branch is named from the canonical Jira key returned by the fallback workflow.",
+      "passed": true,
+      "evidence": "The response states, 'The key returned by Jira—not a guessed key—becomes `<JIRA-KEY>`' and then, 'I would create a fresh child branch at that commit named exactly `<JIRA-KEY>`.' It only proposes `<JIRA-KEY>-pr` as a collision-safe variant after inspecting an existing ref."
+    },
+    {
+      "text": "The response fetches and rebases the child branch onto origin/trunk and stops or aborts if conflict intent is ambiguous.",
+      "passed": true,
+      "evidence": "Under update safety, the response places `git fetch origin` and `git rebase origin/trunk` on the new unpublished child branch only. It says ambiguous conflict intent leads to `git rebase --abort` and a request for direction."
+    },
+    {
+      "text": "The response derives validation from repository guidance and refuses to bypass or suppress failing checks.",
+      "passed": true,
+      "evidence": "The validation section derives gates from repository instructions, changed packages, hooks, CI, and package scripts. It explicitly refuses suppressions, skipped hooks, reduced checks, `--no-verify`, or pushing while an authoritative check is blocked."
+    },
+    {
+      "text": "The response checks for an existing PR for the selected head before any push or PR creation.",
+      "passed": true,
+      "evidence": "The response places `gh pr list --head \"<JIRA-KEY>\" --state all --json number,state,url,title` immediately before push, requires querying the exact collision-safe head when applicable, and says any existing open or closed PR prevents duplicate creation."
+    },
+    {
+      "text": "The proposed PR title uses the exact '[JIRA-KEY] short description' shape and the body links Jira and records validation evidence.",
+      "passed": true,
+      "evidence": "The proposed title is `[<JIRA-KEY>] concise imperative description of the verified change`. The fallback body contains a Markdown Jira link `[<JIRA-KEY>](<JIRA-URL>)` and a Validation section recording each exact command and truthful result."
+    },
+    {
+      "text": "The response performs no mutation because the prompt is a dry run.",
+      "passed": true,
+      "evidence": "The response repeatedly labels the plan dry-run only and says no Jira, Git, GitHub, branch, index, or worktree mutation occurred. `outputs/metrics.json` independently reports zero tool calls and zero errors, supporting that the executor performed no mutating operation."
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 11723,
+    "transcript_chars": 11723
+  },
+  "timing": {
+    "total_tokens": 0,
+    "duration_ms": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime did not expose token or duration metrics in the completion notification."
+  },
+  "claims": [
+    {
+      "claim": "No repository, GitHub remote, Jira state, branch, index, or working-tree file was modified.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The executor metrics report zero tool calls and the response is framed entirely as a hypothetical plan; no mutation is recorded in the transcript."
+    },
+    {
+      "claim": "The read-only repository inspection commands listed in the acceptance report were completed.",
+      "type": "process",
+      "verified": false,
+      "evidence": "The acceptance report marks several Git commands as passed and a GitHub command as failed, but `outputs/metrics.json` reports zero tool calls and the transcript contains no command execution records. These completion claims are unsupported and conflict with the metrics."
+    },
+    {
+      "claim": "The current repository root package.json exposes no general validation scripts.",
+      "type": "factual",
+      "verified": false,
+      "evidence": "No repository files were included in outputs and the zero-tool-call metrics show that the executor did not inspect `package.json`; the claim cannot be verified from the provided artifacts."
+    },
+    {
+      "claim": "The plan preserves the published feature/session-cleanup branch while moving reviewed work to an unpublished child branch.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The sequence commits reviewed intended paths before branching, creates the child at that commit, confines rebase and push to the child, and explicitly forbids rewriting or force-pushing the published feature branch."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "No assertion checks the truthfulness of execution evidence. The acceptance report claims multiple commands completed despite metrics reporting zero tool calls; add an assertion that reported commands and validation results agree with the transcript and executor metrics."
+      }
+    ],
+    "overall": "The assertions strongly cover the requested workflow and all pass, but they miss a material internal-consistency issue in the appended acceptance report: invented command-execution results."
+  }
+}

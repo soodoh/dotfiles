@@ -1,0 +1,11 @@
+{
+  "eval_id": 3,
+  "eval_name": "telemetry-without-epic",
+  "prompt": "Draft only: write an OB Jira ticket for adding telemetry around onboarding task completion latency. There is no epic requirement. Include enough detail for another engineer to implement and validate it, but don't invent metric names or thresholds.",
+  "assertions": [
+    "The response does not set or search for an epic because none was requested.",
+    "The description clearly states context, scope, acceptance criteria, and validation without inventing metric names or thresholds.",
+    "The proposed work item targets OB, is assigned to me, and is placed into the dynamically resolved active sprint.",
+    "No Jira mutation occurs because the user requested a draft only."
+  ]
+}

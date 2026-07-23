@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "The response does not set or search for an epic because none was requested.",
+      "passed": true,
+      "evidence": "Sets Epic: None and does not search for one."
+    },
+    {
+      "text": "The description clearly states context, scope, acceptance criteria, and validation without inventing metric names or thresholds.",
+      "passed": true,
+      "evidence": "Provides detailed scope, acceptance criteria, and validation without naming a metric or threshold."
+    },
+    {
+      "text": "The proposed work item targets OB, is assigned to me, and is placed into the dynamically resolved active sprint.",
+      "passed": false,
+      "evidence": "The draft omits assignment to me, active-sprint discovery, and sprint placement."
+    },
+    {
+      "text": "No Jira mutation occurs because the user requested a draft only.",
+      "passed": true,
+      "evidence": "It is explicitly a draft and no Jira mutation occurs."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 1,
+    "total": 4,
+    "pass_rate": 0.75
+  },
+  "claims": [],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [],
+    "overall": "Assertions discriminate the core workflow requirements."
+  }
+}

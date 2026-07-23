@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "The response proposes issue type Bug and includes observable expected/actual behavior or equivalent bug context.",
+      "passed": true,
+      "evidence": "Proposes Bug with problem, actual/expected results, and acceptance criteria."
+    },
+    {
+      "text": "The epic is looked up and verified as an OB Epic rather than selected from the supplied phrase without validation.",
+      "passed": true,
+      "evidence": "Queries and validates the unique OB epic OB-2875 rather than trusting the phrase alone."
+    },
+    {
+      "text": "The workflow assigns the ticket to me and discovers the OB board's single active sprint instead of hardcoding a sprint ID.",
+      "passed": false,
+      "evidence": "Leaves the ticket unassigned/default and never discovers or sets the active sprint."
+    },
+    {
+      "text": "The response uses explicit Markdown formatting on a supported command or a create-then-update fallback, preventing raw HTML or literal markup in Jira.",
+      "passed": false,
+      "evidence": "Passes a Markdown description directly to create, whose description defaults to HTML, without an explicit Markdown format or safe fallback."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 2,
+    "total": 4,
+    "pass_rate": 0.5
+  },
+  "claims": [],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [],
+    "overall": "Assertions discriminate the core workflow requirements."
+  }
+}

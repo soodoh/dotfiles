@@ -1,0 +1,101 @@
+{
+  "expectations": [
+    {
+      "text": "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+      "passed": true,
+      "evidence": "The Jira section identifies `OB-731` from `develop..HEAD`, including `[OB-731] normalize cache keys`, and says: `Before any real branch preparation, verify OB-731 through Jira/TWG`. It also explicitly states: `No Jira issue would be created from the current evidence.`"
+    },
+    {
+      "text": "The response reuses feat/cache-key because it is clean, has no upstream, and has no remote counterpart.",
+      "passed": true,
+      "evidence": "The Base and head section says to `Reuse feat/cache-key` because it is a `clean, non-default, unpublished local branch with no upstream and no same-named remote branch`. It also declines to rename the branch merely because its name lacks the Jira key."
+    },
+    {
+      "text": "The response fetches origin and proposes rebasing onto origin/develop before pushing.",
+      "passed": true,
+      "evidence": "The Rebase section proposes, in order, `git fetch origin` and `git rebase origin/develop`. The later Duplicate/push/create guard places `git push --set-upstream origin feat/cache-key` only after these preparation steps and states none were run in the dry run."
+    },
+    {
+      "text": "The proposed title begins '[OB-731]' and contains a concise change description.",
+      "passed": true,
+      "evidence": "The proposed title is exactly `[OB-731] normalize cache keys`, which begins with the required Jira key and uses the concise commit-derived description."
+    },
+    {
+      "text": "The proposed body preserves and fills Summary, Jira, Testing, and Risk sections without claiming unrun tests passed.",
+      "passed": true,
+      "evidence": "The Markdown body contains all four headings (`## Summary`, `## Jira`, `## Testing`, and `## Risk`) with substantive content. Every placeholder check in Testing is marked `Not run (dry run)`, and the response says `Do not claim any check passed.`"
+    },
+    {
+      "text": "The response selects @acme/cache-team based on CODEOWNERS and excludes speculative reviewers.",
+      "passed": true,
+      "evidence": "Reviewer Selection ties `@acme/cache-team` directly to `.github/CODEOWNERS` coverage of `src/cache/**`, calls it the smallest evidence-based reviewer set, and explicitly says `Do not add speculative individual reviewers.`"
+    },
+    {
+      "text": "The response performs no mutations because the prompt is a dry run.",
+      "passed": true,
+      "evidence": "The response opens with `Dry-run PR preparation only; no repository, Jira, GitHub, branch, commit, index, or remote mutations were performed.` Executor metrics report zero tool calls, zero steps, and zero errors; the only listed output artifact is `response.md`, created by the evaluation harness."
+    },
+    {
+      "text": "The proposed Testing section labels every unexecuted command as not run and contains no unchecked evidence presented as passed.",
+      "passed": true,
+      "evidence": "All four proposed commands in Testing end with `Not run (dry run)`. The surrounding text says exact commands must replace placeholders before PR creation, and neither Testing nor the residual status presents any check as passed."
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 6315,
+    "transcript_chars": 6315
+  },
+  "timing": {
+    "executor_duration_seconds": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime notification omitted timing metrics."
+  },
+  "claims": [
+    {
+      "claim": "No repository, Jira, GitHub, branch, commit, index, or remote mutations were performed.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The transcript contains only the dry-run response, and executor metrics show zero tool calls and zero execution steps."
+    },
+    {
+      "claim": "The proposed body preserves all supplied template sections.",
+      "type": "factual",
+      "verified": true,
+      "evidence": "The body visibly contains Summary, Jira, Testing, and Risk headings, each with populated explanatory content."
+    },
+    {
+      "claim": "No checks were run or reported as passed.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Each Testing entry is labeled `Not run (dry run)`, the residual status repeats that checks were not run, and metrics show zero tool calls."
+    },
+    {
+      "claim": "@acme/cache-team is the smallest evidence-based reviewer set.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Given the prompt's repository evidence that CODEOWNERS maps all changed `src/cache/**` paths to `@acme/cache-team`, selecting only that team and no speculative individuals is justified."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [],
+    "overall": "No suggestions; the assertions cover the key safety, sequencing, metadata, reviewer, template, and dry-run behaviors and are directly verifiable from the response."
+  }
+}

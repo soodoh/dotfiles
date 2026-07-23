@@ -1,0 +1,96 @@
+{
+  "expectations": [
+    {
+      "text": "The response preserves dry-run safety and does not claim to create a ticket, branch, push, reviewer request, or PR.",
+      "passed": true,
+      "evidence": "The response repeatedly frames all mutating commands as proposed and concludes: 'No branch was created, no push or PR command was executed, no Jira lookup/update was performed.' Executor metrics report zero tool calls and only response.md as created output."
+    },
+    {
+      "text": "The response verifies or proposes verifying the GitHub default branch instead of assuming main solely from its name.",
+      "passed": false,
+      "evidence": "The prompt states only that the current branch is the GitHub default branch, but the response asserts that the supplied state includes `main` and consistently uses `origin/main` without proposing a default-branch lookup. Its acceptance report claims read-only inspection, while metrics show zero tool calls, so no verification occurred."
+    },
+    {
+      "text": "The proposed head branch is exactly OB-2468 because the starting branch is the default branch.",
+      "passed": false,
+      "evidence": "The proposed branch is explicitly `ob-2468/jira-ticket-skill`, not exactly `OB-2468`."
+    },
+    {
+      "text": "The proposed PR title follows the exact form '[OB-2468] short description of changes'.",
+      "passed": false,
+      "evidence": "The proposed title is `feat(agents): add Jira ticket creation skill (OB-2468)`, which does not begin with `[OB-2468]` and therefore does not follow the required exact form."
+    },
+    {
+      "text": "The response identifies repository-specific validation and commit conventions from the current dotfiles repository.",
+      "passed": true,
+      "evidence": "It identifies `bunx commitlint --from origin/main --to HEAD --verbose`, the conventional commit format with allowed `agents` scope, JSON parsing for the eval file, and a non-mutating GNU Stow preview for `unix-configs`, all specific to this dotfiles repository."
+    },
+    {
+      "text": "The response does not invent a PR template or reviewer and explains that neither is evidenced in this repository.",
+      "passed": false,
+      "evidence": "The reviewer half is supported ('no repository ownership rule or requested reviewer is established'), and no reviewer is named. However, the response supplies a generic body shape without stating that repository inspection found no PR template; metrics show zero tool calls, so it cannot evidence the required repository-template determination. The combined expectation is therefore not fully met."
+    },
+    {
+      "text": "The response treats the supplied clean-worktree and active relevant Jira facts as authoritative and does not substitute unrelated live state.",
+      "passed": false,
+      "evidence": "It correctly treats the clean worktree and active/relevant Jira ticket as authoritative, but it substitutes unrelated state not supplied by the scenario: `main`, a three-file diff, Jira skill contents, and package metadata. The prompt expressly says to treat scenario facts as authoritative rather than rely on unrelated local files."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 5,
+    "total": 7,
+    "pass_rate": 0.2857142857
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 6419,
+    "transcript_chars": 6419
+  },
+  "timing": {
+    "executor_duration_seconds": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime notification omitted timing metrics."
+  },
+  "claims": [
+    {
+      "claim": "The supplied state identifies the default branch as main.",
+      "type": "factual",
+      "verified": false,
+      "evidence": "The eval prompt says only 'the GitHub default branch' and does not name it; the response introduces `main` as though supplied."
+    },
+    {
+      "claim": "Read-only repository inspection established the branch, HEAD commit, remote default branch, diff, and root metadata.",
+      "type": "process",
+      "verified": false,
+      "evidence": "The acceptance report makes this claim, but outputs/metrics.json records zero tool calls and zero steps."
+    },
+    {
+      "claim": "No branch, push, PR, reviewer request, or Jira mutation was performed.",
+      "type": "process",
+      "verified": true,
+      "evidence": "All commands are presented as hypothetical, the final result explicitly disclaims mutations, and executor metrics record zero tool calls."
+    },
+    {
+      "claim": "There is no repository test script in the root package metadata.",
+      "type": "factual",
+      "verified": false,
+      "evidence": "The response offers no inspected artifact and executor metrics show no tool calls; this claim cannot be verified from the provided outputs."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [],
+    "overall": "The assertions are discriminating and directly catch the major failures: incorrect branch and title formats, unverified default-branch naming, missing template evidence, and reliance on unrelated state. No material evaluation gap was observed."
+  }
+}

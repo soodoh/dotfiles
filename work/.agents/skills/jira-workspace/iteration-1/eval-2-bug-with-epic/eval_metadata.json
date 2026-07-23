@@ -1,0 +1,11 @@
+{
+  "eval_id": 2,
+  "eval_name": "bug-with-epic",
+  "prompt": "Preview only\u2014do not create anything. I need an Onboarding bug ticket because the welcome checklist sometimes remains in a loading state after all tasks have loaded. Put it under the 'Getting started experiences' epic if that is the unambiguous matching OB epic. Show me the proposed ticket and exact discovery/create/update approach.",
+  "assertions": [
+    "The response proposes issue type Bug and includes observable expected/actual behavior or equivalent bug context.",
+    "The epic is looked up and verified as an OB Epic rather than selected from the supplied phrase without validation.",
+    "The workflow assigns the ticket to me and discovers the OB board's single active sprint instead of hardcoding a sprint ID.",
+    "The response uses explicit Markdown formatting on a supported command or a create-then-update fallback, preventing raw HTML or literal markup in Jira."
+  ]
+}

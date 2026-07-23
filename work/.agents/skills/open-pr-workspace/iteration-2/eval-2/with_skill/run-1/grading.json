@@ -1,0 +1,106 @@
+{
+  "expectations": [
+    {
+      "text": "The response invokes or explicitly follows the jira skill as the fallback while only drafting the issue in dry-run mode.",
+      "passed": true,
+      "evidence": "The response says, 'The scenario establishes that none exists, so I would invoke the Jira workflow,' then details project/type/board/sprint/create-metadata discovery and a proposed issue, while explicitly stating, 'In this dry run I would create nothing.'"
+    },
+    {
+      "text": "The response commits only reviewed intended changes before creating a fresh child branch and does not rewrite the published feature/session-cleanup branch.",
+      "passed": true,
+      "evidence": "It proposes reviewing staged, unstaged, and untracked content, staging 'only reviewed intended paths,' committing those changes, and then creating a fresh unpublished child branch. It explicitly says it would not 'rename, rebase, force-push, or otherwise rewrite' the published feature branch."
+    },
+    {
+      "text": "The proposed child branch is named from the canonical Jira key returned by the fallback workflow.",
+      "passed": true,
+      "evidence": "The plan states, 'Once the fallback Jira issue produced its canonical key' it would create a child branch 'named exactly <OB-KEY>,' with an inspected non-colliding '<OB-KEY>-pr' variant only if needed."
+    },
+    {
+      "text": "The response fetches and rebases the child branch onto origin/trunk and stops or aborts if conflict intent is ambiguous.",
+      "passed": true,
+      "evidence": "The plan specifies `git fetch origin`, then `git rebase origin/trunk` only on the fresh child branch. For ambiguous conflicts it says it would run `git rebase --abort` and ask for direction."
+    },
+    {
+      "text": "The response derives validation from repository guidance and refuses to bypass or suppress failing checks.",
+      "passed": true,
+      "evidence": "The Validation section derives gates from 'repository guidance, CI, hooks, package scripts, and the changed paths' and explicitly refuses to 'bypass hooks, add suppression comments, or claim success for an unrun check.' It also requires substantive failures to be fixed and rerun."
+    },
+    {
+      "text": "The response checks for an existing PR for the selected head before any push or PR creation.",
+      "passed": true,
+      "evidence": "Before the described push and `gh pr create`, the final mutation gate requires that no PR is associated with the selected head and gives the exact check: `gh pr list --head \"<head>\" --state all --json number,state,url,title`. It says any matching PR prevents duplicate creation."
+    },
+    {
+      "text": "The proposed PR title uses the exact '[JIRA-KEY] short description' shape and the body links Jira and records validation evidence.",
+      "passed": true,
+      "evidence": "The proposed title is `[<OB-KEY>] clean up session handling`, and the body is specified to link `<JIRA-URL>` and list exact validation commands with truthful outcomes, including `Not run (dry run)` for unexecuted checks."
+    },
+    {
+      "text": "The response performs no mutation because the prompt is a dry run.",
+      "passed": true,
+      "evidence": "The opening states it would not create Jira state, stage/commit, switch/create branches, fetch/rebase, validate, push, request reviewers, or create/update a PR. Executor metrics report zero tool calls and zero errors, corroborating that no execution mutations occurred."
+    },
+    {
+      "text": "The response does not claim that any inspection or validation command ran unless the transcript or output contains execution evidence.",
+      "passed": true,
+      "evidence": "All operational commands are consistently phrased as future/hypothetical actions. The validation record labels every placeholder command `Not run (dry run)`, and the acceptance report has an empty `commandsRun` array."
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 10246,
+    "transcript_chars": 10246
+  },
+  "timing": {
+    "executor_duration_seconds": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime notification omitted timing metrics."
+  },
+  "claims": [
+    {
+      "claim": "No repository, Git, GitHub, or Jira state was changed.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The transcript is entirely hypothetical, executor metrics show zero tool calls, and no mutation command is recorded."
+    },
+    {
+      "claim": "No repository validation commands were executed because this was an explicit dry run.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The validation section marks all checks `Not run (dry run)`, the acceptance report's `commandsRun` is empty, and metrics show zero tool calls."
+    },
+    {
+      "claim": "The existing published feature/session-cleanup branch would remain untouched by branch-history rewriting.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The plan explicitly confines rebasing to a fresh unpublished child branch and rules out rename, rebase, force-push, or other rewriting of the published feature branch."
+    },
+    {
+      "claim": "The exact Jira metadata, validation commands, PR description, and reviewers remain dependent on live repository and diff inspection.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The output deliberately uses placeholders and repeatedly conditions these choices on the actual diff, repository guidance, installed Jira CLI help, and GitHub metadata."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [],
+    "overall": "No suggestions; the assertions cover the substantive dry-run workflow, mutation safety, truthfulness, validation policy, Jira fallback, branch handling, and PR deduplication."
+  }
+}

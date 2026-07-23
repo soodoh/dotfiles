@@ -1,0 +1,100 @@
+{
+  "expectations": [
+    {
+      "text": "The response preserves dry-run safety and does not claim to create a ticket, branch, push, reviewer request, or PR.",
+      "passed": true,
+      "evidence": "The response explicitly states, 'Dry-run complete. I made no changes to git, Jira, GitHub, or the repository.' All mutating actions are presented as future plan steps, and the reviewer decision says to request no reviewer automatically."
+    },
+    {
+      "text": "The response verifies or proposes verifying the GitHub default branch instead of assuming main solely from its name.",
+      "passed": false,
+      "evidence": "The plan proposes fetching origin and checking whether local main is based on the latest origin/main, but that only verifies freshness/divergence. It never checks GitHub's configured default branch (for example, via repository metadata) and directly proposes 'Open a PR against soodoh/dotfiles:main'."
+    },
+    {
+      "text": "The proposed head branch is exactly OB-2468 because the starting branch is the default branch.",
+      "passed": false,
+      "evidence": "The proposed branch is explicitly 'feat/OB-2468-custom-jira-ticket-skill', not the required exact branch name 'OB-2468'."
+    },
+    {
+      "text": "The proposed PR title follows the exact form '[OB-2468] short description of changes'.",
+      "passed": false,
+      "evidence": "The proposed title is 'feat(agents): add custom Jira ticket skill (OB-2468)', which does not begin with '[OB-2468]' and therefore does not follow the required exact form."
+    },
+    {
+      "text": "The response identifies repository-specific validation and commit conventions from the current dotfiles repository.",
+      "passed": true,
+      "evidence": "It identifies the Conventional Commit convention and allowed agents scope from commitlint.config.ts, proposes 'bunx commitlint --from origin/main --to HEAD', runs git diff --check, validates the committed eval JSON with python3 -m json.tool, and notes the absence of root test/lint/build scripts."
+    },
+    {
+      "text": "The response does not invent a PR template or reviewer and explains that neither is evidenced in this repository.",
+      "passed": true,
+      "evidence": "It states, 'because no tracked PR template or CODEOWNERS file exists, do not invent additional required sections or reviewers,' and explains that the supplied context provides no team/owner mapping. The shown body is labeled a proposed body shape rather than a repository template."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 3,
+    "total": 6,
+    "pass_rate": 0.5
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 8296,
+    "transcript_chars": 8296
+  },
+  "timing": {
+    "total_tokens": 0,
+    "duration_ms": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime did not expose token or duration metrics in the completion notification."
+  },
+  "claims": [
+    {
+      "claim": "No git, Jira, GitHub, or repository mutation was performed.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The transcript contains only the completed response and executor metrics report zero tool calls and zero steps; the response consistently describes creation, pushing, and PR opening as future actions."
+    },
+    {
+      "claim": "The working tree is not clean because unix-configs/.agents/skills/open-pr/ is untracked.",
+      "type": "factual",
+      "verified": false,
+      "evidence": "The response reports this as command output, but executor metrics record zero tool calls and the provided outputs contain no independent git-status artifact, so the claim cannot be verified from the available evidence."
+    },
+    {
+      "claim": "The repository has no tracked PR template or CODEOWNERS file.",
+      "type": "factual",
+      "verified": false,
+      "evidence": "The response says a git ls-tree search established this, but executor metrics record zero tool calls and no repository-inspection artifact is included in outputs; the claim is not independently verifiable from the supplied run evidence."
+    },
+    {
+      "claim": "The existing commit subject follows the repository's Conventional Commit format and allowed agents scope.",
+      "type": "quality",
+      "verified": false,
+      "evidence": "The response gives the subject and attributes the allowed scope to commitlint.config.ts, but the zero-tool-call metrics and lack of supporting output artifacts prevent verification of the repository policy lookup."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The response preserves dry-run safety and does not claim to create a ticket, branch, push, reviewer request, or PR.",
+        "reason": "The assertion checks wording but cannot establish that no mutation occurred unless execution/tool-call evidence is reliable. Consider separately asserting that the transcript contains no mutating commands or API calls."
+      },
+      {
+        "reason": "No assertion checks whether repository-state and validation claims are supported by observable tool calls. Here metrics report zero tool calls even though the response claims several commands passed, leaving those factual claims unverifiable."
+      }
+    ],
+    "overall": "The assertions strongly discriminate the required branch and title conventions, but they do not check whether claimed repository inspection and validation actually occurred."
+  }
+}

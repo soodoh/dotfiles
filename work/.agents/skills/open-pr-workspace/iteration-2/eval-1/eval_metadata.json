@@ -1,0 +1,15 @@
+{
+  "eval_id": 2,
+  "eval_name": "clean-unpublished-feature",
+  "prompt": "Dry-run only. I'm on a clean local branch feat/cache-key that has never been pushed and has no upstream. The GitHub repo's default branch is develop. Commit messages in develop..HEAD include '[OB-731] normalize cache keys'. Prepare the PR without changing anything. Describe Jira verification, branch choice, rebase, checks, title/body, and reviewer selection. Repository evidence says .github/CODEOWNERS maps the changed src/cache/** paths to @acme/cache-team and the PR template has Summary, Jira, Testing, and Risk sections.",
+  "assertions": [
+    "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+    "The response reuses feat/cache-key because it is clean, has no upstream, and has no remote counterpart.",
+    "The response fetches origin and proposes rebasing onto origin/develop before pushing.",
+    "The proposed title begins '[OB-731]' and contains a concise change description.",
+    "The proposed body preserves and fills Summary, Jira, Testing, and Risk sections without claiming unrun tests passed.",
+    "The response selects @acme/cache-team based on CODEOWNERS and excludes speculative reviewers.",
+    "The response performs no mutations because the prompt is a dry run.",
+    "The proposed Testing section labels every unexecuted command as not run and contains no unchecked evidence presented as passed."
+  ]
+}

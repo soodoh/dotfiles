@@ -1,0 +1,11 @@
+{
+  "eval_id": 1,
+  "eval_name": "current-branch-ticket",
+  "prompt": "Dry run only: draft the Jira ticket you would create for the current branch changes. Inspect the repository context, infer the issue type, and show the TWG workflow, but do not mutate Jira.",
+  "assertions": [
+    "The response explicitly respects the dry-run instruction and does not create or update a Jira issue.",
+    "The proposed work item targets project OB, is assigned to me, and resolves the active sprint dynamically.",
+    "The ticket content is grounded in inspected current changes rather than invented details.",
+    "The description is structured Markdown and the workflow avoids passing Markdown through an HTML-default description input."
+  ]
+}

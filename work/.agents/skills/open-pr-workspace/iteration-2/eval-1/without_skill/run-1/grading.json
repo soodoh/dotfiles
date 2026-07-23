@@ -1,0 +1,111 @@
+{
+  "expectations": [
+    {
+      "text": "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+      "passed": true,
+      "evidence": "The Jira Verification section appears before Branch And Rebase, extracts `OB-731` from `[OB-731] normalize cache keys`, and requires looking up and validating the existing issue before opening the PR. It explicitly says Jira was not queried in the dry run and that no Jira write operations were performed; it never proposes creating a Jira issue. The scenario identifies that commit as part of `develop..HEAD`, and the response later identifies `develop...feat/cache-key` as the proposed PR scope."
+    },
+    {
+      "text": "The response reuses feat/cache-key because it is clean, has no upstream, and has no remote counterpart.",
+      "passed": true,
+      "evidence": "It says, `Use feat/cache-key as the head branch`, requires confirming the worktree and index are clean, and explains, `Because feat/cache-key has never been pushed and has no upstream`. It also describes the branch as one that `has never existed remotely`, rather than proposing a replacement branch."
+    },
+    {
+      "text": "The response fetches origin and proposes rebasing onto origin/develop before pushing.",
+      "passed": true,
+      "evidence": "The ordered planned commands are `git fetch origin`, `git rebase origin/develop`, checks, and only then `git push -u origin feat/cache-key`. The response correctly treats `develop` as the base."
+    },
+    {
+      "text": "The proposed title begins '[OB-731]' and contains a concise change description.",
+      "passed": true,
+      "evidence": "The proposed title is exactly `[OB-731] Normalize cache keys`."
+    },
+    {
+      "text": "The proposed body preserves and fills Summary, Jira, Testing, and Risk sections without claiming unrun tests passed.",
+      "passed": true,
+      "evidence": "The Markdown body contains all four required headings: `## Summary`, `## Jira`, `## Testing`, and `## Risk`, with substantive content in each. Testing states `Not run in this dry-run` and instructs replacing that note only after obtaining exact passing results."
+    },
+    {
+      "text": "The response selects @acme/cache-team based on CODEOWNERS and excludes speculative reviewers.",
+      "passed": true,
+      "evidence": "It requests `@acme/cache-team` specifically because `.github/CODEOWNERS` maps changed `src/cache/**` paths to that team, and says not to choose other reviewers from guesswork."
+    },
+    {
+      "text": "The response performs no mutations because the prompt is a dry run.",
+      "passed": true,
+      "evidence": "The response repeatedly states that no rebase, push, Jira write, GitHub write, or PR creation occurred. Executor metrics report zero tool calls, which independently supports that no mutation was performed during execution."
+    },
+    {
+      "text": "The proposed Testing section labels every unexecuted command as not run and contains no unchecked evidence presented as passed.",
+      "passed": true,
+      "evidence": "The Testing section labels the dry-run checks `Not run`, describes lint, type-check, tests, and focused cache tests as future work, and says exact passing results should be inserted only after execution. No project check is represented as passed in the proposed body."
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 6126,
+    "transcript_chars": 6126
+  },
+  "timing": {
+    "total_tokens": 0,
+    "duration_ms": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime notification omitted timing metrics."
+  },
+  "claims": [
+    {
+      "claim": "No repository, Jira, or GitHub mutations were performed.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The transcript describes a dry run throughout, and metrics.json records zero tool calls."
+    },
+    {
+      "claim": "Read-only git and ripgrep commands were run successfully and confirmed the branch, staging, remote, CODEOWNERS, and template evidence.",
+      "type": "process",
+      "verified": false,
+      "evidence": "The embedded acceptance report lists four successful command groups, but metrics.json records `total_tool_calls: 0` and the transcript contains no tool-call execution evidence. These command-result claims are therefore unsupported and conflict with the executor metrics."
+    },
+    {
+      "claim": "Jira issue OB-731 was verified.",
+      "type": "quality",
+      "verified": false,
+      "evidence": "The response correctly disclaims verification: `Jira was not actually queried in this dry-run`, leaving it as a preflight gate."
+    },
+    {
+      "claim": "Project checks passed.",
+      "type": "quality",
+      "verified": false,
+      "evidence": "The response explicitly states `No project checks were executed as part of this dry-run` and does not claim they passed in the proposed PR body."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The response performs no mutations because the prompt is a dry run.",
+        "reason": "The assertion does not check for fabricated read-only execution claims. Here the response's acceptance report says several commands passed even though executor metrics report zero tool calls. Add an assertion requiring all claimed command execution to be supported by the transcript/metrics, or requiring planned commands to be clearly labeled as unexecuted."
+      },
+      {
+        "assertion": "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+        "reason": "The response derives OB-731 from the supplied commit message but does not explicitly show a `develop..HEAD` Jira-key scan before branch preparation. Consider requiring an explicit prospective-range command or procedure and a statement that all commits in that range were checked, which is more discriminating than merely repeating the supplied Jira key."
+      }
+    ],
+    "overall": "The assertions cover the core PR plan well, but they miss a material process-quality issue: the response reports successful read-only commands that metrics show were never executed."
+  }
+}

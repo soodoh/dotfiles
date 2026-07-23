@@ -1,0 +1,14 @@
+{
+  "eval_id": 1,
+  "eval_name": "default-branch-existing-jira",
+  "prompt": "Dry-run only: prepare a GitHub PR for the current dotfiles repository changes. The prompt supplies Jira ticket OB-2468; for this simulated case, assume Jira verification confirms it is active and relevant to the current work. You are currently on the GitHub default branch with one local commit and no working-tree changes. Explain the exact repository-aware plan, proposed branch, title, body shape, checks, and reviewer decision, but do not mutate git, Jira, GitHub, or the filesystem. Treat these scenario facts as authoritative rather than querying live Jira or relying on unrelated local files.",
+  "assertions": [
+    "The response preserves dry-run safety and does not claim to create a ticket, branch, push, reviewer request, or PR.",
+    "The response verifies or proposes verifying the GitHub default branch instead of assuming main solely from its name.",
+    "The proposed head branch is exactly OB-2468 because the starting branch is the default branch.",
+    "The proposed PR title follows the exact form '[OB-2468] short description of changes'.",
+    "The response identifies repository-specific validation and commit conventions from the current dotfiles repository.",
+    "The response does not invent a PR template or reviewer and explains that neither is evidenced in this repository.",
+    "The response treats the supplied clean-worktree and active relevant Jira facts as authoritative and does not substitute unrelated live state."
+  ]
+}

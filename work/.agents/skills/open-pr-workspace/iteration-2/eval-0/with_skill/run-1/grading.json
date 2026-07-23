@@ -1,0 +1,107 @@
+{
+  "expectations": [
+    {
+      "text": "The response preserves dry-run safety and does not claim to create a ticket, branch, push, reviewer request, or PR.",
+      "passed": true,
+      "evidence": "The response opens with 'Dry run complete' and explicitly says it 'would not create or update Jira, alter Git history, create a branch, fetch/rebase, push, request reviewers, or create a GitHub PR.' Proposed mutating commands are described as a future execution sequence, and the response states none was executed as a mutation."
+    },
+    {
+      "text": "The response verifies or proposes verifying the GitHub default branch instead of assuming main solely from its name.",
+      "passed": true,
+      "evidence": "Plan step 1 says to 'Reconfirm immediately before acting that ... GitHub reports `main` as the real default branch,' clearly treating `main` as a simulated fact that must be verified through GitHub before a real run."
+    },
+    {
+      "text": "The proposed head branch is exactly OB-2468 because the starting branch is the default branch.",
+      "passed": true,
+      "evidence": "The response states 'Because the work starts on the default branch, create `OB-2468`' and the Proposed PR section gives 'Branch: `OB-2468`'."
+    },
+    {
+      "text": "The proposed PR title follows the exact form '[OB-2468] short description of changes'.",
+      "passed": true,
+      "evidence": "The Proposed PR section uses `[OB-2468] add custom Jira ticket skill`, which has the exact required ticket-prefix-plus-short-description form; the same title appears in the proposed `gh pr create` command."
+    },
+    {
+      "text": "The response identifies repository-specific validation and commit conventions from the current dotfiles repository.",
+      "passed": true,
+      "evidence": "It identifies the conventional commit `feat(agents): custom jira ticket skill`, notes that `agents` is an allowed scope, and proposes `bunx commitlint --from origin/main --to HEAD`, JSON parsing for the added eval file, `git diff --check`, and the repository-specific GNU Stow dry run `stow -n -vRt \"$HOME\" unix-configs`."
+    },
+    {
+      "text": "The response does not invent a PR template or reviewer and explains that neither is evidenced in this repository.",
+      "passed": true,
+      "evidence": "It says 'no checked-in `.github` PR template was found' and therefore proposes a concise fallback body. It also says no checked-in `CODEOWNERS`, PR-template reviewer rule, or other repository evidence supports a manual reviewer, so it would omit `--reviewer`."
+    },
+    {
+      "text": "The response treats the supplied clean-worktree and active relevant Jira facts as authoritative and does not substitute unrelated live state.",
+      "passed": true,
+      "evidence": "The Repository Context labels the clean one-commit state 'Authoritative starting state' and says 'Per the scenario, verification has already established that [OB-2468] is active and relevant, so no live Jira lookup ... is appropriate.'"
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "total": 7,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 8328,
+    "transcript_chars": 8328
+  },
+  "timing": {
+    "total_tokens": 0,
+    "duration_ms": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime notification omitted timing metrics."
+  },
+  "claims": [
+    {
+      "claim": "The prospective commit is `3b2b471 feat(agents): custom jira ticket skill` and changes three files with 215 insertions.",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Independent read-only grading inspection of the repository confirmed the exact HEAD subject, the three named files, and `3 files changed, 215 insertions(+)`."
+    },
+    {
+      "claim": "There are no package test/build scripts in package.json.",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Independent grading inspection printed the package scripts object as `{}`."
+    },
+    {
+      "claim": "The executor ran read-only git inspection commands.",
+      "type": "process",
+      "verified": false,
+      "evidence": "The acceptance report lists git inspection under `commandsRun`, but outputs/metrics.json reports zero tool calls and zero steps. The repository facts are correct, but the available execution record does not verify that claimed process."
+    },
+    {
+      "claim": "No git, Jira, or GitHub mutation was performed.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The transcript consistently presents mutating operations as proposed future actions, explicitly says they were not executed, and metrics.json records zero tool calls."
+    },
+    {
+      "claim": "The response supplies a complete repository-aware dry-run PR plan.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "It covers default-branch verification, branch collision checks, branch creation, update/rebase policy, diff and commit review, repository-specific checks, push and PR creation, read-back verification, metadata, body, and reviewer handling."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "No assertion checks internal consistency between claimed command execution and executor metrics. Here the acceptance report claims read-only git commands ran, while metrics.json records zero tool calls; adding a process-consistency assertion would catch unsupported execution claims."
+      }
+    ],
+    "overall": "The assertions strongly cover the requested PR-planning behavior and all pass substantively. The main uncovered issue is provenance consistency for claims about commands actually run."
+  }
+}

@@ -1,0 +1,47 @@
+{
+	"lastChangelogVersion": "0.81.1",
+	"defaultProvider": "litellm",
+	"defaultModel": "chatgpt/gpt-5.6-sol",
+	"defaultThinkingLevel": "high",
+	"theme": "dark",
+	"compaction": {
+		"enabled": true,
+		"reserveTokens": 16384,
+		"keepRecentTokens": 20000
+	},
+	"collapseChangelog": true,
+	"quietStartup": true,
+	"enableSkillCommands": true,
+	"extensions": ["extensions/*.ts"],
+	"packages": [
+		{
+			"source": "./pi-extensions",
+			"extensions": [
+				"packages/auto-session-name/index.ts",
+				"packages/prompt-suggester/src/index.ts",
+				"packages/shared-prompt-history/index.ts",
+				"packages/statusline/index.ts"
+			]
+		},
+		"npm:pi-vim",
+		"npm:@plannotator/pi-extension",
+		"npm:pi-mcp-adapter",
+		"npm:@juicesharp/rpiv-web-tools",
+		"npm:@juicesharp/rpiv-todo",
+		"npm:@juicesharp/rpiv-ask-user-question",
+		"npm:pi-subagents",
+		"npm:pi-dynamic-workflows"
+	],
+	"steeringMode": "all",
+	"promptSuggester": {
+		"suggesterModel": ["litellm/chatgpt/gpt-5.4-mini"]
+	},
+	"autoSessionName": {
+		"titleModel": ["litellm/chatgpt/gpt-5.4-mini"]
+	},
+	"litellm": {
+		"mcp": {
+			"enabled": false
+		}
+	}
+}

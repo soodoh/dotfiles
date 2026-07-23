@@ -1,0 +1,398 @@
+{
+  "metadata": {
+    "skill_name": "open-pr",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-07-15T02:15:00Z",
+    "evals_run": [
+      1,
+      2,
+      3
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.6666666666666666,
+        "passed": 4,
+        "failed": 2,
+        "total": 6,
+        "time_seconds": 0,
+        "tokens": 10109,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response preserves dry-run safety and does not claim to create a ticket, branch, push, reviewer request, or PR.",
+          "passed": true,
+          "evidence": "The response explicitly states: 'Dry run completed without changing Git, Jira, or GitHub. I did not create a branch, rebase, push, request reviewers, or open a PR.' All mutation steps are presented only as a future plan."
+        },
+        {
+          "text": "The response verifies or proposes verifying the GitHub default branch instead of assuming main solely from its name.",
+          "passed": true,
+          "evidence": "The response reports that GitHub 'confirms the real default branch is `main`,' and the command evidence includes `gh repo view --json nameWithOwner,defaultBranchRef,pullRequestTemplates`, which directly queries the default branch."
+        },
+        {
+          "text": "The proposed head branch is exactly OB-2468 because the starting branch is the default branch.",
+          "passed": false,
+          "evidence": "The primary proposed branch is `<VALID-OB-KEY>`, not `OB-2468`: 'Branch: `<VALID-OB-KEY>` after Jira resolution. `OB-2468` is explicitly rejected.' Although the response mentions `OB-2468` as a conditional mechanical branch if the user overrides the mismatch, it does not propose it for the current run."
+        },
+        {
+          "text": "The proposed PR title follows the exact form '[OB-2468] short description of changes'.",
+          "passed": false,
+          "evidence": "The primary proposed title is `'[<VALID-OB-KEY>] add custom Jira ticket skill'`, so it does not use the required `OB-2468` prefix. The exact title `'[OB-2468] add custom Jira ticket skill'` appears only as a hypothetical requiring explicit user authorization, not as the current proposed PR title."
+        },
+        {
+          "text": "The response identifies repository-specific validation and commit conventions from the current dotfiles repository.",
+          "passed": true,
+          "evidence": "It identifies the `AGENTS.md` conventional-commit rule and valid `agents` scope, notes that `feat(agents): custom jira ticket skill` conforms, and gives repository-relevant checks including `git diff --check`, `jq empty` for the eval JSON, credential scanning, commitlint, and an authoritative skill evaluator if available."
+        },
+        {
+          "text": "The response does not invent a PR template or reviewer and explains that neither is evidenced in this repository.",
+          "passed": true,
+          "evidence": "It states: 'No repository PR template or `CODEOWNERS` file exists,' labels its body as the skill's fallback rather than a repository template, and says to create the PR without `--reviewer` because there are no explicit reviewer rules, no `CODEOWNERS`, and no defensible human-reviewer evidence."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8571428571428571,
+        "passed": 6,
+        "failed": 1,
+        "total": 7,
+        "time_seconds": 0,
+        "tokens": 8167,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+          "passed": true,
+          "evidence": "The Jira verification section derives `OB-731` from `develop..HEAD` via `[OB-731] normalize cache keys`, places authenticated Jira verification `Before any branch or remote mutation`, and states both that failure would stop execution and that no Jira issue would be created. For this explicitly requested dry run, this is a substantive description of the required verification gate rather than a claim that live verification occurred."
+        },
+        {
+          "text": "The response reuses feat/cache-key because it is clean, has no upstream, and has no remote counterpart.",
+          "passed": true,
+          "evidence": "The Base and head section says: `I would reuse feat/cache-key as the head because the supplied evidence says it is a clean, non-default local branch with no upstream and no published same-named remote branch.`"
+        },
+        {
+          "text": "The response fetches origin and proposes rebasing onto origin/develop before pushing.",
+          "passed": true,
+          "evidence": "The Rebase section proposes `git fetch origin` followed by `git rebase origin/develop`; the proposed command sequence places both before `git push --set-upstream origin \"feat/cache-key\"`. It explicitly identifies these commands as unexecuted previews, as required by the dry run."
+        },
+        {
+          "text": "The proposed title begins '[OB-731]' and contains a concise change description.",
+          "passed": true,
+          "evidence": "The proposed title is exactly `[OB-731] normalize cache keys`, which begins with the key and concisely describes the cache-key normalization."
+        },
+        {
+          "text": "The proposed body preserves and fills Summary, Jira, Testing, and Risk sections without claiming unrun tests passed.",
+          "passed": false,
+          "evidence": "The body preserves all four headings and gives substantive Summary and Risk content, but its Testing section lists four placeholder commands with `\u2014 passed` even though the response says `in this dry run, none were run`. The disclaimer reduces ambiguity but does not remove the contradictory pass labels from the proposed body; the safer dry-run body would record tests as not run or leave outcome placeholders without `passed`. The Jira section also remains placeholder-based pending verification."
+        },
+        {
+          "text": "The response selects @acme/cache-team based on CODEOWNERS and excludes speculative reviewers.",
+          "passed": true,
+          "evidence": "The Reviewer Selection section ties `@acme/cache-team` directly to the `.github/CODEOWNERS` mapping for `src/cache/**`, says it would use only that team, and explicitly excludes speculative individuals."
+        },
+        {
+          "text": "The response performs no mutations because the prompt is a dry run.",
+          "passed": true,
+          "evidence": "The response opens by stating that it did not modify the repository or Jira/GitHub state, repeatedly marks all mutating commands as proposed and not executed, and executor metrics report zero tool calls and zero errors. The only output artifact is the captured response required by the evaluation harness."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 0,
+        "tokens": 11723,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response invokes or explicitly follows the jira skill as the fallback while only drafting the issue in dry-run mode.",
+          "passed": true,
+          "evidence": "The Jira fallback section says, 'I would therefore follow the installed `jira` skill rather than invent a key. In this dry run I would only draft the ticket; no TWG mutation would run,' and provides a proposed ticket draft."
+        },
+        {
+          "text": "The response commits only reviewed intended changes before creating a fresh child branch and does not rewrite the published feature/session-cleanup branch.",
+          "passed": true,
+          "evidence": "The response says it would review every status/diff entry, use explicit `git add <paths>`, commit on the current branch, and only then create a fresh child branch. It explicitly says it would not reuse, rename, rebase, force-push, or otherwise rewrite the published `feature/session-cleanup` branch."
+        },
+        {
+          "text": "The proposed child branch is named from the canonical Jira key returned by the fallback workflow.",
+          "passed": true,
+          "evidence": "The response states, 'The key returned by Jira\u2014not a guessed key\u2014becomes `<JIRA-KEY>`' and then, 'I would create a fresh child branch at that commit named exactly `<JIRA-KEY>`.' It only proposes `<JIRA-KEY>-pr` as a collision-safe variant after inspecting an existing ref."
+        },
+        {
+          "text": "The response fetches and rebases the child branch onto origin/trunk and stops or aborts if conflict intent is ambiguous.",
+          "passed": true,
+          "evidence": "Under update safety, the response places `git fetch origin` and `git rebase origin/trunk` on the new unpublished child branch only. It says ambiguous conflict intent leads to `git rebase --abort` and a request for direction."
+        },
+        {
+          "text": "The response derives validation from repository guidance and refuses to bypass or suppress failing checks.",
+          "passed": true,
+          "evidence": "The validation section derives gates from repository instructions, changed packages, hooks, CI, and package scripts. It explicitly refuses suppressions, skipped hooks, reduced checks, `--no-verify`, or pushing while an authoritative check is blocked."
+        },
+        {
+          "text": "The response checks for an existing PR for the selected head before any push or PR creation.",
+          "passed": true,
+          "evidence": "The response places `gh pr list --head \"<JIRA-KEY>\" --state all --json number,state,url,title` immediately before push, requires querying the exact collision-safe head when applicable, and says any existing open or closed PR prevents duplicate creation."
+        },
+        {
+          "text": "The proposed PR title uses the exact '[JIRA-KEY] short description' shape and the body links Jira and records validation evidence.",
+          "passed": true,
+          "evidence": "The proposed title is `[<JIRA-KEY>] concise imperative description of the verified change`. The fallback body contains a Markdown Jira link `[<JIRA-KEY>](<JIRA-URL>)` and a Validation section recording each exact command and truthful result."
+        },
+        {
+          "text": "The response performs no mutation because the prompt is a dry run.",
+          "passed": true,
+          "evidence": "The response repeatedly labels the plan dry-run only and says no Jira, Git, GitHub, branch, index, or worktree mutation occurred. `outputs/metrics.json` independently reports zero tool calls and zero errors, supporting that the executor performed no mutating operation."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.5,
+        "passed": 3,
+        "failed": 3,
+        "total": 6,
+        "time_seconds": 0,
+        "tokens": 8296,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response preserves dry-run safety and does not claim to create a ticket, branch, push, reviewer request, or PR.",
+          "passed": true,
+          "evidence": "The response explicitly states, 'Dry-run complete. I made no changes to git, Jira, GitHub, or the repository.' All mutating actions are presented as future plan steps, and the reviewer decision says to request no reviewer automatically."
+        },
+        {
+          "text": "The response verifies or proposes verifying the GitHub default branch instead of assuming main solely from its name.",
+          "passed": false,
+          "evidence": "The plan proposes fetching origin and checking whether local main is based on the latest origin/main, but that only verifies freshness/divergence. It never checks GitHub's configured default branch (for example, via repository metadata) and directly proposes 'Open a PR against soodoh/dotfiles:main'."
+        },
+        {
+          "text": "The proposed head branch is exactly OB-2468 because the starting branch is the default branch.",
+          "passed": false,
+          "evidence": "The proposed branch is explicitly 'feat/OB-2468-custom-jira-ticket-skill', not the required exact branch name 'OB-2468'."
+        },
+        {
+          "text": "The proposed PR title follows the exact form '[OB-2468] short description of changes'.",
+          "passed": false,
+          "evidence": "The proposed title is 'feat(agents): add custom Jira ticket skill (OB-2468)', which does not begin with '[OB-2468]' and therefore does not follow the required exact form."
+        },
+        {
+          "text": "The response identifies repository-specific validation and commit conventions from the current dotfiles repository.",
+          "passed": true,
+          "evidence": "It identifies the Conventional Commit convention and allowed agents scope from commitlint.config.ts, proposes 'bunx commitlint --from origin/main --to HEAD', runs git diff --check, validates the committed eval JSON with python3 -m json.tool, and notes the absence of root test/lint/build scripts."
+        },
+        {
+          "text": "The response does not invent a PR template or reviewer and explains that neither is evidenced in this repository.",
+          "passed": true,
+          "evidence": "It states, 'because no tracked PR template or CODEOWNERS file exists, do not invent additional required sections or reviewers,' and explains that the supplied context provides no team/owner mapping. The shown body is labeled a proposed body shape rather than a repository template."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 7,
+        "failed": 0,
+        "total": 7,
+        "time_seconds": 0,
+        "tokens": 4813,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+          "passed": true,
+          "evidence": "The first preparation step extracts `OB-731` from the supplied prospective-range commit message `[OB-731] normalize cache keys` and describes confirming that the existing issue is accessible, active, and scope-aligned. It explicitly leaves verification pending rather than inventing completion, and nowhere proposes creating a Jira issue."
+        },
+        {
+          "text": "The response reuses feat/cache-key because it is clean, has no upstream, and has no remote counterpart.",
+          "passed": true,
+          "evidence": "The branch section says to use the current local `feat/cache-key` as head, not create or switch branches, and notes that it has never been pushed and has no upstream. The response also proposes initial publication with `git push --set-upstream`, consistent with the supplied fact that no remote counterpart exists. Its checks section requires confirming the worktree is clean before opening."
+        },
+        {
+          "text": "The response fetches origin and proposes rebasing onto origin/develop before pushing.",
+          "passed": true,
+          "evidence": "The rebase section states: `Before publication in a real run, fetch the remote ... then rebase feat/cache-key onto the latest origin/develop`. The branch section places `git push --set-upstream origin feat/cache-key` only after validation. It correctly does not execute either operation in the requested dry run."
+        },
+        {
+          "text": "The proposed title begins '[OB-731]' and contains a concise change description.",
+          "passed": true,
+          "evidence": "The proposed title is exactly `[OB-731] Normalize cache keys`, with the required prefix and a concise description."
+        },
+        {
+          "text": "The proposed body preserves and fills Summary, Jira, Testing, and Risk sections without claiming unrun tests passed.",
+          "passed": true,
+          "evidence": "The body contains all four headings (`Summary`, `Jira`, `Testing`, and `Risk`) with substantive content. Testing explicitly says `Not run (dry-run preparation only)` and instructs recording exact outcomes later, so no unrun check is represented as passing."
+        },
+        {
+          "text": "The response selects @acme/cache-team based on CODEOWNERS and excludes speculative reviewers.",
+          "passed": true,
+          "evidence": "Reviewer selection requests only `@acme/cache-team`, cites `.github/CODEOWNERS` ownership of changed `src/cache/**` paths, and explicitly says `Add no speculative reviewers unsupported by repository evidence.`"
+        },
+        {
+          "text": "The response performs no mutations because the prompt is a dry run.",
+          "passed": true,
+          "evidence": "The transcript contains no tool calls, and `metrics.json` reports `total_tool_calls: 0`. The response repeatedly states that fetch, rebase, push, Jira access, checks, PR creation, and reviewer requests were not performed; the only executor output artifact is `response.md`."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.25,
+        "passed": 2,
+        "failed": 6,
+        "total": 8,
+        "time_seconds": 0,
+        "tokens": 7692,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response invokes or explicitly follows the jira skill as the fallback while only drafting the issue in dry-run mode.",
+          "passed": false,
+          "evidence": "The response explicitly says in manualNotes, 'Did not read or use any skill.' Its Jira fallback asks for an existing key, approval to proceed without Jira, or issue details; it does not invoke or follow the jira skill and does not describe drafting a Jira issue in dry-run mode."
+        },
+        {
+          "text": "The response commits only reviewed intended changes before creating a fresh child branch and does not rewrite the published feature/session-cleanup branch.",
+          "passed": false,
+          "evidence": "Although it plans to stage only reviewed paths and avoids force-pushing, it explicitly says, 'Reuse feature/session-cleanup; I would not create a second branch merely because origin/feature/session-cleanup already exists.' This contradicts the required fresh child branch workflow."
+        },
+        {
+          "text": "The proposed child branch is named from the canonical Jira key returned by the fallback workflow.",
+          "passed": false,
+          "evidence": "No child branch is proposed and no canonical Jira key is returned. The response instead plans to reuse feature/session-cleanup and pauses for a key or approval to proceed without Jira."
+        },
+        {
+          "text": "The response fetches and rebases the child branch onto origin/trunk and stops or aborts if conflict intent is ambiguous.",
+          "passed": false,
+          "evidence": "The response proposes fetching and comparing against origin/trunk and appropriately stopping or aborting on ambiguous conflicts, but it never creates or rebases a child branch onto origin/trunk. It discusses rebasing the existing published branch only as an optional action requiring approval."
+        },
+        {
+          "text": "The response derives validation from repository guidance and refuses to bypass or suppress failing checks.",
+          "passed": false,
+          "evidence": "The response generically proposes 'the repository's relevant formatter/linter, focused tests, and broader test/build checks required by the project' and says failed checks prevent a ready PR. It does not explicitly inspect or derive commands from repository guidance, nor explicitly refuse bypassing or suppressing failing checks."
+        },
+        {
+          "text": "The response checks for an existing PR for the selected head before any push or PR creation.",
+          "passed": true,
+          "evidence": "Section 5 places the duplicate check 'after fetching and before creating anything' and gives gh pr list --head feature/session-cleanup --base trunk --state all; it then says an open or draft PR must not be duplicated. This is before the later proposed push/creation flow."
+        },
+        {
+          "text": "The proposed PR title uses the exact '[JIRA-KEY] short description' shape and the body links Jira and records validation evidence.",
+          "passed": false,
+          "evidence": "The proposed example title is 'fix(agents): clean up session handling', not '[JIRA-KEY] short description'. The body records validation commands/results, but the fallback proposes 'Jira: none' rather than a Jira link when proceeding without a key."
+        },
+        {
+          "text": "The response performs no mutation because the prompt is a dry run.",
+          "passed": true,
+          "evidence": "The transcript states, 'No Git, GitHub, Jira, test, staging, commit, push, or PR-creation command was executed.' Metrics report zero tool calls and only the response artifact, consistent with no scenario mutation."
+        }
+      ],
+      "notes": [
+        "The supplied repository state was not independently inspected.",
+        "A real run would need to verify branch tracking, divergence, diff contents, available tests, and existing PRs.",
+        "The executor treated transcript.md as the authoritative runtime output and did not use a skill."
+      ]
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.8413,
+        "stddev": 0.1672,
+        "min": 0.6667,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      },
+      "tokens": {
+        "mean": 9999.6667,
+        "stddev": 1780.5194,
+        "min": 8167,
+        "max": 11723
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.5833,
+        "stddev": 0.3819,
+        "min": 0.25,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      },
+      "tokens": {
+        "mean": 6933.6667,
+        "stddev": 1861.2158,
+        "min": 4813,
+        "max": 8296
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.26",
+      "time_seconds": "+0.0",
+      "tokens": "+3066"
+    }
+  },
+  "notes": [
+    "Only one run is present for each eval/configuration pair even though metadata declares runs_per_configuration = 3; the observed pass/fail patterns therefore have no replication and cannot establish within-eval variance or flakiness.",
+    "Eval 1 has three non-discriminating assertions: dry-run safety, repository-specific validation/commit conventions, and avoiding invented templates/reviewers pass in both configurations. Exact branch naming and exact PR-title shape fail in both configurations, while default-branch verification is the sole assertion that passes with_skill and fails without_skill.",
+    "Eval 1's with_skill failures are grounded in rejecting OB-2468 after a Jira mismatch and substituting <VALID-OB-KEY>; without_skill also fails the same branch/title assertions, but instead proposes feat/OB-2468-custom-jira-ticket-skill and a conventional-commit-style title. The identical assertion outcomes conceal different response choices.",
+    "Eval 2 is a surprising reversal: without_skill passes all 7 assertions, while with_skill passes 6 of 7. The only discriminator is the PR-body assertion, where with_skill labels unrun test commands as passed despite its dry-run disclaimer; without_skill records testing as not run.",
+    "The other six Eval 2 assertions pass in both configurations, including Jira verification, branch reuse, fetch/rebase ordering, title format, CODEOWNERS-based reviewer selection, and dry-run safety, so they do not distinguish configuration performance in this benchmark sample.",
+    "Eval 3 is the strongest discriminator: with_skill passes all 8 assertions and without_skill passes only 2. The six with_skill-only passes cover Jira-skill fallback, creating a fresh child branch without rewriting the published branch, naming that child from the canonical Jira key, rebasing it onto origin/trunk, deriving and enforcing validation guidance, and Jira-shaped PR title/body content.",
+    "Two Eval 3 assertions are non-discriminating: checking for an existing PR before push/creation and preserving dry-run safety pass in both configurations. Without_skill explicitly reports not using any skill and proposes reusing feature/session-cleanup, which grounds several of its six failures.",
+    "Across all 21 assertions, 11 pass in both configurations, 7 pass only with_skill, 1 passes only without_skill, and 2 fail in both. Thus the aggregate pass-rate delta is concentrated in Eval 3 rather than distributed uniformly across evals.",
+    "Timing data is unavailable for comparative analysis: every run reports time_seconds = 0, producing all-zero timing aggregates. Tool-call counts are likewise zero for every run, so no execution-cost or tool-usage differences can be inferred from those fields.",
+    "Token counts are present, unlike timing data, and are higher with_skill in every paired eval: 10,109 vs 8,296 in Eval 1, 8,167 vs 4,813 in Eval 2, and 11,723 vs 7,692 in Eval 3. The reported mean increase is 3,066 tokens (about 44%), but only one run per pair is available and the benchmark provides no token breakdown by prompt, response, or tool output."
+  ]
+}

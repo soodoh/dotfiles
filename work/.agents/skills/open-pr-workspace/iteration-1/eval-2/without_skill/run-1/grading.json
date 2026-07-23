@@ -1,0 +1,117 @@
+{
+  "expectations": [
+    {
+      "text": "The response invokes or explicitly follows the jira skill as the fallback while only drafting the issue in dry-run mode.",
+      "passed": false,
+      "evidence": "The response explicitly says in manualNotes, 'Did not read or use any skill.' Its Jira fallback asks for an existing key, approval to proceed without Jira, or issue details; it does not invoke or follow the jira skill and does not describe drafting a Jira issue in dry-run mode."
+    },
+    {
+      "text": "The response commits only reviewed intended changes before creating a fresh child branch and does not rewrite the published feature/session-cleanup branch.",
+      "passed": false,
+      "evidence": "Although it plans to stage only reviewed paths and avoids force-pushing, it explicitly says, 'Reuse feature/session-cleanup; I would not create a second branch merely because origin/feature/session-cleanup already exists.' This contradicts the required fresh child branch workflow."
+    },
+    {
+      "text": "The proposed child branch is named from the canonical Jira key returned by the fallback workflow.",
+      "passed": false,
+      "evidence": "No child branch is proposed and no canonical Jira key is returned. The response instead plans to reuse feature/session-cleanup and pauses for a key or approval to proceed without Jira."
+    },
+    {
+      "text": "The response fetches and rebases the child branch onto origin/trunk and stops or aborts if conflict intent is ambiguous.",
+      "passed": false,
+      "evidence": "The response proposes fetching and comparing against origin/trunk and appropriately stopping or aborting on ambiguous conflicts, but it never creates or rebases a child branch onto origin/trunk. It discusses rebasing the existing published branch only as an optional action requiring approval."
+    },
+    {
+      "text": "The response derives validation from repository guidance and refuses to bypass or suppress failing checks.",
+      "passed": false,
+      "evidence": "The response generically proposes 'the repository's relevant formatter/linter, focused tests, and broader test/build checks required by the project' and says failed checks prevent a ready PR. It does not explicitly inspect or derive commands from repository guidance, nor explicitly refuse bypassing or suppressing failing checks."
+    },
+    {
+      "text": "The response checks for an existing PR for the selected head before any push or PR creation.",
+      "passed": true,
+      "evidence": "Section 5 places the duplicate check 'after fetching and before creating anything' and gives gh pr list --head feature/session-cleanup --base trunk --state all; it then says an open or draft PR must not be duplicated. This is before the later proposed push/creation flow."
+    },
+    {
+      "text": "The proposed PR title uses the exact '[JIRA-KEY] short description' shape and the body links Jira and records validation evidence.",
+      "passed": false,
+      "evidence": "The proposed example title is 'fix(agents): clean up session handling', not '[JIRA-KEY] short description'. The body records validation commands/results, but the fallback proposes 'Jira: none' rather than a Jira link when proceeding without a key."
+    },
+    {
+      "text": "The response performs no mutation because the prompt is a dry run.",
+      "passed": true,
+      "evidence": "The transcript states, 'No Git, GitHub, Jira, test, staging, commit, push, or PR-creation command was executed.' Metrics report zero tool calls and only the response artifact, consistent with no scenario mutation."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 6,
+    "total": 8,
+    "pass_rate": 0.25
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 7692,
+    "transcript_chars": 7692
+  },
+  "timing": {
+    "total_tokens": 0,
+    "duration_ms": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime did not expose token or duration metrics in the completion notification."
+  },
+  "claims": [
+    {
+      "claim": "No Git, GitHub, Jira, test, staging, commit, push, or PR-creation command was executed.",
+      "type": "process",
+      "verified": true,
+      "evidence": "outputs/metrics.json records total_tool_calls 0 and errors_encountered 0; the transcript contains no execution trace for such commands."
+    },
+    {
+      "claim": "The dry-run plan covers the Jira fallback, existing-branch handling, conflict safety, validation, metadata, and duplicate detection.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The response has dedicated sections for each topic, though several choices conflict with the eval's required workflow, especially Jira skill use, fresh child-branch creation, rebase onto origin/trunk, and Jira-shaped metadata."
+    },
+    {
+      "claim": "The current blocker for a real run is the missing Jira association decision.",
+      "type": "factual",
+      "verified": true,
+      "evidence": "The scenario metadata says there is no Jira key in the prompt, branch, or commits, and the response intentionally pauses its chosen workflow pending a key or explicit approval to proceed without one."
+    },
+    {
+      "claim": "The supplied repository state was not independently inspected.",
+      "type": "process",
+      "verified": true,
+      "evidence": "outputs/metrics.json reports zero tool calls, so the executor did not inspect repository state."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [
+      "The supplied repository state was not independently inspected."
+    ],
+    "needs_review": [
+      "A real run would need to verify branch tracking, divergence, diff contents, available tests, and existing PRs."
+    ],
+    "workarounds": [
+      "The executor treated transcript.md as the authoritative runtime output and did not use a skill."
+    ]
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The response performs no mutation because the prompt is a dry run.",
+        "reason": "The generated response artifact is necessarily a file creation, so clarify that prohibited mutation means no mutation of the scenario repository, GitHub, or Jira rather than no filesystem output at all."
+      },
+      {
+        "assertion": "The response checks for an existing PR for the selected head before any push or PR creation.",
+        "reason": "Clarify whether the duplicate check must occur before the push itself or only before PR creation; the wording requires before either, while common workflows may push before querying GitHub for a PR."
+      }
+    ],
+    "overall": "The assertions strongly discriminate the intended skill workflow and expose the baseline response's central deviations. Two ordering/mutation phrases could be made more precise to avoid ambiguity."
+  }
+}

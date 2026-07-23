@@ -1,0 +1,102 @@
+{
+  "expectations": [
+    {
+      "text": "The response verifies OB-731 from the prospective PR commit range before branch preparation and does not create a new Jira issue.",
+      "passed": true,
+      "evidence": "The Jira verification section derives `OB-731` from `develop..HEAD` via `[OB-731] normalize cache keys`, places authenticated Jira verification `Before any branch or remote mutation`, and states both that failure would stop execution and that no Jira issue would be created. For this explicitly requested dry run, this is a substantive description of the required verification gate rather than a claim that live verification occurred."
+    },
+    {
+      "text": "The response reuses feat/cache-key because it is clean, has no upstream, and has no remote counterpart.",
+      "passed": true,
+      "evidence": "The Base and head section says: `I would reuse feat/cache-key as the head because the supplied evidence says it is a clean, non-default local branch with no upstream and no published same-named remote branch.`"
+    },
+    {
+      "text": "The response fetches origin and proposes rebasing onto origin/develop before pushing.",
+      "passed": true,
+      "evidence": "The Rebase section proposes `git fetch origin` followed by `git rebase origin/develop`; the proposed command sequence places both before `git push --set-upstream origin \"feat/cache-key\"`. It explicitly identifies these commands as unexecuted previews, as required by the dry run."
+    },
+    {
+      "text": "The proposed title begins '[OB-731]' and contains a concise change description.",
+      "passed": true,
+      "evidence": "The proposed title is exactly `[OB-731] normalize cache keys`, which begins with the key and concisely describes the cache-key normalization."
+    },
+    {
+      "text": "The proposed body preserves and fills Summary, Jira, Testing, and Risk sections without claiming unrun tests passed.",
+      "passed": false,
+      "evidence": "The body preserves all four headings and gives substantive Summary and Risk content, but its Testing section lists four placeholder commands with `— passed` even though the response says `in this dry run, none were run`. The disclaimer reduces ambiguity but does not remove the contradictory pass labels from the proposed body; the safer dry-run body would record tests as not run or leave outcome placeholders without `passed`. The Jira section also remains placeholder-based pending verification."
+    },
+    {
+      "text": "The response selects @acme/cache-team based on CODEOWNERS and excludes speculative reviewers.",
+      "passed": true,
+      "evidence": "The Reviewer Selection section ties `@acme/cache-team` directly to the `.github/CODEOWNERS` mapping for `src/cache/**`, says it would use only that team, and explicitly excludes speculative individuals."
+    },
+    {
+      "text": "The response performs no mutations because the prompt is a dry run.",
+      "passed": true,
+      "evidence": "The response opens by stating that it did not modify the repository or Jira/GitHub state, repeatedly marks all mutating commands as proposed and not executed, and executor metrics report zero tool calls and zero errors. The only output artifact is the captured response required by the evaluation harness."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 1,
+    "total": 7,
+    "pass_rate": 0.8571428571428571
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "files_created": [
+      "response.md"
+    ],
+    "errors_encountered": 0,
+    "output_chars": 8167,
+    "transcript_chars": 8167
+  },
+  "timing": {
+    "total_tokens": 0,
+    "duration_ms": 0,
+    "total_duration_seconds": 0,
+    "note": "Runtime did not expose token or duration metrics in the completion notification."
+  },
+  "claims": [
+    {
+      "claim": "No repository, Jira, GitHub, or PR mutations were performed.",
+      "type": "process",
+      "verified": true,
+      "evidence": "The transcript consistently labels commands as proposed rather than executed, and metrics.json records `total_tool_calls: 0`."
+    },
+    {
+      "claim": "The plan uses develop as the base and feat/cache-key as the head.",
+      "type": "factual",
+      "verified": true,
+      "evidence": "The Base and head section explicitly chooses `develop` as base and reuses `feat/cache-key`; the proposed `gh pr create` command uses the same refs."
+    },
+    {
+      "claim": "The proposed body does not claim any checks passed in the dry run.",
+      "type": "quality",
+      "verified": false,
+      "evidence": "Although the prose says no checks ran, the proposed Testing body labels four placeholder commands `passed`, creating a contradictory presentation."
+    },
+    {
+      "claim": "OB-731, authoritative checks, the final diff, and CODEOWNERS auto-request behavior remain to be verified during a real run.",
+      "type": "quality",
+      "verified": true,
+      "evidence": "The response explicitly identifies each item as residual uncertainty and does not present it as established fact."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "The response performs no mutations because the prompt is a dry run.",
+        "reason": "The transcript and zero-tool-call metrics support this assertion, but future runs should distinguish harness-created output artifacts from repository mutations so output capture is not mistaken for task-side modification."
+      }
+    ],
+    "overall": "The assertions are generally discriminating and cover the key workflow gates. The body-content assertion usefully catches the contradictory `passed` placeholders despite the surrounding dry-run disclaimer."
+  }
+}

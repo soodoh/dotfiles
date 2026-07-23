@@ -1,0 +1,11 @@
+[
+  "The benchmark contains only run_number 1 for each eval/configuration pair, despite metadata declaring 3 runs per configuration; this one-run sample cannot establish variance, stability, or flakiness.",
+  "All 24 assertions pass with the skill, while 11 of 24 pass without it; no assertion passes without the skill and fails with it in the available runs.",
+  "Eval 2 does not differentiate the configurations: all 8 assertions pass both with and without the skill, including Jira verification, branch reuse, rebase ordering, title/body formatting, CODEOWNERS reviewer selection, and dry-run safety.",
+  "Eval 3 shows the largest assertion-level separation: the with-skill run passes all 9 assertions, whereas the without-skill run passes only dry-run non-mutation and fails the other 8 assertions.",
+  "Dry-run non-mutation passes in both configurations for all three evals, so that behavior does not distinguish skill use in the available sample.",
+  "In eval 1, repository-specific validation and commit conventions pass in both configurations, but the without-skill run fails default-branch verification, exact branch naming, exact Jira-prefixed title formatting, repository-evidenced template/reviewer handling, and adherence to supplied scenario state.",
+  "The without-skill eval 3 response reports inspection commands as executed even though its metrics record zero tool calls; this directly accounts for the failed expectation requiring execution evidence for claimed commands.",
+  "Every run records zero tool calls and zero errors. Token usage is higher with the skill in each matched eval: 8,328 vs 6,419 for eval 1, 6,315 vs 6,126 for eval 2, and 10,246 vs 8,099 for eval 3.",
+  "Execution timing is unavailable for comparison because every run records time_seconds as 0; the reported +0.0-second delta therefore does not demonstrate equal runtime."
+]
