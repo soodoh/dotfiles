@@ -144,36 +144,15 @@ cargo install atuin --locked
 
 1.Install Agents
 
-Happier CLI (remote session support):
-```bash
-curl -fsSL https://happier.dev/install | bash
-happier auth login
-```
-
-Claude Code:
-```bash
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-Codex:
-```bash
-# Mac
-brew install --cask codex
-# Linux (after `fnm` steps)
-npm i -g @openai/codex 
-```
+(Optionally install Codex/Claude Code; view upstream documentation)
 
 Pi:
 ```bash
-bun add -g @earendil-works/pi-coding-agent
+curl -fsSL https://pi.dev/install.sh | sh
 ```
 
 # Agent tools (personal)
 ```bash
-# Context7
-bun install -g ctx7
-ctx7 login # or set CONTEXT7_API_KEY
-
 # Serena (code intelligence MCP server for coding agents).
 # Wired into the Pi and Claude Code MCP configs in this repo.
 # `ast-grep` is installed above via Homebrew as the structural-search
@@ -192,9 +171,6 @@ Agent tools (for work, so macOS only):
 # Atlassian
 curl -fsSL --retry 2 https://teamwork-graph.atlassian.com/cli/install | bash
 twg setup
-
-# Glean
-brew install gleanwork/tap/glean-cli
 
 # Snowflake
 brew install snowflake-cli
