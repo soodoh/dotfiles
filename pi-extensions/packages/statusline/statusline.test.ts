@@ -70,10 +70,11 @@ type StatuslineContext = {
 	getContextUsage(): { tokens: number; contextWindow: number; percent: number };
 };
 
-function createPi() {
+function createPi(thinkingLevel: "off" | "high" = "off") {
 	const handlers = new Map<string, Handler>();
 	return {
 		handlers,
+		getThinkingLevel: vi.fn(() => thinkingLevel),
 		on(eventName: string, handler: Handler) {
 			handlers.set(eventName, handler);
 		},
@@ -100,6 +101,14 @@ afterEach(async () => {
 });
 
 describe("statusline extension", () => {
+	test("does not call runtime action methods while loading", () => {
+		const pi = createPi("high");
+
+		statusline(pi);
+
+		expect(pi.getThinkingLevel).not.toHaveBeenCalled();
+	});
+
 	test("registers a below-editor widget and renders model/context smoke output", () => {
 		let widgetFactory: WidgetFactory | undefined;
 		let footerFactory: FooterFactory | undefined;
@@ -152,7 +161,62 @@ describe("statusline extension", () => {
 		const line = widget?.render(120).join("\n") ?? "";
 
 		expect(line).toContain("Sonnet Test");
+		expect(line).toContain("off");
+		expect(line.indexOf("Sonnet Test")).toBeLessThan(line.indexOf("off"));
 		expect(line).toContain("25.0%/1.0k");
+	});
+
+	test("renders and immediately updates the configured thinking section", () => {
+		vi.stubEnv("POWERLINE_NERD_FONTS", "0");
+		let widgetFactory: WidgetFactory | undefined;
+		const requestRender = vi.fn();
+		const pi = createPi("high");
+		statusline(pi);
+		const ctx: StatuslineContext = {
+			hasUI: true,
+			ui: {
+				setFooter() {},
+				setWidget(_key, factory) {
+					widgetFactory = factory;
+				},
+			},
+			model: { name: "Test Model", contextWindow: 1000 },
+			modelRegistry: {
+				getAvailable() {
+					return [];
+				},
+				async getApiKeyForProvider() {
+					return undefined;
+				},
+			},
+			sessionManager: { getBranch: () => [] },
+			settingsManager: {
+				getCompactionSettings: () => ({ enabled: true }),
+				getGlobalSettings: () => ({
+					statusline: { sections: ["model", "thinking"] },
+				}),
+			},
+			getContextUsage: () => ({
+				tokens: 0,
+				contextWindow: 1000,
+				percent: 0,
+			}),
+		};
+		const theme = {
+			fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
+		};
+
+		pi.handlers.get("session_start")?.({}, ctx);
+		const widget = widgetFactory?.({ requestRender }, theme);
+		expect(widget?.render(120).join("\n")).toContain(
+			"<thinkingHigh>T high</thinkingHigh>",
+		);
+
+		pi.handlers.get("thinking_level_select")?.({ level: "xhigh" }, ctx);
+		expect(requestRender).toHaveBeenCalled();
+		expect(widget?.render(120).join("\n")).toContain(
+			"<thinkingXhigh>T xhigh</thinkingXhigh>",
+		);
 	});
 
 	test("renders configured sections in configured order", () => {

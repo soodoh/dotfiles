@@ -84,8 +84,18 @@ type AfterProviderResponseEvent = {
 	headers: Record<string, string>;
 };
 
+type ThinkingLevel =
+	| "off"
+	| "minimal"
+	| "low"
+	| "medium"
+	| "high"
+	| "xhigh"
+	| "max";
+
 type ExtensionEvent = Partial<AfterProviderResponseEvent> & {
 	toolName?: string;
+	level?: ThinkingLevel;
 };
 
 type ExtensionEventName =
@@ -97,9 +107,11 @@ type ExtensionEventName =
 	| "tool_result"
 	| "session_compact"
 	| "after_provider_response"
-	| "model_select";
+	| "model_select"
+	| "thinking_level_select";
 
 type ExtensionAPI = {
+	getThinkingLevel?(): ThinkingLevel;
 	on(
 		eventName: ExtensionEventName,
 		handler: (
@@ -115,6 +127,7 @@ const POWERLINE_THIN_LEFT = "\uE0B1";
 const ASCII_THIN_LEFT = "|";
 const NERD_ICONS = {
 	model: "\uEC19",
+	thinking: "\uF0EB",
 	branch: "\uF126",
 	context: "\uE70F",
 	auto: "\u{F0068}",
@@ -122,6 +135,7 @@ const NERD_ICONS = {
 
 const ASCII_ICONS = {
 	model: "",
+	thinking: "T",
 	branch: "⎇",
 	context: "◫",
 	auto: "AC",
@@ -145,12 +159,17 @@ type AssistantTokenUsage = {
 	cacheWrite: number;
 };
 
-type StatuslineSection = "model" | "git" | "provider_usage" | "context";
+type StatuslineSection =
+	| "model"
+	| "thinking"
+	| "git"
+	| "provider_usage"
+	| "context";
 type StatuslineLayout = StatuslineSection[][];
 type ProviderUsageRenderMode = "full" | "active" | "omit";
 
 const DEFAULT_STATUSLINE_LAYOUT: StatuslineLayout = [
-	["model", "git", "context"],
+	["model", "thinking", "git", "context"],
 	["provider_usage"],
 ];
 const COLORS: Record<SemanticColor, ColorValue> = {
@@ -182,6 +201,7 @@ function configuredSectionsFromSettings(
 function isStatuslineSection(value: string): value is StatuslineSection {
 	return (
 		value === "model" ||
+		value === "thinking" ||
 		value === "git" ||
 		value === "provider_usage" ||
 		value === "context"
@@ -364,6 +384,14 @@ function renderModel(ctx: ExtensionContext, theme: Theme): string {
 	return color(theme, "model", withIcon(icons().model, modelName));
 }
 
+function thinkingColor(level: ThinkingLevel): ThemeColor {
+	return `thinking${level.charAt(0).toUpperCase()}${level.slice(1)}`;
+}
+
+function renderThinking(level: ThinkingLevel, theme: Theme): string {
+	return theme.fg(thinkingColor(level), withIcon(icons().thinking, level));
+}
+
 function renderGit(git: GitStatus, theme: Theme): string | undefined {
 	const { branch, staged, unstaged, untracked } = git;
 	const isDirty = staged > 0 || unstaged > 0 || untracked > 0;
@@ -423,6 +451,7 @@ function buildStatusLines(
 	footerData: ReadonlyFooterDataProvider | null,
 	onUpdate: () => void,
 	width: number,
+	thinkingLevel: ThinkingLevel,
 ): string[] {
 	const layout = getStatuslineLayout(ctx);
 	const allSections = layout.flat();
@@ -451,6 +480,8 @@ function buildStatusLines(
 			switch (section) {
 				case "model":
 					return renderModel(ctx, theme);
+				case "thinking":
+					return renderThinking(thinkingLevel, theme);
 				case "git":
 					return git ? renderGit(git, theme) : undefined;
 				case "provider_usage":
@@ -497,6 +528,7 @@ export default function statusline(pi: ExtensionAPI): void {
 	let currentCtx: ExtensionContext | null = null;
 	let footerData: ReadonlyFooterDataProvider | null = null;
 	let tuiRef: { requestRender?: () => void } | null = null;
+	let thinkingLevel: ThinkingLevel = "off";
 
 	const requestRender = () => tuiRef?.requestRender?.();
 	const refreshCurrentProviderUsage = (ctx: ExtensionContext): void => {
@@ -514,6 +546,7 @@ export default function statusline(pi: ExtensionAPI): void {
 	function install(ctx: ExtensionContext): void {
 		if (!ctx.hasUI) return;
 		currentCtx = ctx;
+		thinkingLevel = pi.getThinkingLevel?.() ?? thinkingLevel;
 		if (hasProviderUsageSection(ctx)) {
 			const providerUsageCtx = toProviderUsageContext(ctx);
 			refreshProviderUsage(
@@ -553,6 +586,7 @@ export default function statusline(pi: ExtensionAPI): void {
 							footerData,
 							requestRender,
 							width,
+							thinkingLevel,
 						);
 					},
 				};
@@ -583,6 +617,11 @@ export default function statusline(pi: ExtensionAPI): void {
 	pi.on("model_select", (_event, ctx) => {
 		invalidateProviderUsageDiscovery();
 		refreshCurrentProviderUsage(ctx);
+		requestRender();
+	});
+	pi.on("thinking_level_select", (event, ctx) => {
+		currentCtx = ctx;
+		thinkingLevel = event.level ?? pi.getThinkingLevel?.() ?? thinkingLevel;
 		requestRender();
 	});
 	pi.on("input", (_event, ctx) => {

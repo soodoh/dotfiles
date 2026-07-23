@@ -2,12 +2,13 @@
 
 `statusline` is a lean, compact, powerline-style statusline for Pi.
 
-This package was created to provide similar statusline-focused functionality to [`pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer), while removing features unrelated to the statusline itself. It keeps the pieces I needed—model, git, provider, and context visibility—and intentionally leaves out broader UI features such as welcome overlays, vibes, stash flows, bash mode, presets, and slash-command controls.
+This package was created to provide similar statusline-focused functionality to [`pi-powerline-footer`](https://github.com/nicobailon/pi-powerline-footer), while removing features unrelated to the statusline itself. It keeps the pieces I needed—model, thinking mode, git, provider, and context visibility—and intentionally leaves out broader UI features such as welcome overlays, vibes, stash flows, bash mode, presets, and slash-command controls.
 
 ## Highlights
 
 - Renders a compact statusline below the editor.
 - Shows the active model name.
+- Shows the current thinking level as a separately configurable, level-colored section.
 - Shows the current git branch plus staged and unstaged change counts.
 - Shows provider usage badges when the `provider_usage` section is configured and Pi exposes the relevant provider/auth data. All authenticated providers are shown (e.g. GitHub Copilot, OpenAI Codex subscription, Anthropic, OpenRouter, and LiteLLM proxies exposing OpenRouter credits and ChatGPT usage passthroughs), regardless of which model is currently active.
 - Shows context usage as percentage plus context window, with warning colors above 70% and 90%.
@@ -44,7 +45,7 @@ Restart Pi or run `/reload` after installing.
 
 ## Usage
 
-The extension activates automatically for sessions with a UI. It installs a below-editor widget named `pi-statusline` and keeps it refreshed as Pi emits session, agent, provider, model, input, tool, and compaction events.
+The extension activates automatically for sessions with a UI. It installs a below-editor widget named `pi-statusline` and keeps it refreshed as Pi emits session, agent, provider, model, thinking-level, input, tool, and compaction events.
 
 There are no slash commands. The statusline is intentionally always-on once the extension is loaded.
 
@@ -55,6 +56,7 @@ The rendered line is width-aware and may omit provider detail in narrow terminal
 | Segment        | Description                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Model          | Current Pi model name, with a shorter display for Claude model names.                                              |
+| Thinking       | Current Pi thinking level (`off` through `max`), using Pi's matching level color.                                   |
 | Git            | Branch name, staged `+n`, and unstaged `*n` markers. Untracked files still make the branch appear dirty.           |
 | Provider usage | Usage or balance information for all authenticated configured providers when configured and available. |
 | Context        | Current context percentage and context window, colored normally below 70%, warning above 70%, and error above 90%. |
@@ -70,12 +72,12 @@ Use a nested array where each inner array defines one line:
 ```json
 {
   "statusline": {
-    "sections": [["model", "git", "context"], ["provider_usage"]]
+    "sections": [["model", "thinking", "git", "context"], ["provider_usage"]]
   }
 }
 ```
 
-The default layout renders two lines: model, git, and context on the first line, and provider usage on the second.
+The default layout renders two lines: model, thinking level, git, and context on the first line, and provider usage on the second.
 
 ### Single-line layout
 
@@ -84,12 +86,12 @@ Use a flat array to render everything on one line:
 ```json
 {
   "statusline": {
-    "sections": ["model", "git", "provider_usage", "context"]
+    "sections": ["model", "thinking", "git", "provider_usage", "context"]
   }
 }
 ```
 
-Supported sections are `model`, `git`, `provider_usage`, and `context`. The statusline renders only the configured sections and preserves their order. Provider usage token/quota lookups only run when `provider_usage` is present.
+Supported sections are `model`, `thinking`, `git`, `provider_usage`, and `context`. The statusline renders only the configured sections and preserves their order. Provider usage token/quota lookups only run when `provider_usage` is present.
 
 For example, to show only context then model on a single line:
 
