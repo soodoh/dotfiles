@@ -148,7 +148,7 @@ cargo install atuin --locked
 
 Pi:
 ```bash
-curl -fsSL https://pi.dev/install.sh | sh
+bun add -g @earendil-works/pi-coding-agent
 ```
 
 # Agent tools (personal)
