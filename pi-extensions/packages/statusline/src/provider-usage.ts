@@ -1204,20 +1204,25 @@ function formatProviderScope(
 	scope: ProviderUsageScope | undefined,
 ): string | undefined {
 	if (!scope) return undefined;
-	const usageParts: string[] = [];
-	if (scope.sessionPercentUsed !== undefined) {
-		usageParts.push(formatLabeledPercent("S", scope.sessionPercentUsed));
+	const percentages = [
+		{ label: "S", value: scope.sessionPercentUsed },
+		{ label: "W", value: scope.weeklyPercentUsed },
+		{ label: "M", value: scope.monthlyPercentUsed },
+		{ value: scope.percentUsed },
+	].filter(
+		(entry): entry is { label?: string; value: number } =>
+			entry.value !== undefined,
+	);
+	if (percentages.length > 0) {
+		const showScopeLabels = percentages.length > 1;
+		return percentages
+			.map(({ label, value }) =>
+				showScopeLabels && label
+					? formatLabeledPercent(label, value)
+					: formatPercent(value),
+			)
+			.join("/");
 	}
-	if (scope.weeklyPercentUsed !== undefined) {
-		usageParts.push(formatLabeledPercent("W", scope.weeklyPercentUsed));
-	}
-	if (scope.monthlyPercentUsed !== undefined) {
-		usageParts.push(formatLabeledPercent("M", scope.monthlyPercentUsed));
-	}
-	if (scope.percentUsed !== undefined) {
-		usageParts.push(formatPercent(scope.percentUsed));
-	}
-	if (usageParts.length > 0) return usageParts.join("/");
 	if (scope.balanceUsd !== undefined) return formatMoney(scope.balanceUsd);
 	if (scope.creditsUsd !== undefined) return formatMoney(scope.creditsUsd);
 	if (scope.spendUsd !== undefined) return formatMoney(scope.spendUsd);

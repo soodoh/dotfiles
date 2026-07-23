@@ -272,8 +272,42 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(render(targets)).toContain("OpenAI W12%");
+		expect(render(targets)).toContain("OpenAI 12%");
+		expect(render(targets)).not.toContain("W12%");
 		expect(render(targets)).not.toContain("S12%");
+	});
+
+	test("labels both OpenAI usage windows when both are returned", async () => {
+		const token = jwtWithPayload({
+			"https://api.openai.com/auth": { chatgpt_account_id: "account-123" },
+		});
+		fetchCalls(() =>
+			Response.json({
+				rate_limit: {
+					primary_window: {
+						used_percent: 12,
+						limit_window_seconds: 5 * 60 * 60,
+					},
+					secondary_window: {
+						used_percent: 48,
+						limit_window_seconds: 7 * 24 * 60 * 60,
+					},
+				},
+			}),
+		);
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "openai-codex"
+					? { type: "oauth", access: token }
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "openai-codex", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(render(targets)).toContain("OpenAI S12%/W48%");
 	});
 
 	test("parses Google stored OAuth JSON token and quota buckets", async () => {
@@ -385,8 +419,8 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(render(targets)).toBe("OpenRouter $2.50 · Anthropic S10%");
-		expect(render(targets, true)).toBe("Anthropic S10%");
+		expect(render(targets)).toBe("OpenRouter $2.50 · Anthropic 10%");
+		expect(render(targets, true)).toBe("Anthropic 10%");
 	});
 
 	test("orders provider targets consistently regardless of active provider", () => {
@@ -451,7 +485,7 @@ describe("provider usage", () => {
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
 			Authorization: "token github-oauth-token",
 		});
-		expect(render(targets)).toContain(" M30%");
+		expect(render(targets)).toContain(" 30%");
 	});
 
 	test("falls back to getApiKeyForProvider when GitHub Copilot has no refresh token", async () => {
@@ -487,7 +521,7 @@ describe("provider usage", () => {
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
 			Authorization: "token fallback-api-token",
 		});
-		expect(render(targets)).toContain(" M50%");
+		expect(render(targets)).toContain(" 50%");
 	});
 
 	test("discovers LLMHub spend from Claude settings without Pi auth", async () => {

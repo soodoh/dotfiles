@@ -16,13 +16,13 @@ chmod +x "$tmp_dir/sketchybar"
 mkdir -p "$tmp_dir/home/.bun/bin"
 cat >"$tmp_dir/home/.bun/bin/bun" <<'EOF'
 #!/bin/sh
-printf '%s\n' '{"text":"Anthropic S12%/W55% · OpenAI W30% ·  M20% · 󰊭 10%"}'
+printf '%s\n' '{"text":"Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%"}'
 EOF
 chmod +x "$tmp_dir/home/.bun/bin/bun"
 : >"$tmp_dir/provider-usage-cli.ts"
 
 cat >"$tmp_dir/usage.json" <<'EOF'
-{"text":"Anthropic S12%/W55% · OpenAI W30% ·  M20% · 󰊭 10%"}
+{"text":"Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%"}
 EOF
 
 assert_contains() {
@@ -44,7 +44,7 @@ HOME="$tmp_dir/home" \
   PROVIDER_USAGE_CLI="$tmp_dir/provider-usage-cli.ts" \
   bash "$plugin_dir/ai_usage_refresh.sh"
 
-assert_contains 'icon.drawing=off label=Anthropic S12%/W55% · OpenAI W30% ·  M20% · 󰊭 10%' "$log_file"
+assert_contains 'icon.drawing=off label=Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%' "$log_file"
 assert_contains '--set right_separator.ai drawing=on' "$log_file"
 assert_contains '--move ai_usage.providers after right_separator.ai' "$log_file"
 
