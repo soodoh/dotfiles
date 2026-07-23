@@ -107,7 +107,7 @@ describe("provider usage", () => {
 		writeFileSync(
 			sharedTestCachePath,
 			JSON.stringify({
-				version: 3,
+				version: 4,
 				entries: {
 					"anthropic:oauth": {
 						providerId: "anthropic",
@@ -391,8 +391,8 @@ describe("provider usage", () => {
 
 	test("orders provider targets consistently regardless of active provider", () => {
 		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://litellm.example.com",
-			ANTHROPIC_AUTH_TOKEN: "ds-token",
+			ANTHROPIC_BASE_URL: "https://llmhub.example.com",
+			ANTHROPIC_AUTH_TOKEN: "llmhub-token",
 		});
 		const credentials = new Map([
 			["openrouter", { type: "api_key" as const }],
@@ -410,9 +410,8 @@ describe("provider usage", () => {
 		expect(
 			discoverProviderUsageTargets(ctx).map((target) => target.providerId),
 		).toEqual([
-			"litellm-ds",
+			"llmhub",
 			"github-copilot",
-			"litellm",
 			"openai",
 			"openrouter",
 			"anthropic",
@@ -491,10 +490,10 @@ describe("provider usage", () => {
 		expect(render(targets)).toContain(" M50%");
 	});
 
-	test("discovers DS spend from Claude settings without Pi auth", async () => {
+	test("discovers LLMHub spend from Claude settings without Pi auth", async () => {
 		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://litellm.example.com/",
-			ANTHROPIC_AUTH_TOKEN: "ds-token",
+			ANTHROPIC_BASE_URL: "https://llmhub.example.com/",
+			ANTHROPIC_AUTH_TOKEN: "llmhub-token",
 		});
 		const { calls } = fetchCalls(() =>
 			Response.json({ info: { spend: 123.456 } }),
@@ -503,23 +502,23 @@ describe("provider usage", () => {
 
 		const targets = discoverProviderUsageTargets(ctx);
 		expect(targets).toEqual([
-			{ providerId: "litellm-ds", authKind: "api_key", active: false },
+			{ providerId: "llmhub", authKind: "api_key", active: false },
 		]);
 		await refreshAndWait(ctx, targets);
 
 		expect(calls.map((call) => call.url)).toEqual([
-			"https://litellm.example.com/key/info",
+			"https://llmhub.example.com/key/info",
 		]);
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
-			Authorization: "Bearer ds-token",
+			Authorization: "Bearer llmhub-token",
 		});
-		expect(render(targets)).toBe("DS $123.46");
+		expect(render(targets)).toBe("LLMHub $123.46");
 	});
 
-	test("falls back to ANTHROPIC_API_KEY in Claude settings", async () => {
+	test("falls back to ANTHROPIC_API_KEY for LLMHub spend", async () => {
 		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://litellm.example.com",
-			ANTHROPIC_API_KEY: "ds-api-key",
+			ANTHROPIC_BASE_URL: "https://llmhub.example.com",
+			ANTHROPIC_API_KEY: "llmhub-api-key",
 		});
 		const { calls } = fetchCalls(() => Response.json({ info: { spend: 10 } }));
 		const ctx: ProviderUsageContext = {};
@@ -528,14 +527,14 @@ describe("provider usage", () => {
 		await refreshAndWait(ctx, targets);
 
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
-			Authorization: "Bearer ds-api-key",
+			Authorization: "Bearer llmhub-api-key",
 		});
 	});
 
-	test("parses DS spend from budget exceeded responses", async () => {
+	test("parses LLMHub spend from budget exceeded responses", async () => {
 		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://litellm.example.com",
-			ANTHROPIC_AUTH_TOKEN: "ds-token",
+			ANTHROPIC_BASE_URL: "https://llmhub.example.com",
+			ANTHROPIC_AUTH_TOKEN: "llmhub-token",
 		});
 		fetchCalls(() =>
 			Response.json(
@@ -554,28 +553,19 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(render(targets)).toBe("DS $322.29");
+		expect(render(targets)).toBe("LLMHub $322.29");
 	});
 
-	test("does not discover DS when Claude settings are missing credentials", () => {
-		writeClaudeSettings({ ANTHROPIC_BASE_URL: "https://litellm.example.com" });
+	test("does not discover LLMHub when Claude settings are missing credentials", () => {
+		writeClaudeSettings({ ANTHROPIC_BASE_URL: "https://llmhub.example.com" });
 
 		expect(discoverProviderUsageTargets({})).toEqual([]);
 	});
 
-	test("fetches LiteLLM proxied OpenRouter and ChatGPT usage via passthrough endpoints", async () => {
+	test("ignores LiteLLM providers for usage discovery", async () => {
 		stubEnv("LITELLM_BASE_URL", "http://localhost:4000");
-		const { calls } = fetchCalls((url) => {
-			if (url.endsWith("/chatgpt/usage")) {
-				return Response.json({
-					rate_limit: {
-						primary_window: { used_percent: 25 },
-						secondary_window: { used_percent: 50 },
-					},
-				});
-			}
-			return Response.json({ data: { total_credits: 10, total_usage: 1.25 } });
-		});
+		writeClaudeSettings({});
+		const { fetchMock } = fetchCalls(() => Response.json({}));
 		const ctx: ProviderUsageContext = {
 			model: { id: "openrouter/z-ai/glm-5.2", provider: "litellm" },
 			modelRegistry: {
@@ -589,124 +579,16 @@ describe("provider usage", () => {
 					return { configured: provider === "litellm", source: "environment" };
 				},
 			},
-		};
-
-		const targets = discoverProviderUsageTargets(ctx);
-		expect(targets).toEqual([
-			{ providerId: "litellm", authKind: "api_key", active: true },
-		]);
-		await refreshAndWait(ctx, targets);
-
-		expect(calls.map((call) => call.url)).toEqual([
-			"http://localhost:4000/openrouter/credits",
-			"http://localhost:4000/chatgpt/usage",
-		]);
-		expect(headersRecord(calls[0].init.headers)).toMatchObject({
-			Authorization: "Bearer litellm-key",
-		});
-		expect(headersRecord(calls[1].init.headers)).toMatchObject({
-			Authorization: "Bearer litellm-key",
-		});
-		expect(render(targets)).toContain("OpenAI S25%/W50% · OpenRouter $8.75");
-	});
-
-	test("fetches LiteLLM passthrough usage with stored OAuth credentials", async () => {
-		stubEnv("LITELLM_BASE_URL", "");
-		fetchCalls((url) => {
-			if (url.endsWith("/chatgpt/usage")) {
-				return Response.json({
-					rate_limit: { primary_window: { used_percent: 20 } },
-				});
-			}
-			return Response.json({ data: { total_credits: 10, total_usage: 2 } });
-		});
-		const ctx: ProviderUsageContext = {
-			model: { id: "chatgpt/gpt-5.6-sol", provider: "litellm" },
-			modelRegistry: {
-				isUsingOAuth() {
-					return true;
-				},
-			},
 			readStoredCredential(provider) {
-				return provider === "litellm"
-					? {
-							type: "oauth",
-							access: "litellm-token",
-							refresh: "litellm-refresh",
-							expires: Date.now() + 60_000,
-							baseUrl: "https://litellm.example.com/v1",
-						}
-					: undefined;
+				return provider === "litellm" ? { type: "api_key" } : undefined;
 			},
 		};
 
 		const targets = discoverProviderUsageTargets(ctx);
-		expect(targets).toEqual([
-			{ providerId: "litellm", authKind: "oauth", active: true },
-		]);
-		await refreshAndWait(ctx, targets);
+		expect(targets).toEqual([]);
+		await refreshProviderUsage(ctx, targets, vi.fn());
 
-		expect(render(targets)).toContain("OpenAI S20% · OpenRouter $8.00");
-	});
-
-	test("derives LiteLLM base url from model baseUrl when env is unset", async () => {
-		stubEnv("LITELLM_BASE_URL", "");
-		const { calls } = fetchCalls(() =>
-			Response.json({ data: { total_credits: 5, total_usage: 0 } }),
-		);
-		const ctx: ProviderUsageContext = {
-			model: { id: "m", provider: "litellm" },
-			modelRegistry: {
-				getAvailable() {
-					return [
-						{ provider: "litellm", baseUrl: "https://litellm.example.com/v1/" },
-					];
-				},
-				async getApiKeyForProvider() {
-					return "litellm-key";
-				},
-				getProviderAuthStatus(provider) {
-					return { configured: provider === "litellm" };
-				},
-			},
-		};
-
-		const targets = discoverProviderUsageTargets(ctx);
-		await refreshAndWait(ctx, targets);
-
-		expect(calls.map((call) => call.url)).toEqual([
-			"https://litellm.example.com/openrouter/credits",
-			"https://litellm.example.com/chatgpt/usage",
-		]);
-		expect(render(targets)).toContain("OpenRouter $5.00");
-	});
-
-	test("surfaces non-active LiteLLM when configured even without models", () => {
-		const ctx: ProviderUsageContext = {
-			model: { id: "claude", provider: "anthropic" },
-			modelRegistry: {
-				getAvailable() {
-					return [{ provider: "anthropic" }];
-				},
-				isUsingOAuth() {
-					return true;
-				},
-				getProviderAuthStatus(provider) {
-					return { configured: provider === "litellm" };
-				},
-				async getApiKeyForProvider() {
-					return undefined;
-				},
-			},
-		};
-
-		const litellm = discoverProviderUsageTargets(ctx).find(
-			(target) => target.providerId === "litellm",
-		);
-		expect(litellm).toEqual({
-			providerId: "litellm",
-			authKind: "api_key",
-			active: false,
-		});
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(render(targets)).toBe("");
 	});
 });

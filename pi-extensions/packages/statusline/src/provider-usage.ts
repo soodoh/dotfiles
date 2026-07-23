@@ -17,7 +17,7 @@ import type {
 } from "./pi-types";
 
 const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
-const PROVIDER_USAGE_CACHE_VERSION = 3;
+const PROVIDER_USAGE_CACHE_VERSION = 4;
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
 const PROVIDER_BADGE_SEPARATOR = " · ";
 const GITHUB_LOGO = "\uF09B";
@@ -38,12 +38,6 @@ export type ProviderUsageScope = {
 	balanceUsd?: number;
 	creditsUsd?: number;
 	spendUsd?: number;
-	sections?: ProviderUsageScopeSection[];
-};
-
-type ProviderUsageScopeSection = {
-	label: string;
-	scope: ProviderUsageScope;
 };
 
 export type ProviderUsageStatus = {
@@ -71,20 +65,13 @@ const OAUTH_PROVIDER_IDS = new Set([
 	"github-copilot",
 	"google-gemini-cli",
 	"google-antigravity",
-	"litellm",
 ]);
-const API_KEY_PROVIDER_IDS = new Set([
-	"anthropic",
-	"openai",
-	"openrouter",
-	"litellm",
-]);
-const REMOVED_PROVIDER_IDS = new Set(["google-vertex"]);
-const DS_USAGE_PROVIDER_ID = "litellm-ds";
+const API_KEY_PROVIDER_IDS = new Set(["anthropic", "openai", "openrouter"]);
+const USAGE_IGNORED_PROVIDER_IDS = new Set(["google-vertex", "litellm"]);
+const LLMHUB_USAGE_PROVIDER_ID = "llmhub";
 const PROVIDER_FAMILY_ORDER = [
-	DS_USAGE_PROVIDER_ID,
+	LLMHUB_USAGE_PROVIDER_ID,
 	"github-copilot",
-	"litellm",
 	"openai",
 	"openrouter",
 ];
@@ -107,12 +94,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-type DsCredentials = {
+type LlmHubCredentials = {
 	baseUrl: string;
 	token: string;
 };
 
-function readDsCredentials(): DsCredentials | undefined {
+function readLlmHubCredentials(): LlmHubCredentials | undefined {
 	const claudeConfigDir =
 		process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude");
 	try {
@@ -166,13 +153,6 @@ function isProviderUsageState(value: unknown): value is ProviderUsageState {
 
 function parseCachedScope(value: unknown): ProviderUsageScope | undefined {
 	if (!isRecord(value)) return undefined;
-	const sections = Array.isArray(value.sections)
-		? value.sections.flatMap((section) => {
-				if (!isRecord(section) || typeof section.label !== "string") return [];
-				const scope = parseCachedScope(section.scope);
-				return scope ? [{ label: section.label, scope }] : [];
-			})
-		: undefined;
 	return {
 		sessionPercentUsed:
 			typeof value.sessionPercentUsed === "number"
@@ -193,7 +173,6 @@ function parseCachedScope(value: unknown): ProviderUsageScope | undefined {
 		creditsUsd:
 			typeof value.creditsUsd === "number" ? value.creditsUsd : undefined,
 		spendUsd: typeof value.spendUsd === "number" ? value.spendUsd : undefined,
-		sections,
 	};
 }
 
@@ -386,7 +365,7 @@ function addProviderCandidate(
 ): void {
 	if (!providerId) return;
 	const normalized = normalizeProviderId(providerId);
-	if (!normalized || REMOVED_PROVIDER_IDS.has(normalized)) return;
+	if (!normalized || USAGE_IGNORED_PROVIDER_IDS.has(normalized)) return;
 	if (!includeUnsupported && !isProviderSupportedAuth(normalized, authKind)) {
 		return;
 	}
@@ -538,10 +517,10 @@ export function discoverProviderUsageTargets(
 	const activeAuthKind = ctx.model ? modelAuthKind(ctx, ctx.model) : undefined;
 	const candidates: ProviderUsageTarget[] = [];
 
-	if (readDsCredentials()) {
+	if (readLlmHubCredentials()) {
 		addProviderCandidate(
 			candidates,
-			DS_USAGE_PROVIDER_ID,
+			LLMHUB_USAGE_PROVIDER_ID,
 			"api_key",
 			activeProviderId,
 			true,
@@ -679,42 +658,6 @@ function normalizeBaseUrl(url: string): string {
 	return url.trim().replace(/\/+$/, "");
 }
 
-function stripApiVersionPath(url: string): string {
-	const trimmed = normalizeBaseUrl(url);
-	return trimmed.endsWith("/v1") ? trimmed.slice(0, -3) : trimmed;
-}
-
-function recordField(value: unknown, key: string): unknown {
-	return isRecord(value) ? value[key] : undefined;
-}
-
-function storedCredentialBaseUrl(
-	ctx: ProviderUsageContext,
-	providerId: string,
-): string | undefined {
-	const credential = getStoredCredential(ctx, providerId);
-	const baseUrl = recordField(credential, "baseUrl");
-	return typeof baseUrl === "string" && baseUrl.trim()
-		? baseUrl.trim()
-		: undefined;
-}
-
-function resolveLitellmBaseUrl(ctx: ProviderUsageContext): string | undefined {
-	const envBaseUrl = process.env.LITELLM_BASE_URL;
-	if (envBaseUrl) return normalizeBaseUrl(envBaseUrl);
-
-	const credentialBaseUrl = storedCredentialBaseUrl(ctx, "litellm");
-	if (credentialBaseUrl) return stripApiVersionPath(credentialBaseUrl);
-
-	for (const model of getConfiguredModels(ctx)) {
-		if (normalizeProviderId(model.provider ?? "") !== "litellm") continue;
-		if (typeof model.baseUrl === "string" && model.baseUrl.trim()) {
-			return stripApiVersionPath(model.baseUrl);
-		}
-	}
-	return undefined;
-}
-
 function numericField(value: unknown): number | undefined {
 	if (typeof value === "number" && Number.isFinite(value)) return value;
 	if (typeof value !== "string") return undefined;
@@ -795,7 +738,7 @@ async function fetchOpenRouterCredits(
 	return parseOpenRouterCreditsBody(body);
 }
 
-function parseDsSpend(body: unknown): ProviderUsageScope | undefined {
+function parseLlmHubSpend(body: unknown): ProviderUsageScope | undefined {
 	if (!isRecord(body)) return undefined;
 	const info = nestedRecord(body, "info");
 	const spend = info ? numericField(info.spend) : undefined;
@@ -810,7 +753,7 @@ function parseDsSpend(body: unknown): ProviderUsageScope | undefined {
 	return exceededSpend !== undefined ? { spendUsd: exceededSpend } : undefined;
 }
 
-async function fetchDsSpend(
+async function fetchLlmHubSpend(
 	baseUrl: string,
 	token: string,
 ): Promise<ProviderUsageScope | undefined> {
@@ -819,44 +762,7 @@ async function fetchDsSpend(
 		signal: AbortSignal.timeout(PROVIDER_USAGE_FETCH_TIMEOUT_MS),
 	});
 	const body: unknown = await response.json();
-	return parseDsSpend(body);
-}
-
-async function fetchLitellmPassthroughCredits(
-	baseUrl: string,
-	token: string,
-): Promise<ProviderUsageScope | undefined> {
-	const body = await fetchJson(
-		`${normalizeBaseUrl(baseUrl)}/openrouter/credits`,
-		{
-			headers: { Authorization: `Bearer ${token}` },
-		},
-	);
-	return parseOpenRouterCreditsBody(body);
-}
-
-async function fetchLitellmChatGptUsage(
-	baseUrl: string,
-	token: string,
-): Promise<ProviderUsageScope | undefined> {
-	const body = await fetchJson(`${normalizeBaseUrl(baseUrl)}/chatgpt/usage`, {
-		headers: { Authorization: `Bearer ${token}` },
-	});
-	return parseOpenAiUsageBody(body);
-}
-
-async function fetchLitellmPassthroughUsage(
-	baseUrl: string,
-	token: string,
-): Promise<ProviderUsageScope | undefined> {
-	const [openRouter, openAi] = await Promise.all([
-		fetchLitellmPassthroughCredits(baseUrl, token),
-		fetchLitellmChatGptUsage(baseUrl, token),
-	]);
-	const sections: ProviderUsageScopeSection[] = [];
-	if (openAi) sections.push({ label: "OpenAI", scope: openAi });
-	if (openRouter) sections.push({ label: "OpenRouter", scope: openRouter });
-	return sections.length > 0 ? { sections } : undefined;
+	return parseLlmHubSpend(body);
 }
 
 function jwtPayload(token: string): Record<string, unknown> | undefined {
@@ -1113,19 +1019,6 @@ async function fetchProviderUsage(
 		fetchedAt: Date.now(),
 	};
 
-	if (target.providerId === "litellm") {
-		const token = await getOAuthProviderToken(ctx, target.providerId);
-		if (!token) return { ...statusBase, state: "unknown" };
-
-		const baseUrl = resolveLitellmBaseUrl(ctx);
-		if (!baseUrl) return { ...statusBase, state: "unknown" };
-
-		const scope = await fetchLitellmPassthroughUsage(baseUrl, token);
-		return scope
-			? { ...statusBase, state: "ready", scope }
-			: { ...statusBase, state: "unknown" };
-	}
-
 	if (target.authKind === "oauth") {
 		let scope: ProviderUsageScope | undefined;
 		if (target.providerId === "github-copilot") {
@@ -1160,13 +1053,16 @@ async function fetchProviderUsage(
 	}
 
 	if (
-		target.providerId === DS_USAGE_PROVIDER_ID &&
+		target.providerId === LLMHUB_USAGE_PROVIDER_ID &&
 		target.authKind === "api_key"
 	) {
-		const credentials = readDsCredentials();
+		const credentials = readLlmHubCredentials();
 		if (!credentials) return { ...statusBase, state: "unknown" };
 
-		const scope = await fetchDsSpend(credentials.baseUrl, credentials.token);
+		const scope = await fetchLlmHubSpend(
+			credentials.baseUrl,
+			credentials.token,
+		);
 		return scope
 			? { ...statusBase, state: "ready", scope }
 			: { ...statusBase, state: "unknown" };
@@ -1270,16 +1166,14 @@ export function refreshProviderUsage(
 
 function providerDisplayLabel(providerId: string): string {
 	switch (providerFamily(providerId)) {
-		case DS_USAGE_PROVIDER_ID:
-			return "DS";
+		case LLMHUB_USAGE_PROVIDER_ID:
+			return "LLMHub";
 		case "anthropic":
 			return "Anthropic";
 		case "openai":
 			return "OpenAI";
 		case "openrouter":
 			return "OpenRouter";
-		case "litellm":
-			return "LiteLLM";
 		case "github-copilot":
 			return GITHUB_LOGO;
 		case "google-gemini-cli":
@@ -1334,15 +1228,6 @@ function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
 	const status = providerUsageCache.get(
 		providerCacheKey(target.providerId, target.authKind),
 	);
-	const sections =
-		status?.state === "ready" ? status.scope?.sections : undefined;
-	if (sections && sections.length > 0) {
-		return sections.flatMap((section) => {
-			const scopeText = formatProviderScope(section.scope);
-			return scopeText ? [`${section.label} ${scopeText}`] : [];
-		});
-	}
-
 	const scopeText =
 		status?.state === "ready" ? formatProviderScope(status.scope) : undefined;
 	if (!scopeText && !target.active) return [];
