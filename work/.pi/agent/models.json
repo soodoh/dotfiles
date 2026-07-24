@@ -102,6 +102,7 @@
 					"reasoning": true,
 					"thinkingLevelMap": {
 						"off": "none",
+						"minimal": "low",
 						"xhigh": "xhigh",
 						"max": "max"
 					},
@@ -131,6 +132,7 @@
 					"reasoning": true,
 					"thinkingLevelMap": {
 						"off": "none",
+						"minimal": "low",
 						"xhigh": "xhigh",
 						"max": "max"
 					},
@@ -160,6 +162,7 @@
 					"reasoning": true,
 					"thinkingLevelMap": {
 						"off": "none",
+						"minimal": "low",
 						"xhigh": "xhigh",
 						"max": "max"
 					},
