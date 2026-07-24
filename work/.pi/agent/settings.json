@@ -38,11 +38,5 @@
 	},
 	"autoSessionName": {
 		"titleModel": ["litellm/chatgpt/gpt-5.4-mini"]
-	},
-	"litellm": {
-		"mcp": {
-			"enabled": false
-		}
 	}
 }
-
