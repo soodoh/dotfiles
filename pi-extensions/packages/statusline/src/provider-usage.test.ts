@@ -184,6 +184,109 @@ describe("provider usage", () => {
 		expect(render(targets)).toContain("OpenRouter $6.75");
 	});
 
+	test("falls back to OpenRouter credits after key status retries fail", async () => {
+		vi.spyOn(Math, "random").mockReturnValue(0);
+		const { calls } = fetchCalls((url) => {
+			if (url.endsWith("/key")) throw new Error("connection reset");
+			return Response.json({ data: { total_credits: 10, total_usage: 3.25 } });
+		});
+		const ctx: ProviderUsageContext = {
+			modelRegistry: {
+				async getApiKeyForProvider() {
+					return "openrouter-token";
+				},
+			},
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "openrouter", authKind: "api_key", active: false },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(calls.map((call) => call.url)).toEqual([
+			"https://openrouter.ai/api/v1/key",
+			"https://openrouter.ai/api/v1/key",
+			"https://openrouter.ai/api/v1/key",
+			"https://openrouter.ai/api/v1/credits",
+		]);
+		expect(render(targets)).toContain("OpenRouter $6.75");
+	});
+
+	test("retries transient provider responses up to the maximum attempts", async () => {
+		vi.spyOn(Math, "random").mockReturnValue(0);
+		let attempts = 0;
+		const { fetchMock } = fetchCalls(() => {
+			attempts++;
+			return attempts < 3
+				? new Response("busy", { status: 503 })
+				: Response.json({ five_hour: { used_percent: 10 } });
+		});
+		const ctx: ProviderUsageContext = {
+			modelRegistry: {
+				async getApiKeyForProvider() {
+					return "anthropic-token";
+				},
+			},
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "anthropic", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+		expect(render(targets)).toContain("Anthropic 10%");
+	});
+
+	test("does not retry non-transient provider responses", async () => {
+		const { fetchMock } = fetchCalls(
+			() => new Response("unauthorized", { status: 401 }),
+		);
+		const ctx: ProviderUsageContext = {
+			modelRegistry: {
+				async getApiKeyForProvider() {
+					return "anthropic-token";
+				},
+			},
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "anthropic", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(render(targets)).toContain("Anthropic ?");
+	});
+
+	test("honors Retry-After for throttled provider responses", async () => {
+		let attempts = 0;
+		const { fetchMock } = fetchCalls(() => {
+			attempts++;
+			return attempts === 1
+				? new Response("throttled", {
+						status: 429,
+						headers: { "Retry-After": "0" },
+					})
+				: Response.json({ five_hour: { used_percent: 10 } });
+		});
+		const ctx: ProviderUsageContext = {
+			modelRegistry: {
+				async getApiKeyForProvider() {
+					return "anthropic-token";
+				},
+			},
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "anthropic", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(render(targets)).toContain("Anthropic 10%");
+	});
+
 	test("uses stored Anthropic OAuth access and renders session and weekly percentages", async () => {
 		const { calls } = fetchCalls(() =>
 			Response.json({

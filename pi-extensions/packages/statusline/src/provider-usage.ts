@@ -19,6 +19,10 @@ import type {
 const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
 const PROVIDER_USAGE_CACHE_VERSION = 4;
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
+const PROVIDER_USAGE_FETCH_MAX_ATTEMPTS = 3;
+const PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS = 50;
+const PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS = 1000;
+const PROVIDER_USAGE_RETRY_MAX_DELAY_MS = 20_000;
 const PROVIDER_BADGE_SEPARATOR = " · ";
 const GITHUB_LOGO = "\uF09B";
 const GOOGLE_LOGO = "\u{F02AD}";
@@ -673,14 +677,79 @@ function nestedRecord(
 	return isRecord(child) ? child : undefined;
 }
 
+const RETRYABLE_PROVIDER_USAGE_STATUS_CODES = new Set([
+	408, 429, 500, 502, 503, 504,
+]);
+
+function retryAfterMs(response: Response): number | undefined {
+	const value = response.headers.get("retry-after")?.trim();
+	if (!value) return undefined;
+
+	const seconds = Number(value);
+	if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+	const timestamp = Date.parse(value);
+	return Number.isFinite(timestamp)
+		? Math.max(0, timestamp - Date.now())
+		: undefined;
+}
+
+function providerUsageRetryDelayMs(retry: number, status?: number): number {
+	const baseDelay =
+		status === 429
+			? PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS
+			: PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS;
+	const backoff = Math.min(
+		PROVIDER_USAGE_RETRY_MAX_DELAY_MS,
+		baseDelay * 2 ** retry,
+	);
+	return Math.random() * backoff;
+}
+
+async function waitForRetry(delayMs: number): Promise<void> {
+	await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+}
+
+async function fetchProviderUsageResponse(
+	url: string,
+	init: RequestInit,
+): Promise<Response> {
+	for (
+		let attempt = 0;
+		attempt < PROVIDER_USAGE_FETCH_MAX_ATTEMPTS;
+		attempt++
+	) {
+		try {
+			const response = await fetch(url, {
+				...init,
+				signal: AbortSignal.timeout(PROVIDER_USAGE_FETCH_TIMEOUT_MS),
+			});
+			const canRetry =
+				attempt < PROVIDER_USAGE_FETCH_MAX_ATTEMPTS - 1 &&
+				RETRYABLE_PROVIDER_USAGE_STATUS_CODES.has(response.status);
+			if (!canRetry) return response;
+
+			const serverDelay = retryAfterMs(response);
+			if (serverDelay !== undefined) {
+				if (serverDelay > PROVIDER_USAGE_RETRY_MAX_DELAY_MS) return response;
+				await waitForRetry(serverDelay);
+			} else {
+				await waitForRetry(providerUsageRetryDelayMs(attempt, response.status));
+			}
+		} catch (error) {
+			if (attempt === PROVIDER_USAGE_FETCH_MAX_ATTEMPTS - 1) throw error;
+			await waitForRetry(providerUsageRetryDelayMs(attempt));
+		}
+	}
+
+	throw new Error("Provider usage retry attempts exhausted");
+}
+
 async function fetchJson(
 	url: string,
 	init: RequestInit,
 ): Promise<unknown | undefined> {
-	const response = await fetch(url, {
-		...init,
-		signal: AbortSignal.timeout(PROVIDER_USAGE_FETCH_TIMEOUT_MS),
-	});
+	const response = await fetchProviderUsageResponse(url, init);
 	if (!response.ok) return undefined;
 	return response.json();
 }
@@ -757,10 +826,10 @@ async function fetchLlmHubSpend(
 	baseUrl: string,
 	token: string,
 ): Promise<ProviderUsageScope | undefined> {
-	const response = await fetch(`${normalizeBaseUrl(baseUrl)}/key/info`, {
-		headers: { Authorization: `Bearer ${token}` },
-		signal: AbortSignal.timeout(PROVIDER_USAGE_FETCH_TIMEOUT_MS),
-	});
+	const response = await fetchProviderUsageResponse(
+		`${normalizeBaseUrl(baseUrl)}/key/info`,
+		{ headers: { Authorization: `Bearer ${token}` } },
+	);
 	const body: unknown = await response.json();
 	return parseLlmHubSpend(body);
 }
@@ -1073,8 +1142,8 @@ async function fetchProviderUsage(
 		if (!token) return { ...statusBase, state: "unknown" };
 
 		const scope =
-			(await fetchOpenRouterKeyStatus(token)) ??
-			(await fetchOpenRouterCredits(token));
+			(await fetchOpenRouterKeyStatus(token).catch(() => undefined)) ??
+			(await fetchOpenRouterCredits(token).catch(() => undefined));
 		return scope
 			? { ...statusBase, state: "ready", scope }
 			: { ...statusBase, state: "unknown" };
