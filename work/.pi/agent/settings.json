@@ -51,9 +51,9 @@
     "litellm/chatgpt/gpt-5.6-luna",
     "litellm/openrouter/z-ai/glm-5.2",
     "github-copilot/gpt-5.6-sol",
-    "github-copilot/claude-opus-4.7",
     "github-copilot/gpt-5.6-luna",
-    "github-copilot/claude-sonnet-4.6",
+    "github-copilot/claude-opus-4.7",
+    "github-copilot/claude-sonnet-5",
     "google-vertex/gemini-2.5-flash",
     "google-vertex/gemini-2.5-pro"
   ]
