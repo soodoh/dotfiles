@@ -44,7 +44,6 @@
 	"enabledModels": [
 		"litellm/chatgpt/gpt-5.6-sol",
 		"litellm/chatgpt/gpt-5.6-luna",
-		"litellm/openrouter/z-ai/glm-5.2",
 		"llm-hub/claude-opus-4-8",
 		"llm-hub/claude-sonnet-5",
 		"github-copilot/gpt-5.6-sol",
@@ -53,5 +52,17 @@
 		"github-copilot/claude-sonnet-5",
 		"google-vertex/gemini-2.5-flash",
 		"google-vertex/gemini-2.5-pro"
-	]
+	],
+	"subagents": {
+		"modelScope": {
+			"enforce": true,
+			"allow": [
+				"litellm/chatgpt/gpt-5.6-sol",
+				"litellm/chatgpt/gpt-5.6-terra",
+				"litellm/chatgpt/gpt-5.6-luna",
+				"llm-hub/claude-opus-4-8",
+				"llm-hub/claude-sonnet-5"
+			]
+		}
+	}
 }
