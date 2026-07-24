@@ -13,9 +13,21 @@ printf '%s\n' "$*" >> "$SKETCHYBAR_LOG"
 EOF
 chmod +x "$tmp_dir/sketchybar"
 
-mkdir -p "$tmp_dir/home/.bun/bin"
+mkdir -p "$tmp_dir/home/.bun/bin" "$tmp_dir/home/.pi/agent"
+cat >"$tmp_dir/home/.pi/agent/models.json" <<'EOF'
+{"providers":{"llm-hub":{"baseUrl":"https://llm-hub.test","api":"anthropic-messages","models":[{"id":"claude-sonnet-5"}]}}}
+EOF
+cat >"$tmp_dir/home/.pi/agent/auth.json" <<'EOF'
+{"llm-hub":{"type":"api_key","key":"isolated-test-token"}}
+EOF
+chmod 600 "$tmp_dir/home/.pi/agent/auth.json"
 cat >"$tmp_dir/home/.bun/bin/bun" <<'EOF'
 #!/bin/sh
+if env | grep -Eq '^(ANTHROPIC_BASE_URL|ANTHROPIC_AUTH_TOKEN|ANTHROPIC_API_KEY|LLMHUB_BASE_URL|LLMHUB_AUTH_TOKEN)='; then
+  printf '%s\n' 'provider secret environment leaked into clean execution' >&2
+  exit 1
+fi
+[ -f "$HOME/.pi/agent/models.json" ] && [ -f "$HOME/.pi/agent/auth.json" ] || exit 1
 printf '%s\n' '{"text":"Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%"}'
 EOF
 chmod +x "$tmp_dir/home/.bun/bin/bun"
@@ -42,13 +54,15 @@ log_file="$tmp_dir/sketchybar.log"
 usage_log="$tmp_dir/ai-usage.log"
 : >"$log_file"
 
-HOME="$tmp_dir/home" \
+env -i \
+  HOME="$tmp_dir/home" \
   PATH="$tmp_dir:/usr/bin:/bin" \
+  BUN_BIN="$tmp_dir/home/.bun/bin/bun" \
   SKETCHYBAR_LOG="$log_file" \
   SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
   AI_USAGE_LOG_PATH="$usage_log" \
   PROVIDER_USAGE_CLI="$tmp_dir/provider-usage-cli.ts" \
-  bash "$plugin_dir/ai_usage_refresh.sh"
+  /bin/bash "$plugin_dir/ai_usage_refresh.sh"
 
 assert_contains 'icon.drawing=off label=Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%' "$log_file"
 assert_contains '--set right_separator.ai drawing=on' "$log_file"

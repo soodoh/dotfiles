@@ -17,10 +17,12 @@ const modelRegistry: ModelRegistryLike = {
 	getAvailable: async () => [...(await modelRuntime.getAvailable())],
 	hasConfiguredAuth: (model) =>
 		model.provider ? modelRuntime.hasConfiguredAuth(model.provider) : false,
+	getProvider: (provider) => modelRuntime.getProvider(provider),
 	getProviderAuthStatus: (provider) =>
 		modelRuntime.getProviderAuthStatus(provider),
 	getProviderDisplayName: (provider) =>
 		modelRuntime.getProvider(provider)?.name ?? provider,
+	getProviderAuth: (provider) => modelRuntime.getAuth(provider),
 	getApiKeyForProvider: async (provider) =>
 		(await modelRuntime.getAuth(provider))?.auth.apiKey,
 	isUsingOAuth: (model) =>

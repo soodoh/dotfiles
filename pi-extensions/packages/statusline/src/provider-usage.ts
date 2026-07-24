@@ -74,9 +74,14 @@ const OAUTH_PROVIDER_IDS = new Set([
 	"google-gemini-cli",
 	"google-antigravity",
 ]);
-const API_KEY_PROVIDER_IDS = new Set(["anthropic", "openai", "openrouter"]);
+const LLMHUB_USAGE_PROVIDER_ID = "llm-hub";
+const API_KEY_PROVIDER_IDS = new Set([
+	"anthropic",
+	"openai",
+	"openrouter",
+	LLMHUB_USAGE_PROVIDER_ID,
+]);
 const USAGE_IGNORED_PROVIDER_IDS = new Set(["google-vertex", "litellm"]);
-const LLMHUB_USAGE_PROVIDER_ID = "llmhub";
 const PROVIDER_FAMILY_ORDER = [
 	LLMHUB_USAGE_PROVIDER_ID,
 	"github-copilot",
@@ -102,37 +107,6 @@ let providerUsageInvalidation = 0;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-type LlmHubCredentials = {
-	baseUrl: string;
-	token: string;
-};
-
-function readLlmHubCredentials(): LlmHubCredentials | undefined {
-	const claudeConfigDir =
-		process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), ".claude");
-	try {
-		const settings: unknown = JSON.parse(
-			readFileSync(join(claudeConfigDir, "settings.json"), "utf8"),
-		);
-		if (!isRecord(settings) || !isRecord(settings.env)) return undefined;
-
-		const baseUrl = settings.env.ANTHROPIC_BASE_URL;
-		const token =
-			settings.env.ANTHROPIC_AUTH_TOKEN ?? settings.env.ANTHROPIC_API_KEY;
-		if (typeof baseUrl !== "string" || typeof token !== "string") {
-			return undefined;
-		}
-
-		const normalizedBaseUrl = baseUrl.trim();
-		const normalizedToken = token.trim();
-		return normalizedBaseUrl && normalizedToken
-			? { baseUrl: normalizedBaseUrl, token: normalizedToken }
-			: undefined;
-	} catch {
-		return undefined;
-	}
 }
 
 function sharedCachePath(): string {
@@ -450,9 +424,18 @@ function modelAuthKind(
 		: undefined;
 	if (credential?.type === "oauth") return "oauth";
 	if (credential?.type === "api_key") return "api_key";
-	return providerId && API_KEY_PROVIDER_IDS.has(providerId)
-		? "api_key"
-		: undefined;
+	if (!providerId || !API_KEY_PROVIDER_IDS.has(providerId)) return undefined;
+
+	if (providerId === LLMHUB_USAGE_PROVIDER_ID) {
+		if (ctx.modelRegistry?.getProviderAuthStatus?.(providerId)?.configured) {
+			return "api_key";
+		}
+		return ctx.modelRegistry?.hasConfiguredAuth?.(model)
+			? "api_key"
+			: undefined;
+	}
+
+	return "api_key";
 }
 
 function getConfiguredModels(
@@ -576,16 +559,20 @@ export function discoverProviderUsageTargets(
 		: undefined;
 	const activeAuthKind = ctx.model ? modelAuthKind(ctx, ctx.model) : undefined;
 	const candidates: ProviderUsageTarget[] = [];
-
-	if (readLlmHubCredentials()) {
-		addProviderCandidate(
-			candidates,
-			LLMHUB_USAGE_PROVIDER_ID,
-			"api_key",
-			activeProviderId,
-			true,
-		);
-	}
+	const configuredModels = getConfiguredModels(ctx);
+	const llmHubConfigured =
+		activeProviderId === LLMHUB_USAGE_PROVIDER_ID ||
+		configuredModels.some(
+			(model) =>
+				model.provider &&
+				normalizeProviderId(model.provider) === LLMHUB_USAGE_PROVIDER_ID,
+		) ||
+		(ctx.modelRegistry?.getAll?.() ?? []).some(
+			(model) =>
+				model.provider &&
+				normalizeProviderId(model.provider) === LLMHUB_USAGE_PROVIDER_ID,
+		) ||
+		ctx.modelRegistry?.getProvider?.(LLMHUB_USAGE_PROVIDER_ID) !== undefined;
 
 	if (activeProviderId && activeAuthKind) {
 		addProviderCandidate(
@@ -595,7 +582,10 @@ export function discoverProviderUsageTargets(
 			activeProviderId,
 			true,
 		);
-	} else if (activeProviderId) {
+	} else if (
+		activeProviderId &&
+		activeProviderId !== LLMHUB_USAGE_PROVIDER_ID
+	) {
 		let addedActiveProvider = false;
 		if (OAUTH_PROVIDER_IDS.has(activeProviderId)) {
 			addProviderCandidate(
@@ -626,7 +616,7 @@ export function discoverProviderUsageTargets(
 		}
 	}
 
-	for (const model of getConfiguredModels(ctx)) {
+	for (const model of configuredModels) {
 		const authKind = modelAuthKind(ctx, model);
 		if (authKind) {
 			addProviderCandidate(
@@ -644,6 +634,9 @@ export function discoverProviderUsageTargets(
 			...API_KEY_PROVIDER_IDS,
 		]);
 		for (const providerId of storedProviderIds) {
+			if (providerId === LLMHUB_USAGE_PROVIDER_ID && !llmHubConfigured) {
+				continue;
+			}
 			const credential = getStoredCredential(ctx, providerId);
 			if (credential?.type === "oauth") {
 				addProviderCandidate(candidates, providerId, "oauth", activeProviderId);
@@ -659,6 +652,9 @@ export function discoverProviderUsageTargets(
 	}
 
 	for (const providerId of supportedApiKeyProviderIds()) {
+		if (providerId === LLMHUB_USAGE_PROVIDER_ID && !llmHubConfigured) {
+			continue;
+		}
 		const authStatus = ctx.modelRegistry?.getProviderAuthStatus?.(providerId);
 		if (authStatus?.configured) {
 			addProviderCandidate(candidates, providerId, "api_key", activeProviderId);
@@ -688,7 +684,11 @@ async function getProviderToken(
 	ctx: ProviderUsageContext,
 	providerId: string,
 ): Promise<string | undefined> {
-	return ctx.modelRegistry?.getApiKeyForProvider?.(providerId);
+	const providerAuth = await ctx.modelRegistry?.getProviderAuth?.(providerId);
+	return (
+		providerAuth?.auth?.apiKey ??
+		(await ctx.modelRegistry?.getApiKeyForProvider?.(providerId))
+	);
 }
 
 function getStoredOAuthCredential(
@@ -717,8 +717,36 @@ async function getGitHubCopilotUserToken(
 type ResolvedProviderUsageAccess = {
 	cacheKey: string;
 	token?: string;
-	llmHubCredentials?: LlmHubCredentials;
+	baseUrl?: string;
 };
+
+function configuredProviderBaseUrl(
+	ctx: ProviderUsageContext,
+	providerId: string,
+): string | undefined {
+	const normalizedProviderId = normalizeProviderId(providerId);
+	if (
+		ctx.model?.provider &&
+		normalizeProviderId(ctx.model.provider) === normalizedProviderId &&
+		ctx.model.baseUrl
+	) {
+		return ctx.model.baseUrl;
+	}
+
+	const configuredModel = [
+		...getConfiguredModels(ctx),
+		...(ctx.modelRegistry?.getAll?.() ?? []),
+	].find(
+		(model) =>
+			model.provider &&
+			normalizeProviderId(model.provider) === normalizedProviderId &&
+			model.baseUrl,
+	);
+	return (
+		configuredModel?.baseUrl ??
+		ctx.modelRegistry?.getProvider?.(normalizedProviderId)?.baseUrl
+	);
+}
 
 async function resolveProviderUsageAccess(
 	ctx: ProviderUsageContext,
@@ -726,13 +754,17 @@ async function resolveProviderUsageAccess(
 ): Promise<ResolvedProviderUsageAccess> {
 	const targetKey = providerTargetKey(target.providerId, target.authKind);
 	let token: string | undefined;
-	let llmHubCredentials: LlmHubCredentials | undefined;
+	let baseUrl: string | undefined;
 	let credentialIdentity: string | undefined;
 
-	if (target.providerId === LLMHUB_USAGE_PROVIDER_ID) {
-		llmHubCredentials = readLlmHubCredentials();
-		if (llmHubCredentials) {
-			credentialIdentity = `${normalizeBaseUrl(llmHubCredentials.baseUrl)}\0${llmHubCredentials.token}`;
+	if (
+		target.providerId === LLMHUB_USAGE_PROVIDER_ID &&
+		target.authKind === "api_key"
+	) {
+		token = await getProviderToken(ctx, target.providerId);
+		baseUrl = configuredProviderBaseUrl(ctx, target.providerId);
+		if (baseUrl && token) {
+			credentialIdentity = `${normalizeBaseUrl(baseUrl)}\0${token}`;
 		}
 	} else if (target.authKind === "oauth") {
 		token =
@@ -749,7 +781,7 @@ async function resolveProviderUsageAccess(
 		? `${targetKey}:${credentialFingerprint(`${targetKey}\0${credentialIdentity}`)}`
 		: targetKey;
 	providerUsageResolvedCacheKeys.set(targetKey, cacheKey);
-	return { cacheKey, token, llmHubCredentials };
+	return { cacheKey, token, baseUrl };
 }
 
 function normalizeBaseUrl(url: string): string {
@@ -1218,13 +1250,11 @@ async function fetchProviderUsage(
 		target.providerId === LLMHUB_USAGE_PROVIDER_ID &&
 		target.authKind === "api_key"
 	) {
-		const credentials = access.llmHubCredentials;
-		if (!credentials) return { ...statusBase, state: "unknown" };
+		if (!access.baseUrl || !access.token) {
+			return { ...statusBase, state: "unknown" };
+		}
 
-		const scope = await fetchLlmHubSpend(
-			credentials.baseUrl,
-			credentials.token,
-		);
+		const scope = await fetchLlmHubSpend(access.baseUrl, access.token);
 		return scope
 			? { ...statusBase, state: "ready", scope }
 			: { ...statusBase, state: "unknown" };

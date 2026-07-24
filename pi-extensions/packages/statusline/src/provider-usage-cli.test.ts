@@ -21,16 +21,80 @@ function closeServer(server: ReturnType<typeof createServer>): Promise<void> {
 	});
 }
 
+async function writePiConfiguration(
+	agentDir: string,
+	baseUrl: string,
+	token: string,
+): Promise<void> {
+	await mkdir(agentDir, { recursive: true });
+	await Promise.all([
+		writeFile(
+			join(agentDir, "models.json"),
+			JSON.stringify({
+				providers: {
+					"llm-hub": {
+						baseUrl,
+						api: "anthropic-messages",
+						models: [
+							{
+								id: "claude-sonnet-5",
+								name: "Claude Sonnet 5",
+								reasoning: true,
+								input: ["text", "image"],
+								contextWindow: 1_000_000,
+								maxTokens: 128_000,
+								cost: {
+									input: 2,
+									output: 10,
+									cacheRead: 0.2,
+									cacheWrite: 2.5,
+								},
+							},
+						],
+					},
+				},
+			}),
+		),
+		writeFile(
+			join(agentDir, "auth.json"),
+			JSON.stringify({
+				"llm-hub": { type: "api_key", key: token },
+			}),
+			{ mode: 0o600 },
+		),
+	]);
+}
+
+function cliEnvironment(
+	root: string,
+	agentDir: string,
+	cacheDir: string,
+): NodeJS.ProcessEnv {
+	const env: NodeJS.ProcessEnv = {
+		HOME: root,
+		PATH: process.env.PATH ?? "/usr/bin:/bin",
+		PI_CODING_AGENT_DIR: agentDir,
+		XDG_CACHE_HOME: cacheDir,
+		PI_OFFLINE: "1",
+	};
+	for (const name of [
+		"ANTHROPIC_BASE_URL",
+		"ANTHROPIC_AUTH_TOKEN",
+		"ANTHROPIC_API_KEY",
+		"LLMHUB_BASE_URL",
+		"LLMHUB_AUTH_TOKEN",
+		"CLAUDE_CONFIG_DIR",
+	]) {
+		delete env[name];
+	}
+	return env;
+}
+
 test("deduplicates provider refreshes across CLI processes", async () => {
 	const root = await mkdtemp(join(tmpdir(), "pi-provider-usage-cli-"));
 	const agentDir = join(root, "agent");
-	const claudeConfigDir = join(root, "claude");
 	const cacheDir = join(root, "cache");
-	await Promise.all([
-		mkdir(agentDir, { recursive: true }),
-		mkdir(claudeConfigDir, { recursive: true }),
-		mkdir(cacheDir, { recursive: true }),
-	]);
+	await mkdir(cacheDir, { recursive: true });
 
 	let requestCount = 0;
 	const server = createServer((_request, response) => {
@@ -55,28 +119,12 @@ test("deduplicates provider refreshes across CLI processes", async () => {
 			throw new Error("Expected a TCP test server address");
 		}
 
-		await writeFile(
-			join(claudeConfigDir, "settings.json"),
-			JSON.stringify({
-				env: {
-					ANTHROPIC_BASE_URL: `http://127.0.0.1:${address.port}`,
-					ANTHROPIC_AUTH_TOKEN: "test-token",
-				},
-			}),
+		await writePiConfiguration(
+			agentDir,
+			`http://127.0.0.1:${address.port}`,
+			"test-token",
 		);
-
-		const env: NodeJS.ProcessEnv = {
-			...process.env,
-			HOME: root,
-			PI_CODING_AGENT_DIR: agentDir,
-			CLAUDE_CONFIG_DIR: claudeConfigDir,
-			XDG_CACHE_HOME: cacheDir,
-			PI_OFFLINE: "1",
-		};
-		delete env.ANTHROPIC_API_KEY;
-		delete env.OPENAI_API_KEY;
-		delete env.OPENROUTER_API_KEY;
-
+		const env = cliEnvironment(root, agentDir, cacheDir);
 		const bunBin = process.env.BUN_BIN ?? "bun";
 		const results = await Promise.all([
 			execFileAsync(bunBin, [cliPath], { env, timeout: 20_000 }),
@@ -87,24 +135,23 @@ test("deduplicates provider refreshes across CLI processes", async () => {
 		for (const result of results) {
 			expect(JSON.parse(result.stdout)).toEqual({ text: "LLMHub $12.34" });
 		}
+		const cacheText = await readFile(
+			join(cacheDir, "pi", "provider-usage.json"),
+			"utf8",
+		);
+		expect(cacheText).not.toContain("test-token");
 	} finally {
 		if (server.listening) await closeServer(server);
 		await rm(root, { recursive: true, force: true });
 	}
 }, 30_000);
 
-test("merges concurrent credential-scoped cache writes", async () => {
+test("merges concurrent Pi credential-scoped cache writes", async () => {
 	const root = await mkdtemp(join(tmpdir(), "pi-provider-usage-cache-write-"));
-	const agentDir = join(root, "agent");
-	const firstClaudeConfigDir = join(root, "claude-first");
-	const secondClaudeConfigDir = join(root, "claude-second");
+	const firstAgentDir = join(root, "agent-first");
+	const secondAgentDir = join(root, "agent-second");
 	const cacheDir = join(root, "cache");
-	await Promise.all([
-		mkdir(agentDir, { recursive: true }),
-		mkdir(firstClaudeConfigDir, { recursive: true }),
-		mkdir(secondClaudeConfigDir, { recursive: true }),
-		mkdir(cacheDir, { recursive: true }),
-	]);
+	await mkdir(cacheDir, { recursive: true });
 
 	let requestCount = 0;
 	const server = createServer((request, response) => {
@@ -131,45 +178,25 @@ test("merges concurrent credential-scoped cache writes", async () => {
 		}
 
 		await Promise.all([
-			writeFile(
-				join(firstClaudeConfigDir, "settings.json"),
-				JSON.stringify({
-					env: {
-						ANTHROPIC_BASE_URL: `http://127.0.0.1:${address.port}/first`,
-						ANTHROPIC_AUTH_TOKEN: "first-token",
-					},
-				}),
+			writePiConfiguration(
+				firstAgentDir,
+				`http://127.0.0.1:${address.port}/first`,
+				"first-token",
 			),
-			writeFile(
-				join(secondClaudeConfigDir, "settings.json"),
-				JSON.stringify({
-					env: {
-						ANTHROPIC_BASE_URL: `http://127.0.0.1:${address.port}/second`,
-						ANTHROPIC_AUTH_TOKEN: "second-token",
-					},
-				}),
+			writePiConfiguration(
+				secondAgentDir,
+				`http://127.0.0.1:${address.port}/second`,
+				"second-token",
 			),
 		]);
-
-		const commonEnv: NodeJS.ProcessEnv = {
-			...process.env,
-			HOME: root,
-			PI_CODING_AGENT_DIR: agentDir,
-			XDG_CACHE_HOME: cacheDir,
-			PI_OFFLINE: "1",
-		};
-		delete commonEnv.ANTHROPIC_API_KEY;
-		delete commonEnv.OPENAI_API_KEY;
-		delete commonEnv.OPENROUTER_API_KEY;
 		const bunBin = process.env.BUN_BIN ?? "bun";
-
 		const results = await Promise.all([
 			execFileAsync(bunBin, [cliPath], {
-				env: { ...commonEnv, CLAUDE_CONFIG_DIR: firstClaudeConfigDir },
+				env: cliEnvironment(root, firstAgentDir, cacheDir),
 				timeout: 20_000,
 			}),
 			execFileAsync(bunBin, [cliPath], {
-				env: { ...commonEnv, CLAUDE_CONFIG_DIR: secondClaudeConfigDir },
+				env: cliEnvironment(root, secondAgentDir, cacheDir),
 				timeout: 20_000,
 			}),
 		]);
@@ -179,11 +206,15 @@ test("merges concurrent credential-scoped cache writes", async () => {
 			{ text: "LLMHub $10.00" },
 			{ text: "LLMHub $20.00" },
 		]);
-		const cache = JSON.parse(
-			await readFile(join(cacheDir, "pi", "provider-usage.json"), "utf8"),
+		const cacheText = await readFile(
+			join(cacheDir, "pi", "provider-usage.json"),
+			"utf8",
 		);
+		const cache = JSON.parse(cacheText);
 		expect(cache.version).toBe(5);
 		expect(Object.keys(cache.entries)).toHaveLength(2);
+		expect(cacheText).not.toContain("first-token");
+		expect(cacheText).not.toContain("second-token");
 	} finally {
 		if (server.listening) await closeServer(server);
 		await rm(root, { recursive: true, force: true });

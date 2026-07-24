@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import type { ProviderUsageContext } from "./pi-types";
+import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
 
 import {
 	discoverProviderUsageTargets,
@@ -79,21 +79,60 @@ function jwtWithPayload(payload: Record<string, unknown>): string {
 
 const sharedTestRoot = join(tmpdir(), `pi-provider-usage-test-${process.pid}`);
 const sharedTestCachePath = join(sharedTestRoot, "provider-usage.json");
-const claudeConfigDir = join(sharedTestRoot, "claude");
-mkdirSync(claudeConfigDir, { recursive: true });
+mkdirSync(sharedTestRoot, { recursive: true });
 process.env.PI_PROVIDER_USAGE_CACHE_PATH = sharedTestCachePath;
-process.env.CLAUDE_CONFIG_DIR = claudeConfigDir;
 const originalEnv = { ...process.env };
 
 function stubEnv(name: string, value: string): void {
 	process.env[name] = value;
 }
 
-function writeClaudeSettings(env: Record<string, string>): void {
-	writeFileSync(
-		join(claudeConfigDir, "settings.json"),
-		JSON.stringify({ env }),
-	);
+function llmHubContext({
+	baseUrl = "https://llmhub.example.com",
+	token = "llmhub-token",
+	authenticated = true,
+	includeProvider = true,
+	active = false,
+}: {
+	baseUrl?: string;
+	token?: string;
+	authenticated?: boolean;
+	includeProvider?: boolean;
+	active?: boolean;
+} = {}): ProviderUsageContext {
+	const model = {
+		id: "claude-sonnet-5",
+		provider: "llm-hub",
+		baseUrl,
+	};
+	return {
+		model: active && includeProvider ? model : undefined,
+		modelRegistry: {
+			getAll: () => (includeProvider ? [model] : []),
+			getAvailable: () => (includeProvider && authenticated ? [model] : []),
+			hasConfiguredAuth: () => authenticated,
+			getProvider: (provider) =>
+				provider === "llm-hub" && includeProvider
+					? { name: "LLM Hub", baseUrl }
+					: undefined,
+			getProviderAuthStatus: (provider) => ({
+				configured: provider === "llm-hub" && includeProvider && authenticated,
+				source: "stored",
+			}),
+			getProviderAuth: async (provider) =>
+				provider === "llm-hub" && includeProvider && authenticated
+					? { auth: { apiKey: token } }
+					: undefined,
+			getApiKeyForProvider: async (provider) =>
+				provider === "llm-hub" && includeProvider && authenticated
+					? token
+					: undefined,
+		},
+		readStoredCredential: (provider) =>
+			provider === "llm-hub" && includeProvider && authenticated
+				? { type: "api_key" }
+				: undefined,
+	};
 }
 
 afterEach(() => {
@@ -666,27 +705,36 @@ describe("provider usage", () => {
 	});
 
 	test("orders provider targets consistently regardless of active provider", () => {
-		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://llmhub.example.com",
-			ANTHROPIC_AUTH_TOKEN: "llmhub-token",
-		});
-		const credentials = new Map([
-			["openrouter", { type: "api_key" as const }],
-			["anthropic", { type: "oauth" as const, access: "anthropic-token" }],
-			["openai", { type: "api_key" as const }],
-			["github-copilot", { type: "oauth" as const, access: "copilot-token" }],
-			["litellm", { type: "api_key" as const }],
-			["google-gemini-cli", { type: "oauth" as const, access: "google-token" }],
+		const credentials = new Map<string, AuthCredentialLike>([
+			["openrouter", { type: "api_key" }],
+			["anthropic", { type: "oauth", access: "anthropic-token" }],
+			["openai", { type: "api_key" }],
+			["github-copilot", { type: "oauth", access: "copilot-token" }],
+			["litellm", { type: "api_key" }],
+			["google-gemini-cli", { type: "oauth", access: "google-token" }],
+			["llm-hub", { type: "api_key" }],
 		]);
+		const llmHubModel = {
+			id: "claude-sonnet-5",
+			provider: "llm-hub",
+			baseUrl: "https://llmhub.example.com",
+		};
 		const ctx: ProviderUsageContext = {
 			model: { id: "openrouter/model", provider: "openrouter" },
+			modelRegistry: {
+				getAll: () => [llmHubModel],
+				getAvailable: () => [llmHubModel],
+				getProviderAuthStatus: (provider) => ({
+					configured: provider === "llm-hub",
+				}),
+			},
 			readStoredCredential: (provider) => credentials.get(provider),
 		};
 
 		expect(
 			discoverProviderUsageTargets(ctx).map((target) => target.providerId),
 		).toEqual([
-			"llmhub",
+			"llm-hub",
 			"github-copilot",
 			"openai",
 			"openrouter",
@@ -766,80 +814,73 @@ describe("provider usage", () => {
 		expect(render(targets)).toContain(" 50%");
 	});
 
-	test("discovers LLMHub spend from Claude settings without Pi auth", async () => {
-		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://llmhub.example.com/",
-			ANTHROPIC_AUTH_TOKEN: "llmhub-token",
-		});
+	test("discovers an authenticated static LLM Hub provider from Pi", () => {
+		const targets = discoverProviderUsageTargets(llmHubContext());
+
+		expect(targets).toEqual([
+			{ providerId: "llm-hub", authKind: "api_key", active: false },
+		]);
+	});
+
+	test("uses Pi-resolved LLM Hub endpoint and authorization", async () => {
 		const { calls } = fetchCalls(() =>
 			Response.json({ info: { spend: 123.456 } }),
 		);
-		const ctx: ProviderUsageContext = {};
-
+		const ctx = llmHubContext({
+			baseUrl: "https://llmhub.example.com/",
+			token: "pi-resolved-token",
+		});
 		const targets = discoverProviderUsageTargets(ctx);
-		expect(targets).toEqual([
-			{ providerId: "llmhub", authKind: "api_key", active: false },
-		]);
+
 		await refreshAndWait(ctx, targets);
 
 		expect(calls.map((call) => call.url)).toEqual([
 			"https://llmhub.example.com/key/info",
 		]);
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
-			Authorization: "Bearer llmhub-token",
+			Authorization: "Bearer pi-resolved-token",
 		});
 		expect(render(targets)).toBe("LLMHub $123.46");
 	});
 
-	test("scopes LLMHub usage by both base URL and token", async () => {
-		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://first-llmhub.example.com",
-			ANTHROPIC_AUTH_TOKEN: "shared-token",
+	test("scopes LLM Hub usage by both Pi base URL and token", async () => {
+		const { calls, fetchMock } = fetchCalls((url, init) => {
+			const authorization = headersRecord(init.headers).Authorization;
+			const spend = url.includes("second-llmhub")
+				? 30
+				: authorization === "Bearer second-token"
+					? 20
+					: 10;
+			return Response.json({ info: { spend } });
 		});
-		const { calls, fetchMock } = fetchCalls((url) =>
-			Response.json({
-				info: { spend: url.includes("first-llmhub") ? 10 : 20 },
+		const contexts = [
+			llmHubContext({
+				baseUrl: "https://first-llmhub.example.com",
+				token: "first-token",
 			}),
-		);
-		const ctx: ProviderUsageContext = {};
-		const targets = discoverProviderUsageTargets(ctx);
+			llmHubContext({
+				baseUrl: "https://first-llmhub.example.com",
+				token: "second-token",
+			}),
+			llmHubContext({
+				baseUrl: "https://second-llmhub.example.com",
+				token: "second-token",
+			}),
+		];
 
-		await refreshAndWait(ctx, targets);
-		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://second-llmhub.example.com",
-			ANTHROPIC_AUTH_TOKEN: "shared-token",
-		});
-		await refreshAndWait(ctx, targets);
+		for (const ctx of contexts) {
+			await refreshAndWait(ctx, discoverProviderUsageTargets(ctx));
+		}
 
-		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(fetchMock).toHaveBeenCalledTimes(3);
 		expect(calls.map((call) => call.url)).toEqual([
+			"https://first-llmhub.example.com/key/info",
 			"https://first-llmhub.example.com/key/info",
 			"https://second-llmhub.example.com/key/info",
 		]);
-		expect(render(targets)).toBe("LLMHub $20.00");
-	});
-
-	test("falls back to ANTHROPIC_API_KEY for LLMHub spend", async () => {
-		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://llmhub.example.com",
-			ANTHROPIC_API_KEY: "llmhub-api-key",
-		});
-		const { calls } = fetchCalls(() => Response.json({ info: { spend: 10 } }));
-		const ctx: ProviderUsageContext = {};
-		const targets = discoverProviderUsageTargets(ctx);
-
-		await refreshAndWait(ctx, targets);
-
-		expect(headersRecord(calls[0].init.headers)).toMatchObject({
-			Authorization: "Bearer llmhub-api-key",
-		});
 	});
 
 	test("parses LLMHub spend from budget exceeded responses", async () => {
-		writeClaudeSettings({
-			ANTHROPIC_BASE_URL: "https://llmhub.example.com",
-			ANTHROPIC_AUTH_TOKEN: "llmhub-token",
-		});
 		fetchCalls(() =>
 			Response.json(
 				{
@@ -852,7 +893,7 @@ describe("provider usage", () => {
 				{ status: 400 },
 			),
 		);
-		const ctx: ProviderUsageContext = {};
+		const ctx = llmHubContext();
 		const targets = discoverProviderUsageTargets(ctx);
 
 		await refreshAndWait(ctx, targets);
@@ -860,15 +901,22 @@ describe("provider usage", () => {
 		expect(render(targets)).toBe("LLMHub $322.29");
 	});
 
-	test("does not discover LLMHub when Claude settings are missing credentials", () => {
-		writeClaudeSettings({ ANTHROPIC_BASE_URL: "https://llmhub.example.com" });
+	test("does not discover LLM Hub when the Pi provider is absent", () => {
+		const ctx = llmHubContext({ includeProvider: false });
+		ctx.readStoredCredential = (provider) =>
+			provider === "llm-hub" ? { type: "api_key" } : undefined;
 
-		expect(discoverProviderUsageTargets({})).toEqual([]);
+		expect(discoverProviderUsageTargets(ctx)).toEqual([]);
+	});
+
+	test("does not discover LLM Hub without configured Pi authentication", () => {
+		expect(
+			discoverProviderUsageTargets(llmHubContext({ authenticated: false })),
+		).toEqual([]);
 	});
 
 	test("ignores LiteLLM providers for usage discovery", async () => {
 		stubEnv("LITELLM_BASE_URL", "http://localhost:4000");
-		writeClaudeSettings({});
 		const { fetchMock } = fetchCalls(() => Response.json({}));
 		const ctx: ProviderUsageContext = {
 			model: { id: "openrouter/z-ai/glm-5.2", provider: "litellm" },

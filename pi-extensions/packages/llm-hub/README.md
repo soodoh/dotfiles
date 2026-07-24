@@ -1,29 +1,8 @@
 # llm-hub
 
-Pi extension that registers an independent Anthropic-compatible LLM Hub provider and emits Claude Code-compatible OTEL metrics only while an LLM Hub model is active.
+Telemetry-only Pi extension for Anthropic-compatible models on the `llm-hub` provider.
 
-It can run alongside the community `pi-provider-litellm` package: this extension always registers the fixed `llm-hub` provider with `/login` credentials or `LLMHUB_*` fallbacks, while the community package keeps its separate `litellm` provider and `LITELLM_*` credentials. The providers, models, endpoints, and authentication do not override one another.
-
-## Authentication
-
-### Interactive login
-
-Inside Pi, run `/login`, choose **Use a subscription**, then select **LLM Hub**. The extension prompts for the LLM Hub base URL and API key, verifies them by discovering models from `/v1/models`, and stores the credentials in Pi's `auth.json`.
-
-Saved login credentials take precedence over environment variables. The base URL stored by `/login` is applied to every discovered `llm-hub` model.
-
-### Environment fallback
-
-For non-interactive setup, provide both variables:
-
-```bash
-export LLMHUB_BASE_URL="https://llm-hub.example.com"
-export LLMHUB_AUTH_TOKEN="..."
-```
-
-`LLMHUB_BASE_URL` should be the LLM Hub origin/base endpoint. The extension trims trailing slashes and discovers models from `/v1/models` using Anthropic API-key style authentication.
-
-If neither saved credentials nor both environment variables are available, the provider still registers with no models so **LLM Hub** remains available in the `/login` subscription list.
+The extension does not register a provider, discover models, or manage credentials. Pi owns provider configuration and authentication. In this repository, the static provider catalog is defined in `work/.pi/agent/models.json`, and its API key is stored through Pi's generic `/login` flow in Pi's normal credential store.
 
 ## Telemetry
 
@@ -50,9 +29,9 @@ Supported variables:
 | `OTEL_METRICS_INCLUDE_RESOURCE_ATTRIBUTES` | Copies custom resource attributes to datapoints by default. |
 | `OTEL_METRICS_INCLUDE_VERSION` | Adds `app.version` to datapoints when true. |
 
-The extension starts telemetry when the `llm-hub` provider becomes active, keeps one logical telemetry session across provider switches, and flushes/stops when switching to `litellm` or any other provider. All telemetry-producing handlers also check the active provider. Teardown is failure-safe: an OTLP flush failure cannot leave the old exporter active or poison later model transitions.
+Telemetry starts only while a model whose Pi provider is `llm-hub` is active. Switching to another provider flushes and stops the exporter. Switching back starts a fresh exporter while preserving the logical telemetry session. Teardown is failure-safe, and telemetry-producing handlers gate every metric on the active provider.
 
-With the metrics-only settings in `~/.claude/settings.json`, the extension emits all metrics Claude Code normally includes:
+The extension emits the Claude Code-compatible metrics already covered by its OTEL tests:
 
 - `claude_code.session.count`
 - `claude_code.token.usage`
@@ -62,15 +41,6 @@ With the metrics-only settings in `~/.claude/settings.json`, the extension emits
 - `claude_code.commit.count`
 - `claude_code.pull_request.count`
 - `claude_code.code_edit_tool.decision`
-
-## Behavior
-
-- Registers the provider and `/login` subscription flow even when no credentials are configured.
-- Discovers models during async extension initialization when saved or environment credentials are available.
-- Keeps login available with an empty model list when startup discovery fails, allowing credentials to be replaced interactively.
-- Does not change the selected/default model. Opt in with `/model`, `--model`, `defaultProvider`, `defaultModel`, or `enabledModels`.
-- Uses a two-second discovery timeout to keep startup bounded.
-- Starts no long-lived OTEL resources until a session is active with an LLM Hub model.
 
 ## Metric fidelity
 
@@ -87,7 +57,6 @@ The remaining metrics use the closest signals Pi currently exposes:
 ## Development
 
 ```bash
-bun install
-bun run --filter llm-hub test
-bun run --filter llm-hub typecheck
+bun run --cwd pi-extensions test packages/llm-hub
+bun run --cwd pi-extensions typecheck
 ```
