@@ -36,6 +36,7 @@ return {
           "oxlint",
           "prisma-language-server",
           "pyright",
+          "ruff",
           "rust-analyzer",
           "taplo",
           "typescript-language-server",
@@ -43,7 +44,6 @@ return {
           "yaml-language-server",
 
           -- Formatters
-          "black",
           "eslint_d",
           "kdlfmt",
           "prettier",

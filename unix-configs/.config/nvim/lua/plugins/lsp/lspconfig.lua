@@ -7,6 +7,9 @@ local get_default_opts = function(opts)
     if opts ~= nil and opts.format ~= nil then
       client.server_capabilities.documentFormattingProvider = opts.format
     end
+    if opts ~= nil and opts.hover ~= nil then
+      client.server_capabilities.hoverProvider = opts.hover
+    end
   end
 
   -- Optional settings
@@ -157,7 +160,23 @@ return {
       vim.lsp.config("docker_language_server", get_default_opts())
       vim.lsp.config("gopls", get_default_opts())
       vim.lsp.config("lua_ls", get_default_opts())
-      vim.lsp.config("pyright", get_default_opts())
+      vim.lsp.config(
+        "pyright",
+        get_default_opts({
+          settings = {
+            pyright = {
+              disableOrganizeImports = true,
+            },
+          },
+        })
+      )
+      vim.lsp.config(
+        "ruff",
+        get_default_opts({
+          format = false,
+          hover = false,
+        })
+      )
       vim.lsp.config("rust_analyzer", get_default_opts())
     end,
   },

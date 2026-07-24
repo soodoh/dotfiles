@@ -37,7 +37,7 @@ return {
       formatters_by_ft = {
         sh = { "shfmt", "shellcheck" },
         lua = { "stylua" },
-        python = { "black" },
+        python = { "ruff_format" },
         -- rust = { "rstfmt" },
         kdl = { "kdlfmt" },
         javascript = web_formatters,
@@ -55,8 +55,6 @@ return {
         -- Use the "_" filetype to run formatters on filetypes that don't
         -- have other formatters configured.
         ["_"] = { "trim_whitespace" },
-        -- Fallback to LSP formatting for other file types
-        ["*"] = { "lsp_format" },
       },
       -- Set this to change the default values when calling conform.format()
       -- This will also affect the default values for format_on_save/format_after_save
