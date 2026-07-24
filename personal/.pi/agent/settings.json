@@ -34,10 +34,9 @@
 	],
 	"steeringMode": "all",
 	"promptSuggester": {
-		"suggesterModel": ["openai-codex/gpt-5.4-mini"]
+		"suggesterModel": ["openai-codex/gpt-5.6-luna"]
 	},
 	"autoSessionName": {
-		"titleModel": ["openai-codex/gpt-5.4-mini"]
+		"titleModel": ["openai-codex/gpt-5.6-luna"]
 	}
 }
-

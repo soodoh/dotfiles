@@ -34,10 +34,10 @@
 	],
 	"steeringMode": "all",
 	"promptSuggester": {
-		"suggesterModel": ["litellm/chatgpt/gpt-5.4-mini"]
+		"suggesterModel": ["litellm/chatgpt/gpt-5.6-luna"]
 	},
 	"autoSessionName": {
-		"titleModel": ["litellm/chatgpt/gpt-5.4-mini"]
+		"titleModel": ["litellm/chatgpt/gpt-5.6-luna"]
 	},
 	"enabledModels": [
 		"litellm/chatgpt/gpt-5.6-sol",
