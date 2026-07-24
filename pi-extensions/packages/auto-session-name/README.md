@@ -1,18 +1,31 @@
 # auto-session-name
 
-`auto-session-name` names new unnamed Pi sessions after the first assistant turn. It asks a configured model for a short title based only on the cleaned first user message.
+`auto-session-name` gives new unnamed Pi sessions a stable navigation title after the first submitted request has fully settled. Its single default behavior combines one low-cost initial title with, only when conservative local heuristics justify it, at most one later refinement attempt.
 
 ## Behavior
 
-- Runs once on the first `turn_end` (`turnIndex === 0`).
-- Applies to any session whose current name is empty.
-- Preserves existing non-empty names before scheduling and again before setting the generated title.
-- Uses only the first user message; assistant output and later user messages are ignored.
-- Requests title generation with thinking explicitly disabled.
-- If the first message starts with a Pi `<skill ...>...</skill>` block, that leading block is stripped before title generation.
-- Normalizes model output to plain text, up to 8 words and 60 characters.
-- Catches model/config/provider failures and falls back to a deterministic prefix of the cleaned first message.
-- Does not scan or backfill historical session files.
+- Captures the first meaningful raw `input` before skill or prompt-template expansion and prefers it over the stored message.
+- Removes a raw skill/template command prefix while keeping meaningful arguments. Command-only input falls back to the stored user message.
+- Strips a leading Pi `<skill ...>...</skill>` block from the stored-message fallback.
+- Generates the initial title on the first `agent_settled`, after retries, compaction retries, tool loops, and queued continuations finish. It does not run on individual `turn_end` events.
+- Uses only bounded user-request text. Assistant messages, tool calls, tool results, system prompts, and project instructions are never sent to the title model.
+- Limits title input to 1,600 characters using head-and-tail truncation, output to 32 tokens, provider retries to zero, and generation time to about eight seconds. Requests use deterministic temperature and disable reasoning through Pi's provider paths.
+- Normalizes titles to plain text with no more than 8 words and 60 characters.
+- Falls back to a deterministic prefix of the initial request if model resolution, authentication, timeout, provider generation, or output validation fails.
+- Persists branch-aware ownership state in Pi custom entries, which do not enter LLM context.
+- Never overwrites a startup/CLI name, `/name`, a session-picker rename, an RPC rename, or another extension's name. Changing or clearing an automatic title permanently gives ownership to that explicit choice.
+- Does not scan, schedule, or backfill historical sessions. A resumed historical unnamed session remains unnamed.
+
+## Conditional Refinement
+
+Most sessions keep their initial automatic title permanently. After later `agent_settled` events, the extension runs cheap local checks and allows one refinement attempt only when either:
+
+- At least three meaningful user requests exist and the original request or current title is clearly weak/generic, or the initial model call used the deterministic fallback; or
+- A later request starts with a strong direction-change signal such as "Actually", "Instead", "Switch to", "New task", "Let's focus on", or "Now work on".
+
+When eligible, the model receives only a compact envelope containing the current automatic title, the bounded original request, the latest one or two bounded user requests, and locally extracted stable anchors such as Jira keys, PR/issue references, paths, backticked symbols, or error identifiers.
+
+The refinement prompt tells the model to keep the current title unless the dominant task materially changed or became substantially clearer. The attempt is consumed even when the provider fails, output is invalid, or the model keeps the existing title. A failed refinement never replaces the current title with a fallback and is never retried on every later turn.
 
 ## Install
 
@@ -43,7 +56,7 @@ Restart Pi or run `/reload` after installing.
 
 ## Configuration
 
-Global settings are read from `~/.pi/agent/settings.json`:
+Only two settings are configurable. Global settings are read from `~/.pi/agent/settings.json`:
 
 ```json
 {
@@ -54,9 +67,7 @@ Global settings are read from `~/.pi/agent/settings.json`:
 }
 ```
 
-Options:
-
-- `autoSessionName.enabled`: defaults to `true`. Set to `false` to disable automatic naming.
+- `autoSessionName.enabled`: defaults to `true`. Set to `false` to disable automatic naming and refinement.
 - `autoSessionName.titleModel`: non-empty string array, defaults to `["session-default"]`.
 
 Model references support:
@@ -64,42 +75,18 @@ Model references support:
 - `session-default` for the active session model.
 - `provider/id` for an exact provider and model id.
 - A bare model id when it uniquely matches one registered model.
-- Ordered fallbacks, for example `["openai/gpt-4.1-mini", "session-default"]`.
+- Ordered resolution fallbacks, for example `["openai/gpt-4.1-mini", "session-default"]`.
 
-Invalid `titleModel` values fall back to `["session-default"]`. If configured models cannot be resolved or generation fails, the extension uses the deterministic first-message fallback title.
+Invalid `titleModel` values fall back to `["session-default"]`. If configured models cannot be resolved or initial generation fails, the extension uses the deterministic initial-request fallback title.
 
-## Examples
-
-Plain first message:
-
-```text
-Help me design a reliable backup strategy for my laptop and home server.
-```
-
-Possible title:
-
-```text
-Reliable Backup Strategy
-```
-
-Skill-prefixed first message:
-
-```xml
-<skill name="planner">...</skill>
-Add README.md for each package
-```
-
-The model receives only:
-
-```text
-Add README.md for each package
-```
+Use a small, fast, non-reasoning task model for low latency and cost. The extension still explicitly requests reasoning-disabled generation and enforces its internal request bounds.
 
 ## Development
 
-From the repository root:
+The workspace exposes validation scripts from `pi-extensions`. From the repository root:
 
 ```bash
-bun run --filter auto-session-name test
-bun run --filter auto-session-name typecheck
+bun run --cwd pi-extensions test -- packages/auto-session-name/auto-session-name.test.ts
+bun run --cwd pi-extensions typecheck
+bun run --cwd pi-extensions check
 ```

@@ -1,11 +1,27 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Model } from "@earendil-works/pi-ai";
+import type {
+	AgentSettledEvent,
+	InputEvent,
+	SessionEntry,
+	SessionInfoChangedEvent,
+	SessionShutdownEvent,
+	SessionStartEvent,
+	SessionTreeEvent,
+} from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import autoSessionName, {
-	extractUserRequest,
-	shouldNameAfterTurn,
+	type AutoTitleState,
+	cleanRawUserInput,
+	createRefinementTitlePrompt,
+	extractStableAnchors,
+	hasDirectionChange,
+	isWeakRequest,
+	reconstructAutoTitleState,
+	shouldRefineTitle,
+	truncateHeadAndTail,
 } from "./auto-session-name";
 
 const mocks = vi.hoisted(() => ({
@@ -24,40 +40,62 @@ const skillPrefixedPrompt = `<skill name="brainstorming" location="/tmp/brainsto
 Long skill instructions that should not be used as the session title.
 </skill>
 
-When viewing previous sessions in pi, it's very hard to read if we start off with a skill.`;
+When viewing previous sessions in pi, make skill-started sessions readable.`;
 
 const plainPrompt =
 	"Help me design a reliable backup strategy for my laptop and home server.";
 
 let originalHome: string | undefined;
 let isolatedHome: string | undefined;
-
-type TurnEndHandler = (
-	event: { turnIndex: number },
-	ctx: TestExtensionContext,
-) => void | Promise<void>;
-
-type SessionStartHandler = (
-	event: unknown,
-	ctx: TestExtensionContext,
-) => void | Promise<void>;
+let entrySequence = 0;
 
 type TestModel = Model<string>;
 
-type TestExtensionContext = {
-	model: TestModel;
+type TestContext = {
+	model: TestModel | undefined;
 	modelRegistry: {
 		getAll(): TestModel[];
-		getApiKey(model: TestModel): string | undefined;
-		getHeaders(model: TestModel): Record<string, string> | undefined;
+		getApiKeyAndHeaders(model: TestModel): Promise<{
+			ok: true;
+			apiKey: string;
+			headers: Record<string, string>;
+			env: Record<string, string>;
+		}>;
 	};
 	sessionManager: {
-		getBranch(): unknown[];
+		getBranch(): SessionEntry[];
+		getSessionFile(): string | undefined;
 	};
+	signal: AbortSignal | undefined;
 };
 
-const makeTestModel = (id: string): TestModel => ({
-	api: "test-api",
+type InputHandler = (
+	event: InputEvent,
+	ctx: TestContext,
+) => void | Promise<void>;
+type AgentSettledHandler = (
+	event: AgentSettledEvent,
+	ctx: TestContext,
+) => void | Promise<void>;
+type SessionStartHandler = (
+	event: SessionStartEvent,
+	ctx: TestContext,
+) => void | Promise<void>;
+type SessionInfoChangedHandler = (
+	event: SessionInfoChangedEvent,
+	ctx: TestContext,
+) => void | Promise<void>;
+type SessionShutdownHandler = (
+	event: SessionShutdownEvent,
+	ctx: TestContext,
+) => void | Promise<void>;
+type SessionTreeHandler = (
+	event: SessionTreeEvent,
+	ctx: TestContext,
+) => void | Promise<void>;
+
+const makeTestModel = (id: string, api = "test-api"): TestModel => ({
+	api,
 	baseUrl: "https://example.test",
 	contextWindow: 128_000,
 	cost: {
@@ -78,55 +116,178 @@ const makeTestModel = (id: string): TestModel => ({
 const defaultModel = makeTestModel("default-model");
 const configuredModel = makeTestModel("configured-model");
 
-const messageEntry = (content: unknown) => ({
+const entryBase = () => {
+	entrySequence += 1;
+	return {
+		id: `entry-${entrySequence}`,
+		parentId: entrySequence === 1 ? null : `entry-${entrySequence - 1}`,
+		timestamp: new Date(entrySequence * 1_000).toISOString(),
+	};
+};
+
+const userMessageEntry = (text: string): SessionEntry => ({
+	...entryBase(),
 	type: "message",
 	message: {
 		role: "user",
-		content,
+		content: [{ type: "text", text }],
+		timestamp: entrySequence * 1_000,
 	},
 });
 
-const textPartMessageEntry = (text: string) =>
-	messageEntry([{ type: "text", text }]);
+const assistantMessageEntry = (text: string): SessionEntry => ({
+	...entryBase(),
+	type: "message",
+	message: {
+		role: "assistant",
+		content: [{ type: "text", text }],
+		api: "test-api",
+		provider: "test-provider",
+		model: "test-model",
+		usage: {
+			input: 1,
+			output: 1,
+			cacheRead: 0,
+			cacheWrite: 0,
+			totalTokens: 2,
+			cost: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				total: 0,
+			},
+		},
+		stopReason: "stop",
+		timestamp: entrySequence * 1_000,
+	},
+});
+
+const toolResultEntry = (text: string): SessionEntry => ({
+	...entryBase(),
+	type: "message",
+	message: {
+		role: "toolResult",
+		toolCallId: "tool-call",
+		toolName: "bash",
+		content: [{ type: "text", text }],
+		isError: false,
+		timestamp: entrySequence * 1_000,
+	},
+});
+
+const customStateEntry = (state: AutoTitleState): SessionEntry => ({
+	...entryBase(),
+	type: "custom",
+	customType: "auto-session-name-state",
+	data: state,
+});
 
 const createContext = (
-	branch: unknown[],
+	branch: SessionEntry[],
 	models: TestModel[] = [defaultModel, configuredModel],
-	model: TestModel = defaultModel,
-): TestExtensionContext => ({
+	model: TestModel | undefined = defaultModel,
+	signal?: AbortSignal,
+	sessionFile?: string,
+): TestContext => ({
 	model,
 	modelRegistry: {
 		getAll: () => models,
-		getApiKey: () => "test-api-key",
-		getHeaders: () => ({ "x-test": "header" }),
+		getApiKeyAndHeaders: async () => ({
+			ok: true,
+			apiKey: "test-api-key",
+			headers: { "x-test": "header" },
+			env: { TEST_PROVIDER_ENV: "value" },
+		}),
 	},
 	sessionManager: {
 		getBranch: () => branch,
+		getSessionFile: () => sessionFile,
 	},
+	signal,
 });
 
-const createHarness = (initialName?: string) => {
+const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 	let sessionName = initialName;
-	let turnEndHandler: TurnEndHandler | undefined;
+	let lastContext = createContext(branch);
+	let inputHandler: InputHandler | undefined;
+	let agentSettledHandler: AgentSettledHandler | undefined;
 	let sessionStartHandler: SessionStartHandler | undefined;
+	let sessionInfoChangedHandler: SessionInfoChangedHandler | undefined;
+	let sessionShutdownHandler: SessionShutdownHandler | undefined;
+	let sessionTreeHandler: SessionTreeHandler | undefined;
+	const registeredEvents: string[] = [];
 
+	function on(eventName: "input", handler: InputHandler): void;
+	function on(eventName: "agent_settled", handler: AgentSettledHandler): void;
+	function on(eventName: "session_start", handler: SessionStartHandler): void;
+	function on(
+		eventName: "session_info_changed",
+		handler: SessionInfoChangedHandler,
+	): void;
+	function on(
+		eventName: "session_shutdown",
+		handler: SessionShutdownHandler,
+	): void;
+	function on(eventName: "session_tree", handler: SessionTreeHandler): void;
 	function on(
 		...args:
-			| [eventName: "turn_end", handler: TurnEndHandler]
+			| [eventName: "input", handler: InputHandler]
+			| [eventName: "agent_settled", handler: AgentSettledHandler]
 			| [eventName: "session_start", handler: SessionStartHandler]
+			| [eventName: "session_info_changed", handler: SessionInfoChangedHandler]
+			| [eventName: "session_shutdown", handler: SessionShutdownHandler]
+			| [eventName: "session_tree", handler: SessionTreeHandler]
 	): void {
 		const [eventName, handler] = args;
-		if (eventName === "turn_end") {
-			turnEndHandler = handler;
-			return;
+		registeredEvents.push(eventName);
+		switch (eventName) {
+			case "input":
+				inputHandler = handler;
+				break;
+			case "agent_settled":
+				agentSettledHandler = handler;
+				break;
+			case "session_start":
+				sessionStartHandler = handler;
+				break;
+			case "session_info_changed":
+				sessionInfoChangedHandler = handler;
+				break;
+			case "session_shutdown":
+				sessionShutdownHandler = handler;
+				break;
+			case "session_tree":
+				sessionTreeHandler = handler;
+				break;
 		}
-		sessionStartHandler = handler;
 	}
 
+	const appendSessionInfo = (name: string | undefined) => {
+		branch.push({
+			...entryBase(),
+			type: "session_info",
+			name,
+		});
+	};
+
 	const pi = {
+		appendEntry: vi.fn((customType: string, data?: unknown) => {
+			branch.push({
+				...entryBase(),
+				type: "custom",
+				customType,
+				data,
+			});
+		}),
 		getSessionName: vi.fn(() => sessionName),
 		setSessionName: vi.fn((name: string) => {
 			sessionName = name;
+			appendSessionInfo(name);
+			void sessionInfoChangedHandler?.(
+				{ type: "session_info_changed", name },
+				lastContext,
+			);
 		}),
 		on,
 	};
@@ -134,17 +295,57 @@ const createHarness = (initialName?: string) => {
 	autoSessionName(pi);
 
 	return {
+		branch,
 		pi,
-		setCurrentSessionName(name: string | undefined) {
+		registeredEvents,
+		getSessionName: () => sessionName,
+		async input(
+			text: string,
+			ctx = lastContext,
+			source: InputEvent["source"] = "interactive",
+		) {
+			lastContext = ctx;
+			await inputHandler?.({ type: "input", text, source }, ctx);
+		},
+		async agentSettled(ctx = lastContext) {
+			lastContext = ctx;
+			if (!agentSettledHandler)
+				throw new Error("agent_settled handler was not registered");
+			await agentSettledHandler({ type: "agent_settled" }, ctx);
+		},
+		async sessionStart(
+			ctx = lastContext,
+			reason: SessionStartEvent["reason"] = "startup",
+		) {
+			lastContext = ctx;
+			await sessionStartHandler?.({ type: "session_start", reason }, ctx);
+		},
+		async sessionTree(ctx = lastContext) {
+			lastContext = ctx;
+			await sessionTreeHandler?.(
+				{
+					type: "session_tree",
+					newLeafId: null,
+					oldLeafId: null,
+				},
+				ctx,
+			);
+		},
+		async shutdown(
+			ctx = lastContext,
+			reason: SessionShutdownEvent["reason"] = "quit",
+		) {
+			lastContext = ctx;
+			await sessionShutdownHandler?.({ type: "session_shutdown", reason }, ctx);
+		},
+		async manualName(name: string | undefined, ctx = lastContext) {
+			lastContext = ctx;
 			sessionName = name;
-		},
-		async triggerTurnEnd(turnIndex: number, ctx: TestExtensionContext) {
-			if (!turnEndHandler)
-				throw new Error("turn_end handler was not registered");
-			await turnEndHandler({ turnIndex }, ctx);
-		},
-		async triggerSessionStart(ctx: TestExtensionContext) {
-			await sessionStartHandler?.({}, ctx);
+			appendSessionInfo(name);
+			await sessionInfoChangedHandler?.(
+				{ type: "session_info_changed", name },
+				ctx,
+			);
 		},
 	};
 };
@@ -156,11 +357,8 @@ const useTempHome = async () => {
 	return {
 		home,
 		restore() {
-			if (previousHome === undefined) {
-				delete process.env.HOME;
-				return;
-			}
-			process.env.HOME = previousHome;
+			if (previousHome === undefined) delete process.env.HOME;
+			else process.env.HOME = previousHome;
 		},
 	};
 };
@@ -171,112 +369,213 @@ const writeSettings = async (home: string, settings: unknown) => {
 	await writeFile(join(settingsDir, "settings.json"), JSON.stringify(settings));
 };
 
-const expectNoSessionName = (value: string | undefined) => {
-	expect(value?.trim() || undefined).toBeUndefined();
+const waitForName = async (
+	harness: ReturnType<typeof createHarness>,
+	name: string,
+) => {
+	await vi.waitFor(() =>
+		expect(harness.pi.setSessionName).toHaveBeenCalledWith(name),
+	);
 };
 
-describe("auto session naming eligibility", () => {
-	test("names any unnamed session once on the first turn_end", async () => {
+const nameInitialSession = async ({
+	initialRequest = plainPrompt,
+	initialTitle = "Reliable Backup Strategy",
+	branch = [userMessageEntry(initialRequest)],
+}: {
+	initialRequest?: string;
+	initialTitle?: string;
+	branch?: SessionEntry[];
+} = {}) => {
+	mocks.completeSimple.mockResolvedValueOnce({ content: initialTitle });
+	const harness = createHarness(branch);
+	const ctx = createContext(branch);
+	await harness.input(initialRequest, ctx);
+	await harness.agentSettled(ctx);
+	await waitForName(harness, initialTitle);
+	return { harness, ctx, branch };
+};
+
+describe("settled initial naming and raw input", () => {
+	test("registers initial naming on agent_settled and not turn_end", async () => {
 		mocks.completeSimple.mockResolvedValue({ content: "Backup Strategy" });
-		const harness = createHarness();
-		const ctx = createContext([textPartMessageEntry(plainPrompt)]);
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
 
-		await harness.triggerTurnEnd(0, ctx);
-		await vi.waitFor(() =>
-			expect(harness.pi.setSessionName).toHaveBeenCalledWith("Backup Strategy"),
-		);
+		expect(harness.registeredEvents).toContain("agent_settled");
+		expect(harness.registeredEvents).not.toContain("turn_end");
+		expect(mocks.completeSimple).not.toHaveBeenCalled();
 
-		await harness.triggerTurnEnd(1, ctx);
-		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
+		await harness.agentSettled(ctx);
+		await waitForName(harness, "Backup Strategy");
 	});
 
-	test("turn eligibility no longer requires a leading skill", () => {
-		expect(
-			shouldNameAfterTurn({
-				hasSessionName: false,
-				turnIndex: 0,
-			}),
-		).toBe(true);
-		expect(
-			shouldNameAfterTurn({
-				hasSessionName: true,
-				turnIndex: 0,
-			}),
-		).toBe(false);
-		expect(
-			shouldNameAfterTurn({
-				hasSessionName: false,
-				turnIndex: 1,
-			}),
-		).toBe(false);
-	});
-
-	test("does not schedule or perform historical backfill on session_start", async () => {
-		vi.useFakeTimers();
-		const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
-		const harness = createHarness();
-		const ctx = createContext([textPartMessageEntry(skillPrefixedPrompt)]);
-
-		await harness.triggerSessionStart(ctx);
-		await vi.runOnlyPendingTimersAsync();
-
-		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
-		expect(setTimeoutSpy).not.toHaveBeenCalled();
-		setTimeoutSpy.mockRestore();
-		vi.useRealTimers();
-	});
-});
-
-describe("first-message title input", () => {
-	test("cleans only the first user message by stripping leading skill XML", async () => {
+	test("prefers raw skill arguments over expanded skill content", async () => {
 		mocks.completeSimple.mockResolvedValue({
 			content: "Readable Session Titles",
 		});
-		const harness = createHarness();
-		const ctx = createContext([
-			textPartMessageEntry(skillPrefixedPrompt),
-			{ type: "message", message: { role: "assistant", content: "ignore me" } },
-			textPartMessageEntry("Do not use this later user message."),
-		]);
+		const branch = [userMessageEntry(skillPrefixedPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
 
-		await harness.triggerTurnEnd(0, ctx);
+		await harness.input(
+			"/skill:brainstorming Improve session title readability",
+			ctx,
+		);
+		await harness.agentSettled(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
-		const promptText = JSON.stringify(mocks.completeSimple.mock.calls[0]);
-		expect(promptText).toContain(
-			"When viewing previous sessions in pi, it's very hard to read if we start off with a skill.",
-		);
-		expect(promptText).not.toContain("Long skill instructions");
-		expect(promptText).not.toContain("ignore me");
-		expect(promptText).not.toContain("Do not use this later user message");
-		expect(harness.pi.setSessionName).toHaveBeenCalledWith(
-			"Readable Session Titles",
-		);
+		const request = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
+		expect(request).toContain("Improve session title readability");
+		expect(request).not.toContain("Long skill instructions");
+		expect(request).not.toContain("skill-started sessions");
 	});
 
-	test("extractUserRequest strips a leading skill block but keeps ordinary text", () => {
-		expect(extractUserRequest(skillPrefixedPrompt)).toBe(
-			"When viewing previous sessions in pi, it's very hard to read if we start off with a skill.",
+	test("stored fallback strips leading skill XML", async () => {
+		mocks.completeSimple.mockResolvedValue({
+			content: "Readable Session Titles",
+		});
+		const branch = [userMessageEntry(skillPrefixedPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
+
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
+
+		const request = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
+		expect(request).toContain(
+			"When viewing previous sessions in pi, make skill-started sessions readable.",
 		);
-		expect(extractUserRequest(plainPrompt)).toBe(plainPrompt);
+		expect(request).not.toContain("Long skill instructions");
+	});
+
+	test("command-only raw input falls back to the stored request", async () => {
+		mocks.completeSimple.mockResolvedValue({ content: "Stored Request Title" });
+		const branch = [userMessageEntry(skillPrefixedPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
+
+		await harness.input("/skill:brainstorming", ctx);
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
+
+		const request = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
+		expect(request).toContain("skill-started sessions readable");
+		expect(request).not.toContain("/skill:brainstorming");
+	});
+
+	test("ignores extension control commands but accepts extension user text", async () => {
+		expect(cleanRawUserInput("/skill:planner Build the parser")).toBe(
+			"Build the parser",
+		);
+		expect(cleanRawUserInput("/skill:planner")).toBeUndefined();
+
+		mocks.completeSimple.mockResolvedValue({ content: "Actual User Task" });
+		const branch = [userMessageEntry("Stored fallback request")];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
+		await harness.input("/internal-control do not use", ctx, "extension");
+		await harness.input("Implement the actual parser", ctx, "extension");
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
+
+		const request = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
+		expect(request).toContain("Implement the actual parser");
+		expect(request).not.toContain("do not use");
+	});
+
+	test("bounds long input while preserving its head and tail", async () => {
+		const longRequest = `BEGIN-${"a".repeat(2_000)}-${"z".repeat(2_000)}-END`;
+		const bounded = truncateHeadAndTail(longRequest);
+		expect(bounded).toHaveLength(1_600);
+		expect(bounded).toMatch(/^BEGIN-/);
+		expect(bounded).toMatch(/-END$/);
+		expect(bounded).toContain("\n...\n");
+
+		mocks.completeSimple.mockResolvedValue({ content: "Bounded Long Request" });
+		const branch = [userMessageEntry(longRequest)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
+		await harness.input(longRequest, ctx);
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
+		const prompt = mocks.completeSimple.mock.calls[0]?.[1];
+		expect(JSON.stringify(prompt)).toContain("BEGIN-");
+		expect(JSON.stringify(prompt)).toContain("-END");
+		expect(prompt.messages[0]?.content[0]?.text).toHaveLength(1_600);
 	});
 });
 
-describe("existing names and config", () => {
-	test("preserves an existing non-empty name", async () => {
-		mocks.completeSimple.mockResolvedValue({ content: "New Model Title" });
-		const harness = createHarness("Existing name");
+describe("bounded model generation", () => {
+	test("uses bounded output, timeout, no retries, deterministic temperature, and no reasoning", async () => {
+		mocks.completeSimple.mockResolvedValue({
+			content: "Bounded Model Request",
+		});
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
 
-		await harness.triggerTurnEnd(
-			0,
-			createContext([textPartMessageEntry(plainPrompt)]),
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
+
+		expect(mocks.completeSimple.mock.calls[0]?.[2]).toMatchObject({
+			apiKey: "test-api-key",
+			headers: { "x-test": "header" },
+			env: { TEST_PROVIDER_ENV: "value" },
+			maxTokens: 32,
+			maxRetries: 0,
+			reasoning: undefined,
+			temperature: 0,
+			timeoutMs: 8_000,
+		});
+		expect(mocks.completeSimple.mock.calls[0]?.[2].signal).toBeInstanceOf(
+			AbortSignal,
 		);
-
-		expect(mocks.completeSimple).not.toHaveBeenCalled();
-		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
 	});
 
-	test("re-checks the session name before setting an async model result", async () => {
+	test("an abort bounds stalled authentication and falls back safely", async () => {
+		const controller = new AbortController();
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(
+			branch,
+			[defaultModel, configuredModel],
+			defaultModel,
+			controller.signal,
+		);
+		const authStarted = vi.fn();
+		ctx.modelRegistry.getApiKeyAndHeaders = () => {
+			authStarted();
+			return new Promise(() => undefined);
+		};
+
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() => expect(authStarted).toHaveBeenCalled());
+		controller.abort();
+		await waitForName(harness, "Help me design a reliable backup strategy for");
+	});
+
+	test("explicitly disables reasoning for OpenAI Codex Responses", async () => {
+		const codexModel = makeTestModel("codex-model", "openai-codex-responses");
+		mocks.complete.mockResolvedValue({ content: "No Reasoning Title" });
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch, [codexModel], codexModel);
+
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() => expect(mocks.complete).toHaveBeenCalled());
+
+		expect(mocks.complete.mock.calls[0]?.[2]).toMatchObject({
+			maxTokens: 32,
+			maxRetries: 0,
+			reasoningEffort: "none",
+			temperature: 0,
+			timeoutMs: 8_000,
+		});
+	});
+
+	test("allows only one initial title request in flight", async () => {
 		let resolveTitle: (value: { content: string }) => void = () => undefined;
 		mocks.completeSimple.mockImplementation(
 			() =>
@@ -284,230 +583,565 @@ describe("existing names and config", () => {
 					resolveTitle = resolve;
 				}),
 		);
-		const harness = createHarness();
-		const turn = harness.triggerTurnEnd(
-			0,
-			createContext([textPartMessageEntry(plainPrompt)]),
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
+
+		await harness.agentSettled(ctx);
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() =>
+			expect(mocks.completeSimple).toHaveBeenCalledTimes(1),
+		);
+		resolveTitle({ content: "Single Request Title" });
+		await waitForName(harness, "Single Request Title");
+	});
+});
+
+describe("ownership and stale async results", () => {
+	test("an existing manual name prevents initial generation", async () => {
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch, "CLI supplied name");
+		await harness.sessionStart(createContext(branch));
+		await harness.agentSettled(createContext(branch));
+
+		expect(mocks.completeSimple).not.toHaveBeenCalled();
+		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
+	});
+
+	test("a manual rename during generation prevents applying the result", async () => {
+		let resolveTitle: (value: { content: string }) => void = () => undefined;
+		mocks.completeSimple.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveTitle = resolve;
+				}),
+		);
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
+
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
+		await harness.manualName("User supplied name", ctx);
+		resolveTitle({ content: "Stale Model Title" });
+		await vi.waitFor(() =>
+			expect(harness.getSessionName()).toBe("User supplied name"),
+		);
+		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
+	});
+
+	test("a session-picker rename persisted during generation prevents application", async () => {
+		if (!isolatedHome) throw new Error("test home was not initialized");
+		const sessionFile = join(isolatedHome, "session.jsonl");
+		await writeFile(
+			sessionFile,
+			`${JSON.stringify({
+				type: "session",
+				version: 3,
+				id: "test-session",
+				timestamp: new Date(0).toISOString(),
+				cwd: "/tmp",
+			})}\n`,
 		);
 
+		let resolveTitle: (value: { content: string }) => void = () => undefined;
+		mocks.completeSimple.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveTitle = resolve;
+				}),
+		);
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		const ctx = createContext(
+			branch,
+			[defaultModel, configuredModel],
+			defaultModel,
+			undefined,
+			sessionFile,
+		);
+		await harness.agentSettled(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
-		harness.setCurrentSessionName("User supplied name");
-		resolveTitle({ content: "Model Title" });
-		await turn;
+
+		await appendFile(
+			sessionFile,
+			`${JSON.stringify({
+				type: "session_info",
+				id: "abcdef12",
+				parentId: null,
+				timestamp: new Date(1_000).toISOString(),
+				name: "Picker supplied name",
+			})}\n`,
+		);
+		resolveTitle({ content: "Stale Model Title" });
+		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
 	});
 
-	test("enabled defaults to true and titleModel defaults to session-default", async () => {
-		mocks.completeSimple.mockResolvedValue({ content: "Default Model Title" });
-		const harness = createHarness();
-
-		await harness.triggerTurnEnd(
-			0,
-			createContext([textPartMessageEntry(plainPrompt)]),
+	test("shutdown and replacement prevent stale async application", async () => {
+		let resolveTitle: (value: { content: string }) => void = () => undefined;
+		mocks.completeSimple.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveTitle = resolve;
+				}),
 		);
-		await vi.waitFor(() =>
-			expect(harness.pi.setSessionName).toHaveBeenCalledWith(
-				"Default Model Title",
-			),
-		);
+		const oldBranch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(oldBranch);
+		const oldContext = createContext(oldBranch);
+		await harness.agentSettled(oldContext);
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
-		expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(defaultModel);
-		expect(mocks.completeSimple.mock.calls[0]?.[2]).toEqual({
-			apiKey: "test-api-key",
-			headers: { "x-test": "header" },
-		});
+		await harness.shutdown(oldContext, "new");
+		const replacementBranch: SessionEntry[] = [];
+		await harness.sessionStart(createContext(replacementBranch), "new");
+		resolveTitle({ content: "Old Session Title" });
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
 	});
 
-	test("explicitly disables thinking for OpenAI title models", async () => {
-		const model = {
-			...defaultModel,
-			api: "openai-codex-responses",
+	test("automatic ownership survives reload through branch custom entries", async () => {
+		const { harness, branch } = await nameInitialSession();
+		const title = harness.getSessionName();
+		const reloaded = createHarness(branch, title);
+		await reloaded.sessionStart(createContext(branch), "reload");
+
+		branch.push(userMessageEntry("Actually, switch to repairing OB-1234."));
+		mocks.completeSimple.mockResolvedValueOnce({ content: "Repair OB-1234" });
+		await reloaded.input("Actually, switch to repairing OB-1234.");
+		await reloaded.agentSettled(createContext(branch));
+		await waitForName(reloaded, "Repair OB-1234");
+	});
+
+	test("a differing current title is treated as user-owned", async () => {
+		const state: AutoTitleState = {
+			title: "Automatic Title",
+			originalRequest: "Help me with this",
+			phase: "initial",
+			refinementAttempted: false,
+			initialFallback: false,
 		};
-		mocks.complete.mockResolvedValue({ content: "No Thinking Title" });
-		const harness = createHarness();
+		const branch = [
+			userMessageEntry("Help me with this"),
+			customStateEntry(state),
+			userMessageEntry("Actually, switch to OB-1234"),
+		];
+		const harness = createHarness(branch, "Manual Title");
+		const ctx = createContext(branch);
+		await harness.sessionStart(ctx, "resume");
+		await harness.agentSettled(ctx);
 
-		await harness.triggerTurnEnd(
-			0,
-			createContext([textPartMessageEntry(plainPrompt)], [model], model),
-		);
-		await vi.waitFor(() => expect(mocks.complete).toHaveBeenCalled());
-
-		expect(mocks.complete.mock.calls[0]?.[2]).toEqual({
-			apiKey: "test-api-key",
-			headers: { "x-test": "header" },
-			reasoningEffort: "none",
-		});
+		expect(mocks.completeSimple).not.toHaveBeenCalled();
+		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
 	});
 
-	test("enabled false opts out of automatic naming", async () => {
+	test("clearing an automatic title prevents restoration", async () => {
+		const { harness, branch, ctx } = await nameInitialSession();
+		await harness.manualName(undefined, ctx);
+		branch.push(userMessageEntry("Actually, switch to OB-1234"));
+		await harness.input("Actually, switch to OB-1234", ctx);
+		await harness.agentSettled(ctx);
+
+		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
+		expect(harness.getSessionName()).toBeUndefined();
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
+	});
+
+	test("reconstructs only the latest state on the active branch", () => {
+		const initial: AutoTitleState = {
+			title: "Initial",
+			originalRequest: "Fix this",
+			phase: "initial",
+			refinementAttempted: false,
+			initialFallback: true,
+		};
+		const refined: AutoTitleState = {
+			...initial,
+			title: "Refined",
+			phase: "refinement",
+			refinementAttempted: true,
+		};
+		expect(
+			reconstructAutoTitleState([
+				customStateEntry(initial),
+				customStateEntry(refined),
+			]),
+		).toEqual(refined);
+	});
+});
+
+describe("conditional one-time refinement", () => {
+	test("a weak initial request becomes eligible after three user requests", () => {
+		const state: AutoTitleState = {
+			title: "Help With This",
+			originalRequest: "Help me with this.",
+			phase: "initial",
+			refinementAttempted: false,
+			initialFallback: false,
+		};
+		expect(
+			shouldRefineTitle({
+				state,
+				userRequests: [
+					"Help me with this.",
+					"The failing area is the auth package.",
+					"The symbol is `refreshToken`.",
+				],
+			}),
+		).toBe(true);
+		expect(isWeakRequest("Can you take a look?")).toBe(true);
+		expect(isWeakRequest("Implement the auth parser")).toBe(false);
+	});
+
+	test("a deterministic fallback permits one later refinement even for a strong request", () => {
+		const state: AutoTitleState = {
+			title: "Implement Reliable Backup Rotation",
+			originalRequest: "Implement reliable backup rotation for home servers",
+			phase: "initial",
+			refinementAttempted: false,
+			initialFallback: true,
+		};
+		expect(
+			shouldRefineTitle({
+				state,
+				userRequests: [
+					state.originalRequest,
+					"Add retention validation.",
+					"Cover the parser with tests.",
+				],
+			}),
+		).toBe(true);
+	});
+
+	test("a strong initial title does not trigger routine refinement", async () => {
+		const { harness, branch, ctx } = await nameInitialSession({
+			initialRequest: "Implement reliable backup rotation for home servers",
+			initialTitle: "Reliable Backup Rotation",
+		});
+		branch.push(
+			userMessageEntry("Add validation around retention days."),
+			userMessageEntry("Cover the parser with unit tests."),
+		);
+		await harness.input("Add validation around retention days.", ctx);
+		await harness.input("Cover the parser with unit tests.", ctx);
+		await harness.agentSettled(ctx);
+
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
+		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
+	});
+
+	test("a clear later direction change triggers refinement with newest anchors first", async () => {
+		const originalRequest =
+			"Review `OLD_1` `OLD_2` `OLD_3` `OLD_4` `OLD_5` `OLD_6` `OLD_7` `OLD_8`.";
+		const { harness, branch, ctx } = await nameInitialSession({
+			initialRequest: originalRequest,
+			initialTitle: "Review Legacy Components",
+		});
+		const newTask = "Actually, switch to fixing the OB-1234 login regression.";
+		branch.push(userMessageEntry(newTask));
+		await harness.input(newTask, ctx);
+		mocks.completeSimple.mockResolvedValueOnce({
+			content: "Fix OB-1234 Login",
+		});
+		await harness.agentSettled(ctx);
+		await waitForName(harness, "Fix OB-1234 Login");
+		expect(hasDirectionChange(newTask)).toBe(true);
+		const refinementPrompt = mocks.completeSimple.mock.calls[1]?.[1];
+		expect(refinementPrompt.messages[0]?.content[0]?.text).toContain(
+			"Stable anchors: OB-1234",
+		);
+	});
+
+	test("ticket, PR, path, and symbol anchors inform refinement", async () => {
+		const { harness, branch, ctx } = await nameInitialSession({
+			initialRequest: "Fix this.",
+			initialTitle: "Fix This",
+		});
+		const second =
+			"The work is OB-1234 and https://github.com/acme/app/pull/42 in src/auth/session.ts.";
+		const third = "Update `SessionManager.refreshToken` and ERR_AUTH_EXPIRED.";
+		branch.push(userMessageEntry(second), userMessageEntry(third));
+		await harness.input(second, ctx);
+		await harness.input(third, ctx);
+		mocks.completeSimple.mockResolvedValueOnce({
+			content: "Fix OB-1234 Session Auth",
+		});
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() =>
+			expect(mocks.completeSimple).toHaveBeenCalledTimes(2),
+		);
+
+		const refinementPrompt = JSON.stringify(
+			mocks.completeSimple.mock.calls[1]?.[1],
+		);
+		expect(refinementPrompt).toContain("OB-1234");
+		expect(refinementPrompt).toContain("pull/42");
+		expect(refinementPrompt).toContain("src/auth/session.ts");
+		expect(refinementPrompt).toContain("SessionManager.refreshToken");
+		expect(refinementPrompt).toContain("ERR_AUTH_EXPIRED");
+		expect(extractStableAnchors([second, third])).toEqual(
+			expect.arrayContaining([
+				"OB-1234",
+				"src/auth/session.ts",
+				"SessionManager.refreshToken",
+				"ERR_AUTH_EXPIRED",
+			]),
+		);
+	});
+
+	test("refinement context excludes assistant text, tool results, and full transcript", async () => {
+		const { harness, branch, ctx } = await nameInitialSession({
+			initialRequest: "Help me with this.",
+			initialTitle: "Help With This",
+		});
+		branch.push(
+			assistantMessageEntry("SECRET_ASSISTANT_TRANSCRIPT"),
+			toolResultEntry("SECRET_TOOL_RESULT"),
+			userMessageEntry("It concerns the auth package."),
+			userMessageEntry("Focus on `refreshToken` in src/auth/token.ts."),
+		);
+		await harness.input("It concerns the auth package.", ctx);
+		await harness.input("Focus on `refreshToken` in src/auth/token.ts.", ctx);
+		mocks.completeSimple.mockResolvedValueOnce({
+			content: "Refresh Auth Tokens",
+		});
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() =>
+			expect(mocks.completeSimple).toHaveBeenCalledTimes(2),
+		);
+
+		const prompt = JSON.stringify(mocks.completeSimple.mock.calls[1]?.[1]);
+		expect(prompt).not.toContain("SECRET_ASSISTANT_TRANSCRIPT");
+		expect(prompt).not.toContain("SECRET_TOOL_RESULT");
+		expect(prompt).toContain("Recent request 1");
+		expect(prompt).toContain("Stable anchors");
+	});
+
+	test("an unchanged result consumes refinement without another session name", async () => {
+		const { harness, branch, ctx } = await nameInitialSession({
+			initialRequest: "Fix this.",
+			initialTitle: "Fix This",
+		});
+		branch.push(
+			userMessageEntry("The issue is in authentication."),
+			userMessageEntry("The failing symbol is `refreshToken`."),
+		);
+		await harness.input("The issue is in authentication.", ctx);
+		await harness.input("The failing symbol is `refreshToken`.", ctx);
+		mocks.completeSimple.mockResolvedValueOnce({ content: "Fix This" });
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() =>
+			expect(mocks.completeSimple).toHaveBeenCalledTimes(2),
+		);
+
+		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
+		const state = reconstructAutoTitleState(branch);
+		expect(state?.refinementAttempted).toBe(true);
+	});
+
+	test("refinement is attempted no more than once", async () => {
+		const { harness, branch, ctx } = await nameInitialSession({
+			initialRequest: "Fix this.",
+			initialTitle: "Fix This",
+		});
+		branch.push(
+			userMessageEntry("The issue is authentication."),
+			userMessageEntry("The symbol is `refreshToken`."),
+		);
+		await harness.input("The issue is authentication.", ctx);
+		await harness.input("The symbol is `refreshToken`.", ctx);
+		mocks.completeSimple.mockResolvedValueOnce({
+			content: "Repair Auth Refresh",
+		});
+		await harness.agentSettled(ctx);
+		await waitForName(harness, "Repair Auth Refresh");
+
+		branch.push(userMessageEntry("Actually, switch to another task."));
+		await harness.input("Actually, switch to another task.", ctx);
+		await harness.agentSettled(ctx);
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(2);
+	});
+
+	test("refinement failure leaves the title unchanged and is not retried", async () => {
+		const { harness, branch, ctx } = await nameInitialSession({
+			initialRequest: "Fix this.",
+			initialTitle: "Fix This",
+		});
+		branch.push(
+			userMessageEntry("The issue is authentication."),
+			userMessageEntry("The symbol is `refreshToken`."),
+		);
+		await harness.input("The issue is authentication.", ctx);
+		await harness.input("The symbol is `refreshToken`.", ctx);
+		mocks.completeSimple.mockRejectedValueOnce(new Error("provider down"));
+		await harness.agentSettled(ctx);
+		await vi.waitFor(() =>
+			expect(mocks.completeSimple).toHaveBeenCalledTimes(2),
+		);
+		await harness.agentSettled(ctx);
+
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(2);
+		expect(harness.getSessionName()).toBe("Fix This");
+		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
+		expect(reconstructAutoTitleState(branch)?.refinementAttempted).toBe(true);
+	});
+
+	test("prompt construction uses only its compact envelope", () => {
+		const prompt = createRefinementTitlePrompt({
+			currentTitle: "Current Title",
+			originalRequest: "Original request",
+			recentRequests: ["Recent one", "Recent two"],
+			anchors: ["OB-1234", "src/auth.ts"],
+		});
+		const serialized = JSON.stringify(prompt);
+		expect(serialized).toContain("Keep the current title");
+		expect(serialized).toContain("OB-1234");
+		expect(serialized).not.toContain("assistant");
+		expect(serialized).not.toContain("toolResult");
+	});
+});
+
+describe("fallbacks, settings, and no backfill", () => {
+	test("initial generation failure uses the deterministic fallback", async () => {
+		mocks.completeSimple.mockRejectedValue(new Error("provider unavailable"));
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		await harness.agentSettled(createContext(branch));
+		await waitForName(harness, "Help me design a reliable backup strategy for");
+		expect(reconstructAutoTitleState(branch)?.initialFallback).toBe(true);
+	});
+
+	test.each(["error", "aborted"])(
+		"%s completion responses discard partial title text",
+		async (stopReason) => {
+			mocks.completeSimple.mockResolvedValue({
+				content: "Partial Provider Title",
+				stopReason,
+				errorMessage: "provider failed",
+			});
+			const request = "Implement reliable backup rotation for home servers";
+			const branch = [userMessageEntry(request)];
+			const harness = createHarness(branch);
+			await harness.agentSettled(createContext(branch));
+
+			await waitForName(
+				harness,
+				"Implement reliable backup rotation for home servers",
+			);
+			expect(harness.getSessionName()).not.toBe("Partial Provider Title");
+		},
+	);
+
+	test("enabled false opts out", async () => {
 		const tempHome = await useTempHome();
 		try {
 			await writeSettings(tempHome.home, {
 				autoSessionName: { enabled: false },
 			});
-			mocks.completeSimple.mockResolvedValue({ content: "Disabled Title" });
-			const harness = createHarness();
-
-			await harness.triggerTurnEnd(
-				0,
-				createContext([textPartMessageEntry(plainPrompt)]),
+			const branch = [userMessageEntry(plainPrompt)];
+			const harness = createHarness(branch);
+			await harness.agentSettled(createContext(branch));
+			await vi.waitFor(() =>
+				expect(mocks.completeSimple).not.toHaveBeenCalled(),
 			);
-
-			expect(mocks.completeSimple).not.toHaveBeenCalled();
 			expect(harness.pi.setSessionName).not.toHaveBeenCalled();
 		} finally {
 			tempHome.restore();
 		}
 	});
 
-	test("uses a configured titleModel and falls back when titleModel is invalid", async () => {
+	test("uses configured titleModel and preserves ordered model resolution fallback", async () => {
 		const tempHome = await useTempHome();
 		try {
 			await writeSettings(tempHome.home, {
-				autoSessionName: { titleModel: ["configured-model"] },
+				autoSessionName: {
+					titleModel: ["missing-model", "configured-model"],
+				},
 			});
 			mocks.completeSimple.mockResolvedValue({
 				content: "Configured Model Title",
 			});
-			const configuredHarness = createHarness();
-
-			await configuredHarness.triggerTurnEnd(
-				0,
-				createContext([textPartMessageEntry(plainPrompt)]),
-			);
-			await vi.waitFor(() =>
-				expect(configuredHarness.pi.setSessionName).toHaveBeenCalledWith(
-					"Configured Model Title",
-				),
-			);
+			const branch = [userMessageEntry(plainPrompt)];
+			const harness = createHarness(branch);
+			await harness.agentSettled(createContext(branch));
+			await waitForName(harness, "Configured Model Title");
 			expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(configuredModel);
+		} finally {
+			tempHome.restore();
+		}
+	});
 
-			mocks.completeSimple.mockClear();
+	test("invalid titleModel falls back to session-default", async () => {
+		const tempHome = await useTempHome();
+		try {
 			await writeSettings(tempHome.home, {
 				autoSessionName: { titleModel: "configured-model" },
 			});
 			mocks.completeSimple.mockResolvedValue({
-				content: "Fallback Model Title",
+				content: "Default Model Title",
 			});
-			const fallbackHarness = createHarness();
-
-			await fallbackHarness.triggerTurnEnd(
-				0,
-				createContext([textPartMessageEntry(plainPrompt)]),
-			);
-			await vi.waitFor(() =>
-				expect(fallbackHarness.pi.setSessionName).toHaveBeenCalledWith(
-					"Fallback Model Title",
-				),
-			);
+			const branch = [userMessageEntry(plainPrompt)];
+			const harness = createHarness(branch);
+			await harness.agentSettled(createContext(branch));
+			await waitForName(harness, "Default Model Title");
 			expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(defaultModel);
 		} finally {
 			tempHome.restore();
 		}
 	});
 
-	test("uses deterministic fallback when configured models cannot be resolved", async () => {
+	test("unresolved models use deterministic fallback", async () => {
 		const tempHome = await useTempHome();
 		try {
 			await writeSettings(tempHome.home, {
 				autoSessionName: { titleModel: ["missing-model"] },
 			});
-			mocks.completeSimple.mockResolvedValue({ content: "Should Not Run" });
-			const harness = createHarness();
-
-			await harness.triggerTurnEnd(
-				0,
-				createContext([textPartMessageEntry(plainPrompt)]),
-			);
-
-			await vi.waitFor(() =>
-				expect(harness.pi.setSessionName).toHaveBeenCalled(),
-			);
-			expect(mocks.completeSimple).not.toHaveBeenCalled();
-			expect(harness.pi.setSessionName.mock.calls[0]?.[0]).toBe(
+			const branch = [userMessageEntry(plainPrompt)];
+			const harness = createHarness(branch);
+			await harness.agentSettled(createContext(branch));
+			await waitForName(
+				harness,
 				"Help me design a reliable backup strategy for",
 			);
+			expect(mocks.completeSimple).not.toHaveBeenCalled();
 		} finally {
 			tempHome.restore();
 		}
 	});
-});
 
-describe("model output and fallback titles", () => {
-	test("falls back to a deterministic first-message prefix when the model fails", async () => {
-		mocks.completeSimple.mockRejectedValue(new Error("provider unavailable"));
-		const harness = createHarness();
-
-		await harness.triggerTurnEnd(
-			0,
-			createContext([textPartMessageEntry(plainPrompt)]),
-		);
-		await vi.waitFor(() =>
-			expect(harness.pi.setSessionName).toHaveBeenCalled(),
-		);
-
-		const generated = harness.pi.setSessionName.mock.calls[0]?.[0];
-		expect(generated).toBe("Help me design a reliable backup strategy for");
-		expect(generated?.split(/\s+/)).toHaveLength(8);
-		expect(generated?.length).toBeLessThanOrEqual(60);
-	});
-
-	test("falls back when the model returns empty output", async () => {
-		mocks.completeSimple.mockResolvedValue({ content: "   \n  " });
-		const harness = createHarness();
-
-		await harness.triggerTurnEnd(
-			0,
-			createContext([textPartMessageEntry(plainPrompt)]),
-		);
-		await vi.waitFor(() =>
-			expect(harness.pi.setSessionName).toHaveBeenCalled(),
-		);
-
-		expect(harness.pi.setSessionName.mock.calls[0]?.[0]).toBe(
-			"Help me design a reliable backup strategy for",
-		);
-	});
-
-	test("normalizes quoted markdown-ish model titles to 60 chars and 8 words", async () => {
-		mocks.completeSimple.mockResolvedValue({
-			content:
-				'**"A careful backup migration strategy with many detailed implementation steps"**',
-		});
-		const harness = createHarness();
-
-		await harness.triggerTurnEnd(
-			0,
-			createContext([textPartMessageEntry(plainPrompt)]),
-		);
-		await vi.waitFor(() =>
-			expect(harness.pi.setSessionName).toHaveBeenCalled(),
-		);
-
-		const generated = harness.pi.setSessionName.mock.calls[0]?.[0];
-		expect(generated).toBe(
-			"A careful backup migration strategy with many detailed",
-		);
-		expect(generated?.split(/\s+/)).toHaveLength(8);
-		expect(generated?.length).toBeLessThanOrEqual(60);
-		expect(generated).not.toMatch(/["*_`]/);
-	});
-
-	test("ignores blank first user messages", async () => {
-		mocks.completeSimple.mockResolvedValue({ content: "Should Not Happen" });
-		const harness = createHarness();
-
-		await harness.triggerTurnEnd(0, createContext([messageEntry("   ")]));
+	test("session_start reconstructs state without historical naming work", async () => {
+		vi.useFakeTimers();
+		const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+		const branch = [userMessageEntry(skillPrefixedPrompt)];
+		const harness = createHarness(branch);
+		await harness.sessionStart(createContext(branch), "resume");
+		await vi.runOnlyPendingTimersAsync();
 
 		expect(mocks.completeSimple).not.toHaveBeenCalled();
-		expectNoSessionName(harness.pi.setSessionName.mock.calls[0]?.[0]);
+		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
+		expect(timeoutSpy).not.toHaveBeenCalled();
+	});
+
+	test("a resumed unnamed historical session is not backfilled on later settles", async () => {
+		const branch = [userMessageEntry("Historical request")];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
+		await harness.sessionStart(ctx, "resume");
+		branch.push(userMessageEntry("A new request after resume"));
+		await harness.input("A new request after resume", ctx);
+		await harness.agentSettled(ctx);
+
+		expect(mocks.completeSimple).not.toHaveBeenCalled();
+		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
 	});
 });
 
 beforeEach(async () => {
 	mocks.complete.mockReset();
 	mocks.completeSimple.mockReset();
+	entrySequence = 0;
 	originalHome = process.env.HOME;
 	isolatedHome = await mkdtemp(join(tmpdir(), "auto-session-name-home-"));
 	process.env.HOME = isolatedHome;
@@ -516,11 +1150,8 @@ beforeEach(async () => {
 afterEach(async () => {
 	vi.useRealTimers();
 	vi.restoreAllMocks();
-	if (originalHome === undefined) {
-		delete process.env.HOME;
-	} else {
-		process.env.HOME = originalHome;
-	}
+	if (originalHome === undefined) delete process.env.HOME;
+	else process.env.HOME = originalHome;
 	if (isolatedHome) {
 		await rm(isolatedHome, { recursive: true, force: true });
 	}

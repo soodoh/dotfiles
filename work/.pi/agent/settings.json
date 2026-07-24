@@ -1,53 +1,59 @@
 {
-	"lastChangelogVersion": "0.81.1",
-	"defaultProvider": "litellm",
-	"defaultModel": "chatgpt/gpt-5.6-sol",
-	"defaultThinkingLevel": "high",
-	"theme": "dark",
-	"compaction": {
-		"enabled": true,
-		"reserveTokens": 16384,
-		"keepRecentTokens": 20000
-	},
-	"collapseChangelog": true,
-	"quietStartup": true,
-	"enableSkillCommands": true,
-	"extensions": ["extensions/*.ts"],
-	"packages": [
-		{
-			"source": "./pi-extensions",
-			"extensions": [
-				"packages/auto-session-name/index.ts",
-				"packages/prompt-suggester/src/index.ts",
-				"packages/shared-prompt-history/index.ts",
-				"packages/statusline/index.ts"
-			]
-		},
-		"npm:pi-vim",
-		"npm:@plannotator/pi-extension",
-		"npm:pi-mcp-adapter",
-		"npm:@juicesharp/rpiv-web-tools",
-		"npm:@juicesharp/rpiv-todo",
-		"npm:@juicesharp/rpiv-ask-user-question",
-		"npm:pi-subagents",
-		"npm:pi-dynamic-workflows"
-	],
-	"steeringMode": "all",
-	"promptSuggester": {
-		"suggesterModel": ["litellm/chatgpt/gpt-5.6-luna"]
-	},
-	"autoSessionName": {
-		"titleModel": ["litellm/chatgpt/gpt-5.6-luna"]
-	},
-	"enabledModels": [
-		"litellm/chatgpt/gpt-5.6-sol",
-		"litellm/chatgpt/gpt-5.6-luna",
-		"litellm/openrouter/z-ai/glm-5.2",
-		"github-copilot/gpt-5.6-sol",
-		"github-copilot/claude-opus-4.7",
-		"github-copilot/gpt-5.6-luna",
-		"github-copilot/claude-sonnet-4.6",
-		"google-vertex/gemini-2.5-flash",
-		"google-vertex/gemini-2.5-pro"
-	]
+  "lastChangelogVersion": "0.81.1",
+  "defaultProvider": "litellm",
+  "defaultModel": "chatgpt/gpt-5.6-sol",
+  "defaultThinkingLevel": "high",
+  "theme": "dark",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 20000
+  },
+  "collapseChangelog": true,
+  "quietStartup": true,
+  "enableSkillCommands": true,
+  "extensions": [
+    "extensions/*.ts"
+  ],
+  "packages": [
+    {
+      "source": "./pi-extensions",
+      "extensions": [
+        "packages/auto-session-name/index.ts",
+        "packages/prompt-suggester/src/index.ts",
+        "packages/shared-prompt-history/index.ts",
+        "packages/statusline/index.ts"
+      ]
+    },
+    "npm:pi-vim",
+    "npm:@plannotator/pi-extension",
+    "npm:pi-mcp-adapter",
+    "npm:@juicesharp/rpiv-web-tools",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:pi-subagents",
+    "npm:pi-dynamic-workflows"
+  ],
+  "steeringMode": "all",
+  "promptSuggester": {
+    "suggesterModel": [
+      "litellm/chatgpt/gpt-5.6-luna"
+    ]
+  },
+  "autoSessionName": {
+    "titleModel": [
+      "litellm/chatgpt/gpt-5.6-luna"
+    ]
+  },
+  "enabledModels": [
+    "litellm/chatgpt/gpt-5.6-sol",
+    "litellm/chatgpt/gpt-5.6-luna",
+    "litellm/openrouter/z-ai/glm-5.2",
+    "github-copilot/gpt-5.6-sol",
+    "github-copilot/claude-opus-4.7",
+    "github-copilot/gpt-5.6-luna",
+    "github-copilot/claude-sonnet-4.6",
+    "google-vertex/gemini-2.5-flash",
+    "google-vertex/gemini-2.5-pro"
+  ]
 }
