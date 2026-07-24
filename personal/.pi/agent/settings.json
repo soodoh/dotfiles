@@ -1,5 +1,5 @@
 {
-	"lastChangelogVersion": "0.81.1",
+	"lastChangelogVersion": "0.82.0",
 	"defaultProvider": "openai-codex",
 	"defaultModel": "gpt-5.6-sol",
 	"defaultThinkingLevel": "high",
@@ -39,5 +39,16 @@
 	},
 	"autoSessionName": {
 		"titleModel": ["openai-codex/gpt-5.6-luna"]
+	},
+	"subagents": {
+		"modelScope": {
+			"enforce": true,
+			"allow": [
+				"openai-codex/gpt-5.6-sol",
+				"openai-codex/gpt-5.6-terra",
+				"openai-codex/gpt-5.6-luna"
+			]
+		}
 	}
 }
+
