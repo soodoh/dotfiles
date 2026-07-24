@@ -1,4 +1,10 @@
-export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ThinkingLevel =
+	| "off"
+	| "minimal"
+	| "low"
+	| "medium"
+	| "high"
+	| "xhigh";
 type InferenceDefault = "session-default";
 export type SuggestionStrategy = "compact" | "transcript-steering";
 export type GhostAcceptKey = "space" | "right" | "enter";

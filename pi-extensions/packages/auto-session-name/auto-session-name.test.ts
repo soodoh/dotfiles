@@ -9,10 +9,12 @@ import autoSessionName, {
 } from "./auto-session-name";
 
 const mocks = vi.hoisted(() => ({
+	complete: vi.fn(),
 	completeSimple: vi.fn(),
 }));
 
 vi.mock("@earendil-works/pi-ai/compat", () => ({
+	complete: mocks.complete,
 	completeSimple: mocks.completeSimple,
 }));
 
@@ -90,8 +92,9 @@ const textPartMessageEntry = (text: string) =>
 const createContext = (
 	branch: unknown[],
 	models: TestModel[] = [defaultModel, configuredModel],
+	model: TestModel = defaultModel,
 ): TestExtensionContext => ({
-	model: defaultModel,
+	model,
 	modelRegistry: {
 		getAll: () => models,
 		getApiKey: () => "test-api-key",
@@ -310,6 +313,31 @@ describe("existing names and config", () => {
 		);
 
 		expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(defaultModel);
+		expect(mocks.completeSimple.mock.calls[0]?.[2]).toEqual({
+			apiKey: "test-api-key",
+			headers: { "x-test": "header" },
+		});
+	});
+
+	test("explicitly disables thinking for OpenAI title models", async () => {
+		const model = {
+			...defaultModel,
+			api: "openai-codex-responses",
+		};
+		mocks.complete.mockResolvedValue({ content: "No Thinking Title" });
+		const harness = createHarness();
+
+		await harness.triggerTurnEnd(
+			0,
+			createContext([textPartMessageEntry(plainPrompt)], [model], model),
+		);
+		await vi.waitFor(() => expect(mocks.complete).toHaveBeenCalled());
+
+		expect(mocks.complete.mock.calls[0]?.[2]).toEqual({
+			apiKey: "test-api-key",
+			headers: { "x-test": "header" },
+			reasoningEffort: "none",
+		});
 	});
 
 	test("enabled false opts out of automatic naming", async () => {
@@ -478,6 +506,7 @@ describe("model output and fallback titles", () => {
 });
 
 beforeEach(async () => {
+	mocks.complete.mockReset();
 	mocks.completeSimple.mockReset();
 	originalHome = process.env.HOME;
 	isolatedHome = await mkdtemp(join(tmpdir(), "auto-session-name-home-"));

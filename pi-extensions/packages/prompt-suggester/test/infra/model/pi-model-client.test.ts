@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { Model, SimpleStreamOptions } from "@earendil-works/pi-ai";
+import type {
+	Model,
+	ProviderStreamOptions,
+	SimpleStreamOptions,
+} from "@earendil-works/pi-ai";
 import { afterEach, expect, test } from "vitest";
 import type { Logger } from "../../../src/app/ports/logger";
 import type { SuggestionPromptContext } from "../../../src/app/services/prompt-context-builder";
@@ -12,11 +16,12 @@ import {
 } from "../../../src/infra/model/pi-model-client";
 import { globToRegExp } from "../../../src/infra/model/seeder-tools";
 
-const { registerApiProvider, unregisterApiProviders } = await import(
-	pathToFileURL(
-		join(process.cwd(), "node_modules/@earendil-works/pi-ai/dist/compat.js"),
-	).href
-);
+const { registerApiProvider, resetApiProviders, unregisterApiProviders } =
+	await import(
+		pathToFileURL(
+			join(process.cwd(), "node_modules/@earendil-works/pi-ai/dist/compat.js"),
+		).href
+	);
 
 const CLAUDE_BRIDGE_STREAM_SIMPLE_KEY = Symbol.for(
 	"claude-bridge:activeStreamSimple",
@@ -376,10 +381,51 @@ test("PiModelClient resolves auth via getApiKeyAndHeaders when available", async
 		}),
 	);
 
-	await client.generateSuggestion(createSuggestionContext());
+	await client.generateSuggestion(createSuggestionContext(), {
+		thinkingLevel: "off",
+	});
 
 	expect(observedOptions?.apiKey).toBe("token-123");
 	expect(observedOptions?.headers).toEqual({ "x-test": "1" });
+	expect(observedOptions?.reasoning).toBeUndefined();
+});
+
+test("PiModelClient explicitly disables thinking for OpenAI response models", async (t) => {
+	let observedOptions: ProviderStreamOptions | undefined;
+	const sourceId = `openai-responses-test-${Math.random().toString(36).slice(2)}`;
+	registerApiProvider(
+		{
+			api: "openai-responses",
+			stream(
+				_model: TestModel,
+				_context: unknown,
+				options?: ProviderStreamOptions,
+			) {
+				observedOptions = options;
+				return {
+					async result() {
+						return successResponse("ok");
+					},
+				};
+			},
+			streamSimple() {
+				throw new Error("streamSimple should not be used when thinking is off");
+			},
+		},
+		sourceId,
+	);
+	t.onTestFinished(() => {
+		unregisterApiProviders(sourceId);
+		resetApiProviders();
+	});
+	const model = createModel("openai-responses");
+	const client = new PiModelClient(createRuntimeWithModel(model));
+
+	await client.generateSuggestion(createSuggestionContext(), {
+		thinkingLevel: "off",
+	});
+
+	expect(observedOptions?.reasoningEffort).toBe("none");
 });
 
 test("PiModelClient accepts header-only auth results from getApiKeyAndHeaders", async (t) => {

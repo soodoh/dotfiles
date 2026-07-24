@@ -33,6 +33,7 @@ const nonEmptyStringArraySchema = Type.Array(nonEmptyStringSchema, {
 	minItems: 1,
 });
 const thinkingLevelSchema = Type.Union([
+	Type.Literal("off"),
 	Type.Literal("minimal"),
 	Type.Literal("low"),
 	Type.Literal("medium"),

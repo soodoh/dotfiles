@@ -14,6 +14,8 @@ const defaultConfig = JSON.parse(
 
 test("validateConfig accepts shipped defaults", () => {
 	expect(validateConfig(defaultConfig)).toBe(true);
+	expect(defaultConfig.inference.seederThinking).toBe("off");
+	expect(defaultConfig.inference.suggesterThinking).toBe("off");
 });
 
 test("validateConfig rejects non-objects, unknown keys, and invalid values", () => {

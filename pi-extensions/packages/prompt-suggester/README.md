@@ -12,7 +12,7 @@ This package is derived from the idea behind [`pi-prompt-suggester`](https://git
 - Supports accept-and-send with a separate configured key, defaulting to Enter when the editor is empty and a suggestion is visible.
 - Builds suggestions from recent conversation signals, touched files, unresolved questions, tool activity, abort context, and project seed data.
 - Maintains per-project seed/state under the user's local state directory.
-- Uses the session's model and thinking level by default unless configured otherwise.
+- Uses the session's model by default unless configured otherwise, with thinking explicitly disabled for background model calls.
 
 ## Install
 
@@ -85,6 +85,8 @@ Key defaults include:
 | `reseed.checkAfterEveryTurn`            | `true`                | Checks whether project seed data is stale after turns.                                           |
 | `inference.seederModel`                 | `session-default`     | Model used for project seeding.                                                                  |
 | `inference.suggesterModel`              | `["session-default"]` | Ordered model list used for prompt suggestions; the first available entry wins.                  |
+| `inference.seederThinking`              | `off`                 | Disables thinking for project-seed generation.                                                   |
+| `inference.suggesterThinking`           | `off`                 | Disables thinking for prompt-suggestion generation.                                              |
 
 ## State and logs
 
@@ -111,7 +113,7 @@ Compared with [`pi-prompt-suggester`](https://github.com/guwidoe/pi-prompt-sugge
 - No `/suggesterSettings` TUI.
 - No slash-command editing for instruction/model/thinking/config/reseed/seed trace.
 - The below-editor panel is only used for transient status/log lines, not as the main suggestion display.
-- Model and thinking defaults are `session-default` for both seeding and suggestion generation.
+- Model defaults are `session-default` for both seeding and suggestion generation; thinking defaults to `off` for both.
 - State handling is simplified around this repo's per-project local state layout.
 
 ## Notes

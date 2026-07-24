@@ -5,7 +5,7 @@ import type {
 	Model,
 	UserMessage,
 } from "@earendil-works/pi-ai";
-import { completeSimple } from "@earendil-works/pi-ai/compat";
+import { complete, completeSimple } from "@earendil-works/pi-ai/compat";
 import type { Logger } from "../../app/ports/logger";
 import type {
 	ModelClient,
@@ -81,6 +81,7 @@ interface ProviderInvocationContext {
 	sessionId?: string;
 	debugMeta?: Record<string, unknown>;
 	allowEmptyText?: boolean;
+	thinkingDisabled: boolean;
 }
 
 interface CompletionResponseLike {
@@ -805,7 +806,8 @@ export class PiModelClient implements ModelClient {
 		const requestOptions = {
 			apiKey,
 			headers,
-			reasoning: settings?.thinkingLevel,
+			reasoning:
+				settings?.thinkingLevel === "off" ? undefined : settings?.thinkingLevel,
 			sessionId,
 			onPayload: async (payload: unknown) => {
 				this.logger?.debug("suggestion.provider.payload", {
@@ -825,6 +827,7 @@ export class PiModelClient implements ModelClient {
 				sessionId,
 				debugMeta,
 				allowEmptyText: options?.allowEmptyText,
+				thinkingDisabled: settings?.thinkingLevel === "off",
 			});
 		} catch (error) {
 			if (
@@ -887,6 +890,16 @@ export class PiModelClient implements ModelClient {
 		}
 
 		try {
+			if (
+				invocation.thinkingDisabled &&
+				(model.api === "openai-responses" ||
+					model.api === "openai-codex-responses")
+			) {
+				return await complete(model, context, {
+					...options,
+					reasoningEffort: "none",
+				});
+			}
 			return await completeSimple(model, context, options);
 		} catch (error) {
 			if (this.isMissingProviderRegistrationError(error, model.api)) {

@@ -8,6 +8,7 @@
 - Applies to any session whose current name is empty.
 - Preserves existing non-empty names before scheduling and again before setting the generated title.
 - Uses only the first user message; assistant output and later user messages are ignored.
+- Requests title generation with thinking explicitly disabled.
 - If the first message starts with a Pi `<skill ...>...</skill>` block, that leading block is stripped before title generation.
 - Normalizes model output to plain text, up to 8 words and 60 characters.
 - Catches model/config/provider failures and falls back to a deterministic prefix of the cleaned first message.

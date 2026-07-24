@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Message, Model, UserMessage } from "@earendil-works/pi-ai";
-import { completeSimple } from "@earendil-works/pi-ai/compat";
+import { complete, completeSimple } from "@earendil-works/pi-ai/compat";
 
 type ExtensionAPI = {
 	getSessionName(): string | undefined;
@@ -268,11 +268,14 @@ const generateTitle = async (
 		ctx.modelRegistry.getAll(),
 	);
 	const auth = await resolveRequestAuth(model, ctx.modelRegistry);
-	const response = await completeSimple(
-		model,
-		createTitlePrompt(request),
-		auth,
-	);
+	const prompt = createTitlePrompt(request);
+	const response =
+		model.api === "openai-responses" || model.api === "openai-codex-responses"
+			? await complete(model, prompt, {
+					...auth,
+					reasoningEffort: "none",
+				})
+			: await completeSimple(model, prompt, auth);
 	return normalizeModelTitle(extractCompletionText(response));
 };
 
