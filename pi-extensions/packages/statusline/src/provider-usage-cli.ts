@@ -26,7 +26,12 @@ const modelRegistry: ModelRegistryLike = {
 	isUsingOAuth: (model) =>
 		model.provider ? modelRuntime.isUsingOAuth(model.provider) : false,
 };
-const ctx: ProviderUsageContext = { modelRegistry, readStoredCredential };
+const ctx: ProviderUsageContext = {
+	modelRegistry,
+	readStoredCredential,
+	reportError: (message) =>
+		process.stderr.write(`${new Date().toISOString()} ${message}\n`),
+};
 const targets = await discoverProviderUsageTargetsAsync(ctx);
 
 await refreshProviderUsage(ctx, targets, () => {});

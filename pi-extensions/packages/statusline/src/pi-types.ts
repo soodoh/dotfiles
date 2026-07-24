@@ -35,4 +35,5 @@ export type ProviderUsageContext = {
 	model?: ModelLike;
 	modelRegistry?: ModelRegistryLike;
 	readStoredCredential?(providerId: string): AuthCredentialLike | undefined;
+	reportError?(message: string): void;
 };

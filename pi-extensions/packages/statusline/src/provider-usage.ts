@@ -1,14 +1,14 @@
+import { createHash } from "node:crypto";
 import {
 	mkdirSync,
 	readFileSync,
 	renameSync,
-	rmSync,
-	statSync,
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import lockfile from "proper-lockfile";
 import type {
 	AuthCredentialLike,
 	ModelLike,
@@ -17,8 +17,13 @@ import type {
 } from "./pi-types";
 
 const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
-const PROVIDER_USAGE_CACHE_VERSION = 4;
+const PROVIDER_USAGE_FAILURE_TTL_MS = 60 * 1000;
+const PROVIDER_USAGE_CACHE_VERSION = 5;
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
+const PROVIDER_USAGE_REFRESH_LOCK_STALE_MS = 20 * 1000;
+const PROVIDER_USAGE_REFRESH_LOCK_UPDATE_MS = 5 * 1000;
+const PROVIDER_USAGE_REFRESH_RETRY_MS = 100;
+const PROVIDER_USAGE_REFRESH_RETRIES = 550;
 const PROVIDER_USAGE_FETCH_MAX_ATTEMPTS = 3;
 const PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS = 50;
 const PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS = 1000;
@@ -54,7 +59,6 @@ export type ProviderUsageStatus = {
 
 type ProviderUsageCacheEntry = ProviderUsageStatus & {
 	lastAttemptAt?: number;
-	pending?: Promise<void>;
 };
 
 export type ProviderUsageTarget = {
@@ -87,6 +91,8 @@ type AvailableModelsCacheEntry = {
 };
 
 const providerUsageCache = new Map<string, ProviderUsageCacheEntry>();
+const providerUsageRefreshes = new Map<string, Promise<void>>();
+const providerUsageResolvedCacheKeys = new Map<string, string>();
 let providerUsageCachePath: string | undefined;
 let availableModelsCache = new WeakMap<
 	ModelRegistryLike,
@@ -225,52 +231,33 @@ function hydrateSharedCache(): void {
 	const path = sharedCachePath();
 	if (providerUsageCachePath !== path) {
 		providerUsageCache.clear();
+		providerUsageResolvedCacheKeys.clear();
 		providerUsageCachePath = path;
 	}
 	for (const [key, diskEntry] of readSharedCache()) {
 		const memoryEntry = providerUsageCache.get(key);
-		if (
-			!memoryEntry?.pending &&
-			(diskEntry.lastAttemptAt ?? 0) > (memoryEntry?.lastAttemptAt ?? 0)
-		) {
+		if ((diskEntry.lastAttemptAt ?? 0) > (memoryEntry?.lastAttemptAt ?? 0)) {
 			providerUsageCache.set(key, diskEntry);
 		}
 	}
 }
 
-const cacheLockWaitArray = new Int32Array(new SharedArrayBuffer(4));
-
-function acquireCacheLock(lockPath: string): boolean {
-	for (let attempt = 0; attempt < 50; attempt++) {
-		try {
-			mkdirSync(lockPath);
-			return true;
-		} catch {
-			try {
-				if (Date.now() - statSync(lockPath).mtimeMs > 10_000) {
-					rmSync(lockPath, { recursive: true, force: true });
-					continue;
-				}
-			} catch {
-				// Another process may have released the lock.
-			}
-			Atomics.wait(cacheLockWaitArray, 0, 0, 10);
-		}
-	}
-	return false;
-}
-
-function persistSharedCache(): void {
+async function persistSharedCache(): Promise<void> {
 	const path = sharedCachePath();
 	mkdirSync(dirname(path), { recursive: true });
-	const lockPath = `${path}.lock`;
-	if (!acquireCacheLock(lockPath)) return;
+
+	let lease: ProviderRefreshLease;
+	try {
+		lease = await acquireSharedFileLease(path, 10);
+	} catch {
+		return;
+	}
 
 	const temporaryPath = `${path}.${process.pid}.tmp`;
 	try {
+		lease.assertOwned();
 		const merged = readSharedCache();
 		for (const [key, memoryEntry] of providerUsageCache) {
-			if (memoryEntry.pending) continue;
 			const diskEntry = merged.get(key);
 			if (
 				!diskEntry ||
@@ -298,6 +285,7 @@ function persistSharedCache(): void {
 			`${JSON.stringify({ version: PROVIDER_USAGE_CACHE_VERSION, entries })}\n`,
 			{ mode: 0o600 },
 		);
+		lease.assertOwned();
 		renameSync(temporaryPath, path);
 	} catch {
 		try {
@@ -306,8 +294,68 @@ function persistSharedCache(): void {
 			// Best-effort cache writes must not affect the statusline.
 		}
 	} finally {
-		rmSync(lockPath, { recursive: true, force: true });
+		try {
+			await lease.release();
+		} catch {
+			// A compromised lease is already reported by the refresh owner.
+		}
 	}
+}
+
+function cacheEntryTtlMs(entry: ProviderUsageCacheEntry): number {
+	return entry.state === "error" || entry.state === "unknown"
+		? PROVIDER_USAGE_FAILURE_TTL_MS
+		: PROVIDER_USAGE_TTL_MS;
+}
+
+function isCacheEntryFresh(
+	entry: ProviderUsageCacheEntry | undefined,
+	now = Date.now(),
+): boolean {
+	return Boolean(
+		entry?.lastAttemptAt && now - entry.lastAttemptAt < cacheEntryTtlMs(entry),
+	);
+}
+
+function credentialFingerprint(value: string): string {
+	return createHash("sha256").update(value).digest("hex").slice(0, 16);
+}
+
+function providerRefreshLeasePath(cacheKey: string): string {
+	return `${sharedCachePath()}.refresh-${credentialFingerprint(cacheKey)}`;
+}
+
+type ProviderRefreshLease = {
+	assertOwned(): void;
+	release(): Promise<void>;
+};
+
+async function acquireSharedFileLease(
+	lockPath: string,
+	retries = PROVIDER_USAGE_REFRESH_RETRIES,
+): Promise<ProviderRefreshLease> {
+	mkdirSync(dirname(lockPath), { recursive: true });
+	let compromisedError: Error | undefined;
+	const release = await lockfile.lock(lockPath, {
+		realpath: false,
+		stale: PROVIDER_USAGE_REFRESH_LOCK_STALE_MS,
+		update: PROVIDER_USAGE_REFRESH_LOCK_UPDATE_MS,
+		retries: {
+			retries,
+			factor: 1,
+			minTimeout: PROVIDER_USAGE_REFRESH_RETRY_MS,
+			maxTimeout: PROVIDER_USAGE_REFRESH_RETRY_MS,
+		},
+		onCompromised: (error) => {
+			compromisedError = error;
+		},
+	});
+	return {
+		assertOwned() {
+			if (compromisedError) throw compromisedError;
+		},
+		release,
+	};
 }
 
 function normalizeProviderId(providerId: string): string {
@@ -339,11 +387,19 @@ function compareProviderIds(a: string, b: string): number {
 	return aOrder - bOrder || aFamily.localeCompare(bFamily);
 }
 
-function providerCacheKey(
+function providerTargetKey(
 	providerId: string,
 	authKind: ProviderUsageAuthKind,
 ): string {
 	return `${normalizeProviderId(providerId)}:${authKind}`;
+}
+
+function providerCacheKey(
+	providerId: string,
+	authKind: ProviderUsageAuthKind,
+): string {
+	const targetKey = providerTargetKey(providerId, authKind);
+	return providerUsageResolvedCacheKeys.get(targetKey) ?? targetKey;
 }
 
 function isProviderSupportedAuth(
@@ -656,6 +712,44 @@ async function getGitHubCopilotUserToken(
 ): Promise<string | undefined> {
 	const credential = getStoredOAuthCredential(ctx, "github-copilot");
 	return credential?.refresh ?? (await getProviderToken(ctx, "github-copilot"));
+}
+
+type ResolvedProviderUsageAccess = {
+	cacheKey: string;
+	token?: string;
+	llmHubCredentials?: LlmHubCredentials;
+};
+
+async function resolveProviderUsageAccess(
+	ctx: ProviderUsageContext,
+	target: ProviderUsageTarget,
+): Promise<ResolvedProviderUsageAccess> {
+	const targetKey = providerTargetKey(target.providerId, target.authKind);
+	let token: string | undefined;
+	let llmHubCredentials: LlmHubCredentials | undefined;
+	let credentialIdentity: string | undefined;
+
+	if (target.providerId === LLMHUB_USAGE_PROVIDER_ID) {
+		llmHubCredentials = readLlmHubCredentials();
+		if (llmHubCredentials) {
+			credentialIdentity = `${normalizeBaseUrl(llmHubCredentials.baseUrl)}\0${llmHubCredentials.token}`;
+		}
+	} else if (target.authKind === "oauth") {
+		token =
+			target.providerId === "github-copilot"
+				? await getGitHubCopilotUserToken(ctx)
+				: await getOAuthProviderToken(ctx, target.providerId);
+		credentialIdentity = token;
+	} else if (target.authKind === "api_key") {
+		token = await getProviderToken(ctx, target.providerId);
+		credentialIdentity = token;
+	}
+
+	const cacheKey = credentialIdentity
+		? `${targetKey}:${credentialFingerprint(`${targetKey}\0${credentialIdentity}`)}`
+		: targetKey;
+	providerUsageResolvedCacheKeys.set(targetKey, cacheKey);
+	return { cacheKey, token, llmHubCredentials };
 }
 
 function normalizeBaseUrl(url: string): string {
@@ -1079,8 +1173,8 @@ async function fetchGoogleCloudQuota(credential: {
 }
 
 async function fetchProviderUsage(
-	ctx: ProviderUsageContext,
 	target: ProviderUsageTarget,
+	access: ResolvedProviderUsageAccess,
 ): Promise<ProviderUsageStatus> {
 	const statusBase = {
 		providerId: target.providerId,
@@ -1091,13 +1185,12 @@ async function fetchProviderUsage(
 	if (target.authKind === "oauth") {
 		let scope: ProviderUsageScope | undefined;
 		if (target.providerId === "github-copilot") {
-			const githubToken = await getGitHubCopilotUserToken(ctx);
-			scope = githubToken
-				? await fetchGitHubCopilotUsage(githubToken)
+			scope = access.token
+				? await fetchGitHubCopilotUsage(access.token)
 				: undefined;
 		} else {
-			const token = await getOAuthProviderToken(ctx, target.providerId);
-			if (!token) return { ...statusBase, state: "unknown" };
+			if (!access.token) return { ...statusBase, state: "unknown" };
+			const token = access.token;
 
 			if (target.providerId === "anthropic") {
 				scope = await fetchAnthropicOAuthUsage(token);
@@ -1125,7 +1218,7 @@ async function fetchProviderUsage(
 		target.providerId === LLMHUB_USAGE_PROVIDER_ID &&
 		target.authKind === "api_key"
 	) {
-		const credentials = readLlmHubCredentials();
+		const credentials = access.llmHubCredentials;
 		if (!credentials) return { ...statusBase, state: "unknown" };
 
 		const scope = await fetchLlmHubSpend(
@@ -1138,12 +1231,11 @@ async function fetchProviderUsage(
 	}
 
 	if (target.providerId === "openrouter" && target.authKind === "api_key") {
-		const token = await getProviderToken(ctx, target.providerId);
-		if (!token) return { ...statusBase, state: "unknown" };
+		if (!access.token) return { ...statusBase, state: "unknown" };
 
 		const scope =
-			(await fetchOpenRouterKeyStatus(token).catch(() => undefined)) ??
-			(await fetchOpenRouterCredits(token).catch(() => undefined));
+			(await fetchOpenRouterKeyStatus(access.token).catch(() => undefined)) ??
+			(await fetchOpenRouterCredits(access.token).catch(() => undefined));
 		return scope
 			? { ...statusBase, state: "ready", scope }
 			: { ...statusBase, state: "unknown" };
@@ -1155,6 +1247,8 @@ async function fetchProviderUsage(
 export function invalidateProviderUsageCache(): void {
 	providerUsageInvalidation++;
 	providerUsageCache.clear();
+	providerUsageRefreshes.clear();
+	providerUsageResolvedCacheKeys.clear();
 	providerUsageCachePath = undefined;
 	try {
 		unlinkSync(sharedCachePath());
@@ -1171,66 +1265,150 @@ export function invalidateProviderUsageDiscovery(): void {
 	>();
 }
 
+function reportProviderUsageIssue(
+	ctx: ProviderUsageContext,
+	target: ProviderUsageTarget,
+	message: string,
+): void {
+	ctx.reportError?.(`Provider usage (${target.providerId}): ${message}`);
+}
+
+async function refreshProviderUsageTarget(
+	ctx: ProviderUsageContext,
+	target: ProviderUsageTarget,
+	access: ResolvedProviderUsageAccess,
+	fetchId: number,
+): Promise<void> {
+	let lease: ProviderRefreshLease;
+	try {
+		lease = await acquireSharedFileLease(
+			providerRefreshLeasePath(access.cacheKey),
+		);
+	} catch {
+		hydrateSharedCache();
+		if (!isCacheEntryFresh(providerUsageCache.get(access.cacheKey))) {
+			reportProviderUsageIssue(
+				ctx,
+				target,
+				"timed out waiting for another process",
+			);
+		}
+		return;
+	}
+
+	try {
+		lease.assertOwned();
+		// Another process may have refreshed while this process acquired the lease.
+		hydrateSharedCache();
+		if (isCacheEntryFresh(providerUsageCache.get(access.cacheKey))) return;
+
+		const attemptedAt = Date.now();
+		let entry: ProviderUsageCacheEntry;
+		try {
+			const status = await fetchProviderUsage(target, access);
+			entry = { ...status, lastAttemptAt: attemptedAt };
+			if (status.state === "unknown") {
+				reportProviderUsageIssue(
+					ctx,
+					target,
+					"provider returned no usage data",
+				);
+			}
+		} catch (error) {
+			entry = {
+				providerId: target.providerId,
+				authKind: target.authKind,
+				state: "error",
+				fetchedAt: Date.now(),
+				lastAttemptAt: attemptedAt,
+			};
+			reportProviderUsageIssue(
+				ctx,
+				target,
+				error instanceof Error ? error.message : String(error),
+			);
+		}
+
+		lease.assertOwned();
+		if (fetchId !== providerUsageInvalidation) return;
+		providerUsageCache.set(access.cacheKey, entry);
+		await persistSharedCache();
+	} catch (error) {
+		reportProviderUsageIssue(
+			ctx,
+			target,
+			`refresh lease was compromised: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	} finally {
+		try {
+			await lease.release();
+		} catch (error) {
+			reportProviderUsageIssue(
+				ctx,
+				target,
+				`failed to release refresh lease: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
+	}
+}
+
+async function queueProviderUsageRefresh(
+	ctx: ProviderUsageContext,
+	target: ProviderUsageTarget,
+	fetchId: number,
+	onUpdate: () => void,
+): Promise<void> {
+	// Initialize the cache path before resolving the process-local cache-key map.
+	hydrateSharedCache();
+	let access: ResolvedProviderUsageAccess;
+	try {
+		access = await resolveProviderUsageAccess(ctx, target);
+	} catch (error) {
+		reportProviderUsageIssue(
+			ctx,
+			target,
+			error instanceof Error ? error.message : String(error),
+		);
+		if (fetchId === providerUsageInvalidation) onUpdate();
+		return;
+	}
+
+	hydrateSharedCache();
+	const refreshKey = `${sharedCachePath()}\0${access.cacheKey}`;
+	const existing = providerUsageRefreshes.get(refreshKey);
+	if (existing) {
+		await existing;
+		if (fetchId === providerUsageInvalidation) onUpdate();
+		return;
+	}
+
+	const pending = refreshProviderUsageTarget(
+		ctx,
+		target,
+		access,
+		fetchId,
+	).finally(() => {
+		if (providerUsageRefreshes.get(refreshKey) === pending) {
+			providerUsageRefreshes.delete(refreshKey);
+		}
+	});
+	providerUsageRefreshes.set(refreshKey, pending);
+	await pending;
+	if (fetchId === providerUsageInvalidation) onUpdate();
+}
+
 export function refreshProviderUsage(
 	ctx: ProviderUsageContext,
 	targets: ProviderUsageTarget[],
 	onUpdate: () => void,
 ): Promise<void> {
 	getConfiguredModels(ctx, onUpdate);
-	hydrateSharedCache();
-	const now = Date.now();
 	const fetchId = providerUsageInvalidation;
-	const pendingRequests: Promise<void>[] = [];
-	for (const target of targets) {
-		const key = providerCacheKey(target.providerId, target.authKind);
-		const entry = providerUsageCache.get(key);
-		if (entry?.pending) {
-			pendingRequests.push(entry.pending);
-			continue;
-		}
-		if (
-			entry?.lastAttemptAt &&
-			now - entry.lastAttemptAt < PROVIDER_USAGE_TTL_MS
-		) {
-			continue;
-		}
-
-		const pending = fetchProviderUsage(ctx, target)
-			.then((status) => {
-				if (fetchId !== providerUsageInvalidation) return;
-				providerUsageCache.set(key, {
-					...status,
-					lastAttemptAt: now,
-				});
-				persistSharedCache();
-			})
-			.catch(() => {
-				if (fetchId !== providerUsageInvalidation) return;
-				providerUsageCache.set(key, {
-					providerId: target.providerId,
-					authKind: target.authKind,
-					state: "error",
-					fetchedAt: Date.now(),
-					lastAttemptAt: now,
-				});
-				persistSharedCache();
-			})
-			.finally(() => {
-				if (fetchId === providerUsageInvalidation) onUpdate();
-			});
-
-		providerUsageCache.set(key, {
-			providerId: target.providerId,
-			authKind: target.authKind,
-			state: entry?.state ?? "unknown",
-			scope: entry?.scope,
-			fetchedAt: entry?.fetchedAt,
-			lastAttemptAt: now,
-			pending,
-		});
-		pendingRequests.push(pending);
-	}
-	return Promise.all(pendingRequests).then(() => undefined);
+	return Promise.all(
+		targets.map((target) =>
+			queueProviderUsageRefresh(ctx, target, fetchId, onUpdate),
+		),
+	).then(() => undefined);
 }
 
 function providerDisplayLabel(providerId: string): string {

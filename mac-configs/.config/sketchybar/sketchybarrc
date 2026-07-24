@@ -119,12 +119,6 @@ sketchybar --add item clock right \
            --add item ram right \
            --set ram update_freq=120 icon="󰍛" script="$PLUGIN_DIR/ram.sh"
 
-##### Force all scripts to run the first time (never do this in a script) #####
-sketchybar --update
-
-##### Hydrate workspace app icons after the bar has rendered #####
-"$PLUGIN_DIR/aerospace_workspace_change.sh" --all >/dev/null 2>&1 &
-
 ##### AI Usage #####
 sketchybar --add item ai_usage.providers right \
            --set ai_usage.providers \
@@ -133,7 +127,13 @@ sketchybar --add item ai_usage.providers right \
            --add item ai_usage.refresh right \
            --set ai_usage.refresh \
            drawing=off \
+           updates=on \
            update_freq=60 \
-           script="$PLUGIN_DIR/ai_usage_refresh.sh"
+           script="$PLUGIN_DIR/ai_usage_refresh.sh" \
+           --subscribe ai_usage.refresh system_woke
 
-"$PLUGIN_DIR/ai_usage_refresh.sh" >/dev/null 2>&1 &
+##### Force all scripts to run the first time (never do this in a script) #####
+sketchybar --update
+
+##### Hydrate workspace app icons after the bar has rendered #####
+"$PLUGIN_DIR/aerospace_workspace_change.sh" --all >/dev/null 2>&1 &

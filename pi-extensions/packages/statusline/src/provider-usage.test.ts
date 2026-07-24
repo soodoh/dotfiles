@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -103,13 +104,19 @@ afterEach(() => {
 });
 
 describe("provider usage", () => {
-	test("hydrates formatted usage from the shared persistent cache", () => {
+	test("hydrates credential-scoped usage from the shared persistent cache", async () => {
+		const token = "stored-anthropic-token";
+		const targetKey = "anthropic:oauth";
+		const fingerprint = createHash("sha256")
+			.update(`${targetKey}\0${token}`)
+			.digest("hex")
+			.slice(0, 16);
 		writeFileSync(
 			sharedTestCachePath,
 			JSON.stringify({
-				version: 4,
+				version: 5,
 				entries: {
-					"anthropic:oauth": {
+					[`${targetKey}:${fingerprint}`]: {
 						providerId: "anthropic",
 						authKind: "oauth",
 						state: "ready",
@@ -122,9 +129,106 @@ describe("provider usage", () => {
 		const targets: ProviderUsageTarget[] = [
 			{ providerId: "anthropic", authKind: "oauth", active: true },
 		];
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "anthropic" ? { type: "oauth", access: token } : undefined,
+		};
+
+		await refreshAndWait(ctx, targets);
 
 		expect(formatProviderUsage(targets)).toBe("Anthropic S12%/W55%");
 		expect(render(targets)).toBe(formatProviderUsage(targets));
+	});
+
+	test("does not reuse cached usage across different credentials", async () => {
+		let percentUsed = 10;
+		const { fetchMock } = fetchCalls(() =>
+			Response.json({ five_hour: { used_percent: percentUsed } }),
+		);
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "anthropic", authKind: "oauth", active: true },
+		];
+		const contextForToken = (token: string): ProviderUsageContext => ({
+			readStoredCredential: (provider) =>
+				provider === "anthropic" ? { type: "oauth", access: token } : undefined,
+		});
+
+		await refreshAndWait(contextForToken("first-token"), targets);
+		expect(render(targets)).toContain("Anthropic 10%");
+
+		percentUsed = 20;
+		await refreshAndWait(contextForToken("second-token"), targets);
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(render(targets)).toContain("Anthropic 20%");
+	});
+
+	test("uses one resolved credential for both the cache key and request", async () => {
+		const credentialReads = ["token-a", "token-b"];
+		const { calls, fetchMock } = fetchCalls((_url, init) => {
+			const authorization = headersRecord(init.headers).Authorization;
+			return Response.json({
+				five_hour: {
+					used_percent: authorization === "Bearer token-a" ? 10 : 20,
+				},
+			});
+		});
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "anthropic", authKind: "oauth", active: true },
+		];
+		const rotatingCtx: ProviderUsageContext = {
+			modelRegistry: {
+				async getApiKeyForProvider() {
+					return credentialReads.shift() ?? "token-b";
+				},
+			},
+		};
+
+		await refreshAndWait(rotatingCtx, targets);
+		await refreshAndWait(
+			{
+				modelRegistry: {
+					async getApiKeyForProvider() {
+						return "token-a";
+					},
+				},
+			},
+			targets,
+		);
+
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(headersRecord(calls[0].init.headers).Authorization).toBe(
+			"Bearer token-a",
+		);
+		expect(render(targets)).toContain("Anthropic 10%");
+	});
+
+	test("does not coalesce concurrent refreshes for different credentials", async () => {
+		const { fetchMock } = fetchCalls((_url, init) => {
+			const authorization = headersRecord(init.headers).Authorization;
+			return Response.json({
+				five_hour: {
+					used_percent: authorization === "Bearer first-token" ? 10 : 20,
+				},
+			});
+		});
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "anthropic", authKind: "oauth", active: true },
+		];
+		const contextForToken = (token: string): ProviderUsageContext => ({
+			readStoredCredential: (provider) =>
+				provider === "anthropic" ? { type: "oauth", access: token } : undefined,
+		});
+
+		await Promise.all([
+			refreshAndWait(contextForToken("first-token"), targets),
+			refreshAndWait(contextForToken("second-token"), targets),
+		]);
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		await refreshAndWait(contextForToken("first-token"), targets);
+		await refreshAndWait(contextForToken("second-token"), targets);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	test("resolves async available models before discovering provider targets", async () => {
@@ -257,6 +361,41 @@ describe("provider usage", () => {
 
 		expect(fetchMock).toHaveBeenCalledOnce();
 		expect(render(targets)).toContain("Anthropic ?");
+	});
+
+	test("retries unsuccessful usage after the shorter failure TTL", async () => {
+		const start = Date.now();
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(start);
+		try {
+			const { fetchMock } = fetchCalls(
+				() => new Response("unauthorized", { status: 401 }),
+			);
+			const reportError = vi.fn();
+			const ctx: ProviderUsageContext = {
+				modelRegistry: {
+					async getApiKeyForProvider() {
+						return "anthropic-token";
+					},
+				},
+				reportError,
+			};
+			const targets: ProviderUsageTarget[] = [
+				{ providerId: "anthropic", authKind: "oauth", active: true },
+			];
+
+			await refreshAndWait(ctx, targets);
+			await refreshAndWait(ctx, targets);
+			expect(fetchMock).toHaveBeenCalledOnce();
+
+			vi.setSystemTime(start + 60_001);
+			await refreshAndWait(ctx, targets);
+
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(reportError).toHaveBeenCalledTimes(2);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	test("honors Retry-After for throttled provider responses", async () => {
@@ -650,6 +789,34 @@ describe("provider usage", () => {
 			Authorization: "Bearer llmhub-token",
 		});
 		expect(render(targets)).toBe("LLMHub $123.46");
+	});
+
+	test("scopes LLMHub usage by both base URL and token", async () => {
+		writeClaudeSettings({
+			ANTHROPIC_BASE_URL: "https://first-llmhub.example.com",
+			ANTHROPIC_AUTH_TOKEN: "shared-token",
+		});
+		const { calls, fetchMock } = fetchCalls((url) =>
+			Response.json({
+				info: { spend: url.includes("first-llmhub") ? 10 : 20 },
+			}),
+		);
+		const ctx: ProviderUsageContext = {};
+		const targets = discoverProviderUsageTargets(ctx);
+
+		await refreshAndWait(ctx, targets);
+		writeClaudeSettings({
+			ANTHROPIC_BASE_URL: "https://second-llmhub.example.com",
+			ANTHROPIC_AUTH_TOKEN: "shared-token",
+		});
+		await refreshAndWait(ctx, targets);
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(calls.map((call) => call.url)).toEqual([
+			"https://first-llmhub.example.com/key/info",
+			"https://second-llmhub.example.com/key/info",
+		]);
+		expect(render(targets)).toBe("LLMHub $20.00");
 	});
 
 	test("falls back to ANTHROPIC_API_KEY for LLMHub spend", async () => {
