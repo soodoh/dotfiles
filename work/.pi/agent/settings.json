@@ -26,6 +26,7 @@
       ]
     },
     "npm:pi-vim",
+    "npm:pi-openai-fast",
     "npm:@plannotator/pi-extension",
     "npm:pi-mcp-adapter",
     "npm:@juicesharp/rpiv-web-tools",

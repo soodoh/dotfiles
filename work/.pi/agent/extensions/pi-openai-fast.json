@@ -1,0 +1,16 @@
+{
+  "persistState": true,
+  "desiredActive": true,
+  "supportedModels": [
+    "openai-codex/gpt-5.6",
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-5.6-luna",
+    "litellm/chatgpt/gpt-5.6-sol",
+    "litellm/chatgpt/gpt-5.6-terra",
+    "litellm/chatgpt/gpt-5.6-luna"
+  ],
+  "footer": {
+    "mode": "status"
+  }
+}

@@ -7,7 +7,7 @@ This package was created to provide similar statusline-focused functionality to 
 ## Highlights
 
 - Renders a compact statusline below the editor.
-- Shows the active model name.
+- Shows the active model name and an active-only Fast Mode bolt when `pi-openai-fast` publishes its status.
 - Shows the current thinking level as a separately configurable, level-colored section.
 - Shows the current git branch plus staged and unstaged change counts.
 - Shows provider usage badges when the `provider_usage` section is configured and Pi exposes the relevant provider/auth data. All supported authenticated providers are shown (e.g. GitHub Copilot, OpenAI Codex subscription, Anthropic, and OpenRouter), regardless of which model is currently active.
@@ -55,7 +55,7 @@ The rendered line is width-aware and may omit provider detail in narrow terminal
 
 | Segment        | Description                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Model          | Current Pi model name, with a shorter display for Claude model names.                                              |
+| Model          | Current Pi model name, with a shorter display for Claude names and an active-only `pi-openai-fast` bolt.            |
 | Thinking       | Current Pi thinking level (`off` through `max`), using Pi's matching level color.                                   |
 | Git            | Branch name, staged `+n`, and unstaged `*n` markers. Untracked files still make the branch appear dirty.           |
 | Provider usage | Usage or balance information for all authenticated configured providers when configured and available. |
@@ -124,6 +124,7 @@ Without an override, the extension enables Nerd Font icons for common terminals 
 
 ## Notes
 
+- Configure `pi-openai-fast` with `footer.mode: "status"`; the model section consumes its `pi-openai-fast` extension status without taking over the footer.
 - Git status is fetched asynchronously with short-lived caches so rendering stays responsive.
 - Running the `bash` tool invalidates git status so the line updates after filesystem changes.
 - Provider usage is best-effort, only runs when the `provider_usage` section is configured, and reflects every supported provider Pi reports as authenticated — not just the active model's provider. Supported providers include Anthropic (OAuth), OpenAI Codex (subscription), GitHub Copilot, Google Gemini CLI / Antigravity (OAuth), and OpenRouter (API key).

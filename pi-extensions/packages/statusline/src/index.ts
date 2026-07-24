@@ -125,8 +125,10 @@ const ANSI_RESET = "\x1b[0m";
 const SEPARATOR_COLOR = "\x1b[38;5;244m";
 const POWERLINE_THIN_LEFT = "\uE0B1";
 const ASCII_THIN_LEFT = "|";
+const FAST_STATUS_KEY = "pi-openai-fast";
 const NERD_ICONS = {
 	model: "\uEC19",
+	fast: "\uF0E7",
 	thinking: "\uF0EB",
 	branch: "\uF126",
 	context: "\uE70F",
@@ -135,6 +137,7 @@ const NERD_ICONS = {
 
 const ASCII_ICONS = {
 	model: "",
+	fast: "⚡",
 	thinking: "T",
 	branch: "⎇",
 	context: "◫",
@@ -378,10 +381,18 @@ function collectContextTokens(ctx: ExtensionContext): number {
 	return contextTokens ?? 0;
 }
 
-function renderModel(ctx: ExtensionContext, theme: Theme): string {
+function renderModel(
+	ctx: ExtensionContext,
+	theme: Theme,
+	footerData: ReadonlyFooterDataProvider | null,
+): string {
 	let modelName = ctx.model?.name || ctx.model?.id || "no-model";
 	if (modelName.startsWith("Claude ")) modelName = modelName.slice(7);
-	return color(theme, "model", withIcon(icons().model, modelName));
+
+	const model = color(theme, "model", withIcon(icons().model, modelName));
+	const fastActive =
+		footerData?.getExtensionStatuses?.().get(FAST_STATUS_KEY) === "fast";
+	return fastActive ? `${model} ${theme.fg("warning", icons().fast)}` : model;
 }
 
 function thinkingColor(level: ThinkingLevel): ThemeColor {
@@ -479,7 +490,7 @@ function buildStatusLines(
 		sections.map((section) => {
 			switch (section) {
 				case "model":
-					return renderModel(ctx, theme);
+					return renderModel(ctx, theme, footerData);
 				case "thinking":
 					return renderThinking(thinkingLevel, theme);
 				case "git":

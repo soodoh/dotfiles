@@ -31,6 +31,7 @@ type FooterFactory = (
 	theme: { fg(color: string, text: string): string },
 	footerData: {
 		getGitBranch(): string | null;
+		getExtensionStatuses?(): ReadonlyMap<string, string>;
 		onBranchChange(cb: () => void): () => void;
 	},
 ) => Widget;
@@ -110,8 +111,10 @@ describe("statusline extension", () => {
 	});
 
 	test("registers a below-editor widget and renders model/context smoke output", () => {
+		vi.stubEnv("POWERLINE_NERD_FONTS", "0");
 		let widgetFactory: WidgetFactory | undefined;
 		let footerFactory: FooterFactory | undefined;
+		const extensionStatuses = new Map<string, string>();
 		const pi = createPi();
 		statusline(pi);
 		const ctx: StatuslineContext = {
@@ -155,15 +158,27 @@ describe("statusline extension", () => {
 		footerFactory?.(
 			{},
 			{ fg: (_color, text) => text },
-			{ getGitBranch: () => "main", onBranchChange: () => () => undefined },
+			{
+				getGitBranch: () => "main",
+				getExtensionStatuses: () => extensionStatuses,
+				onBranchChange: () => () => undefined,
+			},
 		);
 		const widget = widgetFactory?.({}, { fg: (_color, text) => text });
 		const line = widget?.render(120).join("\n") ?? "";
 
 		expect(line).toContain("Sonnet Test");
+		expect(line).not.toContain("⚡");
 		expect(line).toContain("off");
 		expect(line.indexOf("Sonnet Test")).toBeLessThan(line.indexOf("off"));
 		expect(line).toContain("25.0%/1.0k");
+
+		extensionStatuses.set("pi-openai-fast", "fast");
+		const fastLine = widget?.render(120).join("\n") ?? "";
+		expect(fastLine).toContain("⚡");
+		expect(fastLine.indexOf("Sonnet Test")).toBeLessThan(
+			fastLine.indexOf("⚡"),
+		);
 	});
 
 	test("renders and immediately updates the configured thinking section", () => {
