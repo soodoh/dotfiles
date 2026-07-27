@@ -19,7 +19,6 @@ export PATH=$PATH:/opt/homebrew/bin
 Mac:
 ```bash
 brew install \
-  ast-grep \
   atuin \
   borders \
   cmake \
@@ -152,21 +151,11 @@ bun add -g @earendil-works/pi-coding-agent
 ```
 
 # Agent tools (personal)
-```bash
-# Serena (code intelligence MCP server for coding agents).
-# Wired into the Pi and Claude Code MCP configs in this repo.
-# `ast-grep` is installed above via Homebrew as the structural-search
-# layer between `rg` and Serena.
-uv tool install -p 3.13 serena-agent
-serena init
-```
 
-Optional: pre-index a large repo before your first Serena session so the language server isn't cold on the first `find_symbol` call:
-```bash
-cd /path/to/repo && serena project index
-```
+TODO: Add here as needed
 
-Agent tools (for work, so macOS only):
+# Agent tools (for work, so macOS only):
+
 ```bash
 # Atlassian
 curl -fsSL --retry 2 https://teamwork-graph.atlassian.com/cli/install | bash
