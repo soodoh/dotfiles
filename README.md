@@ -152,7 +152,9 @@ bun add -g @earendil-works/pi-coding-agent
 
 # Agent tools (personal)
 
-TODO: Add here as needed
+```bash
+bun add -g @jarkkojs/readseek
+```
 
 # Agent tools (for work, so macOS only):
 

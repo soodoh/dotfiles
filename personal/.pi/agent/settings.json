@@ -30,6 +30,7 @@
 		"npm:@juicesharp/rpiv-web-tools",
 		"npm:@juicesharp/rpiv-todo",
 		"npm:@juicesharp/rpiv-ask-user-question",
+		"npm:pi-readseek",
 		"npm:pi-subagents",
 		"npm:pi-dynamic-workflows"
 	],
@@ -51,4 +52,3 @@
 		}
 	}
 }
-
