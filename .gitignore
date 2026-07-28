@@ -40,5 +40,3 @@ docker-compose.override.yml
 # Generated skill evaluation workspaces
 unix-configs/.agents/skills/*-workspace/
 
-# Build output
-unix-configs/.pi/agent/extensions/pi-prompt-suggester/dist/

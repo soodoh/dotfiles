@@ -18,7 +18,6 @@
 			"source": "./pi-extensions",
 			"extensions": [
 				"packages/auto-session-name/index.ts",
-				"packages/prompt-suggester/src/index.ts",
 				"packages/shared-prompt-history/index.ts",
 				"packages/statusline/index.ts"
 			]
@@ -35,9 +34,6 @@
 		"npm:pi-dynamic-workflows"
 	],
 	"steeringMode": "all",
-	"promptSuggester": {
-		"suggesterModel": ["openai-codex/gpt-5.6-luna"]
-	},
 	"autoSessionName": {
 		"titleModel": ["openai-codex/gpt-5.6-luna"]
 	},

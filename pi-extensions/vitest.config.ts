@@ -12,7 +12,6 @@ export default defineConfig({
 				"coverage/**",
 				"packages/auto-session-name/index.ts",
 				"packages/statusline/index.ts",
-				"packages/prompt-suggester/src/app/ports/**",
 			],
 			include: ["packages/**/*.{ts,tsx}"],
 			provider: "v8",
