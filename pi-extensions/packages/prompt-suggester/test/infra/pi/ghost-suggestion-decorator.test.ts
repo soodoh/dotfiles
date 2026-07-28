@@ -122,6 +122,23 @@ test("ghost decorator accept-and-send materializes suggestion then delegates sub
 	expect(editor.inputs).toEqual(["\r"]);
 	expect(editor.submitted).toEqual(["hello world"]);
 	expect(editor.getText()).toBe("");
+	expect(decorated.render(40)[1]).not.toContain("hello world");
+});
+
+test("ghost decorator keeps a submitted replacement prompt from revealing the stale suggestion", () => {
+	const state = createOptions();
+	const editor = createFakeEditor();
+	const decorated = decorateGhostSuggestionEditor(editor, () => state.options);
+
+	decorated.handleInput("different follow-up");
+	expect(decorated.render(40)[1]).not.toContain("hello world");
+
+	decorated.handleInput("\r");
+	expect(editor.submitted).toEqual(["different follow-up"]);
+	expect(decorated.render(40)[1]).not.toContain("hello world");
+
+	state.setSuggestion("new suggestion");
+	expect(decorated.render(40)[1]).toContain("new suggestion");
 });
 
 test("ghost decorator can be deactivated without replacing the editor", () => {

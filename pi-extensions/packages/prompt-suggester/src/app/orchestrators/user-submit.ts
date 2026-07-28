@@ -24,8 +24,8 @@ export class UserSubmitOrchestrator {
 
 	public async handle(ctx: UserSubmitContext): Promise<void> {
 		if (ctx.source === "extension") return;
-		const state = await this.deps.stateStore.load();
 		await this.deps.suggestionSink.clearSuggestion();
+		const state = await this.deps.stateStore.load();
 		if (!state.lastSuggestion) return;
 		if (!ctx.userPrompt.trim()) return;
 

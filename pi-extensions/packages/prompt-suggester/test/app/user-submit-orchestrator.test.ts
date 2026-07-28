@@ -17,7 +17,11 @@ function logger() {
 describe("UserSubmitOrchestrator", () => {
 	test("clears suggestion and records steering when a user submits a prompt", async () => {
 		let savedState: RuntimeState | undefined;
-		const clearSuggestion = vi.fn(async () => true);
+		const calls: string[] = [];
+		const clearSuggestion = vi.fn(async () => {
+			calls.push("clear");
+			return true;
+		});
 		const state: RuntimeState = {
 			...INITIAL_RUNTIME_STATE,
 			lastSuggestion: {
@@ -33,6 +37,7 @@ describe("UserSubmitOrchestrator", () => {
 		const orchestrator = new UserSubmitOrchestrator({
 			stateStore: {
 				async load() {
+					calls.push("load");
 					return state;
 				},
 				async save(nextState) {
@@ -64,6 +69,7 @@ describe("UserSubmitOrchestrator", () => {
 		});
 
 		expect(clearSuggestion).toHaveBeenCalled();
+		expect(calls.slice(0, 2)).toEqual(["clear", "load"]);
 		expect(savedState?.lastSuggestion).toBeUndefined();
 		expect(savedState?.pendingNextTurnObservation).toMatchObject({
 			suggestionTurnId: "suggestion-turn",

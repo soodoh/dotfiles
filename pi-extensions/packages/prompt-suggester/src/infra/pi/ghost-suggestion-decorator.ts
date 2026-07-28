@@ -1,4 +1,5 @@
 import {
+	matchesKey,
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
@@ -77,6 +78,8 @@ class GhostSuggestionDecorator {
 			) {
 				this.delegate.setText(ghost.suggestion);
 				this.delegate.handleInput(data);
+				this.suppressGhost = true;
+				this.suppressGhostArmedByNonEmptyText = false;
 				return;
 			}
 			if (matchesGhostAcceptKey(data, options.ghostAcceptKeys)) {
@@ -90,7 +93,17 @@ class GhostSuggestionDecorator {
 			return;
 		}
 
+		const previousText = this.editor.getText();
 		this.delegate.handleInput(data);
+		if (
+			previousText.length > 0 &&
+			matchesKey(data, "enter") &&
+			this.editor.getText().length === 0
+		) {
+			this.suppressGhost = true;
+			this.suppressGhostArmedByNonEmptyText = false;
+			return;
+		}
 		this.updateGhostSuppressionLifecycle();
 	}
 
