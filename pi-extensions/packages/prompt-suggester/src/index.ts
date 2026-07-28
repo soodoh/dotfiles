@@ -13,7 +13,10 @@ import {
 	type PromptSuggesterBranchEntry,
 	type PromptSuggesterExtensionContext,
 } from "./infra/pi/extension-adapter";
-import { syncGhostEditorDecorator } from "./infra/pi/ghost-editor-installation";
+import {
+	requestGhostEditorRender,
+	syncGhostEditorDecorator,
+} from "./infra/pi/ghost-editor-installation";
 import { refreshSuggesterUi } from "./infra/pi/ui-adapter";
 import { createUiContext, type UiContextLike } from "./infra/pi/ui-context";
 
@@ -180,6 +183,11 @@ export default function suggester(pi: PromptSuggesterApi) {
 		refreshSuggesterUi(getUiContext(composition));
 	}
 
+	function requestSuggestionRender(ctx: PromptSuggesterExtensionContext): void {
+		if (!isExtensionContext(ctx) || !ctx.hasUI) return;
+		requestGhostEditorRender(ctx);
+	}
+
 	pi.on("session_shutdown", async (_event, ctx) => {
 		await clearRuntimeContext(ctx);
 	});
@@ -190,6 +198,7 @@ export default function suggester(pi: PromptSuggesterApi) {
 			const generationId = composition.runtimeRef.bumpEpoch();
 			syncSuggestionUi(ctx, composition);
 			await composition.orchestrators.sessionStart.handle();
+			requestSuggestionRender(ctx);
 
 			const sourceLeafId =
 				ctx.sessionManager.getLeafId() ?? `turn-${Date.now()}`;
@@ -216,6 +225,7 @@ export default function suggester(pi: PromptSuggesterApi) {
 				historicalTurn,
 				generationId,
 			);
+			requestSuggestionRender(ctx);
 		},
 		onAgentEnd: async (turn, ctx) => {
 			if (!turn) return;
@@ -224,6 +234,9 @@ export default function suggester(pi: PromptSuggesterApi) {
 			composition.runtimeRef.setLastTurnContext(turn);
 			const generationId = composition.runtimeRef.bumpEpoch();
 			await composition.orchestrators.agentEnd.handle(turn, generationId);
+		},
+		onAgentSettled: async (ctx) => {
+			requestSuggestionRender(ctx);
 		},
 		onUserSubmit: async (event: InputEvent, ctx) => {
 			const composition = await setRuntimeContext(ctx);

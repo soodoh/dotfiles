@@ -28,7 +28,6 @@ function getActiveUiContext(
 export function refreshSuggesterUi(runtime: UiContextLike): void {
 	const ctx = getActiveUiContext(runtime);
 	if (!ctx) return;
-
 	ctx.ui.setStatus("suggester", undefined);
 	ctx.ui.setStatus("suggester-events", undefined);
 	ctx.ui.setStatus("suggester-usage", undefined);

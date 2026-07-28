@@ -1,6 +1,7 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import {
 	type EditorFactory,
+	requestGhostEditorRender,
 	syncGhostEditorDecorator,
 } from "../../../src/infra/pi/ghost-editor-installation";
 import {
@@ -92,6 +93,14 @@ test("ghost decorator preserves the editor and delegates non-accept input", () =
 	expect(editor.getText()).toBe("x");
 });
 
+test("ghost decorator renders a generated suggestion in the editor", () => {
+	const state = createOptions();
+	const editor = createFakeEditor();
+	const decorated = decorateGhostSuggestionEditor(editor, () => state.options);
+
+	expect(decorated.render(40)[1]).toContain("hello world");
+});
+
 test("ghost decorator accepts suggestion without replacing editor behavior", () => {
 	const state = createOptions();
 	const editor = createFakeEditor();
@@ -167,13 +176,17 @@ test("ghost decorator installation wraps future editor factories instead of rein
 	ctx.ui.setEditorComponent(() => externalEditor);
 	expect(originalSetEditorCalls.length).toBe(2);
 
+	const requestRender = vi.fn();
 	const wrappedFactory = originalSetEditorCalls[1];
 	const wrappedEditor: FakeEditor = Reflect.apply(wrappedFactory, undefined, [
-		{},
+		{ requestRender },
 		{},
 		{},
 	]);
 	expect(wrappedEditor).toBe(externalEditor);
+
+	requestGhostEditorRender(ctx);
+	expect(requestRender).toHaveBeenCalledOnce();
 
 	wrappedEditor.handleInput("\x1b[C");
 	expect(externalEditor.getText()).toBe("hello world");

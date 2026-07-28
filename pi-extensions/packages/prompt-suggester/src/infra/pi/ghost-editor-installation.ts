@@ -36,6 +36,7 @@ class GhostDecoratorRuntime {
 	private active = false;
 	private installedDefaultEditor = false;
 	private options: GhostEditorDecoratorRuntimeOptions | undefined;
+	private requestEditorRender: (() => void) | undefined;
 
 	public constructor(
 		private readonly originalSetEditorComponent: GhostEditorUi["setEditorComponent"],
@@ -59,8 +60,13 @@ class GhostDecoratorRuntime {
 		this.originalSetEditorComponent(this.wrapFactory(factory));
 	}
 
+	public requestRender(): void {
+		this.requestEditorRender?.();
+	}
+
 	private wrapFactory(factory: EditorFactory | undefined): EditorFactory {
 		return (tui, theme, keybindings) => {
+			this.requestEditorRender = () => tui.requestRender();
 			const editor = factory
 				? factory(tui, theme, keybindings)
 				: new CustomEditor(tui, theme, keybindings);
@@ -113,4 +119,8 @@ export function syncGhostEditorDecorator(params: {
 	runtime.setOptions(params.options);
 	runtime.activate();
 	runtime.ensureDefaultEditorInstalled(params.context);
+}
+
+export function requestGhostEditorRender(context: GhostEditorContext): void {
+	getRuntime(context)?.requestRender();
 }

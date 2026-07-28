@@ -38,7 +38,10 @@ export type PiExtensionEventApi = {
 		event: "session_start" | "session_tree" | "session_shutdown",
 		handler: PromptSuggesterHandler,
 	): void;
-	on(event: "agent_end", handler: PromptSuggesterHandler): void;
+	on(
+		event: "agent_end" | "agent_settled",
+		handler: PromptSuggesterHandler,
+	): void;
 };
 
 interface ExtensionWiring {
@@ -47,6 +50,7 @@ interface ExtensionWiring {
 		turn: ReturnType<typeof buildTurnContext>,
 		ctx: PromptSuggesterExtensionContext,
 	) => Promise<void>;
+	onAgentSettled?: (ctx: PromptSuggesterExtensionContext) => Promise<void>;
 	onUserSubmit: (
 		event: InputEvent,
 		ctx: PromptSuggesterExtensionContext,
@@ -203,6 +207,12 @@ export class PiExtensionAdapter {
 					);
 				}
 			});
+		});
+
+		this.pi.on("agent_settled", async (_event, ctx) => {
+			const onAgentSettled = this.wiring.onAgentSettled;
+			if (!onAgentSettled) return;
+			await ignoreStaleContext(() => handleSessionEvent(ctx, onAgentSettled));
 		});
 
 		this.pi.on("input", async (event, ctx) => {

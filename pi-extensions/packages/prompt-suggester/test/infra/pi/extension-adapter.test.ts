@@ -24,7 +24,7 @@ class FakePi implements PiExtensionEventApi {
 		event: "session_start" | "session_tree" | "session_shutdown",
 		handler: Handler,
 	): void;
-	public on(event: "agent_end", handler: Handler): void;
+	public on(event: "agent_end" | "agent_settled", handler: Handler): void;
 	public on(event: string, handler: Handler | InputHandler): void {
 		if (event === "input") {
 			this.inputHandler = handler;
@@ -64,6 +64,23 @@ test("PiExtensionAdapter routes session_start and session_tree through session s
 
 	expect(onSessionStart).toHaveBeenCalledTimes(2);
 	expect(onSessionStart).toHaveBeenCalledWith(ctx);
+});
+
+test("PiExtensionAdapter defers final editor rendering until agent_settled", async () => {
+	const pi = new FakePi();
+	const onAgentSettled = vi.fn(async () => undefined);
+	new PiExtensionAdapter(pi, {
+		onSessionStart: vi.fn(async () => undefined),
+		onAgentEnd: vi.fn(async () => undefined),
+		onAgentSettled,
+		onUserSubmit: vi.fn(async () => undefined),
+	}).register();
+	const ctx = context(() => []);
+
+	await pi.handlers.get("agent_settled")?.({}, ctx);
+
+	expect(onAgentSettled).toHaveBeenCalledOnce();
+	expect(onAgentSettled).toHaveBeenCalledWith(ctx);
 });
 
 test("PiExtensionAdapter swallows stale context errors from async wiring", async () => {
