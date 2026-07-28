@@ -35,7 +35,7 @@
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:pi-readseek",
     "npm:pi-subagents",
-    "npm:pi-dynamic-workflows"
+    "npm:@quintinshaw/pi-dynamic-workflows"
   ],
   "steeringMode": "all",
   "autoSessionName": {
