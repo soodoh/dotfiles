@@ -63,6 +63,14 @@ const highFinding = {
   description: 'boundary bug', evidence: 'e', repro_test: 'fails now', boundary_owner: 'current', confidence: 'high',
 }
 
+const makeFinding = (id, overrides = {}) => ({
+  ...highFinding,
+  id,
+  location: 'src/' + id.toLowerCase() + '.ts:1',
+  description: 'finding ' + id,
+  ...overrides,
+})
+
 function makeAgent(handlers) {
   const calls = []
   const prompts = []
@@ -441,6 +449,201 @@ test('COR-FINAL-001: failed final full validation blocks clean verdict', async (
   assert.equal(agent.calls.filter((label) => label === 'final validation').length, 1)
   assert.equal(res.finalValidation.status, 'failed')
   assert.match(res.verdict, /FINAL FULL VALIDATION FAILED/)
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+// SAFE-MUTATION-001: mutating work is never retried, and a missing fixer result
+// halts the loop while preserving unresolved findings and partial-change risk.
+test('SAFE-MUTATION-001: null fixer halts rounds and blocks clean validation', async () => {
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['sec', emptyLanes],
+    ['correct c0 r1', { findings: [highFinding] }],
+    ['correct', emptyLanes],
+    ['verify', { real: true }],
+    ['fix', null],
+    // Even an optimistic read-only inspection cannot convert fixer failure to success.
+    ['validate focused failed fixer', focusedPass],
+    ['final validation', finalPass],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: {
+    maxRounds: 5, reviewers: 2, threshold: 1, fixerTimeoutMs: 123456,
+    focusedValidationTimeoutMs: 654321,
+  } })
+  const fixer = agent.options.find((entry) => entry.label.startsWith('fix'))
+  assert.equal(fixer.opts.tier, 'fixerBig', 'fixer route remains fixerBig')
+  assert.equal(fixer.opts.retries, 0, 'mutating fixer is never automatically retried')
+  assert.equal(fixer.opts.timeoutMs, 123456, 'fixer receives configured timeout')
+  assert.equal(res.roundsRun, 1, 'no later critic/fixer round is scheduled')
+  assert.equal(agent.calls.filter((label) => /^(maint|correct|sec)/.test(label)).length, 3,
+    'only one three-lane critic barrier runs')
+  assert.equal(res.unresolved.length, 1, 'survivor remains unresolved')
+  assert.equal(res.fixerFailure.round, 1)
+  assert.equal(res.fixerFailure.timeoutOrFailure, true)
+  assert.equal(res.fixerFailure.partialWorkingTreeChangesMayExist, true)
+  assert.equal(res.fixLog[0].applied, null, 'validator inspection cannot confirm a failed fixer')
+  assert.equal(res.fixLog[0].partialWorkingTreeChangesMayExist, true)
+  assert.equal(res.finalValidation.status, 'skipped')
+  assert.equal(res.finalValidation.reason, 'fixer-failed-or-timed-out')
+  assert.ok(!agent.calls.includes('final validation'), 'full validation is ineligible after fixer failure')
+  assert.match(res.verdict, /fixer failed or timed out; inspect partial working-tree changes/)
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+// PERF-BOUND-001: the critic contract itself caps each lane and asks the model to
+// spend that capacity only on its highest-priority actionable findings.
+test('PERF-BOUND-001: critic finding arrays are schema-bounded', async () => {
+  const tooMany = Array.from({ length: 7 }, (_v, i) => makeFinding('L' + i))
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['correct c0 r1', { findings: tooMany }],
+    ['correct', emptyLanes],
+    ['sec', emptyLanes],
+    ['verify', { real: false }],
+    ['synthesis', 'report text'],
+  ])
+  await runWorkflow({ agent, args: { maxRounds: 1, reviewers: 1, maxFindingsPerLane: 4, maxVerifyClaimsPerRound: 1 } })
+  const critic = agent.options.find((entry) => entry.label === 'correct c0 r1')
+  assert.equal(critic.opts.schema.properties.findings.maxItems, 4, 'finding schema enforces the configured lane cap')
+  const prompt = agent.prompts.find((entry) => entry.label === 'correct c0 r1').prompt
+  assert.match(prompt, /highest-priority actionable findings, up to 4 total/, 'critic prompt prioritizes within the cap')
+})
+
+// PERF-BOUND-002: verifier cardinality is capped after deterministic prioritization,
+// and every unverified overflow claim remains visible and blocks clean certification.
+test('PERF-BOUND-002: verifier fan-out is capped and overflow is preserved', async () => {
+  const findings = [
+    makeFinding('Z', { severity: 'high', confidence: 'low', location: 'src/z.ts:1' }),
+    makeFinding('B', { severity: 'blocker', confidence: 'low', location: 'src/b.ts:1' }),
+    makeFinding('C', { severity: 'high', confidence: 'high', location: 'src/c.ts:1' }),
+    makeFinding('A', { severity: 'high', confidence: 'high', location: 'src/a.ts:1' }),
+    makeFinding('M', { severity: 'high', confidence: 'medium', location: 'src/m.ts:1' }),
+  ]
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['correct c0 r1', { findings }],
+    ['correct', emptyLanes],
+    ['sec', emptyLanes],
+    ['verify', { real: false }],
+    ['final validation', finalPass],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: {
+    maxRounds: 1, reviewers: 3, maxFindingsPerLane: 5, maxVerifyClaimsPerRound: 2,
+  } })
+  const verifyCalls = agent.calls.filter((label) => label.startsWith('verify'))
+  assert.equal(verifyCalls.length, 2 * 3, 'verifier calls never exceed claim cap times reviewers')
+  const firstVotes = agent.prompts.filter((entry) => entry.label === 'verify 1')
+  assert.match(firstVotes[0].prompt, /src\/b\.ts:1/, 'blocker is verified first')
+  assert.match(firstVotes[1].prompt, /src\/a\.ts:1/, 'high-confidence stable key ordering breaks ties')
+  assert.equal(res.verificationOverflow.length, 3, 'every overflow claim is recorded')
+  assert.equal(res.unresolvedVerificationOverflow.length, 3, 'unverified overflow remains unresolved')
+  assert.deepEqual(res.trajectory[0].verificationOverflow.map((finding) => finding.id), ['C', 'M', 'Z'])
+  assert.equal(res.efficiency.verificationOverflowClaims, 3)
+  assert.equal(res.finalValidation.status, 'skipped')
+  assert.equal(res.finalValidation.reason, 'verification-overflow')
+  assert.ok(!agent.calls.includes('final validation'), 'overflow blocks final full validation')
+  assert.match(res.verdict, /verification overflow/)
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+  const synthesis = agent.prompts.find((entry) => entry.label === 'synthesis').prompt
+  assert.match(synthesis, /VERIFICATION OVERFLOW LEDGER/)
+  assert.match(synthesis, /src\/c\.ts:1/, 'synthesis receives overflow findings')
+})
+
+// CONFIG-BOUND-001: malformed or extreme numeric arguments cannot expand work past
+// the documented bounds, and omitted values retain the documented defaults.
+test('CONFIG-BOUND-001: numeric arguments are clamped to documented ranges', async () => {
+  const cleanAgent = () => makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['correct', emptyLanes],
+    ['sec', emptyLanes],
+    ['final validation', finalPass],
+    ['synthesis', 'report text'],
+  ])
+  const highAgent = cleanAgent()
+  const high = await runWorkflow({ agent: highAgent, args: {
+    maxRounds: 999, reviewers: 999, maxChunks: 999, maxFindingsPerLane: 999, maxVerifyClaimsPerRound: 999,
+    fixerTimeoutMs: 99999999, focusedValidationTimeoutMs: 99999999, finalValidationTimeoutMs: 99999999,
+  } })
+  assert.deepEqual(
+    { maxRounds: high.limits.maxRounds, reviewers: high.limits.reviewers, maxChunks: high.limits.maxChunks,
+      maxFindingsPerLane: high.limits.maxFindingsPerLane, maxVerifyClaimsPerRound: high.limits.maxVerifyClaimsPerRound,
+      fixerTimeoutMs: high.limits.fixerTimeoutMs, focusedValidationTimeoutMs: high.limits.focusedValidationTimeoutMs,
+      finalValidationTimeoutMs: high.limits.finalValidationTimeoutMs },
+    { maxRounds: 5, reviewers: 3, maxChunks: 12, maxFindingsPerLane: 10, maxVerifyClaimsPerRound: 16,
+      fixerTimeoutMs: 1800000, focusedValidationTimeoutMs: 1800000, finalValidationTimeoutMs: 3600000 })
+
+  const low = await runWorkflow({ agent: cleanAgent(), args: {
+    maxRounds: -1, reviewers: -1, maxChunks: -1, maxFindingsPerLane: -1, maxVerifyClaimsPerRound: -1,
+    fixerTimeoutMs: -1, focusedValidationTimeoutMs: -1, finalValidationTimeoutMs: -1,
+  } })
+  assert.deepEqual(
+    { maxRounds: low.limits.maxRounds, reviewers: low.limits.reviewers, maxChunks: low.limits.maxChunks,
+      maxFindingsPerLane: low.limits.maxFindingsPerLane, maxVerifyClaimsPerRound: low.limits.maxVerifyClaimsPerRound,
+      fixerTimeoutMs: low.limits.fixerTimeoutMs, focusedValidationTimeoutMs: low.limits.focusedValidationTimeoutMs,
+      finalValidationTimeoutMs: low.limits.finalValidationTimeoutMs },
+    { maxRounds: 1, reviewers: 1, maxChunks: 1, maxFindingsPerLane: 1, maxVerifyClaimsPerRound: 1,
+      fixerTimeoutMs: 60000, focusedValidationTimeoutMs: 60000, finalValidationTimeoutMs: 300000 })
+
+  const defaults = await runWorkflow({ agent: cleanAgent(), args: {} })
+  assert.equal(defaults.limits.maxRounds, 3)
+  assert.equal(defaults.limits.reviewers, 2)
+  assert.equal(defaults.limits.maxChunks, 6)
+  assert.equal(defaults.limits.maxFindingsPerLane, 5)
+  assert.equal(defaults.limits.maxVerifyClaimsPerRound, 8)
+  assert.equal(defaults.limits.fixerTimeoutMs, 900000)
+  assert.equal(defaults.limits.focusedValidationTimeoutMs, 600000)
+  assert.equal(defaults.limits.finalValidationTimeoutMs, 1800000)
+})
+
+// PERF-TIMEOUT-001: longer read-only validators get explicit independent timeout
+// boundaries; only the focused validator receives one recoverable retry.
+test('PERF-TIMEOUT-001: validators receive configured timeout and retry options', async () => {
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['sec', emptyLanes],
+    ['correct c0 r1', { findings: [highFinding] }],
+    ['correct', emptyLanes],
+    ['verify', { real: true }],
+    ['fix', fixReport],
+    ['validate focused', focusedPass],
+    ['final validation', finalPass],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: {
+    maxRounds: 3, reviewers: 2, threshold: 1,
+    focusedValidationTimeoutMs: 777000, finalValidationTimeoutMs: 2345000,
+  } })
+  const focused = agent.options.find((entry) => entry.label.startsWith('validate focused'))
+  const final = agent.options.find((entry) => entry.label === 'final validation')
+  assert.equal(focused.opts.timeoutMs, 777000)
+  assert.equal(focused.opts.retries, 1, 'focused read-only validation retries at most once')
+  assert.equal(final.opts.timeoutMs, 2345000)
+  assert.equal(final.opts.retries, 0, 'expensive full validation is not automatically retried')
+  assert.match(agent.prompts.find((entry) => entry.label === 'final validation').prompt, /Work read-only/)
+  assert.equal(res.verdict, 'CONVERGED CLEAN', 'normal clean workflow still converges')
+})
+
+// COR-FINAL-002: a timed-out/null full validator is missing coverage, never clean.
+test('COR-FINAL-002: null final validator blocks clean verdict', async () => {
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['correct', emptyLanes],
+    ['sec', emptyLanes],
+    ['final validation', null],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: { maxRounds: 2 } })
+  assert.equal(res.finalValidation.status, 'unavailable')
+  assert.equal(res.finalValidation.reason, 'validator-null')
+  assert.match(res.verdict, /FINAL FULL VALIDATION UNAVAILABLE/)
   assert.notEqual(res.verdict, 'CONVERGED CLEAN')
 })
 
