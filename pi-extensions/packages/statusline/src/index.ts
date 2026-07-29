@@ -124,24 +124,14 @@ type ExtensionAPI = {
 const ANSI_RESET = "\x1b[0m";
 const SEPARATOR_COLOR = "\x1b[38;5;244m";
 const POWERLINE_THIN_LEFT = "\uE0B1";
-const ASCII_THIN_LEFT = "|";
 const FAST_STATUS_KEY = "pi-openai-fast";
-const NERD_ICONS = {
+const ICONS = {
 	model: "\uEC19",
 	fast: "\uF0E7",
 	thinking: "\uF0EB",
 	branch: "\uF126",
 	context: "\uE70F",
 	auto: "\u{F0068}",
-};
-
-const ASCII_ICONS = {
-	model: "",
-	fast: "⚡",
-	thinking: "T",
-	branch: "⎇",
-	context: "◫",
-	auto: "AC",
 };
 
 type ThemeColor = Parameters<Theme["fg"]>[0];
@@ -283,27 +273,8 @@ function toProviderUsageContext(ctx: ExtensionContext): ProviderUsageContext {
 	};
 }
 
-function hasNerdFonts(): boolean {
-	if (process.env.POWERLINE_NERD_FONTS === "1") return true;
-	if (process.env.POWERLINE_NERD_FONTS === "0") return false;
-	if (process.env.GHOSTTY_RESOURCES_DIR) return true;
-
-	const term = (process.env.TERM_PROGRAM || "").toLowerCase();
-	return ["iterm", "wezterm", "kitty", "ghostty", "alacritty"].some((t) =>
-		term.includes(t),
-	);
-}
-
-function icons(): typeof NERD_ICONS {
-	return hasNerdFonts() ? NERD_ICONS : ASCII_ICONS;
-}
-
-function separator(): string {
-	return hasNerdFonts() ? POWERLINE_THIN_LEFT : ASCII_THIN_LEFT;
-}
-
 function withIcon(icon: string, text: string): string {
-	return icon ? `${icon} ${text}` : text;
+	return `${icon} ${text}`;
 }
 
 function hexToAnsi(hex: string): string {
@@ -389,10 +360,10 @@ function renderModel(
 	let modelName = ctx.model?.name || ctx.model?.id || "no-model";
 	if (modelName.startsWith("Claude ")) modelName = modelName.slice(7);
 
-	const model = color(theme, "model", withIcon(icons().model, modelName));
+	const model = color(theme, "model", withIcon(ICONS.model, modelName));
 	const fastActive =
 		footerData?.getExtensionStatuses?.().get(FAST_STATUS_KEY) === "fast";
-	return fastActive ? `${model} ${theme.fg("warning", icons().fast)}` : model;
+	return fastActive ? `${model} ${theme.fg("warning", ICONS.fast)}` : model;
 }
 
 function thinkingColor(level: ThinkingLevel): ThemeColor {
@@ -400,7 +371,7 @@ function thinkingColor(level: ThinkingLevel): ThemeColor {
 }
 
 function renderThinking(level: ThinkingLevel, theme: Theme): string {
-	return theme.fg(thinkingColor(level), withIcon(icons().thinking, level));
+	return theme.fg(thinkingColor(level), withIcon(ICONS.thinking, level));
 }
 
 function renderGit(git: GitStatus, theme: Theme): string | undefined {
@@ -413,7 +384,7 @@ function renderGit(git: GitStatus, theme: Theme): string | undefined {
 		content = color(
 			theme,
 			isDirty ? "gitDirty" : "gitClean",
-			withIcon(icons().branch, branch),
+			withIcon(ICONS.branch, branch),
 		);
 	}
 
@@ -439,17 +410,17 @@ function renderContext(
 	const pct = contextUsage?.percent ?? (contextTokens / contextWindow) * 100;
 	const autoCompactEnabled =
 		ctx.settingsManager?.getCompactionSettings?.()?.enabled ?? true;
-	const autoIcon = autoCompactEnabled && icons().auto ? ` ${icons().auto}` : "";
+	const autoIcon = autoCompactEnabled ? ` ${ICONS.auto}` : "";
 	const text = `${pct.toFixed(1)}%/${formatTokens(contextWindow)}${autoIcon}`;
 	const semantic =
 		pct > 90 ? "contextError" : pct > 70 ? "contextWarn" : "context";
-	return withIcon(icons().context, color(theme, semantic, text));
+	return withIcon(ICONS.context, color(theme, semantic, text));
 }
 
 function formatLine(parts: (string | undefined)[]): string {
 	const visibleParts = parts.filter((part): part is string => Boolean(part));
 	if (visibleParts.length === 0) return "";
-	return ` ${visibleParts.join(` ${SEPARATOR_COLOR}${separator()}${ANSI_RESET} `)}${ANSI_RESET} `;
+	return ` ${visibleParts.join(` ${SEPARATOR_COLOR}${POWERLINE_THIN_LEFT}${ANSI_RESET} `)}${ANSI_RESET} `;
 }
 
 function sessionCwd(ctx: ExtensionContext): string {

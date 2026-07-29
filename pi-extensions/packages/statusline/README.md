@@ -14,7 +14,7 @@ This package was created to provide similar statusline-focused functionality to 
 - Shows context usage as percentage plus context window, with warning colors above 70% and 90%.
 - Indicates auto-compaction when Pi reports it as enabled.
 - Adapts to terminal width by hiding less important provider detail first.
-- Auto-detects Nerd Font-capable terminals and falls back to ASCII-safe symbols.
+- Uses Nerd Font icons throughout; a Nerd Font is required in the terminal client.
 
 ## Install
 
@@ -112,15 +112,6 @@ Or to put git on a separate line from the model:
   }
 }
 ```
-
-Nerd Font detection can be overridden with an environment variable:
-
-```bash
-POWERLINE_NERD_FONTS=1 pi   # force Nerd Font icons
-POWERLINE_NERD_FONTS=0 pi   # force ASCII-safe symbols
-```
-
-Without an override, the extension enables Nerd Font icons for common terminals such as Ghostty, iTerm, WezTerm, Kitty, and Alacritty.
 
 ## Notes
 

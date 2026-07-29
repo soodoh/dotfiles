@@ -108,7 +108,6 @@ describe("statusline extension", () => {
 	});
 
 	test("registers a below-editor widget and renders model/context smoke output", () => {
-		vi.stubEnv("POWERLINE_NERD_FONTS", "0");
 		let widgetFactory: WidgetFactory | undefined;
 		let footerFactory: FooterFactory | undefined;
 		const extensionStatuses = new Map<string, string>();
@@ -165,21 +164,20 @@ describe("statusline extension", () => {
 		const line = widget?.render(120).join("\n") ?? "";
 
 		expect(line).toContain("Sonnet Test");
-		expect(line).not.toContain("⚡");
+		expect(line).not.toContain("\uF0E7");
 		expect(line).toContain("off");
 		expect(line.indexOf("Sonnet Test")).toBeLessThan(line.indexOf("off"));
 		expect(line).toContain("25.0%/1.0k");
 
 		extensionStatuses.set("pi-openai-fast", "fast");
 		const fastLine = widget?.render(120).join("\n") ?? "";
-		expect(fastLine).toContain("⚡");
+		expect(fastLine).toContain("\uF0E7");
 		expect(fastLine.indexOf("Sonnet Test")).toBeLessThan(
-			fastLine.indexOf("⚡"),
+			fastLine.indexOf("\uF0E7"),
 		);
 	});
 
 	test("renders and immediately updates the configured thinking section", () => {
-		vi.stubEnv("POWERLINE_NERD_FONTS", "0");
 		let widgetFactory: WidgetFactory | undefined;
 		const requestRender = vi.fn();
 		const pi = createPi("high");
@@ -221,13 +219,13 @@ describe("statusline extension", () => {
 		pi.handlers.get("session_start")?.({}, ctx);
 		const widget = widgetFactory?.({ requestRender }, theme);
 		expect(widget?.render(120).join("\n")).toContain(
-			"<thinkingHigh>T high</thinkingHigh>",
+			"<thinkingHigh>\uF0EB high</thinkingHigh>",
 		);
 
 		pi.handlers.get("thinking_level_select")?.({ level: "xhigh" }, ctx);
 		expect(requestRender).toHaveBeenCalled();
 		expect(widget?.render(120).join("\n")).toContain(
-			"<thinkingXhigh>T xhigh</thinkingXhigh>",
+			"<thinkingXhigh>\uF0EB xhigh</thinkingXhigh>",
 		);
 	});
 
@@ -343,8 +341,6 @@ describe("statusline extension", () => {
 	});
 
 	test("truncates statusline fallback to the viewport width", () => {
-		vi.stubEnv("POWERLINE_NERD_FONTS", "1");
-
 		let widgetFactory: WidgetFactory | undefined;
 		let footerFactory: FooterFactory | undefined;
 		const pi = createPi();

@@ -1,50 +1,54 @@
 {
-	"lastChangelogVersion": "0.82.0",
-	"defaultProvider": "openai-codex",
-	"defaultModel": "gpt-5.6-sol",
-	"defaultThinkingLevel": "high",
-	"theme": "dark",
-	"compaction": {
-		"enabled": true,
-		"reserveTokens": 16384,
-		"keepRecentTokens": 20000
-	},
-	"collapseChangelog": true,
-	"quietStartup": true,
-	"enableSkillCommands": true,
-	"extensions": ["extensions/*.ts"],
-	"packages": [
-		{
-			"source": "./pi-extensions",
-			"extensions": [
-				"packages/auto-session-name/index.ts",
-				"packages/shared-prompt-history/index.ts",
-				"packages/statusline/index.ts"
-			]
-		},
-		"npm:pi-vim",
-		"npm:pi-openai-fast",
-		"npm:@plannotator/pi-extension",
-		"npm:pi-mcp-adapter",
-		"npm:@juicesharp/rpiv-web-tools",
-		"npm:@juicesharp/rpiv-todo",
-		"npm:@juicesharp/rpiv-ask-user-question",
-		"npm:pi-readseek",
-		"npm:pi-subagents",
-		"npm:@quintinshaw/pi-dynamic-workflows"
-	],
-	"steeringMode": "all",
-	"autoSessionName": {
-		"titleModel": ["openai-codex/gpt-5.6-luna"]
-	},
-	"subagents": {
-		"modelScope": {
-			"enforce": true,
-			"allow": [
-				"openai-codex/gpt-5.6-sol",
-				"openai-codex/gpt-5.6-terra",
-				"openai-codex/gpt-5.6-luna"
-			]
-		}
-	}
+  "lastChangelogVersion": "0.82.1",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-sol",
+  "defaultThinkingLevel": "high",
+  "theme": "dark",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 20000
+  },
+  "collapseChangelog": true,
+  "quietStartup": true,
+  "enableSkillCommands": true,
+  "extensions": [
+    "extensions/*.ts"
+  ],
+  "packages": [
+    {
+      "source": "./pi-extensions",
+      "extensions": [
+        "packages/auto-session-name/index.ts",
+        "packages/shared-prompt-history/index.ts",
+        "packages/statusline/index.ts"
+      ]
+    },
+    "npm:pi-vim",
+    "npm:pi-openai-fast",
+    "npm:@plannotator/pi-extension",
+    "npm:pi-mcp-adapter",
+    "npm:@juicesharp/rpiv-web-tools",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:pi-readseek",
+    "npm:pi-subagents",
+    "npm:@quintinshaw/pi-dynamic-workflows"
+  ],
+  "steeringMode": "all",
+  "autoSessionName": {
+    "titleModel": [
+      "openai-codex/gpt-5.6-luna"
+    ]
+  },
+  "subagents": {
+    "modelScope": {
+      "enforce": true,
+      "allow": [
+        "openai-codex/gpt-5.6-sol",
+        "openai-codex/gpt-5.6-terra",
+        "openai-codex/gpt-5.6-luna"
+      ]
+    }
+  }
 }
