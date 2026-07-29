@@ -1,0 +1,5 @@
+{
+	"keywordTriggerEnabled": false,
+	"defaultAgentTimeoutMs": 300000,
+	"defaultAgentRetries": 1
+}

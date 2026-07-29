@@ -66,10 +66,12 @@ const highFinding = {
 function makeAgent(handlers) {
   const calls = []
   const prompts = []
+  const options = []
   const agent = async (prompt, opts = {}) => {
     const label = (opts && opts.label) || ''
     calls.push(label)
     prompts.push({ label, prompt })
+    options.push({ label, opts })
     for (const [prefix, fn] of handlers) {
       if (label.startsWith(prefix)) return typeof fn === 'function' ? fn(label) : fn
     }
@@ -77,13 +79,32 @@ function makeAgent(handlers) {
   }
   agent.calls = calls
   agent.prompts = prompts
+  agent.options = options
   return agent
 }
 
 const emptyLanes = { findings: [] }
-// New chunked-scope schema: diffCmd + files[{path,lineCount}] + totalLines.
-// diffCmd 'true' keeps the lane instruction shell-safe/deterministic in tests.
-const scanResp = { diffCmd: 'true', files: [{ path: 'src/x.ts', lineCount: 10 }], totalLines: 10 }
+// Chunked-scope schema: a safe git diff command + deterministic numstat counts.
+const scanResp = { diffCmd: 'git diff', files: [{ path: 'src/x.ts', lineCount: 10 }], totalLines: 10 }
+const focusedPass = {
+  applied: true,
+  focusedTestsStatus: 'passed',
+  commands: [{ command: 'node --test src/x.test.ts', status: 'passed', purpose: 'exercise the fixed boundary' }],
+  checkedFindingIds: ['F1'],
+  changedFiles: ['src/x.ts', 'src/x.test.ts'],
+  notes: 'Focused regression passed.',
+}
+const finalPass = {
+  status: 'passed',
+  commands: [{ command: 'npm test', status: 'passed', purpose: 'full repository suite' }],
+  summary: 'Full suite passed.',
+  failures: [],
+}
+const fixReport = {
+  summary: 'Guarded the boundary and added a regression test.',
+  fixes: [{ findingId: 'F1', location: highFinding.location, change: 'Reject the invalid boundary before use.', files: ['src/x.ts'], tests: ['src/x.test.ts'] }],
+  focusedTestCommands: ['node --test src/x.test.ts'],
+}
 
 // --- Tests ----------------------------------------------------------------
 const tests = []
@@ -121,7 +142,7 @@ test('COR-R2-003: partial verify coverage routes to unverified, not the fixer', 
     ['verify 1', { real: true }], // reviewer 1 votes real
     ['verify 2', null], // reviewer 2 FAILED -> dropped, total becomes 1 (< reviewers=2)
     ['fix', 'SHOULD NOT RUN'],
-    ['validate', { applied: true, testsPass: true }],
+    ['validate', focusedPass],
     ['synthesis', 'report text'],
   ])
   const res = await runWorkflow({ agent, args: { maxRounds: 3, reviewers: 2, threshold: 1.0 } })
@@ -141,7 +162,7 @@ test('COR-R2-004: recurring finding does not inflate totalResolved', async () =>
     ['correct', { findings: [highFinding] }],
     ['verify', { real: true }],
     ['fix', 'applied'],
-    ['validate', { applied: true, testsPass: true }], // each round validates as landed
+    ['validate', focusedPass], // each round validates as landed
     ['synthesis', 'report text'],
   ])
   const res = await runWorkflow({ agent, args: { maxRounds: 3, reviewers: 2, threshold: 1.0 } })
@@ -162,7 +183,7 @@ test('MAINT-R3-001: one dry round at the cap is not CONVERGED CLEAN', async () =
     ['correct', emptyLanes],
     ['verify', { real: true }],
     ['fix', 'applied a fix'],
-    ['validate', { applied: true, testsPass: true }],
+    ['validate', focusedPass],
     ['synthesis', 'report text'],
   ])
   // maxRounds: 2 => loop ends at the cap with only ONE trailing dry round (r1).
@@ -186,7 +207,7 @@ test('MAINT-R4-001: duplicate survivor round is not a dry round for convergence'
     ['correct', emptyLanes],
     ['verify', { real: true }],
     ['fix', 'applied a fix'],
-    ['validate', { applied: true, testsPass: true }],
+    ['validate', focusedPass],
     ['synthesis', 'report text'],
   ])
   const res = await runWorkflow({ agent, args: { maxRounds: 3, reviewers: 2, threshold: 1.0 } })
@@ -209,7 +230,7 @@ test('SEC-R3-002: split verifier votes escalate as disputed, not CONVERGED CLEAN
     ['verify 1', { real: true }],  // reviewer 1 reproduces it
     ['verify 2', { real: false }], // reviewer 2 disagrees -> 1/2 < 1.0 threshold
     ['fix', 'SHOULD NOT RUN'],
-    ['validate', { applied: true, testsPass: true }],
+    ['validate', focusedPass],
     ['synthesis', 'report text'],
   ])
   const res = await runWorkflow({ agent, args: { maxRounds: 3, reviewers: 2, threshold: 1.0 } })
@@ -237,7 +258,7 @@ test('CORR-C0R1-003: chunk count never exceeds maxChunks', async () => {
   // 13 files x 600 lines, maxChunks=12, chunkTarget=400 => perChunk=650. First-fit
   // gives each 600-line file its own chunk (13 > 12) unless the hard cap is enforced.
   const files = Array.from({ length: 13 }, (_v, i) => ({ path: 'f' + i + '.ts', lineCount: 600 }))
-  const scan = { diffCmd: 'true', files, totalLines: 7800 }
+  const scan = { diffCmd: 'git diff', files, totalLines: 7800 }
   const agent = makeAgent([
     ['scope + sizes', scan],
     ['maint', emptyLanes],
@@ -255,7 +276,7 @@ test('SEC-CHUNK-001: crafted filename cannot inject shell commands', async () =>
   const marker = '/tmp/review_loop_pwn_' + process.pid + '_' + Date.now()
   if (existsSync(marker)) rmSync(marker)
   const evil = 'pwn.txt; touch ' + marker + ' #'
-  const scan = { diffCmd: 'true', files: [{ path: evil, lineCount: 5 }], totalLines: 5 }
+  const scan = { diffCmd: 'git diff', files: [{ path: evil, lineCount: 5 }], totalLines: 5 }
   const agent = makeAgent([
     ['scope + sizes', scan],
     ['maint', emptyLanes],
@@ -275,8 +296,8 @@ test('SEC-CHUNK-001: crafted filename cannot inject shell commands', async () =>
   assert.ok(!injected, 'shell metacharacters in a filename must NOT execute arbitrary commands')
 })
 
-// SEC-CHUNK-002: the SECURITY critic lane must run on the same strong tier as the others.
-test('SEC-CHUNK-002: security lane is not downgraded below the other critic tiers', async () => {
+// SEC-CHUNK-002: every critic lane must use the dedicated criticBig route.
+test('SEC-CHUNK-002: critic lanes use criticBig', async () => {
   const tiers = []
   const agent = async (_prompt, opts = {}) => {
     const label = (opts && opts.label) || ''
@@ -285,11 +306,8 @@ test('SEC-CHUNK-002: security lane is not downgraded below the other critic tier
     return label ? (label.startsWith('synthesis') ? 'report' : { findings: [] }) : null
   }
   await runWorkflow({ agent, args: { maxRounds: 2 } })
-  const sec = tiers.find((t) => t.label.startsWith('sec'))
-  const others = tiers.filter((t) => !t.label.startsWith('sec'))
-  assert.ok(sec, 'security lane ran')
-  assert.ok(others.length > 0, 'other critic lanes ran')
-  for (const o of others) assert.equal(sec.tier, o.tier, 'security lane tier (' + sec.tier + ') must match ' + o.label + ' tier (' + o.tier + ')')
+  assert.ok(tiers.length > 0, 'critic lanes ran')
+  for (const lane of tiers) assert.equal(lane.tier, 'criticBig', lane.label + ' must use criticBig')
 })
 
 // SEC-CHUNK-003: a finding whose verify() returns null must be escalated (unverified),
@@ -314,6 +332,116 @@ test('SEC-CHUNK-003: verify-null finding is escalated, not silently dropped', as
   assert.ok(res.unverified.some((f) => f.location === secFinding.location),
     'a verify-null security finding must surface in the unverified escalation list')
   assert.notEqual(res.verdict, 'CONVERGED CLEAN', 'a lost/unverified blocker must not certify clean')
+})
+
+
+// PERF-VALIDATE-001: per-round validators stay focused; the expensive full suite runs
+// exactly once after two clean rounds, and structured fix details reach the report.
+test('PERF-VALIDATE-001: focused tests per round and one final full validation', async () => {
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['sec', emptyLanes],
+    ['correct c0 r1', { findings: [highFinding] }],
+    ['correct', emptyLanes],
+    ['verify', { real: true }],
+    ['fix', fixReport],
+    ['validate focused', focusedPass],
+    ['final validation', finalPass],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: { maxRounds: 3, reviewers: 2, threshold: 1.0, focusedTestMaxCommands: 2 } })
+  const focusedCalls = agent.prompts.filter((p) => p.label.startsWith('validate focused'))
+  const finalCalls = agent.prompts.filter((p) => p.label === 'final validation')
+  assert.equal(focusedCalls.length, 1, 'one focused validation runs for the one fix round')
+  assert.equal(finalCalls.length, 1, 'the full validation runs exactly once after convergence')
+  assert.match(focusedCalls[0].prompt, /DO NOT run the full repository test suite/, 'round validation must prohibit the full suite')
+  assert.match(focusedCalls[0].prompt, /at most 2 focused commands/, 'round validation honors the focused command cap')
+  assert.match(finalCalls[0].prompt, /FULL test suite now, once/, 'final validation owns the full suite')
+  assert.equal(res.finalValidation.status, 'passed')
+  assert.equal(res.verdict, 'CONVERGED CLEAN')
+  assert.equal(res.fixLog[0].fixer.fixes[0].change, fixReport.fixes[0].change, 'structured fix detail is retained')
+  const fixer = agent.options.find((entry) => entry.label.startsWith('fix'))
+  assert.equal(fixer.opts.tier, 'fixerBig', 'fixer must use the dedicated fixerBig route')
+  const synthesis = agent.prompts.find((p) => p.label === 'synthesis')
+  assert.match(synthesis.prompt, /Fixed by round/, 'summary asks for detailed per-round fixes')
+  assert.match(synthesis.prompt, /Reject the invalid boundary before use/, 'summary receives exact fix details')
+  const scopePrompt = agent.prompts.find((p) => p.label === 'scope + sizes')
+  assert.match(scopePrompt.prompt, /numstat/, 'scope sizing uses deterministic numstat')
+  assert.match(scopePrompt.prompt, /do not eyeball/, 'scope sizing forbids estimates')
+})
+
+// PERF-VALIDATE-002: do not spend a full-suite run on a review that has not converged.
+test('PERF-VALIDATE-002: full validation is skipped before clean convergence', async () => {
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['correct', emptyLanes],
+    ['sec', emptyLanes],
+    ['final validation', finalPass],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: { maxRounds: 1 } })
+  assert.ok(!agent.calls.includes('final validation'), 'full validation must not run without consecutive clean rounds')
+  assert.equal(res.finalValidation.status, 'skipped')
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+// PERF-VERIFY-001: duplicate lane reports should consume one verifier panel and one fixer item.
+test('PERF-VERIFY-001: duplicate gated findings are verified once per round', async () => {
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint c0 r1', { findings: [highFinding] }],
+    ['maint', emptyLanes],
+    ['correct c0 r1', { findings: [highFinding] }],
+    ['correct', emptyLanes],
+    ['sec', emptyLanes],
+    ['verify', { real: true }],
+    ['fix', fixReport],
+    ['validate focused', focusedPass],
+    ['final validation', finalPass],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: { maxRounds: 3, reviewers: 2, threshold: 1.0 } })
+  assert.equal(agent.calls.filter((label) => label.startsWith('verify')).length, 2, 'one two-vote verifier panel handles both lane reports')
+  assert.equal(res.trajectory[0].gatedRaw, 2)
+  assert.equal(res.trajectory[0].gated, 1)
+  assert.equal(res.efficiency.duplicateVerificationClaimsSkipped, 1)
+})
+
+// SEC-SCOPE-001: free-form shell commands from the scope agent are never propagated.
+test('SEC-SCOPE-001: unsafe diff command aborts before critic lanes', async () => {
+  const agent = makeAgent([
+    ['scope + sizes', { ...scanResp, diffCmd: 'git diff; touch /tmp/review-loop-pwn' }],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: { maxRounds: 3 } })
+  assert.match(res.verdict, /^ABORTED/)
+  assert.ok(!agent.calls.some((label) => /^(maint|correct|sec)/.test(label)), 'unsafe command never reaches a critic lane')
+})
+
+
+// COR-FINAL-001: convergence is never certified clean when the one full-suite run fails.
+test('COR-FINAL-001: failed final full validation blocks clean verdict', async () => {
+  const finalFail = {
+    status: 'failed',
+    commands: [{ command: 'npm test', status: 'failed', purpose: 'full repository suite', notes: 'one regression failed' }],
+    summary: 'Full suite failed.',
+    failures: ['boundary regression'],
+  }
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['correct', emptyLanes],
+    ['sec', emptyLanes],
+    ['final validation', finalFail],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: { maxRounds: 2 } })
+  assert.equal(agent.calls.filter((label) => label === 'final validation').length, 1)
+  assert.equal(res.finalValidation.status, 'failed')
+  assert.match(res.verdict, /FINAL FULL VALIDATION FAILED/)
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
 })
 
 // --- Runner ---------------------------------------------------------------
