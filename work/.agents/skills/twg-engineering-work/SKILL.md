@@ -1,8 +1,8 @@
 ---
 name: twg-engineering-work
 description: >
-  Use with root `twg` for PR/PRs-only status, PR status for a person, pull
-  request summaries, review queues, stale reviews, review bottlenecks, repo
+  Use with root `twg` for code search, repositories using an API/package,
+  implementation and reverse-dependency discovery, PR status and reviews, repo
   contributors, hot areas, and issue-to-PR lookups.
 ---
 
@@ -11,19 +11,26 @@ description: >
 Use together with the root `twg` skill. Exact command grammar must come from
 live `twg help`, `twg help <terms>`, or `twg help describe <path>`.
 
+## CLI launcher fallback
+
+Run `twg <command>`. On shell `command not found`, use `$HOME/.local/bin/twg`
+(macOS/Linux) / `$env:LOCALAPPDATA\Programs\twg\bin\twg.exe` (PowerShell), then
+tell user to add that directory to PATH. Do not treat auth or command errors as
+PATH failures.
+
 ## Use When
 
 - "Which PRs are waiting for my review?"
+- "Where is this API implemented or used?"
+- "Which repositories directly depend on this package?"
 - "Latest PRs for this issue"
 - "Who contributed most to this repo/topic?"
 - "Repos I created PRs in"
 - "Stale reviews"
 - "Review flow or bottlenecks"
-- "PR-only leadership readout"
 - "PR-only status for a user, team, or repo"
 - "PR status for Alice" or "this person's PRs"
 - "My PRs this week"
-- "My pull requests this week"
 - "Summarize my pull requests for a time window"
 - "Open bugs/tasks with PRs in flight"
 
@@ -36,11 +43,13 @@ Resolve the engineering anchor:
 - Workitem prompt: fetch/context the Jira workitem to discover linked PRs,
   commits, branches, and repos.
 - Topic prompt: resolve/search once, then find linked repos, PRs, and workitems.
+- Code prompt: search the concrete package, API, symbol, or behavior, then
+  inspect only the source locations needed to verify the requested relationship.
 
-Use typed pull-request, Bitbucket, Jira, context, and search command families
-when they clearly match the prompt. Use provider-native PR commands only for the
-matching host; Bitbucket activity/comment/task commands do not apply to GitHub
-PRs. Use focused help only when the route or exact contract is unclear.
+Use matching typed pull-request, Bitbucket, Jira, context, and search commands.
+Provider-native PR commands apply only to their host; Bitbucket
+activity/comment/task commands never apply to GitHub PRs. Use focused help for
+uncertain routes/contracts.
 
 ## Route Selection
 
@@ -50,13 +59,15 @@ PRs. Use focused help only when the route or exact contract is unclear.
 - For issue-to-PR lookup, use workitem context before broad PR text search.
 - For repo contributors and hot areas, combine PR/commit/file-area signals with
   ownership and review evidence.
-- For PR-based status, resolve org/team first, then collect merged or open PRs
-  for the relevant members, repos, and time window.
-- For person-scoped summaries that include Jira, docs, meetings, planning, or
-  notifications, route to `twg-status-rollups` and load
-  `references/personal-work-summary.md`. Keep this skill authoritative for
-  PR-only queues, stale reviews, review bottlenecks, repo contributors, hot
-  areas, and PR-only status.
+- For PR leadership/team/org rollups, use `twg-status-rollups`; this skill
+  supplements PR details.
+- For person/repo status, collect merged/open PRs for relevant people, repos,
+  and window.
+- Code: load `references/code-search.md`.
+- For person-scoped summaries with Jira, docs, meetings, planning, or
+  notifications, use `twg-status-rollups` plus
+  `../twg-status-rollups/references/personal-work-summary.md`; this skill owns
+  PR-only work.
 
 ## Evidence Policy
 
@@ -108,15 +119,14 @@ Resolve org/team first, then collect PRs for members or repos in the time window
 Group into themes and repos/services. Call out gaps where PR-only evidence omits
 Jira, docs, planning, or customer context.
 For a single person where the prompt is broader than PRs, switch to
-`twg-status-rollups` and load `references/personal-work-summary.md`.
+`twg-status-rollups` and load
+`../twg-status-rollups/references/personal-work-summary.md`.
 
 ## Output Shape
 
-- Queue/action tasks: table with PR, repo, owner, state, why it needs attention,
-  next action, and evidence.
-- Engineering reports: executive summary, repo/workstream table, contributors,
-  review bottlenecks, risks, and gaps.
-- Always include URLs or stable IDs for key artifacts.
+For queues, include PR, repo, owner, state, reason, next action, and evidence.
+For engineering reports, summarize workstreams, contributors, bottlenecks,
+risks, and gaps. Include stable URLs or IDs for key artifacts.
 
 ## Anti-Patterns
 

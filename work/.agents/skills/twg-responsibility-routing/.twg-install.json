@@ -1,7 +1,7 @@
 {
   "skillName": "twg",
   "target": "global",
-  "installPath": "/Users/paul.diloreto/.agents/skills/twg-bench-lite",
+  "installPath": "/Users/paul.diloreto/.agents/skills/twg-responsibility-routing",
   "binaryPath": "/Users/paul.diloreto/.local/bin/twg",
   "installedAt": "2026-07-30T19:57:19.085Z",
   "installedVersion": "1.1.1",

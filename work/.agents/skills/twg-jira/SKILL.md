@@ -12,6 +12,13 @@ Use with the root `twg` skill whenever Jira is the source of truth or a Jira
 mutation is required. This skill owns Jira semantics and safety; exact command
 grammar comes from live `twg help`.
 
+## CLI launcher fallback
+
+Run `twg <command>`. On shell `command not found`, use `$HOME/.local/bin/twg`
+(macOS/Linux) / `$env:LOCALAPPDATA\Programs\twg\bin\twg.exe` (PowerShell), then
+tell user to add that directory to PATH. Do not treat auth or command errors as
+PATH failures.
+
 ## Use When
 
 - A Jira key, issue URL, project key, board, sprint, filter, or dashboard is the
@@ -70,8 +77,9 @@ consequential mutation.
 
 ## Handoffs
 
-- Load `twg-context-discovery` for dependencies, responsibility, related
-  documents, implementation links, or experts.
+- Load `twg-context-discovery` for dependencies, related documents, or
+  implementation links; load `twg-responsibility-routing` for owners, experts,
+  authority, or escalation.
 - Load `twg-status-rollups` for project, sprint, team, or leadership synthesis.
 - Load `twg-engineering-work` when the Jira anchor must be traced to PRs or
   repositories.
