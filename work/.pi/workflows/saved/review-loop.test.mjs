@@ -155,6 +155,8 @@ test('COR-R2-003: partial verify coverage routes to unverified, not the fixer', 
   ])
   const res = await runWorkflow({ agent, args: { maxRounds: 3, reviewers: 2, threshold: 1.0 } })
   assert.ok(!agent.calls.some((l) => l.startsWith('fix')), 'fixer must NOT run on half-covered verification')
+  const verifier = agent.options.find((entry) => entry.label === 'verify 1')
+  assert.equal(verifier.opts.tier, 'medium', 'verifier reviewers are explicitly pinned to medium')
   assert.equal(res.unverified.length, 1, 'finding routed to unverified escalation')
   assert.equal(res.unverified[0].location, highFinding.location)
   assert.match(res.verdict, /UNVERIFIED/, 'verdict should flag unverified findings')
@@ -249,6 +251,31 @@ test('SEC-R3-002: split verifier votes escalate as disputed, not CONVERGED CLEAN
   assert.match(res.verdict, /DISPUTED/, 'verdict should flag disputed findings')
 })
 
+
+// SEC-R3-003: the shipped default must require a majority, so a 1-1 split escalates.
+test('SEC-R3-003: split verifier votes are disputed at the default threshold', async () => {
+  const secFinding = {
+    id: 'S2', severity: 'high', category: 'security', location: 'src/session.ts:8',
+    description: 'session bypass', evidence: 'e', repro_test: 'fails now', boundary_owner: 'current', confidence: 'high',
+  }
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['correct', emptyLanes],
+    ['sec c0 r1', { findings: [secFinding] }],
+    ['sec', emptyLanes],
+    ['verify 1', { real: true }],
+    ['verify 2', { real: false }],
+    ['fix', 'SHOULD NOT RUN'],
+    ['synthesis', 'report text'],
+  ])
+  const res = await runWorkflow({ agent, args: { maxRounds: 3, reviewers: 2 } })
+  assert.ok(!agent.calls.some((l) => l.startsWith('fix')), 'default-threshold dispute must not reach the fixer')
+  assert.equal(res.disputed.length, 1, '1-1 split escalates as disputed by default')
+  assert.equal(res.disputed[0].location, secFinding.location)
+  assert.match(res.verdict, /DISPUTED/, 'verdict should flag the default-threshold dispute')
+})
+
 // CORR-C0R1-001: a null scope agent result must ABORT gracefully, not throw.
 test('CORR-C0R1-001: null scope result returns ABORTED instead of throwing', async () => {
   const agent = makeAgent([
@@ -316,6 +343,79 @@ test('SEC-CHUNK-002: critic lanes use criticBig', async () => {
   await runWorkflow({ agent, args: { maxRounds: 2 } })
   assert.ok(tiers.length > 0, 'critic lanes ran')
   for (const lane of tiers) assert.equal(lane.tier, 'criticBig', lane.label + ' must use criticBig')
+})
+
+
+// SEC-CHUNK-004: exact model overrides outrank the dedicated tiers and are reported.
+test('SEC-CHUNK-004: critic and fixer model overrides are explicit and observable', async () => {
+  const agent = makeAgent([
+    ['scope + sizes', scanResp],
+    ['maint', emptyLanes],
+    ['sec', emptyLanes],
+    ['correct c0 r1', { findings: [highFinding] }],
+    ['correct', emptyLanes],
+    ['verify', { real: true }],
+    ['fix', fixReport],
+    ['validate focused', focusedPass],
+    ['synthesis', 'report text'],
+  ])
+  await runWorkflow({ agent, args: {
+    maxRounds: 1, reviewers: 2, threshold: 1,
+    criticModel: 'critic/provider-model', fixerModel: 'fixer/provider-model',
+  } })
+  const critics = agent.options.filter((entry) => /^(maint|correct|sec)/.test(entry.label))
+  assert.ok(critics.length > 0, 'critic lanes ran')
+  for (const critic of critics) {
+    assert.equal(critic.opts.model, 'critic/provider-model', critic.label + ' receives the exact critic model')
+    assert.equal(critic.opts.tier, 'criticBig', critic.label + ' retains criticBig as its fallback route')
+  }
+  const fixer = agent.options.find((entry) => entry.label.startsWith('fix'))
+  assert.equal(fixer.opts.model, 'fixer/provider-model', 'fixer receives the exact fixer model')
+  assert.equal(fixer.opts.tier, 'fixerBig', 'fixer retains fixerBig as its fallback route')
+  const synthesis = agent.prompts.find((entry) => entry.label === 'synthesis').prompt
+  assert.match(synthesis, /model:critic\/provider-model/, 'report input surfaces effective critic routing')
+  assert.match(synthesis, /model:fixer\/provider-model/, 'report input surfaces effective fixer routing')
+  assert.match(synthesis, /collapsing actor\/critic independence/, 'report input exposes the unconfigured-tier risk')
+  assert.equal(wf.parameters.criticModel.default, '')
+  assert.equal(wf.parameters.fixerModel.default, '')
+})
+
+
+// SEC-CHUNK-005: critic file permutations are stable across reruns, complete, and
+// varied across lanes/rounds to reduce hypothesis-ordering bias.
+test('SEC-CHUNK-005: critic file order is deterministic, complete, and diverse', async () => {
+  const files = Array.from({ length: 6 }, (_v, i) => ({ path: 'src/file-' + i + '.ts', lineCount: 1 }))
+  const scan = { diffCmd: 'git diff', files, totalLines: files.length }
+  const run = async () => {
+    const agent = makeAgent([
+      ['scope + sizes', scan],
+      ['maint', emptyLanes],
+      ['correct', emptyLanes],
+      ['sec', emptyLanes],
+      ['final validation', finalPass],
+      ['synthesis', 'report text'],
+    ])
+    await runWorkflow({ agent, args: { maxRounds: 2 } })
+    return Object.fromEntries(agent.prompts
+      .filter((entry) => /^(maint|correct|sec)/.test(entry.label))
+      .map((entry) => {
+        const command = entry.prompt.split('running: ')[1].split('\n')[0]
+        const order = Array.from(command.split(' -- ')[1].matchAll(/'([^']+)'/g), (match) => match[1])
+        return [entry.label, order]
+      }))
+  }
+  const first = await run()
+  const second = await run()
+  assert.deepEqual(first, second, 'the same diff reproduces byte-identical lane file orders')
+  assert.equal(Object.keys(first).length, 6, 'three lanes run in each of two rounds')
+  const expected = files.map((file) => file.path).sort()
+  for (const [label, order] of Object.entries(first)) {
+    assert.deepEqual(order.slice().sort(), expected, label + ' preserves the complete file set')
+    assert.equal(new Set(order).size, files.length, label + ' contains no duplicate files')
+  }
+  const roundOneOrders = ['maint c0 r1', 'correct c0 r1', 'sec c0 r1'].map((label) => first[label].join('|'))
+  assert.ok(new Set(roundOneOrders).size > 1, 'round-one lane orders are not all identical')
+  assert.notDeepEqual(first['maint c0 r1'], first['maint c0 r2'], 'the same lane varies order across rounds')
 })
 
 // SEC-CHUNK-003: a finding whose verify() returns null must be escalated (unverified),
@@ -593,6 +693,7 @@ test('CONFIG-BOUND-001: numeric arguments are clamped to documented ranges', asy
   const defaults = await runWorkflow({ agent: cleanAgent(), args: {} })
   assert.equal(defaults.limits.maxRounds, 3)
   assert.equal(defaults.limits.reviewers, 2)
+  assert.equal(defaults.limits.threshold, 0.51)
   assert.equal(defaults.limits.maxChunks, 6)
   assert.equal(defaults.limits.maxFindingsPerLane, 5)
   assert.equal(defaults.limits.maxVerifyClaimsPerRound, 8)
