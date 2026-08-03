@@ -42,6 +42,8 @@ const file = (path, lineCount, overrides = {}) => ({
   role: 'implementation',
   reason: 'Changed hunk',
   selected: true,
+  kind: 'file',
+  resolvedPathContained: true,
   ...overrides,
 })
 const discovery = (files, overrides = {}) => ({
@@ -91,16 +93,16 @@ const focusedPass = {
 const refreshWithTest = {
   actualChangedFiles: ['src/x.ts', 'src/x.test.ts'],
   files: [
-    { path: 'src/x.ts', lineCount: 12, role: 'implementation', reason: 'Verified fix changed the target.', policy: 'allowed' },
-    { path: 'src/x.test.ts', lineCount: 20, role: 'test', reason: 'Regression test added by the fix.', policy: 'allowed' },
+    { path: 'src/x.ts', lineCount: 12, role: 'implementation', reason: 'Verified fix changed the target.', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
+    { path: 'src/x.test.ts', lineCount: 20, role: 'test', reason: 'Regression test added by the fix.', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
   ],
   warnings: [],
 }
 const refreshNoManifestChange = {
   actualChangedFiles: ['src/x.ts', 'src/x.test.ts'],
   files: [
-    { path: 'src/x.ts', lineCount: 10, role: 'implementation', reason: 'Changed hunk', policy: 'allowed' },
-    { path: 'src/x.test.ts', lineCount: 20, role: 'test', reason: 'Regression test added by the fix.', policy: 'allowed' },
+    { path: 'src/x.ts', lineCount: 10, role: 'implementation', reason: 'Changed hunk', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
+    { path: 'src/x.test.ts', lineCount: 20, role: 'test', reason: 'Regression test added by the fix.', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
   ],
   warnings: [],
 }
@@ -456,9 +458,9 @@ test('MANIFEST-002: out-of-policy fixer changes are escalated and block clean', 
   const outOfPolicyRefresh = {
     actualChangedFiles: ['src/x.ts', '../outside.ts'],
     files: [
-      { path: 'src/x.ts', lineCount: 10, role: 'implementation', reason: 'Changed hunk', policy: 'allowed' },
-      { path: 'infra/prod.tf', lineCount: 30, role: 'external', reason: 'Outside selected path policy', policy: 'external' },
-      { path: 'src/x.test.ts', lineCount: 20, role: 'test', reason: 'Regression test', policy: 'allowed' },
+      { path: 'src/x.ts', lineCount: 10, role: 'implementation', reason: 'Changed hunk', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
+      { path: 'infra/prod.tf', lineCount: 30, role: 'external', reason: 'Outside selected path policy', kind: 'file', resolvedPathContained: true, policy: 'external' },
+      { path: 'src/x.test.ts', lineCount: 20, role: 'test', reason: 'Regression test', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
     ],
     warnings: [],
   }
@@ -492,6 +494,32 @@ test('MANIFEST-004: refresh coverage gaps block clean certification', async () =
   const res = await runWorkflow({ agent })
   assert.match(res.verdict, /manifest refresh is incomplete/)
   assert.ok(!agent.calls.includes('final validation'))
+})
+
+test('SEC-AUTH-001: supporting-scope findings outside the repository are external, never fixed', async () => {
+  const feature = discovery([file('src/x.ts', 10)])
+  const externalFinding = {
+    ...highFinding,
+    id: 'EXT1',
+    category: 'security',
+    path: '../../.ssh/config',
+    location: '../../.ssh/config:1',
+    fix_scope: 'supporting',
+  }
+  const agent = makeAgent([
+    ['feature discover structure', feature], ['feature discover behavior', feature], ['feature reconcile', feature],
+    ['sec c0 r1', { findings: [externalFinding] }],
+    ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes],
+    ['verify', { real: true }], ['fix', fixReport],
+    ['final validation', finalPass], ['synthesis', 'report'],
+  ])
+  const res = await runWorkflow({ agent, args: { target: 'feature ssh config' } })
+  assert.ok(!agent.calls.some((label) => label.startsWith('fix')))
+  assert.ok(agent.calls.some((label) => label.startsWith('verify')))
+  assert.ok(res.escalated.some((finding) => finding.location === '../../.ssh/config:1'))
+  assert.ok(!res.tracked.some((finding) => finding.location === '../../.ssh/config:1'))
+  assert.ok(!res.fixLog.some((entry) => JSON.stringify(entry).includes('.ssh/config')))
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
 })
 
 // Routing, bounds, verification, convergence, and validation regressions.
@@ -611,6 +639,9 @@ test('VERIFY-005: verifier overflow is preserved and blocks final validation', a
   assert.equal(agent.calls.filter((label) => label.startsWith('verify r1')).length, 16)
   assert.equal(res.verificationOverflow.length, 2)
   assert.equal(res.unresolvedVerificationOverflow.length, 2)
+  assert.equal(res.seriousLedger.length, findings.length)
+  assert.equal(new Set(res.seriousLedger.map((entry) => entry.claimId)).size, findings.length)
+  assert.ok(res.seriousLedger.every((entry) => ['refuted', 'fixed-and-validated', 'disputed', 'unverified', 'escalated'].includes(entry.status)))
   assert.match(res.verdict, /verification overflow/)
   assert.ok(!agent.calls.includes('final validation'))
 })
@@ -708,6 +739,457 @@ test('REPORT-001: report data is target-aware and retains round evidence', async
   assert.match(synthesis, /chunkCoverage/)
   assert.match(synthesis, /tier:criticBig/)
   assert.equal(res.fixLog[0].fixer.fixes[0].change, 'Reject invalid input.')
+})
+
+// Hardening invariants characterized from the self-review control-plane failures.
+const emptyRefresh = { actualChangedFiles: [], files: [], warnings: [] }
+const makeFix = (findings) => ({
+  summary: 'Applied the specifically bound fixes.',
+  fixes: findings.map((finding) => ({
+    findingId: finding.id,
+    location: finding.location,
+    change: 'Fix ' + finding.id,
+    files: ['src/x.ts'],
+    tests: ['src/x.test.ts'],
+  })),
+  focusedTestCommands: ['node --test src/x.test.ts'],
+})
+const makeFocused = (findingIds, overrides = {}) => ({
+  applied: true,
+  focusedTestsStatus: 'passed',
+  commands: [{ command: 'node --test src/x.test.ts', status: 'passed', purpose: 'focused regression' }],
+  checkedFindingIds: findingIds,
+  changedFiles: ['src/x.ts', 'src/x.test.ts'],
+  notes: 'Confirmed only the listed findings.',
+  ...overrides,
+})
+
+// Adjudication is independent from mutation eligibility.
+test('ADJUDICATE-001: malformed serious locations are unresolved and never dry', async () => {
+  const malformed = { ...highFinding, id: 'MALFORMED', location: 'not a repository location (embedded line 7)' }
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [malformed] }], ['verify', { real: true }],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.ok(agent.calls.some((label) => label.startsWith('verify')))
+  assert.ok(res.escalated.some((finding) => finding.id === 'MALFORMED'))
+  assert.ok(res.trajectory.every((entry) => entry.genuinelyDry === false))
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+test('ADJUDICATE-002: serious findings outside mutation scope never reach the fixer', async () => {
+  const outsideScope = { ...highFinding, id: 'OUTSIDE', path: 'src/unrelated.ts', location: 'src/unrelated.ts:4' }
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [outsideScope] }], ['verify', { real: true }], ['fix', makeFix([outsideScope])],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.ok(agent.calls.some((label) => label.startsWith('verify')))
+  assert.ok(!agent.calls.some((label) => label.startsWith('fix')))
+  assert.ok(res.escalated.some((finding) => finding.id === 'OUTSIDE'))
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+test('ADJUDICATE-003: lower-severity findings remain informational only', async () => {
+  const informational = { ...highFinding, id: 'INFO', severity: 'medium', path: 'src/x.ts', repro_test: undefined }
+  const agent = makeAgent(baseHandlers([['maint c0 r1', { findings: [informational] }]]))
+  const res = await runWorkflow({ agent })
+  assert.ok(!agent.calls.some((label) => label.startsWith('verify')))
+  assert.ok(res.tracked.some((finding) => finding.id === 'INFO' && finding.adjudication === 'informational'))
+  assert.ok(!res.verified.some((finding) => finding.id === 'INFO'))
+})
+
+// Structured paths and repository-relative authorization.
+test('PATH-001: decorated display locations authorize only through canonical path', async () => {
+  const decorated = {
+    ...highFinding,
+    id: 'DECORATED',
+    path: 'src/x.ts',
+    location: 'src/x.ts:10 (embedded script line 737)',
+  }
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [decorated] }], ['verify', { real: false }],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(agent.calls.filter((label) => label.startsWith('verify r1')).length, 2)
+  assert.ok(res.refuted.some((finding) => finding.canonicalPath === 'src/x.ts'))
+})
+
+test('PATH-002: unsafe path forms are rejected before discovery', async () => {
+  const unsafe = [
+    '../../outside',
+    '..\\outside',
+    'C:\\Users\\victim\\.ssh\\config',
+    'C:relative\\path',
+    '\\\\server\\share\\file',
+    '/absolute/path',
+    'src//empty.ts',
+    'src/./dot.ts',
+    'src/\0bad.ts',
+  ]
+  for (const path of unsafe) {
+    const agent = makeAgent([])
+    const res = await runWorkflow({ agent, args: { target: 'paths ' + path } })
+    assert.match(res.verdict, /^ABORTED/, path)
+    assert.equal(agent.calls.length, 0, path)
+  }
+  const valid = discovery([file('src/normal.ts', 4)], { requestedCoverage: [{ request: 'src/normal.ts', matchedFiles: 1 }] })
+  const validAgent = makeAgent([
+    ['discover paths', valid], ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes],
+    ['final validation', finalPass], ['synthesis', 'report'],
+  ])
+  const validResult = await runWorkflow({ agent: validAgent, args: { target: 'paths src/normal.ts' } })
+  assert.equal(validResult.targetManifest.files[0].path, 'src/normal.ts')
+})
+
+test('PATH-003: external symlink targets are never mutation-authorized', async () => {
+  const symlinkDiscovery = discovery([file('src/x.ts', 10, { kind: 'symlink', resolvedPathContained: false })])
+  const finding = { ...highFinding, path: 'src/x.ts' }
+  const agent = makeAgent([
+    ['discover diff', symlinkDiscovery], ['correct c0 r1', { findings: [finding] }],
+    ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes],
+    ['verify', { real: true }], ['fix', fixReport], ['synthesis', 'report'],
+  ])
+  const res = await runWorkflow({ agent })
+  assert.ok(!agent.calls.some((label) => label.startsWith('fix')))
+  assert.ok(res.escalated.some((entry) => entry.id === 'F1'))
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+test('PATH-004: discovery and findings expose dedicated path and file-kind contracts', async () => {
+  const agent = makeAgent(baseHandlers())
+  await runWorkflow({ agent })
+  const discover = agent.options.find((entry) => entry.label === 'discover diff')
+  const critic = agent.options.find((entry) => entry.label.startsWith('correct'))
+  const fileContract = discover.opts.schema.properties.files.items
+  assert.ok(fileContract.required.includes('kind'))
+  assert.ok(fileContract.required.includes('resolvedPathContained'))
+  assert.ok(Object.hasOwn(critic.opts.schema.properties.findings.items.properties, 'path'))
+})
+
+// Claim identity is semantic rather than a coarse category/location key.
+test('IDENTITY-001: distinct co-located defects receive distinct verifier panels', async () => {
+  const first = { ...highFinding, id: 'COLOCATED-A', path: 'src/x.ts', description: 'authorization bypass', repro_test: 'unauthorized user succeeds' }
+  const second = { ...highFinding, id: 'COLOCATED-B', path: 'src/x.ts', description: 'unsafe command execution', repro_test: 'crafted script executes' }
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [first, second] }], ['verify', { real: false }],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(agent.calls.filter((label) => label.startsWith('verify r1')).length, 4)
+  assert.equal(res.refuted.filter((finding) => finding.canonicalPath === 'src/x.ts').length, 2)
+})
+
+test('IDENTITY-002: a new co-located claim cannot resolve prior overflow', async () => {
+  const initial = Array.from({ length: 9 }, (_unused, index) => makeFinding('OVERFLOW-' + index, {
+    path: 'src/x.ts',
+    location: 'src/x.ts:10',
+    description: 'distinct overflow claim ' + index,
+    repro_test: 'repro ' + index,
+  }))
+  const later = { ...initial[8], id: 'LATER', description: 'different later claim', repro_test: 'different later repro' }
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: initial.slice(0, 5) }],
+    ['sec c0 r1', { findings: initial.slice(5) }],
+    ['correct c0 r2', { findings: [later] }],
+    ['verify', { real: false }],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(res.unresolvedVerificationOverflow.length, 1)
+  assert.match(res.unresolvedVerificationOverflow[0].finding.description, /^distinct overflow claim /)
+  assert.notEqual(res.unresolvedVerificationOverflow[0].finding.description, later.description)
+})
+
+test('IDENTITY-003: addressed totals count distinct claims at one location', async () => {
+  const first = { ...highFinding, id: 'COUNT-A', path: 'src/x.ts', description: 'first defect', repro_test: 'first repro' }
+  const second = { ...highFinding, id: 'COUNT-B', path: 'src/x.ts', description: 'second defect', repro_test: 'second repro' }
+  const fix = makeFix([first, second])
+  const validation = makeFocused(['COUNT-A', 'COUNT-B'])
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [first, second] }], ['verify', { real: true }],
+    ['fix', fix], ['validate focused', validation], ['refresh manifest', refreshWithTest],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(res.totalAddressed, 2)
+  assert.equal(res.totalResolved, 2)
+})
+
+// Fixes and focused validation resolve only explicitly bound claims.
+test('FOCUSED-001: an empty fixer response resolves no findings', async () => {
+  const emptyFix = { summary: 'No fixes', fixes: [], focusedTestCommands: [] }
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [highFinding] }], ['verify', { real: true }], ['fix', emptyFix],
+    ['validate focused', focusedPass], ['refresh manifest', emptyRefresh],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(res.totalResolved, 0)
+  assert.ok(res.escalated.some((finding) => finding.id === 'F1'))
+})
+
+test('FOCUSED-002: omitted fixer survivors remain unresolved', async () => {
+  const second = makeFinding('F2', { path: 'src/x.ts', location: 'src/x.ts:20' })
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [highFinding, second] }], ['verify', { real: true }],
+    ['fix', makeFix([highFinding])], ['validate focused', makeFocused(['F1'])], ['refresh manifest', refreshWithTest],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(res.totalResolved, 1)
+  assert.ok(res.escalated.some((finding) => finding.id === 'F2'))
+})
+
+test('FOCUSED-003: unchecked survivors remain unresolved', async () => {
+  const second = makeFinding('F2', { path: 'src/x.ts', location: 'src/x.ts:20' })
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [highFinding, second] }], ['verify', { real: true }],
+    ['fix', makeFix([highFinding, second])], ['validate focused', makeFocused(['F1'])], ['refresh manifest', refreshWithTest],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(res.totalResolved, 1)
+  assert.ok(res.escalated.some((finding) => finding.id === 'F2'))
+})
+
+test('FOCUSED-004: passed focused validation requires executed passing commands', async () => {
+  const invalidLedgers = [
+    makeFocused(['F1'], { commands: [] }),
+    makeFocused(['F1'], { commands: [{ command: 'node --test', status: 'failed', purpose: 'focused' }] }),
+    makeFocused(['F1'], { commands: [{ command: 'node --test', status: 'not_run', purpose: 'focused' }] }),
+  ]
+  for (const validation of invalidLedgers) {
+    const agent = makeAgent(baseHandlers([
+      ['correct c0 r1', { findings: [highFinding] }], ['verify', { real: true }], ['fix', fixReport],
+      ['validate focused', validation], ['refresh manifest', refreshWithTest],
+    ]))
+    const res = await runWorkflow({ agent })
+    assert.equal(res.totalResolved, 0)
+    assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+  }
+})
+
+test('FOCUSED-005: complete bound fix and evidence resolve the intended claim', async () => {
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [highFinding] }], ['verify', { real: true }], ['fix', fixReport],
+    ['validate focused', focusedPass], ['refresh manifest', refreshWithTest],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(res.totalResolved, 1)
+  assert.ok(res.totalResolved <= new Set(focusedPass.checkedFindingIds).size)
+})
+
+test('FOCUSED-006: changed-file evidence must cover the finding-bound fix', async () => {
+  const incompleteEvidence = makeFocused(['F1'], { changedFiles: ['src/x.ts'] })
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [highFinding] }], ['verify', { real: true }], ['fix', fixReport],
+    ['validate focused', incompleteEvidence], ['refresh manifest', refreshWithTest],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(res.totalResolved, 0)
+  assert.ok(res.escalated.some((finding) => finding.id === 'F1'))
+})
+
+// Final validation status is derived mechanically from its command ledger.
+test('FINAL-001: inconsistent passed ledgers cannot certify clean', async () => {
+  const invalidResults = [
+    { status: 'passed', commands: [], summary: 'empty', failures: [] },
+    { status: 'passed', commands: [{ command: 'npm test', status: 'failed', purpose: 'suite', required: true }], summary: 'contradiction', failures: [] },
+    { status: 'passed', commands: [{ command: 'npm test', status: 'not_run', purpose: 'suite', required: true }], summary: 'not run', failures: [] },
+    { status: 'passed', commands: [{ command: 'npm test', status: 'passed', purpose: 'suite', required: true }], summary: 'contradiction', failures: ['reported failure'] },
+    { status: 'passed', commands: [{ command: 'npm test', status: 'passed', purpose: 'suite', required: false }], summary: 'no canonical command', failures: [] },
+  ]
+  for (const finalResult of invalidResults) {
+    const agent = makeAgent([
+      ['discover diff', diffDiscovery], ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes],
+      ['final validation', finalResult], ['synthesis', 'report'],
+    ])
+    const res = await runWorkflow({ agent })
+    assert.notEqual(res.finalValidation.status, 'passed')
+    assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+  }
+})
+
+test('FINAL-002: a canonical all-passing ledger can certify clean', async () => {
+  const agent = makeAgent(baseHandlers())
+  const res = await runWorkflow({ agent })
+  assert.equal(res.finalValidation.status, 'passed')
+  assert.equal(res.verdict, 'CONVERGED CLEAN')
+})
+
+// Feature reconciliation and empty discovery are fail-closed.
+test('DISCOVERY-001: reconciliation cannot omit a discovered union path', async () => {
+  const structure = discovery([file('src/a.ts', 10)])
+  const behavior = discovery([file('src/b.ts', 20)])
+  const reconciled = discovery([file('src/a.ts', 10)])
+  const agent = makeAgent([
+    ['feature discover structure', structure], ['feature discover behavior', behavior], ['feature reconcile', reconciled],
+    ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes], ['synthesis', 'report'],
+  ])
+  const res = await runWorkflow({ agent, args: { target: 'feature union coverage' } })
+  assert.ok(res.targetManifest.files.some((entry) => entry.path === 'src/b.ts'))
+  assert.equal(res.discovery.complete, false)
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+test('DISCOVERY-002: missing or incomplete feature perspectives stay incomplete', async () => {
+  const complete = discovery([file('src/a.ts', 10)])
+  const incomplete = discovery([file('src/a.ts', 10)], { coverage: { complete: false, warnings: ['incomplete'] } })
+  for (const handlers of [
+    [['feature discover structure', complete], ['feature discover behavior', null], ['feature reconcile', complete]],
+    [['feature discover structure', complete], ['feature discover behavior', incomplete], ['feature reconcile', complete]],
+  ]) {
+    const agent = makeAgent([...handlers, ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes], ['synthesis', 'report']])
+    const res = await runWorkflow({ agent, args: { target: 'feature incomplete' } })
+    assert.equal(res.discovery.complete, false)
+    assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+  }
+})
+
+test('DISCOVERY-003: conflicting source metadata creates a material disagreement', async () => {
+  const structure = discovery([file('src/a.ts', 10, { role: 'entry-point' })])
+  const behavior = discovery([file('src/a.ts', 99, { role: 'implementation' })])
+  const reconciled = discovery([file('src/a.ts', 10, { role: 'entry-point' })])
+  const agent = makeAgent([
+    ['feature discover structure', structure], ['feature discover behavior', behavior], ['feature reconcile', reconciled],
+    ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes], ['synthesis', 'report'],
+  ])
+  const res = await runWorkflow({ agent, args: { target: 'feature metadata conflict' } })
+  assert.equal(res.discovery.complete, false)
+  assert.ok(res.discovery.disagreements.some((entry) => /src\/a\.ts/.test(String(entry))))
+})
+
+test('DISCOVERY-004: only complete empty diffs are no-changes', async () => {
+  const completeAgent = makeAgent([['discover diff', discovery([])]])
+  assert.equal((await runWorkflow({ agent: completeAgent })).verdict, 'NO CHANGES TO REVIEW')
+
+  const incompleteAgent = makeAgent([['discover diff', discovery([], { coverage: { complete: false, warnings: ['Git data unavailable'] } })]])
+  const incomplete = await runWorkflow({ agent: incompleteAgent })
+  assert.notEqual(incomplete.verdict, 'NO CHANGES TO REVIEW')
+  assert.equal(incomplete.discovery.complete, false)
+
+  const failedPr = await runWorkflow({ agent: makeAgent([['discover pr', null]]), args: { target: 'pr 42' } })
+  assert.match(failedPr.verdict, /^ABORTED/)
+  assert.equal(failedPr.discovery.complete, false)
+})
+
+// Manifest refresh reports observations but cannot grant mutation authority.
+test('MUTATION-001: refresh cannot add an unreported extra file', async () => {
+  const extraRefresh = {
+    actualChangedFiles: ['src/x.ts', 'src/x.test.ts'],
+    files: [...refreshWithTest.files, { path: 'infra/prod.tf', lineCount: 20, role: 'supporting', reason: 'extra', kind: 'file', resolvedPathContained: true, policy: 'allowed' }],
+    warnings: [],
+  }
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [highFinding] }], ['verify', { real: true }], ['fix', fixReport],
+    ['validate focused', focusedPass], ['refresh manifest', extraRefresh],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.ok(res.outOfPolicyChanges.some((entry) => entry.path === 'infra/prod.tf'))
+  assert.ok(!res.targetManifest.files.some((entry) => entry.path === 'infra/prod.tf'))
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+test('MUTATION-002: fixer reports cannot authorize unrelated new support files', async () => {
+  const unsafeFix = {
+    summary: 'Touched infrastructure',
+    fixes: [{ findingId: 'F1', location: highFinding.location, change: 'unrelated', files: ['src/x.ts', 'infra/prod.tf'], tests: [] }],
+    focusedTestCommands: ['node --test src/x.test.ts'],
+  }
+  const refresh = {
+    actualChangedFiles: ['src/x.ts', 'infra/prod.tf'],
+    files: [
+      { path: 'src/x.ts', lineCount: 10, role: 'implementation', reason: 'target', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
+      { path: 'infra/prod.tf', lineCount: 20, role: 'supporting', reason: 'fixer requested it', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
+    ],
+    warnings: [],
+  }
+  const validation = makeFocused(['F1'], { changedFiles: ['src/x.ts', 'infra/prod.tf'] })
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [highFinding] }], ['verify', { real: true }], ['fix', unsafeFix],
+    ['validate focused', validation], ['refresh manifest', refresh],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.ok(res.outOfPolicyChanges.some((entry) => entry.path === 'infra/prod.tf'))
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+test('MUTATION-003: target files and explicitly associated regression tests are authorized', async () => {
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [highFinding] }], ['verify', { real: true }], ['fix', fixReport],
+    ['validate focused', focusedPass], ['refresh manifest', refreshWithTest],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.equal(res.outOfPolicyChanges.length, 0)
+  assert.ok(res.targetManifest.files.some((entry) => entry.path === 'src/x.ts'))
+  assert.ok(res.targetManifest.files.some((entry) => entry.path === 'src/x.test.ts'))
+  const refreshContract = agent.options.find((entry) => entry.label.startsWith('refresh manifest')).opts.schema.properties.files.items
+  assert.ok(refreshContract.required.includes('kind'))
+  assert.ok(refreshContract.required.includes('resolvedPathContained'))
+})
+
+// Command execution trust must not be inferred from prompt wording.
+test('TRUST-001: untrusted pull-request validation is unavailable without enforceable isolation', async () => {
+  const agent = makeAgent([
+    ['discover pr', diffDiscovery], ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes],
+    ['final validation', finalPass], ['synthesis', 'report'],
+  ])
+  const res = await runWorkflow({ agent, args: { target: 'pr 42' } })
+  assert.ok(!agent.calls.includes('final validation'))
+  assert.equal(res.commandTrust.executionAllowed, false)
+  assert.equal(res.commandTrust.enforceableIsolation, false)
+  assert.equal(res.finalValidation.status, 'unavailable')
+  assert.match(res.finalValidation.reason, /untrusted/i)
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+// Redaction occurs before any downstream model boundary or returned artifact.
+test('REDACT-001: sentinel secrets never propagate downstream or into results', async () => {
+  const sentinel = 'SECRET_SENTINEL_DO_NOT_FORWARD_42'
+  const secretFinding = {
+    ...highFinding,
+    path: 'src/x.ts',
+    description: 'credential leak ' + sentinel,
+    evidence: 'token=' + sentinel,
+    repro_test: 'observe ' + sentinel,
+  }
+  const secretFix = { ...fixReport, summary: 'removed ' + sentinel }
+  const secretValidation = { ...focusedPass, notes: 'validated ' + sentinel }
+  const secretRefresh = {
+    ...refreshWithTest,
+    files: refreshWithTest.files.map((entry) => ({ ...entry, reason: entry.reason + ' ' + sentinel })),
+  }
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [secretFinding] }], ['verify', { real: true }], ['fix', secretFix],
+    ['validate focused', secretValidation], ['refresh manifest', secretRefresh],
+    ['synthesis', 'report ' + sentinel],
+  ]))
+  const res = await runWorkflow({ agent })
+  const downstream = agent.prompts.filter((entry) => /^(verify|fix|validate|refresh|final validation|synthesis)/.test(entry.label))
+  assert.ok(downstream.length > 0)
+  for (const entry of downstream) assert.doesNotMatch(entry.prompt, new RegExp(sentinel), entry.label)
+  assert.doesNotMatch(JSON.stringify(res), new RegExp(sentinel))
+})
+
+// Verification scope and critic coverage remain immutable and fail-closed.
+test('VERIFY-SCOPE-001: feature verifiers receive immutable snapshot scope', async () => {
+  const feature = discovery([file('src/x.ts', 10)])
+  const finding = { ...highFinding, path: 'src/x.ts', location: 'src/x.ts:10 (embedded script line 7)' }
+  const agent = makeAgent([
+    ['feature discover structure', feature], ['feature discover behavior', feature], ['feature reconcile', feature],
+    ['correct c0 r1', { findings: [finding] }], ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes],
+    ['verify', { real: false }], ['synthesis', 'report'],
+  ])
+  await runWorkflow({ agent, args: { target: 'feature review loop' } })
+  const verifier = agent.prompts.find((entry) => entry.label.startsWith('verify'))
+  assert.match(verifier.prompt, /\"basis\":\"snapshot\"/)
+  assert.match(verifier.prompt, /do not reinterpret/i)
+  assert.match(verifier.prompt, /\"claimPath\":\"src\/x\.ts\"/)
+})
+
+test('COVERAGE-007: critic timeouts are overridden and missing lanes remain visible', async () => {
+  const agent = makeAgent([
+    ['discover diff', diffDiscovery], ['maint', null], ['correct', emptyLanes], ['sec', emptyLanes], ['synthesis', 'report'],
+  ])
+  const res = await runWorkflow({ agent })
+  const critics = agent.options.filter((entry) => /^(maint|correct|sec)/.test(entry.label))
+  assert.ok(critics.every((entry) => entry.opts.timeoutMs === null))
+  assert.ok(res.missingCriticLanes.some((entry) => entry.lane === 'maintainability'))
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
 })
 
 let failed = 0
