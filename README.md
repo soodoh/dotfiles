@@ -27,6 +27,7 @@ brew install \
   fish \
   fzf \
   git \
+  gnupg \
   golang \
   jq \
   jstkdng/programs/ueberzugpp \
