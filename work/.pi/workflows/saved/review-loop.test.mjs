@@ -1108,6 +1108,31 @@ test('MUTATION-002: fixer reports cannot authorize unrelated new support files',
   assert.notEqual(res.verdict, 'CONVERGED CLEAN')
 })
 
+test('SEC-AUTH-TESTPATH-001: a .test.yml basename is not an authorized regression test', async () => {
+  const unsafeFix = {
+    summary: 'Added CI config disguised as a regression test.',
+    fixes: [{ findingId: 'F1', location: highFinding.location, change: 'guard input', files: ['src/x.ts'], tests: ['.github/workflows/release.test.yml'] }],
+    focusedTestCommands: ['node --test src/x.test.ts'],
+  }
+  const refresh = {
+    actualChangedFiles: ['src/x.ts', '.github/workflows/release.test.yml'],
+    files: [
+      { path: 'src/x.ts', lineCount: 12, role: 'implementation', reason: 'target', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
+      { path: '.github/workflows/release.test.yml', lineCount: 20, role: 'test', reason: 'fixer claimed regression test', kind: 'file', resolvedPathContained: true, policy: 'allowed' },
+    ],
+    warnings: [],
+  }
+  const validation = makeFocused(['F1'], { changedFiles: ['src/x.ts', '.github/workflows/release.test.yml'] })
+  const agent = makeAgent(baseHandlers([
+    ['correct c0 r1', { findings: [highFinding] }], ['verify', { real: true }], ['fix', unsafeFix],
+    ['validate focused', validation], ['refresh manifest', refresh],
+  ]))
+  const res = await runWorkflow({ agent })
+  assert.ok(res.outOfPolicyChanges.some((entry) => entry.path === '.github/workflows/release.test.yml'))
+  assert.ok(!res.targetManifest.files.some((entry) => entry.path === '.github/workflows/release.test.yml'))
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
 test('MUTATION-003: target files and explicitly associated regression tests are authorized', async () => {
   const agent = makeAgent(baseHandlers([
     ['correct c0 r1', { findings: [highFinding] }], ['verify', { real: true }], ['fix', fixReport],
@@ -1189,6 +1214,24 @@ test('COVERAGE-007: critic timeouts are overridden and missing lanes remain visi
   const critics = agent.options.filter((entry) => /^(maint|correct|sec)/.test(entry.label))
   assert.ok(critics.every((entry) => entry.opts.timeoutMs === null))
   assert.ok(res.missingCriticLanes.some((entry) => entry.lane === 'maintainability'))
+  assert.notEqual(res.verdict, 'CONVERGED CLEAN')
+})
+
+test('SEC-PATH-001: a tracked file named __proto__ survives discovery', async () => {
+  const agent = makeAgent([['discover diff', discovery([file('__proto__', 5)])]])
+  const res = await runWorkflow({ agent })
+  assert.notEqual(res.verdict, 'NO CHANGES TO REVIEW')
+  assert.ok(res.targetManifest.files.some((entry) => entry.path === '__proto__'))
+})
+
+test('C0-COVERAGE-PHANTOM: unproven feature paths cannot converge clean', async () => {
+  const manifest = discovery([file('missing/nope.ts', 1)])
+  const agent = makeAgent([
+    ['feature discover structure', manifest], ['feature discover behavior', manifest], ['feature reconcile', manifest],
+    ['maint', emptyLanes], ['correct', emptyLanes], ['sec', emptyLanes],
+    ['final validation', finalPass], ['synthesis', 'report'],
+  ])
+  const res = await runWorkflow({ agent, args: { target: 'feature phantom coverage' } })
   assert.notEqual(res.verdict, 'CONVERGED CLEAN')
 })
 
