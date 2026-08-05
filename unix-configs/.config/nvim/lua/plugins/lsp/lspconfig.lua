@@ -159,7 +159,7 @@ return {
       vim.lsp.config("csharp_ls", get_default_opts())
       vim.lsp.config("docker_language_server", get_default_opts())
       vim.lsp.config("gopls", get_default_opts())
-      vim.lsp.config("lua_ls", get_default_opts())
+      vim.lsp.config("lua_ls", get_default_opts({ format = false }))
       vim.lsp.config(
         "pyright",
         get_default_opts({
