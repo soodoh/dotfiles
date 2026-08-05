@@ -13,6 +13,6 @@ active_paths="$(tmux list-sessions -F '#{session_path}' 2>/dev/null || true)"
 while IFS= read -r project; do
   project="${project%/}"
   if ! grep -Fqx -- "$project" <<<"$active_paths"; then
-    printf '%s\n' "$project"
+    printf '~/%s\n' "${project#"$HOME"/}"
   fi
 done < <(fd --hidden --max-depth 1 --type d . "$projects_root" 2>/dev/null | sed 's:/$::' | sort -f)
