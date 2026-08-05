@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+projects_root="$HOME/Projects"
+
+# Sesh emits tmux sessions in descending session-activity order.
+sesh list --tmux --icons
+
+[[ -d "$projects_root" ]] || exit 0
+
+active_paths="$(tmux list-sessions -F '#{session_path}' 2>/dev/null || true)"
+while IFS= read -r project; do
+  project="${project%/}"
+  if ! grep -Fqx -- "$project" <<<"$active_paths"; then
+    printf '%s\n' "$project"
+  fi
+done < <(fd --hidden --max-depth 1 --type d . "$projects_root" 2>/dev/null | sed 's:/$::' | sort -f)
