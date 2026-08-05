@@ -59,6 +59,7 @@ return {
           "stylua",
         },
         auto_update = true,
+        debounce_hours = 24,
       })
     end,
   },
