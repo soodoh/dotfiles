@@ -21,8 +21,6 @@ Mac:
 brew install \
   atuin \
   borders \
-  cmake \
-  coreutils \
   fd \
   fish \
   fzf \
@@ -30,7 +28,6 @@ brew install \
   gnupg \
   golang \
   jq \
-  jstkdng/programs/ueberzugpp \
   lazygit \
   neovim \
   ripgrep \
@@ -44,12 +41,10 @@ brew install \
   tree-sitter-cli \
   uv \
   wget \
-  zoxide \
-  zsh \
+  zoxide
 && \
 brew tap homebrew/command-not-found && \
 brew install --cask \
-  dotnet-sdk \
   nikitabobko/tap/aerospace \
 && \
 defaults write -g NSWindowShouldDragOnGesture -bool true
@@ -57,16 +52,9 @@ defaults write -g NSWindowShouldDragOnGesture -bool true
 
 Debian/Ubuntu
 
-Add Neovim unstable PPA for latest version:
-```bash
-echo "deb https://ppa.launchpadcontent.net/neovim-ppa/unstable/ubuntu noble main" | sudo tee /etc/apt/sources.list.d/neovim-unstable.list
-curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x9DBB0BE9366964F134855E2255F96FCF8231B6DD" | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/neovim-ppa.gpg
-```
-
 ```bash
 apt update && apt upgrade ;\
 apt install \
-  cmake \
   fd-find \
   fish \
   fzf \
@@ -74,24 +62,19 @@ apt install \
   golang \
   lazygit \
   neovim \
+  python3 \
+  python3-venv \
   ripgrep \
   stow \
   tmux \
   tree-sitter-cli \
   wget \
-  zoxide \
-  zsh
-```
-
-Install sesh with Go:
-```bash
-go install github.com/joshmedeski/sesh/v2@latest
+  zoxide
 ```
 
 Arch
 ```bash
 pacman -Syu \
-  cmake \
   fd \
   fish \
   fzf \
@@ -99,19 +82,18 @@ pacman -Syu \
   golang \
   lazygit \
   neovim \
+  python \
   ripgrep \
   stow \
   tmux \
   tree-sitter-cli \
-  yay \
   wget \
-  zoxide \
-  zsh
+  zoxide
 ```
 
-Install sesh from the AUR:
+(Arch/Debian) Install sesh with Go:
 ```bash
-yay -S sesh-bin
+go install github.com/joshmedeski/sesh/v2@latest
 ```
 
 1. Install `fnm` (instead of `nvm`)
@@ -270,7 +252,7 @@ brew install --cask font-fira-code-nerd-font
 
 Arch:
 ```bash
-yay -S ttf-firacode-nerd
+sudo pacman -S ttf-firacode-nerd
 ```
 
 Ubuntu/Debian:
@@ -279,29 +261,6 @@ mkdir -p ~/.local/share/fonts && \
 wget -P "$HOME/.local/share/fonts" https://github.com/ryanoasis/nerd-fonts/blob/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFontMono-Regular.ttf
 ```
 
-
-## Setup Neovim
-
-1.  Install Neovim dependencies
-
-```bash
-npm i -g neovim
-```
-
-Mac:
-```bash
-pip3 install neovim
-brew install neovim-remote
-```
-
-Ubuntu/Debian:
-```bash
-apt install python3-venv python3-neovim
-pip install neovim-remote
-```
-
 1. Run `nvim` and run `:Lazy`, press `U` to update all packages
 
 1. In nvim, run `:Mason` and update/install all tools
-
-1. (Optional) `:Copilot auth`
