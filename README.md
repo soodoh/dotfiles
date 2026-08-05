@@ -52,6 +52,12 @@ defaults write -g NSWindowShouldDragOnGesture -bool true
 
 Debian/Ubuntu
 
+Add Neovim unstable PPA for latest version:
+```bash
+echo "deb https://ppa.launchpadcontent.net/neovim-ppa/unstable/ubuntu noble main" | sudo tee /etc/apt/sources.list.d/neovim-unstable.list
+curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x9DBB0BE9366964F134855E2255F96FCF8231B6DD" | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/neovim-ppa.gpg
+```
+
 ```bash
 apt update && apt upgrade ;\
 apt install \
@@ -70,6 +76,13 @@ apt install \
   tree-sitter-cli \
   wget \
   zoxide
+```
+
+The live Pi picker requires fzf 0.44.1 or newer (Ubuntu 24.04+ or Debian 13+).
+
+Install sesh with Go:
+```bash
+go install github.com/joshmedeski/sesh/v2@latest
 ```
 
 Arch

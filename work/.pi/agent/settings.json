@@ -23,7 +23,8 @@
         "packages/shared-prompt-history/index.ts",
         "packages/statusline/index.ts",
         "packages/llm-hub/index.ts",
-        "packages/aidev-track/index.ts"
+        "packages/aidev-track/index.ts",
+        "packages/tmux-session-status/index.ts"
       ]
     },
     "npm:pi-vim",
