@@ -9,10 +9,14 @@ sesh list --tmux --icons
 
 [[ -d "$projects_root" ]] || exit 0
 
+shopt -s dotglob nullglob
+projects=("$projects_root"/*)
+((${#projects[@]} > 0)) || exit 0
+
 active_paths="$(tmux list-sessions -F '#{session_path}' 2>/dev/null || true)"
 while IFS= read -r project; do
-  project="${project%/}"
+  [[ -d "$project" ]] || continue
   if ! grep -Fqx -- "$project" <<<"$active_paths"; then
     printf '~/%s\n' "${project#"$HOME"/}"
   fi
-done < <(fd --hidden --max-depth 1 --type d . "$projects_root" 2>/dev/null | sed 's:/$::' | sort -f)
+done < <(printf '%s\n' "${projects[@]}" | LC_ALL=C sort -f)

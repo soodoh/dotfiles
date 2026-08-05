@@ -21,7 +21,6 @@ Mac:
 brew install \
   atuin \
   borders \
-  fd \
   fish \
   fzf \
   git \
@@ -61,7 +60,6 @@ curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x9DBB0BE93669
 ```bash
 apt update && apt upgrade ;\
 apt install \
-  fd-find \
   fish \
   fzf \
   git \
@@ -88,7 +86,6 @@ go install github.com/joshmedeski/sesh/v2@latest
 Arch
 ```bash
 pacman -Syu \
-  fd \
   fish \
   fzf \
   git \
