@@ -165,11 +165,6 @@ brew install azure-cli
 
 1. Setup shell config
 
-Zsh:
-```bash
-echo "source $HOME/.config/zsh/.zshrc" > $HOME/.zshrc
-```
-
 Fish (no sourcing needed — stow symlinks `~/.config/fish/` directly). Install fisher and plugins:
 ```bash
 curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher
@@ -178,11 +173,6 @@ curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fi
 For secrets/API keys, create a file outside stow:
 ```bash
 echo "set -gx OPENAI_API_KEY XXXXX" > $HOME/.config/fish/conf.d/00-secrets.fish
-```
-
-(Optional) Add environment variables for zsh:
-```bash
-echo "export OPENAI_API_KEY=XXXXX" >> $HOME/.zshrc
 ```
 
 1. Symlink dotfiles
@@ -227,26 +217,11 @@ stow -vRt $HOME sway-configs
     git config --global core.excludesfile "$HOME/.config/.gitignore_global"
     ```
 
-1.  Set default shell
+1.  Set default shell to Fish
 
-    Fish:
     ```bash
     command -v fish | sudo tee -a /etc/shells
     chsh -s $(command -v fish)
-    ```
-
-    Zsh:
-    ```bash
-    command -v zsh | sudo tee -a /etc/shells
-    chsh -s $(command -v zsh)
-    ```
-
-    If this fails with "non-standard shell", run this first & try again:
-    ```bash
-    # For fish:
-    sudo sh -c 'echo "$(which fish)" >> /etc/shells'
-    # For zsh:
-    sudo sh -c 'echo "/opt/homebrew/bin/zsh" >> /etc/shells'
     ```
 
 1. Install NERD fonts
