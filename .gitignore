@@ -19,20 +19,11 @@ __pycache__/
 
 # Specific to my dotfiles
 **/nvim/lazy-lock.json
-unix-configs/.config/zsh/plugins.zsh
 unix-configs/.config/tmux/plugins/
 unix-configs/.config/fish/fish_variables*
 unix-configs/.config/fish/completions/
 unix-configs/.config/fish/functions/
 unix-configs/.config/fish/conf.d/
-
-unix-configs/.archon/archon.db*
-unix-configs/.archon/update-check.json
-unix-configs/.archon/workspaces/
-unix-configs/.archon/web-dist/
-
-# Machine-specific Docker Compose overrides
-docker-compose.override.yml
 
 # Local git worktrees
 .worktrees/
