@@ -2,3 +2,14 @@ commit-msg:
   commands:
     commitlint:
       run: bunx commitlint --edit {1}
+
+pre-push:
+  commands:
+    nix-validate:
+      glob:
+        - "flake.nix"
+        - "flake.lock"
+        - "nix/**"
+        - "pi-extensions/**"
+        - "bin/nix-*"
+      run: ./bin/nix-validate

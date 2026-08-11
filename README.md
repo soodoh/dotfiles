@@ -80,11 +80,23 @@ Pi and every configured third-party Pi package are installed from a Nix-built np
 
 ## Validation
 
+Install the tracked Git hooks after cloning or whenever the hook setup changes:
+
+```bash
+bunx lefthook install
+```
+
+Run comprehensive validation explicitly with:
+
 ```bash
 ./bin/nix-validate
 ```
 
-Validation formats/lints Nix, evaluates all hosts, builds Linux Home Manager activations and custom packages, checks immutable Fish/Neovim plugin policy, tests cleanup confirmation, and runs `git diff --check`. GitHub Actions performs Linux and macOS builds.
+General GitHub Actions CI formats and statically analyzes the Nix code, evaluates all four host configurations, and builds only the lightweight Linux policy and script checks. Complete host realization is intentionally omitted from general CI.
+
+`./bin/nix-validate` fully builds every configuration for the current platform: both Darwin configurations on macOS or both Home Manager configurations on Linux. It also builds the custom packages and checks for that platform. Lefthook runs this comprehensive command before pushes containing relevant Nix-managed changes; a validation failure blocks the push unless an emergency push intentionally uses `git push --no-verify`.
+
+Cross-platform realization remains platform-specific: Darwin cannot natively build the Linux configurations, and Linux cannot natively build the Darwin configurations. Cross-platform configurations still receive evaluation-only coverage.
 
 The pinned nixpkgs revision needs two narrow Darwin build workarounds: oxlint's `@napi-rs/cli` process probe is redirected from sandbox-blocked `/bin/ps` to Nix's store-backed `ps`, and only dependency-incompatible Snowflake tests are disabled while the remaining upstream suites run. Revisit both overrides when updating `nixpkgs`.
 

@@ -8,9 +8,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31
@@ -20,35 +25,5 @@ jobs:
       - run: nix run .#statix -- check .
       - run: nix run .#deadnix -- --fail .
       - run: nix flake check --all-systems --no-build
-      - run: git diff --check
-
-  linux:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        host: [personal-arch, personal-debian]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31
-        with:
-          extra_nix_config: experimental-features = nix-command flakes
-      - run: nix build --no-link ".#homeConfigurations.${{ matrix.host }}.activationPackage"
-      - run: nix build --no-link .#packages.x86_64-linux.{pi,readseek,twg,pi-extensions}
       - run: nix build --no-link .#checks.x86_64-linux.{immutable-plugin-policy,dotfile-targets,audit-legacy-discovery,cleanup-confirmation}
-
-  darwin:
-    runs-on: macos-26
-    strategy:
-      fail-fast: false
-      matrix:
-        host: [personal-macos, work-macos]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31
-        with:
-          extra_nix_config: experimental-features = nix-command flakes
-      - run: nix eval ".#darwinConfigurations.${{ matrix.host }}.config.system.build.toplevel.drvPath"
-      - run: nix build --no-link ".#darwinConfigurations.${{ matrix.host }}.system"
-      - run: nix build --no-link .#packages.aarch64-darwin.{pi,readseek,twg,pi-extensions}
-      - run: nix build --no-link .#checks.aarch64-darwin.{immutable-plugin-policy,dotfile-targets,audit-legacy-discovery,cleanup-confirmation}
+      - run: git diff --check
