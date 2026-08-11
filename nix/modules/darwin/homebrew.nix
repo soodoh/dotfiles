@@ -6,6 +6,9 @@
     enableRosetta = true;
     autoMigrate = true;
     mutableTaps = true;
+    enableBashIntegration = false;
+    enableFishIntegration = false;
+    enableZshIntegration = false;
   };
 
   homebrew = {

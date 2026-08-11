@@ -58,7 +58,7 @@ nix run .#home-manager -- switch --flake .#personal-arch
 nix run .#home-manager -- switch --flake .#personal-debian
 ```
 
-Configuration and dotfile changes are store-backed and take effect only after a successful rebuild. Normal switches do not remove unmanaged software.
+Configuration and dotfile changes are store-backed and take effect only after a successful rebuild. On macOS, activation keeps the existing primary user's login shell pointed at the Nix-managed Fish and reloads an active tmux server after Home Manager links the new configuration. Normal switches do not remove unmanaged software.
 
 ## Updates
 

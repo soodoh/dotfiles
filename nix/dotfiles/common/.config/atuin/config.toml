@@ -1,0 +1,8 @@
+# Keep history local unless sync is explicitly enabled after `atuin login`.
+auto_sync = false
+
+# Match the previous Sponge behavior by omitting failed commands.
+store_failed = false
+
+# Keep Atuin's built-in secret redaction enabled.
+secrets_filter = true

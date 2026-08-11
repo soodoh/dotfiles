@@ -241,6 +241,7 @@
           dotfile-targets = pkgs.runCommand "dotfile-targets" { } ''
             test -f ${policySource}/dotfiles/common/.config/nvim/init.lua
             test -f ${policySource}/dotfiles/common/.config/fish/custom/conf.d/abbreviations.fish
+            test -f ${policySource}/dotfiles/common/.config/atuin/config.toml
             test -f ${policySource}/dotfiles/common/.config/tmux/tmux.conf
             test -f ${policySource}/dotfiles/darwin/.config/aerospace/aerospace.toml
             test -f ${policySource}/dotfiles/profiles/personal/.pi/agent/settings.json

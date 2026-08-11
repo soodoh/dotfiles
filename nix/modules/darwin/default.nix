@@ -59,6 +59,20 @@
   environment.shells = [ pkgs.fish ];
   programs.fish.enable = true;
 
+  # users.users describes the existing admin account to Home Manager, but recent
+  # nix-darwin releases intentionally do not manage admin users through
+  # users.knownUsers. Keep only the login-shell property declarative so new
+  # terminals use the Nix-managed Fish and its system environment.
+  system.activationScripts.postActivation.text = ''
+    desired_shell="/run/current-system/sw/bin/fish"
+    current_shell="$(/usr/bin/dscl . -read /Users/${host.username} UserShell 2>/dev/null || true)"
+    current_shell="''${current_shell#UserShell: }"
+    if [ "$current_shell" != "$desired_shell" ]; then
+      echo >&2 "setting ${host.username}'s login shell to $desired_shell..."
+      /usr/bin/dscl . -create /Users/${host.username} UserShell "$desired_shell"
+    fi
+  '';
+
   # No custom sudo PAM rules are required; leave the SIP-managed directory to macOS.
   security.pam.services.sudo_local.enable = false;
 

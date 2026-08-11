@@ -1,4 +1,9 @@
-{ host, lib, ... }:
+{
+  host,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cleanSource = import ../../lib/clean-source.nix { inherit lib; };
   common = cleanSource ../../dotfiles/common/.config;
@@ -46,6 +51,10 @@ in
 
   xdg.configFile = {
     ".gitignore_global".source = "${common}/.gitignore_global";
+    "atuin" = {
+      source = "${common}/atuin";
+      recursive = true;
+    };
     "ghostty" = {
       source = "${common}/ghostty";
       recursive = true;
@@ -78,4 +87,11 @@ in
       recursive = true;
     };
   };
+
+  home.activation.reloadTmuxConfig = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    if ${lib.getExe pkgs.tmux} has-session 2>/dev/null; then
+      verboseEcho "Reloading tmux configuration"
+      run ${lib.getExe pkgs.tmux} source-file "$HOME/.config/tmux/tmux.conf"
+    fi
+  '';
 }

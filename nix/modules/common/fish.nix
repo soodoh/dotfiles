@@ -30,7 +30,7 @@ let
       zoxide init fish | source
     end
     if command -q atuin
-      atuin init fish | source
+      atuin init fish --disable-up-arrow | source
     end
     if command -q fzf
       fzf --fish | source
@@ -53,6 +53,10 @@ let
   '';
 in
 {
+  home.sessionPath = lib.optionals isDarwin [
+    "/etc/profiles/per-user/${host.username}/bin"
+    "/run/current-system/sw/bin"
+  ];
   programs.fish = lib.mkIf isDarwin {
     enable = true;
     generateCompletions = true;
