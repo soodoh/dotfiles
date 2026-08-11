@@ -24,6 +24,7 @@ let
     ".pi/agent/extensions"
     ".pi/agent/pi-extensions"
     ".pi/workflows"
+    ".pi/workflows/saved"
   ]
   ++ lib.optionals (lib.hasSuffix "-darwin" host.system) [
     ".config/aerospace"
@@ -41,7 +42,11 @@ in
     for relative in ${lib.escapeShellArgs managedDirectories}; do
       path="$HOME/$relative"
       if [ -L "$path" ]; then
-        echo >&2 "legacy directory symlink blocks Home Manager activation: $path -> $(readlink "$path")"
+        target="$(readlink "$path")"
+        case "$target" in
+          /nix/store/*) continue ;;
+        esac
+        echo >&2 "legacy directory symlink blocks Home Manager activation: $path -> $target"
         blocked=1
       fi
     done
