@@ -23,7 +23,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - uses: cachix/install-nix-action@b4b293eae0b79aac8a161bb32925a5508c9cca93 # v31
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31
         with:
           github_access_token: ${{ github.token }}
 
