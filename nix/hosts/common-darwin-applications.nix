@@ -7,10 +7,7 @@
 {
   nix = [
     "ghostty-bin"
-    "google-chrome"
     "obsidian"
-    "slack"
-    "zoom-us"
     "aerospace"
     "sketchybar"
     "jankyborders"
@@ -48,16 +45,13 @@
     "app.zen-browser.zen"
     "bobko.aerospace"
     "com.electron.wispr-flow"
-    "com.google.Chrome"
     "com.if.Amphetamine"
     "com.mitchellh.ghostty"
     "fyi.lunar.Lunar"
     "com.nextcloud.desktopclient"
     "com.pilotmoon.scroll-reverser"
-    "com.tinyspeck.slackmacgap"
     "io.tailscale.ipn.macsys"
     "md.obsidian"
-    "us.zoom.xos"
   ]
   ++ extraApprovedBundleIds;
 }

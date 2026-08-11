@@ -14,6 +14,9 @@
       "anki-bin"
       "moonlight-qt"
       "rar"
+      "google-chrome"
+      "slack"
+      "zoom-us"
     ];
     extraHomebrewCasks = [ "prusaslicer" ];
     extraMasApplications = {
@@ -25,6 +28,9 @@
       "com.moonlight-stream.Moonlight"
       "com.prusa3d.slic3r"
       "net.ankiweb.dtop"
+      "com.google.Chrome"
+      "com.tinyspeck.slackmacgap"
+      "us.zoom.xos"
     ];
   };
 }
