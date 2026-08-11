@@ -31,6 +31,7 @@
     ];
     mas = {
       Tailscale = 1475387142;
+      Amphetamine = 937984704;
     };
     masFallbackCasks = {
       Tailscale = "tailscale-app";
@@ -39,6 +40,7 @@
       "app.zen-browser.zen"
       "bobko.aerospace"
       "com.electron.wispr-flow"
+      "com.if.Amphetamine"
       "com.google.Chrome"
       "com.mitchellh.ghostty"
       "com.nextcloud.desktopclient"
