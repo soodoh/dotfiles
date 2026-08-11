@@ -1,0 +1,18 @@
+theme = "TokyoNight"
+font-family = "FiraCode Nerd Font Mono"
+font-size = 20
+background-opacity = 1
+background-blur = 20
+confirm-close-surface = false
+
+keybind = alt+left=unbind
+keybind = alt+right=unbind
+macos-option-as-alt = true
+
+fullscreen = true
+maximize = true
+window-theme = ghostty
+window-decoration = none
+window-padding-balance = true
+window-padding-x = 0
+window-padding-y = 0

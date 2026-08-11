@@ -1,0 +1,432 @@
+---
+supported_profiles:
+  - personal
+  - work
+
+supported_platforms:
+  - macos
+  - arch
+  - debian
+
+shared_tools:
+  - fish
+  - fzf
+  - git
+  - gh
+  - go
+  - jq
+  - lazygit
+  - neovim
+  - ripgrep
+  - stow
+  - tmux
+  - tree_sitter
+  - wget
+  - zoxide
+  - atuin
+  - sesh
+  - starship
+  - rust
+  - bun
+  - corepack
+  - pi
+  - ansible_core
+  - ansible_lint
+
+platform_tools:
+  macos:
+    - borders
+    - gnupg
+    - scroll_reverser
+    - sketchybar
+    - trash
+    - uv
+    - fnm
+    - aerospace
+    - fira_code_nerd_font
+    - mas
+    - ghostty
+    - docker_desktop
+    - rar
+    - obsidian
+    - google_chrome
+    - zen
+    - discord
+    - slack
+    - zoom
+    - tailscale
+    - nextcloud
+    - anki
+    - moonlight
+    - wispr_flow
+  arch:
+    - python
+    - yazi
+    - uv
+    - fnm
+  debian:
+    - python
+    - python_venv
+    - yazi
+    - uv
+    - fnm
+
+personal_tools:
+  - libgit2
+  - readseek
+
+work_tools:
+  - snowflake_cli
+  - azure_cli
+  - twg
+
+homebrew_taps:
+  - felixkratz/formulae
+  - homebrew/command-not-found
+  - nikitabobko/tap
+
+homebrew_trusted_taps:
+  - felixkratz/formulae
+  - nikitabobko/tap
+
+platform_applications:
+  macos:
+    - name: AeroSpace
+      bundle_id: bobko.aerospace
+      source: brew_cask
+      package: aerospace
+    - name: Scroll Reverser
+      bundle_id: com.pilotmoon.scroll-reverser
+      source: brew_cask
+      package: scroll-reverser
+    - name: Ghostty
+      bundle_id: com.mitchellh.ghostty
+      source: brew_cask
+      package: ghostty
+    - name: Docker
+      bundle_id: com.docker.docker
+      source: brew_cask
+      package: docker-desktop
+    - name: Obsidian
+      bundle_id: md.obsidian
+      source: brew_cask
+      package: obsidian
+    - name: Google Chrome
+      bundle_id: com.google.Chrome
+      source: brew_cask
+      package: google-chrome
+    - name: Zen
+      bundle_id: app.zen-browser.zen
+      source: brew_cask
+      package: zen
+    - name: Discord
+      bundle_id: com.hnc.Discord
+      source: brew_cask
+      package: discord
+    - name: Slack
+      bundle_id: com.tinyspeck.slackmacgap
+      source: brew_cask
+      package: slack
+    - name: Zoom
+      bundle_id: us.zoom.xos
+      source: brew_cask
+      package: zoom
+    - name: Tailscale
+      bundle_id: io.tailscale.ipn.macsys
+      source: brew_cask
+      package: tailscale-app
+    - name: Nextcloud
+      bundle_id: com.nextcloud.desktopclient
+      source: brew_cask
+      package: nextcloud
+    - name: Anki
+      bundle_id: net.ankiweb.dtop
+      source: brew_cask
+      package: anki
+    - name: Moonlight
+      bundle_id: com.moonlight-stream.Moonlight
+      source: brew_cask
+      package: moonlight
+    - name: Wispr Flow
+      bundle_id: com.electron.wispr-flow
+      source: brew_cask
+      package: wispr-flow
+    - name: Amphetamine
+      bundle_id: com.if.Amphetamine
+      source: app_store
+      store_id: 937984704
+    - name: HP
+      bundle_id: com.hp.SmartMac
+      source: app_store
+      store_id: 1474276998
+  arch: []
+  debian: []
+
+protected_packages:
+  brew_formula:
+    - ansible
+    - python
+    - python@3.11
+    - python@3.12
+    - python@3.13
+  apt:
+    - apt
+    - base-files
+    - bash
+    - ca-certificates
+    - coreutils
+    - dpkg
+    - init
+    - libc6
+    - linux-image-amd64
+    - login
+    - openssh-client
+    - python3
+    - sudo
+    - systemd
+  pacman:
+    - base
+    - filesystem
+    - glibc
+    - linux
+    - linux-firmware
+    - pacman
+    - python
+    - sudo
+    - systemd
+  bun: []
+  npm:
+    - corepack
+    - npm
+  cargo:
+    - rustup
+  go: []
+  uv: []
+  mas: []
+
+protected_application_bundle_prefixes:
+  - com.apple.
+
+# Each logical tool is declared once and mapped to an install mechanism per OS.
+tool_catalog:
+  fish:
+    platforms:
+      macos: { manager: brew_formula, name: fish }
+      arch: { manager: pacman, name: fish }
+      debian: { manager: apt, name: fish }
+  fzf:
+    platforms:
+      macos: { manager: brew_formula, name: fzf }
+      arch: { manager: pacman, name: fzf }
+      debian: { manager: apt, name: fzf }
+  git:
+    platforms:
+      macos: { manager: brew_formula, name: git }
+      arch: { manager: pacman, name: git }
+      debian: { manager: apt, name: git }
+  go:
+    platforms:
+      macos: { manager: brew_formula, name: go }
+      arch: { manager: pacman, name: go }
+      debian: { manager: apt, name: golang }
+  lazygit:
+    platforms:
+      macos: { manager: brew_formula, name: lazygit }
+      arch: { manager: pacman, name: lazygit }
+      debian: { manager: apt, name: lazygit }
+  neovim:
+    platforms:
+      macos: { manager: brew_formula, name: neovim }
+      arch: { manager: pacman, name: neovim }
+      debian: { manager: apt, name: neovim }
+  ripgrep:
+    platforms:
+      macos: { manager: brew_formula, name: ripgrep }
+      arch: { manager: pacman, name: ripgrep }
+      debian: { manager: apt, name: ripgrep }
+  stow:
+    platforms:
+      macos: { manager: brew_formula, name: stow }
+      arch: { manager: pacman, name: stow }
+      debian: { manager: apt, name: stow }
+  tmux:
+    platforms:
+      macos: { manager: brew_formula, name: tmux }
+      arch: { manager: pacman, name: tmux }
+      debian: { manager: apt, name: tmux }
+  tree_sitter:
+    platforms:
+      macos: { manager: brew_formula, name: tree-sitter-cli }
+      arch: { manager: pacman, name: tree-sitter-cli }
+      debian: { manager: apt, name: tree-sitter-cli }
+  wget:
+    platforms:
+      macos: { manager: brew_formula, name: wget }
+      arch: { manager: pacman, name: wget }
+      debian: { manager: apt, name: wget }
+  zoxide:
+    platforms:
+      macos: { manager: brew_formula, name: zoxide }
+      arch: { manager: pacman, name: zoxide }
+      debian: { manager: apt, name: zoxide }
+  atuin:
+    platforms:
+      macos: { manager: brew_formula, name: atuin }
+      arch: { manager: cargo, name: atuin, audit_names: [atuin] }
+      debian: { manager: cargo, name: atuin, audit_names: [atuin] }
+  sesh:
+    platforms:
+      macos: { manager: brew_formula, name: sesh }
+      arch: { manager: go, name: github.com/joshmedeski/sesh/v2, audit_names: [github.com/joshmedeski/sesh/v2] }
+      debian: { manager: go, name: github.com/joshmedeski/sesh/v2, audit_names: [github.com/joshmedeski/sesh/v2] }
+  starship:
+    platforms:
+      macos: { manager: brew_formula, name: starship }
+      arch: { manager: cargo, name: starship, audit_names: [starship] }
+      debian: { manager: cargo, name: starship, audit_names: [starship] }
+  rust:
+    platforms:
+      macos: { manager: script, name: rustup }
+      arch: { manager: script, name: rustup }
+      debian: { manager: script, name: rustup }
+  bun:
+    platforms:
+      macos: { manager: script, name: bun }
+      arch: { manager: script, name: bun }
+      debian: { manager: script, name: bun }
+  corepack:
+    platforms:
+      macos: { manager: npm, name: corepack }
+      arch: { manager: npm, name: corepack }
+      debian: { manager: npm, name: corepack }
+  pi:
+    platforms:
+      macos: { manager: bun, name: "@earendil-works/pi-coding-agent" }
+      arch: { manager: bun, name: "@earendil-works/pi-coding-agent" }
+      debian: { manager: bun, name: "@earendil-works/pi-coding-agent" }
+  ansible_core:
+    platforms:
+      macos: { manager: uv, name: ansible-core }
+      arch: { manager: uv, name: ansible-core }
+      debian: { manager: uv, name: ansible-core }
+  ansible_lint:
+    platforms:
+      macos: { manager: uv, name: ansible-lint }
+      arch: { manager: uv, name: ansible-lint }
+      debian: { manager: uv, name: ansible-lint }
+  borders:
+    platforms:
+      macos: { manager: brew_formula, name: borders }
+  gnupg:
+    platforms:
+      macos: { manager: brew_formula, name: gnupg }
+  jq:
+    platforms:
+      macos: { manager: brew_formula, name: jq }
+      arch: { manager: pacman, name: jq }
+      debian: { manager: apt, name: jq }
+  gh:
+    platforms:
+      macos: { manager: brew_formula, name: gh }
+      arch: { manager: pacman, name: github-cli }
+      debian: { manager: apt, name: gh }
+  scroll_reverser:
+    platforms:
+      macos: { manager: brew_cask, name: scroll-reverser }
+  sketchybar:
+    platforms:
+      macos: { manager: brew_formula, name: sketchybar }
+  trash:
+    platforms:
+      macos: { manager: brew_formula, name: trash }
+  uv:
+    platforms:
+      macos: { manager: brew_formula, name: uv }
+      arch: { manager: script, name: uv }
+      debian: { manager: script, name: uv }
+  fnm:
+    platforms:
+      macos: { manager: brew_formula, name: fnm }
+      arch: { manager: script, name: fnm }
+      debian: { manager: script, name: fnm }
+  aerospace:
+    platforms:
+      macos: { manager: brew_cask, name: aerospace }
+  fira_code_nerd_font:
+    platforms:
+      macos: { manager: brew_cask, name: font-fira-code-nerd-font }
+  mas:
+    platforms:
+      macos: { manager: brew_formula, name: mas }
+  ghostty:
+    platforms:
+      macos: { manager: brew_cask, name: ghostty }
+  docker_desktop:
+    platforms:
+      macos: { manager: brew_cask, name: docker-desktop }
+  rar:
+    platforms:
+      macos: { manager: brew_cask, name: rar }
+  obsidian:
+    platforms:
+      macos: { manager: brew_cask, name: obsidian }
+  google_chrome:
+    platforms:
+      macos: { manager: brew_cask, name: google-chrome }
+  zen:
+    platforms:
+      macos: { manager: brew_cask, name: zen }
+  discord:
+    platforms:
+      macos: { manager: brew_cask, name: discord }
+  slack:
+    platforms:
+      macos: { manager: brew_cask, name: slack }
+  zoom:
+    platforms:
+      macos: { manager: brew_cask, name: zoom }
+  tailscale:
+    platforms:
+      macos: { manager: brew_cask, name: tailscale-app }
+  nextcloud:
+    platforms:
+      macos: { manager: brew_cask, name: nextcloud }
+  anki:
+    platforms:
+      macos: { manager: brew_cask, name: anki }
+  moonlight:
+    platforms:
+      macos: { manager: brew_cask, name: moonlight }
+  wispr_flow:
+    platforms:
+      macos: { manager: brew_cask, name: wispr-flow }
+  python:
+    platforms:
+      arch: { manager: pacman, name: python }
+      debian: { manager: apt, name: python3 }
+  python_venv:
+    platforms:
+      debian: { manager: apt, name: python3-venv }
+  yazi:
+    platforms:
+      arch: { manager: cargo, name: yazi-build, audit_names: [yazi-build, yazi-cli, yazi-fm] }
+      debian: { manager: cargo, name: yazi-build, audit_names: [yazi-build, yazi-cli, yazi-fm] }
+  libgit2:
+    platforms:
+      macos: { manager: brew_formula, name: libgit2 }
+      arch: { manager: pacman, name: libgit2 }
+      debian: { manager: apt, name: libgit2-dev }
+  readseek:
+    platforms:
+      macos: { manager: bun, name: "@jarkkojs/readseek" }
+      arch: { manager: bun, name: "@jarkkojs/readseek" }
+      debian: { manager: bun, name: "@jarkkojs/readseek" }
+  snowflake_cli:
+    platforms:
+      macos: { manager: brew_formula, name: snowflake-cli }
+  azure_cli:
+    platforms:
+      macos: { manager: brew_formula, name: azure-cli }
+  twg:
+    platforms:
+      macos: { manager: script, name: twg }

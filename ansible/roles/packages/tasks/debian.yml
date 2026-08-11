@@ -1,0 +1,12 @@
+---
+- name: Upgrade managed Debian packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ managed_apt_packages }}"
+    state: "{{ packages_upgrade_state }}"
+    update_cache: true
+    cache_valid_time: 3600
+    fail_on_autoremove: true
+  vars:
+    packages_upgrade_state: latest
+  when: managed_apt_packages | length > 0

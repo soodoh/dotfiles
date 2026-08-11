@@ -1,0 +1,8 @@
+{
+  "name": "nix-readseek-wrapper",
+  "private": true,
+  "version": "0.9.10",
+  "dependencies": {
+    "@jarkkojs/readseek": "0.9.10"
+  }
+}

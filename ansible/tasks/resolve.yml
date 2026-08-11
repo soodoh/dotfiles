@@ -1,0 +1,90 @@
+---
+- name: Detect target platform
+  ansible.builtin.set_fact:
+    detected_platform: >-
+      {{
+        'macos' if ansible_facts.system == 'Darwin'
+        else 'arch' if ansible_facts.distribution == 'Archlinux'
+        else 'debian' if ansible_facts.os_family == 'Debian'
+        else 'unsupported'
+      }}
+
+- name: Resolve requested platform
+  ansible.builtin.set_fact:
+    effective_platform: "{{ target_platform | default(detected_platform) }}"
+
+- name: Validate profile and platform
+  ansible.builtin.assert:
+    that:
+      - profile in supported_profiles
+      - effective_platform in supported_platforms
+      - profile != 'work' or effective_platform == 'macos'
+      - target_platform is not defined or target_platform == detected_platform or (validation_only | default(false) | bool)
+    fail_msg: >-
+      Unsupported or mismatched profile/platform: profile={{ profile }},
+      requested={{ target_platform | default('auto') }}, detected={{ detected_platform }}.
+
+- name: Require Debian 13 or newer
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution_major_version | int >= 13
+    fail_msg: Debian 13 or newer is required.
+  when:
+    - effective_platform == 'debian'
+    - detected_platform == 'debian'
+    - not (validation_only | default(false) | bool)
+
+- name: Select logical tools
+  ansible.builtin.set_fact:
+    selected_tool_ids: >-
+      {{
+        shared_tools
+        + platform_tools[effective_platform]
+        + personal_tools
+        + (work_tools if profile == 'work' else [])
+      }}
+    managed_applications: "{{ platform_applications[effective_platform] }}"
+    managed_brew_formulae: []
+    managed_brew_casks: []
+    managed_apt_packages: []
+    managed_pacman_packages: []
+    managed_bun_packages: []
+    managed_npm_packages: []
+    managed_cargo_packages: []
+    managed_cargo_audit_names: []
+    managed_go_packages: []
+    managed_go_audit_names: []
+    managed_uv_tools: []
+
+- name: Resolve logical tools to package managers
+  ansible.builtin.set_fact:
+    managed_brew_formulae: "{{ managed_brew_formulae + ([tool_spec.name] if tool_spec.manager == 'brew_formula' else []) }}"
+    managed_brew_casks: "{{ managed_brew_casks + ([tool_spec.name] if tool_spec.manager == 'brew_cask' else []) }}"
+    managed_apt_packages: "{{ managed_apt_packages + ([tool_spec.name] if tool_spec.manager == 'apt' else []) }}"
+    managed_pacman_packages: "{{ managed_pacman_packages + ([tool_spec.name] if tool_spec.manager == 'pacman' else []) }}"
+    managed_bun_packages: "{{ managed_bun_packages + ([tool_spec.name] if tool_spec.manager == 'bun' else []) }}"
+    managed_npm_packages: "{{ managed_npm_packages + ([tool_spec.name] if tool_spec.manager == 'npm' else []) }}"
+    managed_cargo_packages: "{{ managed_cargo_packages + ([tool_spec.name] if tool_spec.manager == 'cargo' else []) }}"
+    managed_cargo_audit_names: "{{ managed_cargo_audit_names + (tool_spec.audit_names | default([tool_spec.name]) if tool_spec.manager == 'cargo' else []) }}"
+    managed_go_packages: "{{ managed_go_packages + ([tool_spec.name] if tool_spec.manager == 'go' else []) }}"
+    managed_go_audit_names: "{{ managed_go_audit_names + (tool_spec.audit_names | default([tool_spec.name]) if tool_spec.manager == 'go' else []) }}"
+    managed_uv_tools: "{{ managed_uv_tools + ([tool_spec.name] if tool_spec.manager == 'uv' else []) }}"
+  vars:
+    tool_spec: "{{ tool_catalog[item].platforms[effective_platform] }}"
+  loop: "{{ selected_tool_ids }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Normalize resolved package lists
+  ansible.builtin.set_fact:
+    managed_brew_formulae: "{{ managed_brew_formulae | unique | sort }}"
+    managed_brew_casks: "{{ managed_brew_casks | unique | sort }}"
+    managed_apt_packages: "{{ managed_apt_packages | unique | sort }}"
+    managed_pacman_packages: "{{ managed_pacman_packages | unique | sort }}"
+    managed_bun_packages: "{{ managed_bun_packages | unique | sort }}"
+    managed_npm_packages: "{{ managed_npm_packages | unique | sort }}"
+    managed_cargo_packages: "{{ managed_cargo_packages | unique | sort }}"
+    managed_cargo_audit_names: "{{ managed_cargo_audit_names | unique | sort }}"
+    managed_go_packages: "{{ managed_go_packages | unique | sort }}"
+    managed_go_audit_names: "{{ managed_go_audit_names | unique | sort }}"
+    managed_uv_tools: "{{ managed_uv_tools | unique | sort }}"

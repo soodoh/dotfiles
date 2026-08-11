@@ -1,0 +1,301 @@
+{
+  description = "Pinned cross-platform development environments without NixOS";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
+    nix-darwin = {
+      url = "github:nix-darwin/nix-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs =
+    inputs@{
+      nixpkgs,
+      nix-darwin,
+      home-manager,
+      nix-homebrew,
+      fenix,
+      ...
+    }:
+    let
+      inherit (nixpkgs) lib;
+      supportedSystems = [
+        "aarch64-darwin"
+        "aarch64-linux"
+        "x86_64-linux"
+      ];
+      forAllSystems = lib.genAttrs supportedSystems;
+
+      hosts = {
+        personal-macos = import ./nix/hosts/personal-macos;
+        work-macos = import ./nix/hosts/work-macos;
+        personal-arch = import ./nix/hosts/personal-arch;
+        personal-debian = import ./nix/hosts/personal-debian;
+      };
+
+      allowedUnfreePackages = [
+        "discord"
+        "google-chrome"
+        "git-conflict.nvim"
+        "obsidian"
+        "rar"
+        "slack"
+        "snowflake-cli"
+        "twg"
+        "zoom"
+      ];
+      allowUnfreePredicate = package: lib.elem (lib.getName package) allowedUnfreePackages;
+
+      dotfilesOverlay = final: previous: {
+        dotfilesPackages = import ./nix/packages { pkgs = final; };
+
+        # @napi-rs/cli hardcodes /bin/ps while assembling oxlint's native
+        # module. Darwin's Nix sandbox blocks that host path, so point the probe
+        # at the reproducible store-backed implementation instead.
+        oxlint = previous.oxlint.overrideAttrs (oldAttrs: {
+          preBuild =
+            (oldAttrs.preBuild or "")
+            + lib.optionalString final.stdenv.hostPlatform.isDarwin ''
+              substituteInPlace node_modules/.pnpm/@napi-rs+cli@*/node_modules/@napi-rs/cli/dist/cli.js \
+                --replace-fail 'executeProcessIncarnationCommand("/bin/ps",' \
+                'executeProcessIncarnationCommand("${final.unixtools.ps}/bin/ps",'
+            '';
+        });
+
+        # The pinned pydantic and typer releases have known incompatibilities
+        # with these upstream tests. Keep the rest of snowflake-cli's suite on.
+        snowflake-cli = previous.snowflake-cli.overridePythonAttrs (oldAttrs: {
+          disabledTestPaths = (oldAttrs.disabledTestPaths or [ ]) ++ [
+            "tests/api/project/schemas/test_updatable_model.py"
+            "tests/test_docs_generation_output.py"
+          ];
+          disabledTests = (oldAttrs.disabledTests or [ ]) ++ [
+            "test_docs_callback"
+          ];
+        });
+
+        # These upstream tests rely on Darwin behaviors unavailable in the Nix
+        # sandbox (stable ephemeral ports, permission failures as the builder,
+        # and an implicit asyncio event loop). Keep the remaining suite enabled.
+        pythonPackagesExtensions =
+          previous.pythonPackagesExtensions
+          ++ lib.optionals final.stdenv.hostPlatform.isDarwin [
+            (_pythonFinal: pythonPrevious: {
+              snowflake-connector-python =
+                pythonPrevious.snowflake-connector-python.overridePythonAttrs
+                  (oldAttrs: {
+                    disabledTestPaths = (oldAttrs.disabledTestPaths or [ ]) ++ [
+                      "test/unit/aio/test_connection_async_unit.py"
+                    ];
+                    disabledTests = (oldAttrs.disabledTests or [ ]) ++ [
+                      "test_log_debug_config_file_parent_dir_permissions"
+                      "test_auth_oauth_auth_code_single_use_refresh_tokens"
+                    ];
+                  });
+            })
+          ];
+      };
+
+      mkPkgs =
+        system:
+        import nixpkgs {
+          inherit system;
+          overlays = [
+            fenix.overlays.default
+            dotfilesOverlay
+          ];
+          config = { inherit allowUnfreePredicate; };
+        };
+
+      mkDarwin =
+        host:
+        nix-darwin.lib.darwinSystem {
+          specialArgs = {
+            inherit
+              allowUnfreePredicate
+              host
+              inputs
+              ;
+          };
+          modules = [
+            nix-homebrew.darwinModules.nix-homebrew
+            home-manager.darwinModules.home-manager
+            ./nix/modules/darwin
+          ];
+        };
+
+      mkHome =
+        host:
+        home-manager.lib.homeManagerConfiguration {
+          pkgs = mkPkgs host.system;
+          extraSpecialArgs = { inherit host inputs; };
+          modules = [
+            ./nix/modules/common
+            ./nix/modules/linux
+            ./nix/modules/profiles/${host.profile}.nix
+          ];
+        };
+
+      darwinConfigurations = {
+        personal-macos = mkDarwin hosts.personal-macos;
+        work-macos = mkDarwin hosts.work-macos;
+      };
+
+      homeConfigurations = {
+        personal-arch = mkHome hosts.personal-arch;
+        personal-debian = mkHome hosts.personal-debian;
+      };
+    in
+    {
+      inherit darwinConfigurations homeConfigurations;
+
+      overlays.default = dotfilesOverlay;
+
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = mkPkgs system;
+          custom = pkgs.dotfilesPackages;
+          scripts = import ./nix/scripts { inherit pkgs; };
+        in
+        custom
+        // {
+          nix-audit = scripts.audit;
+          nix-cleanup = scripts.cleanup;
+          inherit (pkgs) prefetch-npm-deps deadnix statix;
+          default = custom.pi;
+        }
+      );
+
+      apps = forAllSystems (
+        system:
+        let
+          pkgs = mkPkgs system;
+          scripts = import ./nix/scripts { inherit pkgs; };
+        in
+        {
+          audit = {
+            type = "app";
+            program = "${scripts.audit}/bin/nix-audit";
+          };
+          cleanup = {
+            type = "app";
+            program = "${scripts.cleanup}/bin/nix-cleanup";
+          };
+          home-manager = {
+            type = "app";
+            program = "${home-manager.packages.${system}.default}/bin/home-manager";
+          };
+        }
+        // lib.optionalAttrs (lib.hasSuffix "-darwin" system) {
+          darwin-rebuild = {
+            type = "app";
+            program = "${nix-darwin.packages.${system}.default}/bin/darwin-rebuild";
+          };
+        }
+      );
+
+      checks = forAllSystems (
+        system:
+        let
+          pkgs = mkPkgs system;
+          custom = pkgs.dotfilesPackages;
+          scripts = import ./nix/scripts { inherit pkgs; };
+          cleanSource = import ./nix/lib/clean-source.nix { inherit lib; };
+          policySource = cleanSource ./nix;
+        in
+        {
+          pi-smoke = custom.pi;
+          readseek-smoke = custom.readseek;
+          twg-smoke = custom.twg;
+          inherit (custom) pi-extensions;
+
+          immutable-plugin-policy =
+            pkgs.runCommand "immutable-plugin-policy" { nativeBuildInputs = [ pkgs.ripgrep ]; }
+              ''
+                if rg -n 'fisher (install|update)|Lazy!? sync|MasonToolsInstall|TSUpdate|git clone.*lazy.nvim|git clone.*tmux-plugins/tpm' ${policySource}; then
+                  echo >&2 "mutable plugin installation remains in Nix-managed sources"
+                  exit 1
+                fi
+                if rg -n '"npm:' ${policySource}/dotfiles; then
+                  echo >&2 "mutable Pi npm package installation remains in Nix-managed settings"
+                  exit 1
+                fi
+                touch "$out"
+              '';
+
+          dotfile-targets = pkgs.runCommand "dotfile-targets" { } ''
+            test -f ${policySource}/dotfiles/common/.config/nvim/init.lua
+            test -f ${policySource}/dotfiles/common/.config/fish/custom/conf.d/abbreviations.fish
+            test -f ${policySource}/dotfiles/common/.config/tmux/tmux.conf
+            test -f ${policySource}/dotfiles/darwin/.config/aerospace/aerospace.toml
+            test -f ${policySource}/dotfiles/profiles/personal/.pi/agent/settings.json
+            test -f ${policySource}/dotfiles/profiles/work/.pi/agent/settings.json
+            touch "$out"
+          '';
+
+          cleanup-confirmation =
+            pkgs.runCommand "cleanup-confirmation" { nativeBuildInputs = [ scripts.cleanup ]; }
+              ''
+                export HOME="$TMPDIR/home"
+                mkdir -p "$HOME"
+                export NIX_DOTFILES_AUDIT_FIXTURE=${./nix/scripts/fixtures/audit-personal-macos.json}
+                set +e
+                nix-cleanup personal-macos </dev/null > cleanup.log 2>&1
+                status=$?
+                set -e
+                test "$status" -eq 3
+                grep -F "Cleanup cancelled; nothing was removed." cleanup.log
+                grep -F "legacy-app" cleanup.log
+                grep -F "legacy/tap" cleanup.log
+                grep -F "Docker Desktop is protected" cleanup.log
+                grep -F "Homebrew casks: legacy-app" cleanup.log
+                touch "$out"
+              '';
+        }
+        // lib.optionalAttrs (system == "x86_64-linux") {
+          personal-arch = homeConfigurations.personal-arch.activationPackage;
+          personal-debian = homeConfigurations.personal-debian.activationPackage;
+        }
+        // lib.optionalAttrs (system == "aarch64-darwin") {
+          personal-macos = darwinConfigurations.personal-macos.system;
+          work-macos = darwinConfigurations.work-macos.system;
+        }
+      );
+
+      formatter = forAllSystems (system: (mkPkgs system).nixfmt-tree);
+
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = mkPkgs system;
+        in
+        {
+          default = pkgs.mkShellNoCC {
+            packages = [
+              pkgs.deadnix
+              pkgs.git
+              pkgs.jq
+              pkgs.nixfmt-tree
+              pkgs.shellcheck
+              pkgs.statix
+            ];
+          };
+        }
+      );
+    };
+}

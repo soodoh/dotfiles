@@ -1,0 +1,53 @@
+---
+- name: Ensure plugin installer cache directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.cache/dotfiles-ansible"
+    state: directory
+    mode: "0755"
+
+- name: Download Fisher installer
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish
+    dest: "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/fisher.fish"
+    mode: "0644"
+
+- name: Install Fisher when missing and synchronize Fish plugins
+  ansible.builtin.command:
+    argv:
+      - "{{ plugins_fish_binary }}"
+      - -c
+      - >-
+        if not functions -q fisher;
+          source {{ ansible_env.HOME }}/.cache/dotfiles-ansible/fisher.fish;
+          fisher install jorgebucaran/fisher;
+        end;
+        fisher update
+  vars:
+    plugins_fish_binary: >-
+      {{
+        '/opt/homebrew/bin/fish' if effective_platform == 'macos' and ansible_facts.architecture == 'arm64'
+        else '/usr/local/bin/fish' if effective_platform == 'macos'
+        else '/usr/bin/fish'
+      }}
+  register: plugins_fisher_sync
+  changed_when: "'updated' in (plugins_fisher_sync.stdout | lower) or 'installed' in (plugins_fisher_sync.stdout | lower)"
+
+- name: Synchronize Neovim plugins
+  ansible.builtin.command:
+    argv:
+      - nvim
+      - --headless
+      - "+Lazy! sync"
+      - +qa
+  register: plugins_lazy_sync
+  changed_when: false
+
+- name: Synchronize Mason tools
+  ansible.builtin.command:
+    argv:
+      - nvim
+      - --headless
+      - "+MasonToolsInstallSync"
+      - +qa
+  register: plugins_mason_sync
+  changed_when: false

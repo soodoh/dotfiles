@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if (( $# != 3 )); then
+  echo "usage: $0 <apply|cleanup> <personal|work> <macos|arch|debian>" >&2
+  exit 2
+fi
+
+MODE="$1"
+PROFILE="$2"
+PLATFORM="$3"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.bun/bin:$HOME/.cargo/bin:$HOME/.local/share/fnm/aliases/default/bin:$PATH"
+
+case "$PLATFORM" in
+  macos)
+    [[ "$(uname -s)" == "Darwin" ]] || { echo "macOS entrypoint used on a non-macOS host." >&2; exit 1; }
+    ;;
+  arch)
+    [[ -f /etc/arch-release ]] || { echo "Arch entrypoint used on a non-Arch host." >&2; exit 1; }
+    ;;
+  debian)
+    [[ -f /etc/debian_version ]] || { echo "Debian entrypoint used on a non-Debian host." >&2; exit 1; }
+    ;;
+  *)
+    echo "Unsupported platform: $PLATFORM" >&2
+    exit 2
+    ;;
+esac
+
+UV="$(command -v uv || true)"
+if [[ -z "$UV" && -x "$HOME/.local/bin/uv" ]]; then
+  UV="$HOME/.local/bin/uv"
+fi
+if [[ -z "$UV" ]]; then
+  echo "uv is missing. Run bootstrap/$PLATFORM.sh first." >&2
+  exit 1
+fi
+
+# Upgrade the automation runtime before launching it; never replace Ansible mid-run.
+"$UV" tool install --upgrade ansible-core
+"$UV" tool install --upgrade ansible-lint
+ANSIBLE_PLAYBOOK="$(command -v ansible-playbook || true)"
+if [[ -z "$ANSIBLE_PLAYBOOK" && -x "$HOME/.local/bin/ansible-playbook" ]]; then
+  ANSIBLE_PLAYBOOK="$HOME/.local/bin/ansible-playbook"
+fi
+if [[ -z "$ANSIBLE_PLAYBOOK" ]]; then
+  echo "Ansible is missing. Run bootstrap/$PLATFORM.sh first." >&2
+  exit 1
+fi
+
+umask 077
+BECOME_PASSWORD_FILE="$(mktemp "${TMPDIR:-/tmp}/dotfiles-ansible-password.XXXXXX")"
+trap 'rm -f "$BECOME_PASSWORD_FILE"' EXIT
+read -r -s -p "Sudo password: " BECOME_PASSWORD
+printf '\n'
+printf '%s' "$BECOME_PASSWORD" > "$BECOME_PASSWORD_FILE"
+unset BECOME_PASSWORD
+
+EXTRA_VARS=(
+  -e "profile=$PROFILE"
+  -e "target_platform=$PLATFORM"
+  -e "cleanup_mode=$([[ "$MODE" == cleanup ]] && echo true || echo false)"
+  -e "homebrew_cask_password_file=$BECOME_PASSWORD_FILE"
+)
+if [[ "${ENABLE_SWAY:-0}" == "1" ]]; then
+  EXTRA_VARS+=( -e enable_sway=true )
+fi
+
+export ANSIBLE_CONFIG="$REPO_ROOT/ansible/ansible.cfg"
+LOG_DIR="$HOME/.local/state/dotfiles-ansible"
+mkdir -p "$LOG_DIR"
+"$ANSIBLE_PLAYBOOK" --become-password-file "$BECOME_PASSWORD_FILE" "$REPO_ROOT/ansible/site.yml" "${EXTRA_VARS[@]}" 2>&1 | tee "$LOG_DIR/latest-run.log"
+exit "${PIPESTATUS[0]}"

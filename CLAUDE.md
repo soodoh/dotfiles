@@ -1,60 +1,43 @@
-# CLAUDE.md
+# Repository guidance
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Overview
 
-## Repository Overview
+Personal dotfiles managed by one pinned Nix flake for personal/work macOS and personal Arch/Debian. macOS uses nix-darwin plus Home Manager; Linux uses standalone Home Manager without NixOS. Minimal GUI fallbacks use nix-homebrew, and MAS uses the Nix-provided `mas` CLI.
 
-Personal dotfiles for cross-platform development environments (macOS, Linux Debian/Ubuntu/Arch). Uses GNU Stow for symlink-based config management.
+The repository is in a gated parallel-migration phase. Legacy automation remains quarantined until the personal Mac switch, smoke tests, audit review, all host builds, and CI are confirmed. Never execute destructive cleanup or delete legacy inputs before that gate.
 
-## Structure
+## Layout
 
-- `unix-configs/` - Universal configs symlinked via `stow -vRt $HOME unix-configs`
-- `mac-configs/` - macOS-specific configs symlinked via `stow -vRt $HOME mac-configs`
-- `sway-configs/` - Optional Sway window manager configs
-
-Key tools configured: Neovim (Lua/lazy.nvim), Zsh (Antidote plugin manager), Tmux (C-g prefix), Ghostty terminal, Starship prompt, Aerospace (macOS tiling WM), Sketchybar.
-
-## Commit Standards
-
-Commits are linted via commitlint with conventional commits format:
-
-```
-type(scope): message
-```
-
-**Valid scopes**: `root`, `agents`, `nvim`, `mac`, `shell`, `tmux`
-
-Pre-commit hook runs: `bunx commitlint --edit`
+- `flake.nix`, `flake.lock` — pinned inputs and four public configurations
+- `nix/hosts/` — explicit host metadata and application sets
+- `nix/modules/` — shared, Darwin, Linux, and profile modules
+- `nix/packages/` — pinned Pi, ReadSeek, TWG, and Pi extension packages
+- `nix/dotfiles/` — store-backed common, Darwin, and isolated profile files
+- `nix/scripts/` — read-only audit and confirmation-gated cleanup
+- `bootstrap/nix-*.sh` — official multi-user Nix bootstraps during migration
+- `bin/nix-*` — switch, update, validate, audit, and cleanup entrypoints
 
 ## Commands
 
 ```bash
-# Install dependencies (needed for commit hooks)
-bun install
-
-# Apply unix configs
-stow -vRt $HOME unix-configs
-
-# Apply macOS configs (run after unix-configs)
-stow -vRt $HOME mac-configs
-
-# Remove symlinks
-stow -Dt $HOME unix-configs
+./bin/nix-switch-personal-macos
+./bin/nix-switch-work-macos
+./bin/nix-switch-personal-arch
+./bin/nix-switch-personal-debian
+./bin/nix-update lock
+./bin/nix-validate
+./bin/nix-audit personal-macos
+./bin/nix-cleanup personal-macos
 ```
 
-## Neovim Configuration
+Normal switch operations are non-destructive. Cleanup must regenerate a plan and require `CLEAN`. Never remove Docker Desktop until Colima, `hello-world`, and Compose verification pass.
 
-Located at `unix-configs/.config/nvim/`. Uses lazy.nvim plugin manager with modular structure:
-- `lua/plugins/lsp/` - Language servers (Mason, lspconfig, blink.cmp)
-- `lua/plugins/productivity/` - Dev tools (Telescope, Copilot, flash.nvim)
-- `lua/plugins/ui/` - UI components (lualine, bufferline, dashboard)
+## Neovim and Fish
 
-After changes, run `:Lazy` in Neovim to sync plugins.
+Neovim plugins, Tree-sitter grammars, LSP servers, formatters, and linters are Nix packages. Do not reintroduce mutable plugin/tool bootstrapping.
 
-## Zsh Configuration
+Fish configuration/plugins are store-backed. Linux Fish remains a native login-shell package; Home Manager does not manage `/etc/shells`. Keep secrets only in local `~/.config/fish/conf.d/00-secrets.fish`.
 
-Located at `unix-configs/.config/zsh/`. Uses Antidote plugin manager which auto-installs on first shell load. Plugin list in `.zsh_plugins.txt`.
+## Commit standards
 
-## Tmux Configuration
-
-Located at `unix-configs/.config/tmux/`. Uses TPM (Tmux Plugin Manager) which auto-installs. Prefix key is `C-g`.
+Commits use `type(scope): message` with scopes `root`, `agents`, `nvim`, `mac`, `shell`, or `tmux`. Never add `Co-authored-by` trailers.
