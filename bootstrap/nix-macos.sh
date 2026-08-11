@@ -14,5 +14,12 @@ if [ ! -x "$nix_command" ]; then
   echo >&2 "Nix installation completed without creating $nix_command"
   exit 1
 fi
+if [ ! -e /etc/synthetic.conf ]; then
+  if [ -L /etc/synthetic.conf ]; then
+    echo >&2 "Refusing to replace broken symlink /etc/synthetic.conf"
+    exit 1
+  fi
+  sudo /usr/bin/install -m 0644 -o root -g wheel /dev/null /etc/synthetic.conf
+fi
 cd "$repo_root"
 sudo --set-home "$nix_command" --extra-experimental-features 'nix-command flakes' run .#darwin-rebuild -- switch --flake ".#$host"
