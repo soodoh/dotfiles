@@ -1,9 +1,0 @@
-{
-  "tiers": {
-    "small": "litellm/chatgpt/gpt-5.6-luna:off",
-    "medium": "llm-hub/claude-sonnet-5:high",
-    "big": "llm-hub/claude-opus-4-8:high",
-    "criticBig": "litellm/chatgpt/gpt-5.6-sol:high",
-    "fixerBig": "llm-hub/claude-opus-4-8:high"
-  }
-}

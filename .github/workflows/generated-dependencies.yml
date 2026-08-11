@@ -51,14 +51,6 @@ jobs:
 
             HOME="$canonical" npx --yes "skills@$SKILLS_CLI_VERSION" update --global --yes
             rm -rf "$generated_dir"
-
-            legacy="$GITHUB_WORKSPACE/$profile"
-            cp "$canonical/.agents/.skill-lock.json" "$legacy/.agents/.skill-lock.json"
-            while IFS= read -r skill; do
-              rsync -a --delete \
-                "$canonical/.agents/skills/$skill/" \
-                "$legacy/.agents/skills/$skill/"
-            done < <(jq -r '.skills | keys[]' "$canonical/.agents/.skill-lock.json")
           done
 
       - name: Validate generated dependencies
@@ -91,5 +83,3 @@ jobs:
             nix/packages/**
             nix/dotfiles/profiles/personal/.agents/**
             nix/dotfiles/profiles/work/.agents/**
-            personal/.agents/**
-            work/.agents/**

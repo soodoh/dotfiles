@@ -4,7 +4,7 @@
 
 Personal dotfiles managed by one pinned Nix flake for personal/work macOS and personal Arch/Debian. macOS uses nix-darwin plus Home Manager; Linux uses standalone Home Manager without NixOS. Minimal GUI fallbacks use nix-homebrew, and MAS uses the Nix-provided `mas` CLI.
 
-The repository is in a gated parallel-migration phase. Legacy automation remains quarantined until the personal Mac switch, smoke tests, audit review, all host builds, and CI are confirmed. Never execute destructive cleanup or delete legacy inputs before that gate.
+The Nix migration is complete. The flake and `nix/dotfiles/` are the canonical configuration; do not reintroduce parallel legacy automation or mutable package/plugin bootstrapping.
 
 ## Layout
 
@@ -14,7 +14,7 @@ The repository is in a gated parallel-migration phase. Legacy automation remains
 - `nix/packages/` — pinned Pi, ReadSeek, TWG, and Pi extension packages
 - `nix/dotfiles/` — store-backed common, Darwin, and isolated profile files
 - `nix/scripts/` — read-only audit and confirmation-gated cleanup
-- `bootstrap/nix-*.sh` — official multi-user Nix bootstraps during migration
+- `bootstrap/nix-*.sh` — official multi-user Nix bootstraps
 - `bin/nix-*` — switch, update, validate, audit, and cleanup entrypoints
 
 ## Commands

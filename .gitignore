@@ -28,15 +28,6 @@ __pycache__/
 
 # Specific to my dotfiles
 **/nvim/lazy-lock.json
-unix-configs/.config/tmux/plugins/
-unix-configs/.config/fish/fish_variables*
-unix-configs/.config/fish/completions/
-unix-configs/.config/fish/functions/
-unix-configs/.config/fish/conf.d/
 
 # Local git worktrees
 .worktrees/
-
-# Generated skill evaluation workspaces
-unix-configs/.agents/skills/*-workspace/
-
