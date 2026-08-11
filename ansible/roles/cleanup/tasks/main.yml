@@ -1,0 +1,143 @@
+---
+- name: Read the fresh drift plan
+  ansible.builtin.slurp:
+    src: "{{ ansible_env.HOME }}/.local/state/dotfiles-ansible/audit.json"
+  register: cleanup_audit_plan_file
+
+- name: Parse the fresh drift plan
+  ansible.builtin.set_fact:
+    cleanup_audit_plan: "{{ cleanup_audit_plan_file.content | b64decode | from_json }}"
+
+- name: Show destructive cleanup plan
+  ansible.builtin.debug:
+    var: cleanup_audit_plan.extras
+
+- name: Require typed cleanup confirmation
+  ansible.builtin.pause:
+    prompt: Type CLEAN to uninstall the package-manager-owned extras shown above
+  register: cleanup_confirmation
+
+- name: Validate cleanup confirmation
+  ansible.builtin.assert:
+    that:
+      - cleanup_confirmation.user_input == 'CLEAN'
+    fail_msg: Cleanup cancelled; no packages were removed.
+
+- name: Remove unmanaged Homebrew formulae
+  community.general.homebrew:
+    name: "{{ cleanup_audit_plan.extras.managers.brew_formula }}"
+    state: absent
+  when: cleanup_audit_plan.extras.managers.brew_formula | length > 0
+
+- name: Remove unmanaged Homebrew casks
+  community.general.homebrew_cask:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ cleanup_audit_plan.extras.managers.brew_cask }}"
+
+- name: Remove unmanaged Homebrew taps
+  community.general.homebrew_tap:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ cleanup_audit_plan.extras.managers.brew_tap }}"
+
+- name: Remove unmanaged Debian packages without autoremove
+  become: true
+  ansible.builtin.apt:
+    name: "{{ cleanup_audit_plan.extras.managers.apt }}"
+    state: absent
+    autoremove: false
+    fail_on_autoremove: true
+  when: cleanup_audit_plan.extras.managers.apt | length > 0
+
+- name: Remove unmanaged Arch packages without recursive dependency removal
+  become: true
+  community.general.pacman:
+    name: "{{ cleanup_audit_plan.extras.managers.pacman }}"
+    state: absent
+  when: cleanup_audit_plan.extras.managers.pacman | length > 0
+
+- name: Remove unmanaged Bun globals
+  ansible.builtin.command:
+    argv: "{{ [ansible_env.HOME + '/.bun/bin/bun', 'remove', '--global'] + cleanup_audit_plan.extras.managers.bun }}"
+  changed_when: true
+  when: cleanup_audit_plan.extras.managers.bun | length > 0
+
+- name: Remove unmanaged npm globals
+  ansible.builtin.command:
+    argv: "{{ ['npm', 'uninstall', '--global'] + cleanup_audit_plan.extras.managers.npm }}"
+  changed_when: true
+  when: cleanup_audit_plan.extras.managers.npm | length > 0
+
+- name: Remove unmanaged Cargo packages
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.cargo/bin/cargo"
+      - uninstall
+      - "{{ item }}"
+  loop: "{{ cleanup_audit_plan.extras.managers.cargo }}"
+  changed_when: true
+
+- name: Remove unmanaged uv tools
+  ansible.builtin.command:
+    argv:
+      - "{{ cleanup_uv_binary }}"
+      - tool
+      - uninstall
+      - "{{ item }}"
+  vars:
+    cleanup_uv_binary: >-
+      {{
+        '/opt/homebrew/bin/uv' if effective_platform == 'macos' and ansible_facts.architecture == 'arm64'
+        else '/usr/local/bin/uv' if effective_platform == 'macos'
+        else ansible_env.HOME + '/.local/bin/uv'
+      }}
+  loop: "{{ cleanup_audit_plan.extras.managers.uv }}"
+  changed_when: true
+
+- name: Remove unmanaged Mac App Store applications
+  become: true
+  community.general.mas:
+    id: "{{ cleanup_audit_plan.extras.managers.mas | map('int') | list }}"
+    state: absent
+  when:
+    - effective_platform == 'macos'
+    - cleanup_audit_plan.extras.managers.mas | length > 0
+
+- name: Stop unmanaged non-package-manager applications before removal
+  ansible.builtin.command:
+    argv:
+      - pkill
+      - -f
+      - "{{ item.path }}"
+  loop: "{{ cleanup_audit_plan.extras.applications }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: >-
+    item.source == 'vendor'
+    or (item.source == 'app_store' and item.store_id is not defined)
+  changed_when: false
+  failed_when: false
+
+- name: Move unmanaged non-package-manager application bundles to Trash
+  ansible.builtin.command:
+    argv:
+      - trash
+      - "{{ item.path }}"
+  loop: "{{ cleanup_audit_plan.extras.applications }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: >-
+    item.source == 'vendor'
+    or (item.source == 'app_store' and item.store_id is not defined)
+  changed_when: true
+  register: cleanup_application_trash
+  retries: 3
+  delay: 2
+  until: cleanup_application_trash.rc == 0
+
+- name: Report Go tools that require manual removal
+  ansible.builtin.debug:
+    msg:
+      go_tools: "{{ cleanup_audit_plan.extras.managers.go }}"
+  when: cleanup_audit_plan.extras.managers.go | length > 0

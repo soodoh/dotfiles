@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export ANSIBLE_CONFIG="$REPO_ROOT/ansible/ansible.cfg"
+
+"${ANSIBLE_PLAYBOOK:-ansible-playbook}" "$REPO_ROOT/ansible/site.yml" --syntax-check
+"${ANSIBLE_LINT:-ansible-lint}" "$REPO_ROOT/ansible"
+
+for target in personal:macos work:macos personal:arch personal:debian; do
+  profile="${target%%:*}"
+  platform="${target##*:}"
+  uv run --with pyyaml python "$REPO_ROOT/ansible/scripts/validate_catalog.py" \
+    --profile "$profile" --platform "$platform"
+done
+
+"${PYTHON:-python3}" -m unittest discover -s "$REPO_ROOT/ansible/tests" -p 'test_*.py'

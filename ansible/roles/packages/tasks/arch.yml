@@ -1,0 +1,15 @@
+---
+- name: Perform a full Arch system upgrade
+  become: true
+  community.general.pacman:
+    update_cache: true
+    upgrade: true
+
+- name: Install managed Arch packages as explicit packages
+  become: true
+  community.general.pacman:
+    name: "{{ managed_pacman_packages }}"
+    state: present
+    reason: explicit
+    reason_for: all
+  when: managed_pacman_packages | length > 0

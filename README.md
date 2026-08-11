@@ -1,251 +1,150 @@
-# Personal Dev Environment
+# Nix development environments
 
-## Configuration Steps
+This repository defines four explicit, lock-pinned environments without requiring NixOS:
 
-1. Install homebrew (Mac only)
+- `darwinConfigurations.personal-macos` — `pauldiloreto@aarch64-darwin`
+- `darwinConfigurations.work-macos` — `paul.diloreto@aarch64-darwin`
+- `homeConfigurations.personal-arch` — `docker@x86_64-linux`
+- `homeConfigurations.personal-debian` — `proxmox@x86_64-linux`
 
-Note: cross reference [official documented](https://brew.sh/) install steps
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+Shared CLI tools, runtimes, Fish configuration, Neovim plugins/tooling, agent packages, and dotfiles are managed by Nix and Home Manager. macOS system settings and applications use nix-darwin. Homebrew is limited to the documented fallback casks, and MAS uses the Nix-provided `mas` CLI.
 
-Add homebrew to `$PATH` for current session so that the follow steps can access homebrew packages.
-```bash
-export PATH=$PATH:/opt/homebrew/bin
-```
+## Migration gate
 
-1. Install dependencies
+The Nix implementation currently coexists with quarantined legacy automation so the existing machine is not dismantled before verification. Do not run legacy cleanup. The legacy trees and wrappers are removed only after all four outputs evaluate/build, the personal Mac switches successfully, smoke tests pass, the post-switch audit is reviewed, and CI passes. Normal Nix switches never remove unmanaged software.
 
-Mac:
-```bash
-brew install \
-  atuin \
-  borders \
-  fish \
-  fzf \
-  git \
-  gnupg \
-  golang \
-  jq \
-  lazygit \
-  neovim \
-  ripgrep \
-  scroll-reverser \
-  sesh \
-  sketchybar \
-  starship \
-  stow \
-  tmux \
-  trash \
-  tree-sitter-cli \
-  uv \
-  wget \
-  zoxide
-&& \
-brew tap homebrew/command-not-found && \
-brew install --cask \
-  nikitabobko/tap/aerospace \
-&& \
-defaults write -g NSWindowShouldDragOnGesture -bool true
-```
+## Install Nix and perform the first switch
 
-Debian/Ubuntu
-
-Add Neovim unstable PPA for latest version:
-```bash
-echo "deb https://ppa.launchpadcontent.net/neovim-ppa/unstable/ubuntu noble main" | sudo tee /etc/apt/sources.list.d/neovim-unstable.list
-curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x9DBB0BE9366964F134855E2255F96FCF8231B6DD" | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/neovim-ppa.gpg
-```
+The bootstrap scripts use the official multi-user installer at `https://nixos.org/nix/install`. They install no application/package manager other than Nix.
 
 ```bash
-apt update && apt upgrade ;\
-apt install \
-  fish \
-  fzf \
-  git \
-  golang \
-  lazygit \
-  neovim \
-  python3 \
-  python3-venv \
-  ripgrep \
-  stow \
-  tmux \
-  tree-sitter-cli \
-  wget \
-  zoxide
+# Personal Mac (use work-macos as the optional argument on the work Mac)
+./bootstrap/nix-macos.sh personal-macos
+
+# Arch: first run `sudo pacman -Syu` and ensure native curl, Fish, and Git exist
+./bootstrap/nix-arch.sh
+
+# Debian: first run `sudo apt update && sudo apt upgrade`
+# and ensure native curl, Fish, and Git exist
+./bootstrap/nix-debian.sh
 ```
 
-The live Pi picker requires fzf 0.44.1 or newer (Ubuntu 24.04+ or Debian 13+).
+Before the first Home Manager activation, move any blocking Stow **directory** symlink reported by the activation guard to `<path>.before-nix-home-manager`, then create a real directory at the original path. Do not delete the link target. Preserve Fish secrets separately—for example, copy the legacy `conf.d/secrets.fish` into the new `~/.config/fish/conf.d/` and set mode `0600`—before retrying. This prevents recursive Home Manager targets from writing store links through Stow into this repository.
 
-Install sesh with Go:
-```bash
-go install github.com/joshmedeski/sesh/v2@latest
-```
+On Arch and Debian, Fish remains a native APT/Pacman package so `/usr/bin/fish` is a safe login shell. After installation, run `chsh -s /usr/bin/fish` once. Home Manager owns the Fish configuration and plugins but never edits `/etc/shells` or invokes APT/Pacman.
 
-Arch
-```bash
-pacman -Syu \
-  fish \
-  fzf \
-  git \
-  golang \
-  lazygit \
-  neovim \
-  python \
-  ripgrep \
-  stow \
-  tmux \
-  tree-sitter-cli \
-  wget \
-  zoxide
-```
-
-(Arch/Debian) Install sesh with Go:
-```bash
-go install github.com/joshmedeski/sesh/v2@latest
-```
-
-1. Install `fnm` (instead of `nvm`)
-
-Mac:
-```bash
-brew install fnm
-```
-
-Debian/Arch:
-```bash
-curl -fsSL https://fnm.vercel.app/install | bash
-```
-
-1. Install rust
-
-View [latest documentation](https://www.rust-lang.org/tools/install) & follow install instructions.
-After installing, run this:
+## Switch commands
 
 ```bash
-rustup update
+./bin/nix-switch-personal-macos
+./bin/nix-switch-work-macos
+./bin/nix-switch-personal-arch
+./bin/nix-switch-personal-debian
 ```
 
-Linux only (otherwise handled by homebrew):
-```bash
-cargo install --force yazi-build
-cargo install starship --locked
-cargo install atuin --locked
-```
+Configuration and dotfile changes are store-backed and take effect only after a rebuild.
 
-1.Install Agents
+## Updates
 
-(Optionally install Codex/Claude Code; view upstream documentation)
-
-Pi:
-```bash
-bun add -g @earendil-works/pi-coding-agent
-```
-
-# Agent tools (personal)
+Activation never floats versions. `flake.lock`, npm dependency closures, and TWG release checksums change only through an explicit update target:
 
 ```bash
-bun add -g @jarkkojs/readseek
+./bin/nix-update lock
+./bin/nix-update pi 0.84.1
+./bin/nix-update readseek 0.9.10
+./bin/nix-update agents pi-subagents 0.45.1
+./bin/nix-update agents all
+./bin/nix-update twg 1.1.1
+./bin/nix-update all
 ```
 
-# Agent tools (for work, so macOS only):
+Review every lock/hash diff before switching.
+
+Pi and every configured third-party Pi package are installed from a Nix-built npm closure. Settings reference only the store-backed local package; Pi does not need to populate `~/.pi/agent/npm` at startup.
+
+## Validation
 
 ```bash
-# Atlassian
-curl -fsSL --retry 2 https://teamwork-graph.atlassian.com/cli/install | bash
-twg setup
-
-# Snowflake
-brew install snowflake-cli
-
-# Azure
-brew install azure-cli
+./bin/nix-validate
 ```
 
-1. Setup shell config
+Validation formats/lints Nix, evaluates all hosts, builds Linux Home Manager activations and custom packages, checks immutable Fish/Neovim plugin policy, tests cleanup confirmation, and runs `git diff --check`. GitHub Actions performs Linux and macOS builds.
 
-Fish (no sourcing needed — stow symlinks `~/.config/fish/` directly). Install fisher and plugins:
+The pinned nixpkgs revision needs two narrow Darwin build workarounds: oxlint's `@napi-rs/cli` process probe is redirected from sandbox-blocked `/bin/ps` to Nix's store-backed `ps`, and only dependency-incompatible Snowflake tests are disabled while the remaining upstream suites run. Revisit both overrides when updating `nixpkgs`.
+
+## Audit and cleanup
+
+Audit is read-only and reports Nix state, Homebrew, MAS, application bundles and ownership, legacy globals, native packages, and migration artifacts:
+
 ```bash
-curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher
+./bin/nix-audit personal-macos
+# equivalent
+nix run .#audit -- personal-macos
 ```
 
-For secrets/API keys, create a file outside stow:
+Cleanup is never part of activation. It always regenerates an audit/plan, prints exact removals, and requires typing `CLEAN`:
+
 ```bash
-echo "set -gx OPENAI_API_KEY XXXXX" > $HOME/.config/fish/conf.d/00-secrets.fish
+./bin/nix-cleanup personal-macos
+# equivalent
+nix run .#cleanup -- personal-macos
 ```
 
-1. Symlink dotfiles
+Cleanup protects Apple/system apps, leaves APT/Pacman report-only, and refuses legacy global removal unless Nix replacements are active. Docker Desktop remains protected unless these fresh checks all pass:
 
-Mac:
+Home Manager materializes the default Colima profile at `~/.colima/default/colima.yaml` from a store-backed source with the Docker runtime, Apple Virtualization, VirtioFS, and Rosetta enabled. The runtime copy remains user-writable because Colima updates it during startup. Starting the VM remains an explicit user action.
+
 ```bash
-mkdir ~/.config && \
-stow -vRt $HOME unix-configs && \
-stow -vRt $HOME mac-configs && \
-mkdir -p "$HOME/.pi/agent" && \
-ln -sfn "$PWD/pi-extensions" "$HOME/.pi/agent/pi-extensions"
+colima start
+docker run --rm hello-world
+docker compose version
 ```
 
-Linux:
+Review the plan even with these safeguards. Moving an application to Trash does not remove vendor support files or privileged helpers.
+
+## macOS package sources
+
+Nix owns the CLI environment and maintained macOS packages. Homebrew is the less-reproducible exception and has no formulas:
+
+- personal casks: `nextcloud`, `zen`, `wispr-flow`
+- work casks: `nextcloud`, `wispr-flow`
+
+Ordinary activation installs/upgrades desired casks, reports drift, and uses `cleanup = "none"` so unmanaged packages continue to exist.
+
+MAS IDs are declared per host. Current IDs include Tailscale `1475387142`, Amphetamine `937984704`, and HP `1474276998`. If the App Store account is unavailable, activation warns, prints exact `mas install` follow-up commands, and continues. Credentials are never stored in Nix. Cleanup protects a declared Homebrew fallback cask until its desired MAS app is actually installed.
+
+## Manual authentication and secrets
+
+Keep secrets and authenticated sessions outside the Nix store:
+
+- create `~/.config/fish/conf.d/00-secrets.fish` locally; Fish loads it through its standard `conf.d` mechanism;
+- revoke and rotate the live credentials found in the excluded legacy Fish secrets file before treating the migration as complete;
+- sign into the Mac App Store interactively;
+- run `twg setup`/`twg login` manually on the work profile;
+- authenticate GitHub, Azure, Snowflake, Pi providers, and other CLIs as needed.
+
+### Known work-profile security exception
+
+The owner explicitly accepted preserving the work profile's LiteLLM default at `http://192.168.0.100:4000/v1`. Its committed `settings.security.test.mjs` remains a documented expected failure and must not be represented as a passing security check; migration validation may proceed only with this recorded exception. Revisit the exception when that endpoint supports TLS or the default can move to the existing HTTPS `llm-hub` provider.
+
+## Rollback and garbage collection
+
+macOS:
+
 ```bash
-mkdir ~/.config && \
-stow -vRt $HOME unix-configs && \
-mkdir -p "$HOME/.pi/agent" && \
-ln -sfn "$PWD/pi-extensions" "$HOME/.pi/agent/pi-extensions"
+nix run .#darwin-rebuild -- --list-generations
+sudo nix run .#darwin-rebuild -- switch --rollback
 ```
-(Optional)
+
+Home Manager:
+
 ```bash
-stow -vRt $HOME sway-configs
+nix run .#home-manager -- generations
+# Run the `activate` path printed for the generation you want.
 ```
 
-1. Install bun
+nix-darwin optimizes the store automatically and runs weekly garbage collection, deleting generations/store paths older than 30 days.
 
-    Follow [installation instructions](https://bun.com/docs/installation) for bun
+## Linux ownership boundary
 
-    ```bash
-    curl -fsSL https://bun.com/install | bash
-    bun install
-    ```
-
-    The root Bun workspace installs both the repository tooling and the runtime dependencies for `pi-extensions`. No separate install inside `pi-extensions/` is needed.
-
-1. Setup git config
-
-    ```bash
-    git config --global user.name "Paul DiLoreto" ;\
-    git config --global user.email "soodohh@pm.me"
-    git config --global core.excludesfile "$HOME/.config/.gitignore_global"
-    ```
-
-1.  Set default shell to Fish
-
-    ```bash
-    command -v fish | sudo tee -a /etc/shells
-    chsh -s $(command -v fish)
-    ```
-
-1. Install NERD fonts
-
-[Patched fonts](https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts)
-
-Ghostty config uses [FiraCode Nerd Font Mono](https://github.com/ryanoasis/nerd-fonts/blob/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFontMono-Regular.ttf)
-
-Mac:
-```bash
-brew install --cask font-fira-code-nerd-font
-```
-
-Arch:
-```bash
-sudo pacman -S ttf-firacode-nerd
-```
-
-Ubuntu/Debian:
-```bash
-mkdir -p ~/.local/share/fonts && \
-wget -P "$HOME/.local/share/fonts" https://github.com/ryanoasis/nerd-fonts/blob/master/patched-fonts/FiraCode/Regular/FiraCodeNerdFontMono-Regular.ttf
-```
-
-1. Run `nvim` and run `:Lazy`, press `U` to update all packages
-
-1. In nvim, run `:Mason` and update/install all tools
+Arch and Debian are non-NixOS hosts. Nix does not own kernel/system updates, services, `/etc`, drivers, desktop integration, native package drift, or login-shell installation. Use `nix-native-package-audit` (add `--json` for JSON) for a read-only `pacman -Qqe` or `apt-mark showmanual` report.

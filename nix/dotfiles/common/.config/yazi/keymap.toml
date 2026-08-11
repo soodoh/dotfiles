@@ -1,0 +1,11 @@
+[[mgr.prepend_keymap]]
+on = "s"
+for = "macos"
+run = "shell --orphan -- open %s1"
+desc = "Open selected file with default app"
+
+[[mgr.prepend_keymap]]
+on = "s"
+for = "linux"
+run = "shell --orphan -- xdg-open %s1"
+desc = "Open selected file with default app"

@@ -1,0 +1,182 @@
+---
+- name: Ensure installer cache directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.cache/dotfiles-ansible"
+    state: directory
+    mode: "0755"
+
+- name: Download uv installer on Linux
+  ansible.builtin.get_url:
+    url: https://astral.sh/uv/install.sh
+    dest: "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-uv.sh"
+    mode: "0755"
+  when: effective_platform in ['arch', 'debian']
+
+- name: Install uv on Linux when missing
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-uv.sh"
+    creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+  when: effective_platform in ['arch', 'debian']
+
+- name: Download fnm installer on Linux
+  ansible.builtin.get_url:
+    url: https://fnm.vercel.app/install
+    dest: "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-fnm.sh"
+    mode: "0755"
+  when: effective_platform in ['arch', 'debian']
+
+- name: Install fnm on Linux when missing
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-fnm.sh"
+      - --skip-shell
+    creates: "{{ ansible_env.HOME }}/.local/share/fnm/fnm"
+  when: effective_platform in ['arch', 'debian']
+
+- name: Download rustup installer
+  ansible.builtin.get_url:
+    url: https://sh.rustup.rs
+    dest: "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-rustup.sh"
+    mode: "0755"
+
+- name: Install rustup when missing
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-rustup.sh"
+      - -y
+      - --profile
+      - minimal
+    creates: "{{ ansible_env.HOME }}/.cargo/bin/rustup"
+
+- name: Update stable Rust toolchain
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.cargo/bin/rustup"
+      - update
+      - stable
+  register: runtimes_rustup_update
+  changed_when: "'unchanged' not in runtimes_rustup_update.stdout"
+
+- name: Download Bun installer
+  ansible.builtin.get_url:
+    url: https://bun.com/install
+    dest: "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-bun.sh"
+    mode: "0755"
+
+- name: Install Bun when missing
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-bun.sh"
+    creates: "{{ ansible_env.HOME }}/.bun/bin/bun"
+
+- name: Upgrade Bun
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.bun/bin/bun"
+      - upgrade
+  register: runtimes_bun_upgrade
+  changed_when: "'already on the latest version' not in (runtimes_bun_upgrade.stdout | lower)"
+
+- name: Install current Node.js through fnm
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      eval "$("{{ runtimes_fnm_binary }}" env --shell bash)"
+      "{{ runtimes_fnm_binary }}" install --latest --use
+      "{{ runtimes_fnm_binary }}" default "$("{{ runtimes_fnm_binary }}" current)"
+    executable: /bin/bash
+  vars:
+    runtimes_fnm_binary: >-
+      {{
+        '/opt/homebrew/bin/fnm' if effective_platform == 'macos' and ansible_facts.architecture == 'arm64'
+        else '/usr/local/bin/fnm' if effective_platform == 'macos'
+        else ansible_env.HOME + '/.local/share/fnm/fnm'
+      }}
+  register: runtimes_fnm_install
+  changed_when: "'already installed' not in (runtimes_fnm_install.stdout | lower)"
+
+- name: Upgrade managed npm global packages
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.local/share/fnm/aliases/default/bin/npm"
+      - install
+      - --global
+      - "{{ item }}@latest"
+  loop: "{{ managed_npm_packages }}"
+  register: runtimes_npm_global_install
+  changed_when: "'changed' in (runtimes_npm_global_install.stdout | lower) or 'added' in (runtimes_npm_global_install.stdout | lower)"
+
+- name: Upgrade managed Bun global packages
+  ansible.builtin.command:
+    argv: "{{ [ansible_env.HOME + '/.bun/bin/bun', 'add', '--global', item + '@latest'] }}"
+  loop: "{{ managed_bun_packages }}"
+  register: runtimes_bun_global_install
+  changed_when: "'installed' in (runtimes_bun_global_install.stdout | lower)"
+
+- name: Upgrade managed uv tools
+  ansible.builtin.command:
+    argv:
+      - "{{ runtimes_uv_binary }}"
+      - tool
+      - install
+      - --upgrade
+      - "{{ item }}"
+  vars:
+    runtimes_uv_binary: >-
+      {{
+        '/opt/homebrew/bin/uv' if effective_platform == 'macos' and ansible_facts.architecture == 'arm64'
+        else '/usr/local/bin/uv' if effective_platform == 'macos'
+        else ansible_env.HOME + '/.local/bin/uv'
+      }}
+  loop: "{{ managed_uv_tools | difference(['ansible-core', 'ansible-lint']) }}"
+  register: runtimes_uv_tool_install
+  changed_when: "'installed' in (runtimes_uv_tool_install.stderr | lower) or 'updated' in (runtimes_uv_tool_install.stderr | lower)"
+
+- name: Upgrade managed Cargo tools
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.cargo/bin/cargo"
+      - install
+      - --locked
+      - "{{ item }}"
+  loop: "{{ managed_cargo_packages }}"
+  register: runtimes_cargo_install
+  changed_when: "'installed package' in (runtimes_cargo_install.stderr | lower) or 'replaced package' in (runtimes_cargo_install.stderr | lower)"
+
+- name: Upgrade managed Go tools
+  ansible.builtin.command:
+    argv:
+      - "{{ runtimes_homebrew_go_path if effective_platform == 'macos' else '/usr/bin/go' }}"
+      - install
+      - "{{ item }}@latest"
+  vars:
+    runtimes_homebrew_go_path: >-
+      {{ '/opt/homebrew/bin/go' if ansible_facts.architecture == 'arm64' else '/usr/local/bin/go' }}
+  loop: "{{ managed_go_packages }}"
+  register: runtimes_go_install
+  changed_when: true
+
+- name: Install repository Bun workspace dependencies
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.bun/bin/bun"
+      - install
+    chdir: "{{ playbook_dir }}/.."
+  register: runtimes_bun_workspace_install
+  changed_when: "'no changes' not in (runtimes_bun_workspace_install.stdout | lower)"
+
+- name: Download Teamwork Graph CLI installer for work profile
+  ansible.builtin.get_url:
+    url: https://teamwork-graph.atlassian.com/cli/install
+    dest: "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-twg.sh"
+    mode: "0755"
+  when: profile == 'work'
+
+- name: Install or update Teamwork Graph CLI for work profile
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_env.HOME }}/.cache/dotfiles-ansible/install-twg.sh"
+  register: runtimes_twg_install
+  changed_when: false
+  when: profile == 'work'

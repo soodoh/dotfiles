@@ -1,0 +1,31 @@
+---
+- name: Converge local development environment
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - vars/catalog.yml
+  vars:
+    profile: personal
+    cleanup_mode: false
+    enable_sway: false
+  pre_tasks:
+    - name: Resolve platform and package catalog
+      ansible.builtin.import_tasks: tasks/resolve.yml
+  roles:
+    - role: packages
+      when: not (validation_only | default(false) | bool)
+    - role: runtimes
+      when: not (validation_only | default(false) | bool)
+    - role: dotfiles
+      when: not (validation_only | default(false) | bool)
+    - role: workstation
+      when: not (validation_only | default(false) | bool)
+    - role: plugins
+      when: not (validation_only | default(false) | bool)
+    - role: audit
+      when: not (validation_only | default(false) | bool)
+    - role: cleanup
+      when:
+        - not (validation_only | default(false) | bool)
+        - cleanup_mode | bool

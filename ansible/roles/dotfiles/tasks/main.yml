@@ -1,0 +1,47 @@
+---
+- name: Resolve stow packages for profile
+  ansible.builtin.set_fact:
+    dotfiles_stow_packages: >-
+      {{
+        ['unix-configs']
+        + (['mac-configs'] if effective_platform == 'macos' else [])
+        + [profile]
+        + (['sway-configs'] if enable_sway | bool else [])
+      }}
+
+- name: Restrict Sway configuration to Linux
+  ansible.builtin.assert:
+    that:
+      - not (enable_sway | bool) or effective_platform in ['arch', 'debian']
+    fail_msg: Sway configuration is only supported on Linux.
+
+- name: Ensure dotfile destination directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ ansible_env.HOME }}/.config"
+    - "{{ ansible_env.HOME }}/.pi/agent"
+
+- name: Preflight all Stow packages without changing files
+  ansible.builtin.command:
+    argv: "{{ ['stow', '--no', '--verbose=2', '--restow', '--target', ansible_env.HOME] + dotfiles_stow_packages }}"
+    chdir: "{{ playbook_dir }}/.."
+  register: dotfiles_stow_preflight
+  changed_when: false
+  failed_when: dotfiles_stow_preflight.rc != 0
+
+- name: Stow common, platform, and profile dotfiles
+  ansible.builtin.command:
+    argv: "{{ ['stow', '--verbose=2', '--restow', '--target', ansible_env.HOME] + dotfiles_stow_packages }}"
+    chdir: "{{ playbook_dir }}/.."
+  register: dotfiles_stow_apply
+  changed_when: "'LINK:' in dotfiles_stow_apply.stderr or 'UNLINK:' in dotfiles_stow_apply.stderr"
+
+- name: Link Pi extensions into the active profile
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../pi-extensions"
+    dest: "{{ ansible_env.HOME }}/.pi/agent/pi-extensions"
+    state: link
+    force: false

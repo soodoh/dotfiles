@@ -1,0 +1,61 @@
+---
+- name: Ensure required Homebrew taps are present
+  community.general.homebrew_tap:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ homebrew_taps }}"
+
+- name: Read trusted Homebrew sources
+  ansible.builtin.command:
+    argv:
+      - brew
+      - trust
+      - --json=v1
+  register: packages_homebrew_trust
+  changed_when: false
+
+- name: Trust required third-party Homebrew taps
+  ansible.builtin.command:
+    argv:
+      - brew
+      - trust
+      - --tap
+      - "{{ item }}"
+  loop: "{{ homebrew_trusted_taps }}"
+  when: item not in ((packages_homebrew_trust.stdout | from_json).taps | default([]))
+  changed_when: true
+
+- name: Upgrade managed Homebrew formulae
+  community.general.homebrew:
+    name: "{{ managed_brew_formulae }}"
+    state: latest
+    update_homebrew: true
+  when: managed_brew_formulae | length > 0
+
+- name: Adopt externally installed desired applications into Homebrew
+  ansible.builtin.include_tasks: adopt_macos_cask.yml
+  loop: "{{ managed_applications | selectattr('source', 'equalto', 'brew_cask') | list }}"
+  loop_control:
+    loop_var: packages_application
+    label: "{{ packages_application.name }}"
+
+- name: Install managed Homebrew casks
+  community.general.homebrew_cask:
+    name: "{{ item }}"
+    state: present
+    sudo_password: "{{ lookup('ansible.builtin.file', homebrew_cask_password_file) }}"
+  loop: "{{ managed_brew_casks }}"
+
+- name: Upgrade managed Homebrew casks
+  community.general.homebrew_cask:
+    name: "{{ item }}"
+    state: upgraded
+    greedy: true
+    sudo_password: "{{ lookup('ansible.builtin.file', homebrew_cask_password_file) }}"
+  loop: "{{ managed_brew_casks }}"
+
+- name: Install and upgrade managed Mac App Store applications
+  community.general.mas:
+    id: "{{ managed_applications | selectattr('store_id', 'defined') | map(attribute='store_id') | list }}"
+    state: latest
+  when: managed_applications | selectattr('store_id', 'defined') | list | length > 0

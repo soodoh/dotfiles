@@ -1,0 +1,92 @@
+{
+  allowUnfreePredicate,
+  host,
+  inputs,
+  lib,
+  pkgs,
+  ...
+}:
+{
+  imports = [
+    ./applications.nix
+    ./homebrew.nix
+    ./mas.nix
+    ./defaults.nix
+    ./window-management.nix
+    ./containers.nix
+  ];
+
+  nixpkgs = {
+    hostPlatform = host.system;
+    overlays = [
+      inputs.fenix.overlays.default
+      inputs.self.overlays.default
+    ];
+    config.allowUnfreePredicate = allowUnfreePredicate;
+  };
+
+  nix = {
+    enable = true;
+    settings = {
+      experimental-features = [
+        "nix-command"
+        "flakes"
+      ];
+      auto-optimise-store = true;
+      warn-dirty = false;
+    };
+    optimise.automatic = true;
+    gc = {
+      automatic = true;
+      interval = {
+        Weekday = 0;
+        Hour = 4;
+        Minute = 15;
+      };
+      options = "--delete-older-than 30d";
+    };
+  };
+
+  system = {
+    primaryUser = host.username;
+    stateVersion = 6;
+  };
+
+  users.users.${host.username} = {
+    home = host.homeDirectory;
+    shell = pkgs.fish;
+  };
+  environment.shells = [ pkgs.fish ];
+  programs.fish.enable = true;
+
+  # No custom sudo PAM rules are required; leave the SIP-managed directory to macOS.
+  security.pam.services.sudo_local.enable = false;
+
+  environment.systemPackages = [ pkgs.trash-cli ];
+  fonts.packages = [ pkgs.nerd-fonts.fira-code ];
+
+  home-manager = {
+    useGlobalPkgs = true;
+    useUserPackages = true;
+    backupFileExtension = "hm-backup";
+    extraSpecialArgs = { inherit host inputs; };
+    users.${host.username}.imports = [
+      ../common
+      ../profiles/${host.profile}.nix
+      {
+        home = {
+          inherit (host) username homeDirectory;
+          stateVersion = "25.11";
+        };
+        programs.home-manager.enable = true;
+      }
+    ];
+  };
+
+  assertions = [
+    {
+      assertion = lib.hasSuffix "-darwin" host.system;
+      message = "nix-darwin hosts must declare a Darwin system.";
+    }
+  ];
+}

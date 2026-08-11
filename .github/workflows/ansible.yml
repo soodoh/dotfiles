@@ -1,0 +1,44 @@
+name: Ansible
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { profile: personal, platform: macos }
+          - { profile: work, platform: macos }
+          - { profile: personal, platform: arch }
+          - { profile: personal, platform: debian }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install Ansible tooling
+        run: |
+          uv tool install ansible-core
+          uv tool install ansible-lint
+          ansible-galaxy collection install -r ansible/requirements.yml
+      - name: Validate logical catalog
+        run: >-
+          uv run --with pyyaml python ansible/scripts/validate_catalog.py
+          --profile ${{ matrix.target.profile }}
+          --platform ${{ matrix.target.platform }}
+      - name: Syntax check playbook
+        run: >-
+          ansible-playbook ansible/site.yml --syntax-check
+          -e profile=${{ matrix.target.profile }}
+          -e target_platform=${{ matrix.target.platform }}
+          -e validation_only=true
+      - name: Lint Ansible
+        if: matrix.target.profile == 'personal' && matrix.target.platform == 'debian'
+        run: ansible-lint ansible
+      - name: Run audit unit tests
+        if: matrix.target.profile == 'personal' && matrix.target.platform == 'debian'
+        run: python -m unittest discover -s ansible/tests -p 'test_*.py'

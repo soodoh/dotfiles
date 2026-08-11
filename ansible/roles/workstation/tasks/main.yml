@@ -1,0 +1,56 @@
+---
+- name: Ensure Fish is an allowed login shell
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/shells
+    line: "{{ fish_binary }}"
+    create: true
+    mode: "0644"
+  vars:
+    fish_binary: >-
+      {{
+        '/opt/homebrew/bin/fish' if effective_platform == 'macos' and ansible_facts.architecture == 'arm64'
+        else '/usr/local/bin/fish' if effective_platform == 'macos'
+        else '/usr/bin/fish'
+      }}
+
+- name: Enforce Fish as the login shell
+  become: true
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    shell: "{{ fish_binary }}"
+  vars:
+    fish_binary: >-
+      {{
+        '/opt/homebrew/bin/fish' if effective_platform == 'macos' and ansible_facts.architecture == 'arm64'
+        else '/usr/local/bin/fish' if effective_platform == 'macos'
+        else '/usr/bin/fish'
+      }}
+
+- name: Set profile-specific Git identity
+  community.general.git_config:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    scope: global
+  loop:
+    - name: user.name
+      value: Paul DiLoreto
+    - name: user.email
+      value: "{{ 'paul.diloreto@docusign.com' if profile == 'work' else 'soodohh@pm.me' }}"
+    - name: core.excludesfile
+      value: "{{ ansible_env.HOME }}/.config/.gitignore_global"
+
+- name: Enable macOS window dragging gesture
+  community.general.osx_defaults:
+    domain: NSGlobalDomain
+    key: NSWindowShouldDragOnGesture
+    type: bool
+    value: true
+  when: effective_platform == 'macos'
+
+- name: Report manual authentication steps
+  ansible.builtin.debug:
+    msg: >-
+      Secrets and account login are intentionally unmanaged.
+      Create ~/.config/fish/conf.d/00-secrets.fish locally as needed{{
+      '; run `twg setup`' if profile == 'work' else '' }}.

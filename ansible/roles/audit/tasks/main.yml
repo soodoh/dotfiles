@@ -1,0 +1,28 @@
+---
+- name: Ensure audit state directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.local/state/dotfiles-ansible"
+    state: directory
+    mode: "0755"
+
+- name: Write resolved desired state
+  ansible.builtin.template:
+    src: desired-state.json.j2
+    dest: "{{ ansible_env.HOME }}/.local/state/dotfiles-ansible/desired-state.json"
+    mode: "0644"
+
+- name: Audit explicitly installed packages, global tools, and applications
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - "{{ playbook_dir }}/scripts/audit.py"
+      - --desired
+      - "{{ ansible_env.HOME }}/.local/state/dotfiles-ansible/desired-state.json"
+      - --output
+      - "{{ ansible_env.HOME }}/.local/state/dotfiles-ansible/audit.json"
+  register: audit_environment_audit
+  changed_when: false
+
+- name: Display environment drift report
+  ansible.builtin.debug:
+    msg: "{{ audit_environment_audit.stdout_lines }}"

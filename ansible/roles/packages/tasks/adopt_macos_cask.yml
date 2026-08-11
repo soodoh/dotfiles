@@ -1,0 +1,65 @@
+---
+- name: Check whether desired cask is already managed
+  ansible.builtin.command:
+    argv:
+      - brew
+      - list
+      - --cask
+      - "{{ packages_application.package }}"
+  register: packages_cask_installed
+  changed_when: false
+  failed_when: false
+
+- name: Locate externally installed desired application
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - "{{ playbook_dir }}/scripts/find_app.py"
+      - "{{ packages_application.bundle_id }}"
+  register: packages_external_application
+  changed_when: false
+  failed_when: false
+  when: packages_cask_installed.rc != 0
+
+- name: Adopt matching external application into Homebrew
+  ansible.builtin.command:
+    argv:
+      - brew
+      - install
+      - --cask
+      - --adopt
+      - "{{ packages_application.package }}"
+  register: packages_cask_adopt
+  changed_when: packages_cask_adopt.rc == 0
+  failed_when: false
+  when:
+    - packages_cask_installed.rc != 0
+    - packages_external_application.stdout_lines | default([]) | length > 0
+
+- name: Stop non-adoptable external application before replacement
+  ansible.builtin.command:
+    argv:
+      - pkill
+      - -f
+      - "{{ packages_external_application.stdout_lines | first }}"
+  changed_when: false
+  failed_when: false
+  when:
+    - packages_cask_installed.rc != 0
+    - packages_external_application.stdout_lines | default([]) | length > 0
+    - packages_cask_adopt.rc | default(1) != 0
+
+- name: Move non-adoptable external application bundle to Trash
+  ansible.builtin.command:
+    argv:
+      - trash
+      - "{{ packages_external_application.stdout_lines | first }}"
+  changed_when: true
+  register: packages_cask_trash
+  retries: 3
+  delay: 2
+  until: packages_cask_trash.rc == 0
+  when:
+    - packages_cask_installed.rc != 0
+    - packages_external_application.stdout_lines | default([]) | length > 0
+    - packages_cask_adopt.rc | default(1) != 0

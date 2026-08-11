@@ -1,0 +1,20 @@
+{
+  "profile": {{ profile | to_json }},
+  "platform": {{ effective_platform | to_json }},
+  "managers": {
+    "brew_formula": {{ managed_brew_formulae | to_json }},
+    "brew_cask": {{ managed_brew_casks | to_json }},
+    "brew_tap": {{ (homebrew_taps if effective_platform == 'macos' else []) | to_json }},
+    "apt": {{ managed_apt_packages | to_json }},
+    "pacman": {{ managed_pacman_packages | to_json }},
+    "bun": {{ managed_bun_packages | to_json }},
+    "npm": {{ managed_npm_packages | to_json }},
+    "cargo": {{ managed_cargo_audit_names | to_json }},
+    "go": {{ managed_go_audit_names | to_json }},
+    "uv": {{ managed_uv_tools | to_json }},
+    "mas": {{ managed_applications | selectattr('store_id', 'defined') | map(attribute='store_id') | map('string') | list | to_json }}
+  },
+  "applications": {{ managed_applications | to_json }},
+  "protected": {{ protected_packages | to_json }},
+  "protected_application_bundle_prefixes": {{ protected_application_bundle_prefixes | to_json }}
+}
