@@ -7,10 +7,17 @@ for command_name in curl fish; do
     exit 1
   fi
 done
-if ! command -v nix >/dev/null 2>&1; then
+nix_command="$(command -v nix 2>/dev/null || true)"
+if [ -z "$nix_command" ] && [ -x /nix/var/nix/profiles/default/bin/nix ]; then
+  nix_command=/nix/var/nix/profiles/default/bin/nix
+elif [ -z "$nix_command" ]; then
   curl -L https://nixos.org/nix/install | sh -s -- --daemon
+  nix_command=/nix/var/nix/profiles/default/bin/nix
 fi
-nix_command="$(command -v nix 2>/dev/null || printf /nix/var/nix/profiles/default/bin/nix)"
+if [ ! -x "$nix_command" ]; then
+  echo >&2 "Nix installation completed without creating $nix_command"
+  exit 1
+fi
 cd "$repo_root"
 "$nix_command" --extra-experimental-features 'nix-command flakes' run .#home-manager -- switch --flake .#personal-debian
 echo "Set the native login shell once: chsh -s /usr/bin/fish"
