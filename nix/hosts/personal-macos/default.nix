@@ -30,8 +30,9 @@
     ];
     homebrewCasks = [
       "nextcloud"
-      "zen"
+      "prusaslicer"
       "wispr-flow"
+      "zen"
     ];
     mas = {
       Tailscale = 1475387142;
@@ -53,6 +54,7 @@
       "com.moonlight-stream.Moonlight"
       "com.nextcloud.desktopclient"
       "com.pilotmoon.scroll-reverser"
+      "com.prusa3d.slic3r"
       "com.tinyspeck.slackmacgap"
       "io.tailscale.ipn.macsys"
       "md.obsidian"
