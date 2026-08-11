@@ -2,8 +2,13 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended",
-    "group:allNonMajor"
+    "group:allNonMajor",
+    ":maintainLockFilesWeekly",
+    "helpers:pinGitHubActionDigests"
   ],
+  "nix": {
+    "enabled": true
+  },
   "packageRules": [
     {
       "matchDepTypes": [
@@ -11,19 +16,53 @@
         "devDependencies"
       ],
       "rangeStrategy": "bump"
+    },
+    {
+      "description": "Keep Node aligned with the Nix nodejs_24 runtime",
+      "matchManagers": [
+        "nvm"
+      ],
+      "matchPackageNames": [
+        "node"
+      ],
+      "allowedVersions": ">=24 <25"
+    },
+    {
+      "description": "Generated Nix npm closures are updated by the dependency workflow",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchFileNames": [
+        "nix/packages/pi/package.json",
+        "nix/packages/readseek/package.json",
+        "nix/packages/pi-extensions/package.json"
+      ],
+      "enabled": false
     }
   ],
-  "regexManagers": [
+  "customManagers": [
     {
-      "fileMatch": [
-        "/zellij/config\\.kdl$"
+      "customType": "regex",
+      "description": "Track custom Neovim plugins by default-branch commit",
+      "managerFilePatterns": [
+        "/^nix/modules/common/neovim\\.nix$/"
       ],
       "matchStrings": [
-        "https://github.com/(?<depOrg>[^/]+)/(?<depName>[^/]+)/releases/download/v(?<currentValue>[^/]+)/(?<asset>[^\\s\"]+)"
+        "# renovate: packageName=(?<packageName>\\S+) currentValue=(?<currentRef>\\S+)\\s+[\\s\\S]*?\\\"(?<currentDigest>[a-f0-9]{40})\\\""
       ],
-      "depNameTemplate": "{{depOrg}}/{{depName}}",
-      "datasourceTemplate": "github-releases",
-      "versioningTemplate": "semver"
+      "currentValueTemplate": "{{{currentRef}}}",
+      "depNameTemplate": "{{{packageName}}}",
+      "datasourceTemplate": "github-digest"
+    },
+    {
+      "customType": "regex",
+      "description": "Track tools invoked by the generated dependency workflow",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/generated-dependencies\\.yml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+[A-Z0-9_]+:\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
+      ]
     }
   ]
 }

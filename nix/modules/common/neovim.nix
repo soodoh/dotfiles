@@ -37,6 +37,7 @@ in
       flash-nvim
       friendly-snippets
       git-conflict-nvim
+      # renovate: packageName=linrongbin16/gitlinker.nvim currentValue=master
       (
         (plugin "gitlinker-linrongbin-nvim" "linrongbin16" "gitlinker.nvim"
           "a1b74070bbd5e50128190c85b09f1431ea5fbd83"
@@ -63,6 +64,7 @@ in
       rainbow-delimiters-nvim
       snacks-nvim
       telescope-fzf-native-nvim
+      # renovate: packageName=nvim-telescope/telescope-live-grep-raw.nvim currentValue=master
       (
         (plugin "telescope-live-grep-raw-nvim" "nvim-telescope" "telescope-live-grep-raw.nvim"
           "53e9df55b3651dd7cf77e172f1e8c9a17407acca"
@@ -79,16 +81,21 @@ in
       telescope-nvim
       tokyonight-nvim
       trouble-nvim
+      # renovate: packageName=lbrayner/vim-rzip currentValue=master
       (plugin "vim-rzip" "lbrayner" "vim-rzip" "f65400fed27b27c7cff7ef8d428c4e5ff749bf28")
       which-key-nvim
       yazi-nvim
+      # renovate: packageName=Kaiser-Yang/blink-cmp-avante currentValue=master
       (plugin "blink-cmp-avante" "Kaiser-Yang" "blink-cmp-avante"
         "4f494c6e124acbe31a8f5d58effa0c14aa38a6d5"
       )
+      # renovate: packageName=MahanRahmati/blink-nerdfont.nvim currentValue=main
       (plugin "blink-nerdfont-nvim" "MahanRahmati" "blink-nerdfont.nvim"
         "e5034457a0a3f3444c0a48af8f5d7db0ad02a204"
       )
+      # renovate: packageName=moyiz/blink-emoji.nvim currentValue=master
       (plugin "blink-emoji-nvim" "moyiz" "blink-emoji.nvim" "dff709139ad5389fb55ebab026e75278a12b325a")
+      # renovate: packageName=pablopunk/pi.nvim currentValue=main
       (plugin "pi-nvim" "pablopunk" "pi.nvim" "9b619b4f9fb96fa4dc1a6a7776a651980cd819a0")
     ];
     extraPackages = [
