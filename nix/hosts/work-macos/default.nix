@@ -27,6 +27,7 @@
     homebrewCasks = [
       "nextcloud"
       "wispr-flow"
+      "zen"
     ];
     mas = {
       Tailscale = 1475387142;
@@ -35,6 +36,7 @@
       Tailscale = "tailscale-app";
     };
     approvedBundleIds = [
+      "app.zen-browser.zen"
       "bobko.aerospace"
       "com.electron.wispr-flow"
       "com.google.Chrome"

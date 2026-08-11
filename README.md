@@ -123,7 +123,7 @@ Review the plan even with these safeguards. Moving an application to Trash does 
 Nix owns the CLI environment and maintained macOS packages. Homebrew is the less-reproducible exception and has no formulas:
 
 - personal casks: `nextcloud`, `zen`, `wispr-flow`
-- work casks: `nextcloud`, `wispr-flow`
+- work casks: `nextcloud`, `wispr-flow`, `zen`
 
 Ordinary activation installs/upgrades desired casks, reports drift, and uses `cleanup = "none"` so unmanaged packages continue to exist.
 
