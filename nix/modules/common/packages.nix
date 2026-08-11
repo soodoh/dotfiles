@@ -1,22 +1,16 @@
 { pkgs, ... }:
 {
   home.packages = [
-    pkgs.atuin
-    pkgs.fzf
     pkgs.gh
-    pkgs.git
     pkgs.gnupg
     pkgs.go
     pkgs.jq
-    pkgs.lazygit
     pkgs.ripgrep
     pkgs.sesh
-    pkgs.starship
     pkgs.tmux
     pkgs.tree-sitter
     pkgs.wget
     pkgs.yazi
-    pkgs.zoxide
     pkgs.dotfilesPackages.pi
   ];
 
