@@ -91,7 +91,7 @@ if [ -n "$brew_bin" ] && [ -x "$brew_bin" ]; then
     "$brew_bin" services stop "$formula_name" >/dev/null 2>&1 || true
     "$brew_bin" uninstall --force --ignore-dependencies --formula "$formula_name"
   done
-  printf '%s' "$casks" | jq -r '.[]' | while IFS= read -r item; do [ -n "$item" ] && "$brew_bin" uninstall --cask "$item"; done
+  printf '%s' "$casks" | jq -r '.[]' | while IFS= read -r item; do [ -n "$item" ] && "$brew_bin" uninstall --force --cask "$item"; done
   "$brew_bin" autoremove
   printf '%s' "$taps" | jq -r '.[]' | while IFS= read -r item; do [ -n "$item" ] && "$brew_bin" untap --force "$item"; done
 fi
@@ -100,6 +100,7 @@ if command -v mas >/dev/null 2>&1; then
 fi
 printf '%s' "$apps" | jq -c '.[]' | while IFS= read -r app; do
   path="$(printf '%s' "$app" | jq -r .path)"
+  [ -e "$path" ] || continue
   bundle="$(printf '%s' "$app" | jq -r .bundleId)"
   [ -n "$bundle" ] && osascript -e "tell application id \"$bundle\" to quit" >/dev/null 2>&1 || true
   destination="$HOME/.Trash/$(basename "$path").$(date +%Y%m%d%H%M%S)"
