@@ -55,7 +55,6 @@
         "obsidian"
         "rar"
         "slack"
-        "snowflake-cli"
         "twg"
         "zoom"
       ];
@@ -77,38 +76,6 @@
             '';
         });
 
-        # The pinned pydantic and typer releases have known incompatibilities
-        # with these upstream tests. Keep the rest of snowflake-cli's suite on.
-        snowflake-cli = previous.snowflake-cli.overridePythonAttrs (oldAttrs: {
-          disabledTestPaths = (oldAttrs.disabledTestPaths or [ ]) ++ [
-            "tests/api/project/schemas/test_updatable_model.py"
-            "tests/test_docs_generation_output.py"
-          ];
-          disabledTests = (oldAttrs.disabledTests or [ ]) ++ [
-            "test_docs_callback"
-          ];
-        });
-
-        # These upstream tests rely on Darwin behaviors unavailable in the Nix
-        # sandbox (stable ephemeral ports, permission failures as the builder,
-        # and an implicit asyncio event loop). Keep the remaining suite enabled.
-        pythonPackagesExtensions =
-          previous.pythonPackagesExtensions
-          ++ lib.optionals final.stdenv.hostPlatform.isDarwin [
-            (_pythonFinal: pythonPrevious: {
-              snowflake-connector-python =
-                pythonPrevious.snowflake-connector-python.overridePythonAttrs
-                  (oldAttrs: {
-                    disabledTestPaths = (oldAttrs.disabledTestPaths or [ ]) ++ [
-                      "test/unit/aio/test_connection_async_unit.py"
-                    ];
-                    disabledTests = (oldAttrs.disabledTests or [ ]) ++ [
-                      "test_log_debug_config_file_parent_dir_permissions"
-                      "test_auth_oauth_auth_code_single_use_refresh_tokens"
-                    ];
-                  });
-            })
-          ];
       };
 
       mkPkgs =

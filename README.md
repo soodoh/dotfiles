@@ -97,7 +97,7 @@ General GitHub Actions CI formats and statically analyzes the Nix code, evaluate
 
 Cross-platform realization remains platform-specific: Darwin cannot natively build the Linux configurations, and Linux cannot natively build the Darwin configurations. Cross-platform configurations still receive evaluation-only coverage.
 
-The pinned nixpkgs revision needs two narrow Darwin build workarounds: oxlint's `@napi-rs/cli` process probe is redirected from sandbox-blocked `/bin/ps` to Nix's store-backed `ps`, and only dependency-incompatible Snowflake tests are disabled while the remaining upstream suites run. Revisit both overrides when updating `nixpkgs`.
+The pinned nixpkgs revision needs one narrow Darwin build workaround: oxlint's `@napi-rs/cli` process probe is redirected from sandbox-blocked `/bin/ps` to Nix's store-backed `ps`. Revisit this override when updating `nixpkgs`.
 
 ## Audit and cleanup
 
@@ -134,7 +134,7 @@ Review the plan even with these safeguards. Moving an application to Trash does 
 Nix owns the CLI environment and maintained macOS packages. Homebrew is the less-reproducible exception and has no formulas:
 
 - personal casks: `nextcloud`, `prusaslicer`, `wispr-flow`, `zen`
-- work casks: `nextcloud`, `wispr-flow`, `zen`
+- work casks: `nextcloud`, `snowflakedb/snowflake-cli/snowflake-cli`, `wispr-flow`, `zen`
 
 Ordinary activation installs/upgrades desired casks, reports drift, and uses `cleanup = "none"` so unmanaged packages continue to exist.
 

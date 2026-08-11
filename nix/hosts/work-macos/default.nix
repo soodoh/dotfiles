@@ -8,5 +8,7 @@
     name = "Paul DiLoreto";
     email = "paul.diloreto@docusign.com";
   };
-  applications = import ../common-darwin-applications.nix { };
+  applications = import ../common-darwin-applications.nix {
+    extraHomebrewCasks = [ "snowflakedb/snowflake-cli/snowflake-cli" ];
+  };
 }
