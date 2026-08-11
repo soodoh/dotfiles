@@ -33,6 +33,17 @@
         "nix-command"
         "flakes"
       ];
+      substituters = [
+        "https://cache.nixos.org/"
+        "https://nix-community.cachix.org"
+      ];
+      trusted-public-keys = [
+        "cache.nixos.org-1:6NCHdD59X431o0yWZ9h8QJ3zkW9nN2Eq9T7zPv8XoeI="
+        "nix-community.cachix.org-1:mB9Mx8lqQ0j03zqvkHxz24DeDGl8Gy3hYlG5tx8jW5A="
+      ];
+      builders-use-substitutes = true;
+      max-jobs = "auto";
+      cores = 0;
       auto-optimise-store = true;
       warn-dirty = false;
     };

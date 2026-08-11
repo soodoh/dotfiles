@@ -16,6 +16,49 @@ let
           inherit rev;
         };
       };
+
+  treesitterGrammarNames = [
+    "bash"
+    "c"
+    "css"
+    "diff"
+    "dockerfile"
+    "git_config"
+    "git_rebase"
+    "gitignore"
+    "go"
+    "gomod"
+    "gosum"
+    "graphql"
+    "html"
+    "javascript"
+    "jsdoc"
+    "json"
+    "jsonc"
+    "kdl"
+    "lua"
+    "luadoc"
+    "markdown"
+    "markdown_inline"
+    "nix"
+    "prisma"
+    "python"
+    "regex"
+    "rust"
+    "toml"
+    "tsx"
+    "typescript"
+    "vim"
+    "vimdoc"
+    "yaml"
+  ];
+
+  treesitterWithSelectedGrammars = pkgs.vimPlugins.nvim-treesitter.withPlugins (
+    grammars:
+    map (grammarName: builtins.getAttr grammarName grammars) (
+      builtins.filter (grammarName: builtins.hasAttr grammarName grammars) treesitterGrammarNames
+    )
+  );
 in
 {
   programs.neovim = {
@@ -55,7 +98,7 @@ in
       nvim-colorizer-lua
       nvim-lspconfig
       nvim-surround
-      nvim-treesitter.withAllGrammars
+      treesitterWithSelectedGrammars
       nvim-ts-autotag
       nvim-ufo
       nvim-web-devicons
