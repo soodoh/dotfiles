@@ -35,10 +35,22 @@ in
       '';
     };
 
-  system.activationScripts.postActivation.text = ''
-    echo >&2 "Container runtime is declarative but not auto-started. Before removing Docker Desktop, verify:"
-    echo >&2 "  colima start"
-    echo >&2 "  docker run --rm hello-world"
-    echo >&2 "  docker compose version"
-  '';
+  # Keep Colima in the foreground so launchd owns its lifetime. Restart it only
+  # after failures; a clean `colima stop` remains effective until the next login.
+  launchd.user.agents.colima = {
+    serviceConfig = {
+      ProgramArguments = [
+        "${pkgs.colima}/bin/colima"
+        "start"
+        "--foreground"
+      ];
+      RunAtLoad = true;
+      KeepAlive.SuccessfulExit = false;
+      ProcessType = "Interactive";
+      WorkingDirectory = host.homeDirectory;
+      EnvironmentVariables.HOME = host.homeDirectory;
+      StandardOutPath = "${host.homeDirectory}/Library/Logs/colima.log";
+      StandardErrorPath = "${host.homeDirectory}/Library/Logs/colima.error.log";
+    };
+  };
 }
