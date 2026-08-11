@@ -16,6 +16,16 @@
 
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
 
+    homebrew-cask = {
+      url = "github:Homebrew/homebrew-cask";
+      flake = false;
+    };
+
+    homebrew-snowflake-cli = {
+      url = "github:snowflakedb/homebrew-snowflake-cli";
+      flake = false;
+    };
+
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -28,6 +28,17 @@
       "allowedVersions": ">=24 <25"
     },
     {
+      "description": "Update immutable Homebrew tap snapshots together",
+      "matchManagers": [
+        "nix"
+      ],
+      "matchPackageNames": [
+        "https://github.com/Homebrew/homebrew-cask",
+        "https://github.com/snowflakedb/homebrew-snowflake-cli"
+      ],
+      "groupName": "Homebrew taps"
+    },
+    {
       "description": "Generated Nix npm closures are updated by the dependency workflow",
       "matchManagers": [
         "npm"

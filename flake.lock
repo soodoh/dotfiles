@@ -58,6 +58,38 @@
         "type": "github"
       }
     },
+    "homebrew-cask": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786483733,
+        "narHash": "sha256-Dd8qlZhtCTpCBL3l10/MDn/5Y2fXelhykNvFKxWI62Y=",
+        "owner": "Homebrew",
+        "repo": "homebrew-cask",
+        "rev": "35708a71aacc3ab2bc68ac5ccc385284bfe6067e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Homebrew",
+        "repo": "homebrew-cask",
+        "type": "github"
+      }
+    },
+    "homebrew-snowflake-cli": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786367140,
+        "narHash": "sha256-A1oubunDDznSKzkKRoQ7Myf/eFuD4tdSaSLCrh5yDEI=",
+        "owner": "snowflakedb",
+        "repo": "homebrew-snowflake-cli",
+        "rev": "439e3379fabbef4da291fffdfe1199029289b2c0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "snowflakedb",
+        "repo": "homebrew-snowflake-cli",
+        "type": "github"
+      }
+    },
     "nix-darwin": {
       "inputs": {
         "nixpkgs": [
@@ -116,6 +148,8 @@
       "inputs": {
         "fenix": "fenix",
         "home-manager": "home-manager",
+        "homebrew-cask": "homebrew-cask",
+        "homebrew-snowflake-cli": "homebrew-snowflake-cli",
         "nix-darwin": "nix-darwin",
         "nix-homebrew": "nix-homebrew",
         "nixpkgs": "nixpkgs"

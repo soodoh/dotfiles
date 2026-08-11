@@ -62,7 +62,7 @@ Configuration and dotfile changes are store-backed and take effect only after a 
 
 ## Updates
 
-Activation never floats versions. `flake.lock`, npm dependency closures, and TWG release checksums change only through an explicit update target:
+Activation uses only versions available from pinned sources. `flake.lock` pins Nix inputs, Homebrew itself, and immutable Homebrew tap snapshots; npm dependency closures and TWG release checksums change only through an explicit update target:
 
 ```bash
 ./bin/nix-update lock
@@ -74,6 +74,8 @@ Activation never floats versions. `flake.lock`, npm dependency closures, and TWG
 ```
 
 Review every lock/hash diff before switching.
+
+Renovate updates root flake inputs, including the Homebrew cask taps, through reviewable pull requests. Do not run `brew update` or `brew upgrade`; pull the reviewed `main` branch and switch instead. Homebrew upgrades during activation can only use package definitions from the locked tap snapshots.
 
 Pi and every configured third-party Pi package are installed from a Nix-built npm closure. Settings reference only the store-backed local package; Pi does not need to populate `~/.pi/agent/npm` at startup.
 
@@ -131,12 +133,12 @@ Review the plan even with these safeguards. Moving an application to Trash does 
 
 ## macOS package sources
 
-Nix owns the CLI environment and maintained macOS packages. Homebrew is the less-reproducible exception and has no formulas:
+Nix owns the CLI environment and maintained macOS packages. Homebrew owns only the fallback casks below; Homebrew itself and every package tap are immutable inputs pinned by `flake.lock`. There are no Homebrew formulas:
 
 - personal casks: `nextcloud`, `prusaslicer`, `wispr-flow`, `zen`
 - work casks: `nextcloud`, `snowflakedb/snowflake-cli/snowflake-cli`, `wispr-flow`, `zen`
 
-Ordinary activation installs/upgrades desired casks, reports drift, and uses `cleanup = "none"` so unmanaged packages continue to exist.
+Ordinary activation installs/upgrades desired casks only from the locked tap revisions, reports drift, and uses `cleanup = "none"` so unmanaged packages continue to exist. Tap metadata and installer checksums are reproducible from `flake.lock`; applications with built-in self-updaters can still update themselves outside Homebrew.
 
 MAS IDs are declared per host. Current IDs include Tailscale `1475387142`, Amphetamine `937984704`, and HP `1474276998`. If the App Store account is unavailable, activation warns, prints exact `mas install` follow-up commands, and continues. Credentials are never stored in Nix. Cleanup protects a declared Homebrew fallback cask until its desired MAS app is actually installed.
 

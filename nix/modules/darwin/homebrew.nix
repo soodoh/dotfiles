@@ -1,11 +1,27 @@
-{ config, host, ... }:
+{
+  config,
+  host,
+  inputs,
+  lib,
+  ...
+}:
+let
+  homebrewTaps = {
+    "homebrew/homebrew-cask" = inputs.homebrew-cask;
+  }
+  // lib.optionalAttrs (host.profile == "work") {
+    "snowflakedb/homebrew-snowflake-cli" = inputs.homebrew-snowflake-cli;
+  };
+in
 {
   nix-homebrew = {
     enable = true;
     user = host.username;
     enableRosetta = true;
     autoMigrate = true;
-    mutableTaps = true;
+    taps = homebrewTaps;
+    mutableTaps = false;
+    extraEnv.HOMEBREW_NO_INSTALL_FROM_API = "1";
     enableBashIntegration = false;
     enableFishIntegration = false;
     enableZshIntegration = false;
@@ -16,7 +32,7 @@
     user = host.username;
     brews = [ ];
     casks = host.applications.homebrewCasks;
-    taps = [ ];
+    taps = builtins.attrNames homebrewTaps;
     onActivation = {
       autoUpdate = false;
       upgrade = true;
