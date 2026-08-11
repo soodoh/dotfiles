@@ -50,8 +50,8 @@ The wrappers run these flake-native commands:
 
 ```bash
 # macOS
-sudo nix run .#darwin-rebuild -- switch --flake .#personal-macos
-sudo nix run .#darwin-rebuild -- switch --flake .#work-macos
+sudo --set-home nix run .#darwin-rebuild -- switch --flake .#personal-macos
+sudo --set-home nix run .#darwin-rebuild -- switch --flake .#work-macos
 
 # Linux
 nix run .#home-manager -- switch --flake .#personal-arch
@@ -149,7 +149,7 @@ macOS:
 
 ```bash
 nix run .#darwin-rebuild -- --list-generations
-sudo nix run .#darwin-rebuild -- switch --rollback
+sudo --set-home nix run .#darwin-rebuild -- switch --rollback
 ```
 
 Home Manager:

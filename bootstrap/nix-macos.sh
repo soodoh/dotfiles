@@ -8,4 +8,4 @@ if ! command -v nix >/dev/null 2>&1; then
 fi
 nix_command="$(command -v nix 2>/dev/null || printf /nix/var/nix/profiles/default/bin/nix)"
 cd "$repo_root"
-sudo "$nix_command" --extra-experimental-features 'nix-command flakes' run .#darwin-rebuild -- switch --flake ".#$host"
+sudo --set-home "$nix_command" --extra-experimental-features 'nix-command flakes' run .#darwin-rebuild -- switch --flake ".#$host"
