@@ -5,11 +5,16 @@
     pkgs.nodejs_24
     pkgs.python3
     pkgs.uv
-    pkgs.fenix.stable.completeToolchain
+    (pkgs.fenix.stable.withComponents [
+      "cargo"
+      "clippy"
+      "rust-src"
+      "rustc"
+      "rustfmt"
+    ])
   ];
 
   home.sessionVariables = {
     COREPACK_ENABLE_PROJECT_SPEC = "0";
-    RUSTUP_TOOLCHAIN = "stable";
   };
 }
