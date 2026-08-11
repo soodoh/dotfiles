@@ -51,6 +51,7 @@
         "discord"
         "google-chrome"
         "git-conflict.nvim"
+        "lunar"
         "obsidian"
         "rar"
         "slack"

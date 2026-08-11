@@ -11,6 +11,7 @@
     ./applications.nix
     ./homebrew.nix
     ./mas.nix
+    ./login-items.nix
     ./defaults.nix
     ./window-management.nix
     ./containers.nix

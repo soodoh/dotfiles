@@ -20,6 +20,7 @@
       "sketchybar"
       "jankyborders"
       "scroll-reverser"
+      "lunar"
       "colima"
       "lima"
       "docker"
@@ -42,6 +43,13 @@
     masFallbackCasks = {
       Tailscale = "tailscale-app";
     };
+    loginItems = {
+      AeroSpace = "/Applications/Nix Apps/AeroSpace.app";
+      Lunar = "/Applications/Nix Apps/Lunar.app";
+      Nextcloud = "/Applications/Nextcloud.app";
+      "Scroll Reverser" = "/Applications/Nix Apps/Scroll Reverser.app";
+      Tailscale = "/Applications/Tailscale.app";
+    };
     approvedBundleIds = [
       "app.zen-browser.zen"
       "bobko.aerospace"
@@ -51,6 +59,7 @@
       "com.hp.SmartMac"
       "com.if.Amphetamine"
       "com.mitchellh.ghostty"
+      "fyi.lunar.Lunar"
       "com.moonlight-stream.Moonlight"
       "com.nextcloud.desktopclient"
       "com.pilotmoon.scroll-reverser"
