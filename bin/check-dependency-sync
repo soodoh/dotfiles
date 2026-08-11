@@ -1,0 +1,84 @@
+#!/usr/bin/env node
+
+const { readFileSync } = require("node:fs");
+const { resolve } = require("node:path");
+
+const repoRoot = resolve(__dirname, "..");
+const readJson = (relativePath) =>
+  JSON.parse(readFileSync(resolve(repoRoot, relativePath), "utf8"));
+
+const workspace = readJson("pi-extensions/package.json");
+const wrapper = readJson("nix/packages/pi-extensions/package.json");
+const rootManifest = readJson("package.json");
+const biomeConfig = readJson("pi-extensions/biome.json");
+const workspaceDependencies = workspace.dependencies ?? {};
+const wrapperDependencies = wrapper.dependencies ?? {};
+const bundledPackages = wrapper.bundledPiPackages ?? [];
+const bundledPackageSet = new Set(bundledPackages);
+const errors = [];
+
+if (bundledPackageSet.size !== bundledPackages.length) {
+  errors.push("bundledPiPackages contains duplicate package names");
+}
+
+for (const [packageName, declaration] of Object.entries(workspaceDependencies)) {
+  if (bundledPackageSet.has(packageName)) {
+    errors.push(
+      `${packageName} is both a workspace dependency and a bundled Pi package; the canonical declarations would conflict`,
+    );
+    continue;
+  }
+
+  if (!(packageName in wrapperDependencies)) {
+    errors.push(`workspace dependency ${packageName} is missing from the Nix wrapper`);
+  } else if (wrapperDependencies[packageName] !== declaration) {
+    errors.push(
+      `workspace dependency ${packageName} must be ${declaration} in the Nix wrapper, found ${wrapperDependencies[packageName]}`,
+    );
+  }
+}
+
+for (const packageName of bundledPackages) {
+  const declaration = wrapperDependencies[packageName];
+  if (declaration === undefined) {
+    errors.push(`bundled Pi package ${packageName} is missing from the Nix wrapper`);
+  } else if (
+    !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(declaration)
+  ) {
+    errors.push(`bundled Pi package ${packageName} must use an exact npm version, found ${declaration}`);
+  }
+}
+
+for (const packageName of Object.keys(wrapperDependencies)) {
+  if (!(packageName in workspaceDependencies) && !bundledPackageSet.has(packageName)) {
+    errors.push(`stale Nix wrapper dependency ${packageName} has no canonical source`);
+  }
+}
+
+const biomeDeclaration = rootManifest.devDependencies?.["@biomejs/biome"];
+const biomeDependencyVersion = biomeDeclaration?.replace(/^[~^]/, "");
+const biomeSchemaMatch = biomeConfig.$schema?.match(
+  /^https:\/\/biomejs\.dev\/schemas\/(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\/schema\.json$/,
+);
+
+if (!biomeDependencyVersion) {
+  errors.push("root @biomejs/biome dependency is missing");
+} else if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(biomeDependencyVersion)) {
+  errors.push(`root @biomejs/biome dependency has an unsupported range: ${biomeDeclaration}`);
+} else if (!biomeSchemaMatch) {
+  errors.push(`Biome schema URL is not version-pinned: ${biomeConfig.$schema}`);
+} else if (biomeSchemaMatch[1] !== biomeDependencyVersion) {
+  errors.push(
+    `Biome schema version ${biomeSchemaMatch[1]} does not match dependency ${biomeDependencyVersion}`,
+  );
+}
+
+if (errors.length > 0) {
+  console.error("Dependency synchronization validation failed:");
+  for (const error of errors) {
+    console.error(`- ${error}`);
+  }
+  process.exit(1);
+}
+
+console.log("Nix Pi-extension wrapper dependencies are synchronized");

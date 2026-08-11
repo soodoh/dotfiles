@@ -20,7 +20,7 @@ let
     inherit version;
     src = dependencySource;
 
-    npmDepsHash = "sha256-cVSp3q1vTQ1apDXGpnqDYf7grJBzXLgyV60AWfueGRU=";
+    npmDepsHash = "sha256-1Lvsq5/vvj7plb9jE33zSbPfzLaFPz5xLxe6gCfy/uk=";
     npmDepsFetcherVersion = 2;
     npmFlags = [ "--legacy-peer-deps" ];
     dontNpmBuild = true;

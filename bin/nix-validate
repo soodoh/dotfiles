@@ -2,6 +2,7 @@
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
+./bin/check-dependency-sync
 nix fmt -- --ci --tree-root . --walk filesystem
 nix run .#statix -- check .
 nix run .#deadnix -- --fail .

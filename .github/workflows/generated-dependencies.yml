@@ -53,6 +53,7 @@ jobs:
 
       - name: Validate generated dependencies
         run: |
+          ./bin/check-dependency-sync
           nix fmt -- --ci --tree-root . --walk filesystem
           nix flake check --all-systems --no-build
           nix build --no-link .#packages.x86_64-linux.{pi,twg,pi-extensions}
