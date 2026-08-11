@@ -25,7 +25,19 @@ for candidate in "$brew_bin" /opt/homebrew/bin/brew /usr/local/bin/brew; do
   if [ -x "$candidate" ]; then brew_bin="$candidate"; break; fi
 done
 if [ -n "$brew_bin" ] && [ -x "$brew_bin" ]; then
-  brew_formulae="$("$brew_bin" leaves 2>/dev/null | json_lines)"
+  brew_formulae="$("$brew_bin" leaves --installed-on-request 2>/dev/null | json_lines)"
+  brew_cellar="$("$brew_bin" --cellar 2>/dev/null || true)"
+  if [ -d "$brew_cellar" ]; then
+    while IFS= read -r receipt; do
+      if ! jq -e '.installed_on_request == true' "$receipt" >/dev/null 2>&1; then continue; fi
+      formula_name="$(basename "$(dirname "$(dirname "$receipt")")")"
+      formula_tap="$(jq -r '.source.tap // ""' "$receipt")"
+      if [ -n "$formula_tap" ] && [ "$formula_tap" != homebrew/core ]; then
+        formula_name="$formula_tap/$formula_name"
+      fi
+      brew_formulae="$(printf '%s' "$brew_formulae" | jq --arg formula "$formula_name" '. + [$formula] | unique')"
+    done < <(find "$brew_cellar" -mindepth 3 -maxdepth 3 -name INSTALL_RECEIPT.json -print)
+  fi
   brew_casks="$("$brew_bin" list --cask 2>/dev/null | json_lines)"
   brew_taps="$("$brew_bin" tap 2>/dev/null | json_lines)"
   if [ "$(printf '%s' "$brew_casks" | jq length)" -gt 0 ]; then

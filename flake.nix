@@ -264,7 +264,8 @@
                   "$HOME/.bun/bin" \
                   "$HOME/.cargo/bin" \
                   "$HOME/.local/bin" \
-                  "$HOME/fake-bin"
+                  "$HOME/fake-bin" \
+                  "$HOME/fake-cellar/sketchybar/1.0.0"
 
                 cat > "$HOME/.local/share/fnm/aliases/default/bin/node" <<'EOF'
                 #!/bin/sh
@@ -287,10 +288,14 @@
                 #!/bin/sh
                 printf '%s\n' 'ruff v1.0.0'
                 EOF
+                cat > "$HOME/fake-cellar/sketchybar/1.0.0/INSTALL_RECEIPT.json" <<'EOF'
+                {"installed_on_request":true,"source":{"tap":"legacy/tap"}}
+                EOF
                 cat > "$HOME/fake-bin/brew" <<'EOF'
                 #!/bin/sh
                 case "$1" in
                   leaves) printf '%s\n' legacy-formula ;;
+                  --cellar) printf '%s\n' "$HOME/fake-cellar" ;;
                   list) printf '%s\n' legacy-cask ;;
                   tap) printf '%s\n' legacy/tap ;;
                   info) printf '%s\n' '{"casks":[]}' ;;
@@ -307,7 +312,7 @@
 
                 nix-audit personal-macos --json > report.json
                 jq -e '
-                  .observed.homebrew.formulae == ["legacy-formula"] and
+                  .observed.homebrew.formulae == ["legacy-formula", "legacy/tap/sketchybar"] and
                   .observed.homebrew.casks == ["legacy-cask"] and
                   .observed.homebrew.taps == ["legacy/tap"] and
                   .observed.legacyGlobals.npm == ["corepack", "npm"] and

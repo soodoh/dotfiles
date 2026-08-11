@@ -80,8 +80,19 @@ for candidate in "$brew_bin" /opt/homebrew/bin/brew /usr/local/bin/brew; do
   if [ -x "$candidate" ]; then brew_bin="$candidate"; break; fi
 done
 if [ -n "$brew_bin" ] && [ -x "$brew_bin" ]; then
-  printf '%s' "$formulae" | jq -r '.[]' | while IFS= read -r item; do [ -n "$item" ] && "$brew_bin" uninstall --formula "$item"; done
+  printf '%s' "$formulae" | jq -r '.[]' | while IFS= read -r item; do
+    [ -z "$item" ] && continue
+    formula_name="${item##*/}"
+    service_label="homebrew.mxcl.$formula_name"
+    if [ "$(uname -s)" = Darwin ]; then
+      /bin/launchctl bootout "gui/$(id -u)/$service_label" >/dev/null 2>&1 || true
+      rm -f "$HOME/Library/LaunchAgents/$service_label.plist"
+    fi
+    "$brew_bin" services stop "$formula_name" >/dev/null 2>&1 || true
+    "$brew_bin" uninstall --force --formula "$formula_name"
+  done
   printf '%s' "$casks" | jq -r '.[]' | while IFS= read -r item; do [ -n "$item" ] && "$brew_bin" uninstall --cask "$item"; done
+  "$brew_bin" autoremove
   printf '%s' "$taps" | jq -r '.[]' | while IFS= read -r item; do [ -n "$item" ] && "$brew_bin" untap --force "$item"; done
 fi
 if command -v mas >/dev/null 2>&1; then
