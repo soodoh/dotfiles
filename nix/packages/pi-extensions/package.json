@@ -15,10 +15,6 @@
     "@quintinshaw/pi-dynamic-workflows"
   ],
   "dependencies": {
-    "@earendil-works/pi-agent-core": "0.84.1",
-    "@earendil-works/pi-ai": "0.84.1",
-    "@earendil-works/pi-coding-agent": "0.84.1",
-    "@earendil-works/pi-tui": "0.84.1",
     "@juicesharp/rpiv-ask-user-question": "2.4.0",
     "@juicesharp/rpiv-todo": "2.4.0",
     "@juicesharp/rpiv-web-tools": "2.4.0",

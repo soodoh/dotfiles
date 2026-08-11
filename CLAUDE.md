@@ -11,7 +11,7 @@ The Nix migration is complete. The flake and `nix/dotfiles/` are the canonical c
 - `flake.nix`, `flake.lock` — pinned inputs and four public configurations
 - `nix/hosts/` — explicit host metadata and application sets
 - `nix/modules/` — shared, Darwin, Linux, and profile modules
-- `nix/packages/` — pinned Pi, TWG, and Pi extension packages
+- `nix/packages/` — pinned TWG and Pi extension packages
 - `nix/dotfiles/` — store-backed common, Darwin, and isolated profile files
 - `nix/scripts/` — read-only audit and confirmation-gated cleanup
 - `bootstrap/nix-*.sh` — official multi-user Nix bootstraps

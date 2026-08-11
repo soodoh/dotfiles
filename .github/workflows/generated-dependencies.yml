@@ -29,7 +29,6 @@ jobs:
 
       - name: Update generated Nix dependencies
         run: |
-          ./bin/nix-update pi
           ./bin/nix-update agents
           ./bin/nix-update twg
 

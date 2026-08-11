@@ -177,8 +177,9 @@
         // {
           nix-audit = scripts.audit;
           nix-cleanup = scripts.cleanup;
-          inherit (pkgs) prefetch-npm-deps deadnix statix;
-          default = custom.pi;
+          inherit (pkgs) deadnix statix;
+          pi = pkgs.pi-coding-agent;
+          default = pkgs.pi-coding-agent;
         }
       );
 
@@ -220,7 +221,7 @@
           policySource = cleanSource ./nix;
         in
         {
-          pi-smoke = custom.pi;
+          pi-smoke = pkgs.pi-coding-agent;
           twg-smoke = custom.twg;
           inherit (custom) pi-extensions;
 

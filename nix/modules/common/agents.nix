@@ -24,7 +24,6 @@ in
     };
     ".pi/agent/pi-extensions" = {
       source = "${pkgs.dotfilesPackages.pi-extensions}/share/pi-extensions";
-      recursive = true;
     };
   };
 }

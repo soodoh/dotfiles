@@ -33,7 +33,6 @@
         "npm"
       ],
       "matchFileNames": [
-        "nix/packages/pi/package.json",
         "nix/packages/pi-extensions/package.json"
       ],
       "enabled": false

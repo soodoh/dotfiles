@@ -11,7 +11,7 @@
     pkgs.tree-sitter
     pkgs.wget
     pkgs.yazi
-    pkgs.dotfilesPackages.pi
+    pkgs.pi-coding-agent
   ];
 
   programs = {

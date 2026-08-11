@@ -66,7 +66,6 @@ Activation never floats versions. `flake.lock`, npm dependency closures, and TWG
 
 ```bash
 ./bin/nix-update lock
-./bin/nix-update pi 0.84.1
 ./bin/nix-update agents pi-readseek 0.9.10
 ./bin/nix-update agents pi-subagents 0.45.1
 ./bin/nix-update agents all
