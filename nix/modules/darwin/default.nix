@@ -15,6 +15,7 @@
     ./defaults.nix
     ./window-management.nix
     ./containers.nix
+    ./work-corporate.nix
   ];
 
   nixpkgs = {
