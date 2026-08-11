@@ -104,7 +104,9 @@ printf '%s' "$apps" | jq -c '.[]' | while IFS= read -r app; do
   bundle="$(printf '%s' "$app" | jq -r .bundleId)"
   [ -n "$bundle" ] && osascript -e "tell application id \"$bundle\" to quit" >/dev/null 2>&1 || true
   destination="$HOME/.Trash/$(basename "$path").$(date +%Y%m%d%H%M%S)"
-  mv "$path" "$destination"
+  if ! mv "$path" "$destination" 2>/dev/null; then
+    /usr/bin/sudo mv "$path" "$destination"
+  fi
 done
 
 legacy_npm="$HOME/.local/share/fnm/aliases/default/bin/npm"
