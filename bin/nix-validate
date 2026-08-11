@@ -23,6 +23,6 @@ case "$current_system" in
     exit 2
     ;;
 esac
-nix build --no-link ".#packages.$current_system".{pi,readseek,twg,pi-extensions}
+nix build --no-link ".#packages.$current_system".{pi,twg,pi-extensions}
 nix build --no-link ".#checks.$current_system".{immutable-plugin-policy,dotfile-targets,audit-legacy-discovery,cleanup-confirmation}
 git diff --check

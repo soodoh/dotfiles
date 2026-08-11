@@ -14,9 +14,7 @@ fi
 smoke_ok=true
 replacement_commands="pi bun node corepack rustc cargo uv"
 profile="$(printf '%s' "$audit_json" | jq -r '.desired.profile')"
-if [ "$profile" = personal ]; then
-  replacement_commands="$replacement_commands readseek"
-elif [ "$profile" = work ]; then
+if [ "$profile" = work ]; then
   replacement_commands="$replacement_commands twg"
 fi
 for command_name in $replacement_commands; do

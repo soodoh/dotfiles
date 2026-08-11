@@ -9,26 +9,18 @@ case "$target" in
     pi_version="$(jq -r .version nix/packages/pi/package.json)"
     ./nix/packages/pi-extensions/update.sh core "$pi_version"
     ;;
-  readseek)
-    ./nix/packages/readseek/update.sh "${2:-}"
-    readseek_version="$(jq -r .version nix/packages/readseek/package.json)"
-    ./nix/packages/pi-extensions/update.sh pi-readseek "$readseek_version"
-    ;;
   agents) ./nix/packages/pi-extensions/update.sh "${2:-all}" "${3:-}" ;;
   twg) ./nix/packages/twg/update.sh "${2:-}" ;;
   all)
     nix flake update
     ./nix/packages/pi/update.sh
     pi_version="$(jq -r .version nix/packages/pi/package.json)"
-    ./nix/packages/readseek/update.sh
-    readseek_version="$(jq -r .version nix/packages/readseek/package.json)"
     ./nix/packages/pi-extensions/update.sh core "$pi_version"
-    ./nix/packages/pi-extensions/update.sh pi-readseek "$readseek_version"
     ./nix/packages/pi-extensions/update.sh all
     ./nix/packages/twg/update.sh
     ;;
   *)
-    echo >&2 "usage: $0 {lock|pi [version]|readseek [version]|agents [package|all] [version]|twg [version]|all}"
+    echo >&2 "usage: $0 {lock|pi [version]|agents [package|all] [version]|twg [version]|all}"
     echo >&2 "No versions were changed. Choose the update scope explicitly."
     exit 2
     ;;

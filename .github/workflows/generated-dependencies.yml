@@ -30,7 +30,6 @@ jobs:
       - name: Update generated Nix dependencies
         run: |
           ./bin/nix-update pi
-          ./bin/nix-update readseek
           ./bin/nix-update agents
           ./bin/nix-update twg
 
@@ -57,7 +56,7 @@ jobs:
         run: |
           nix fmt -- --ci --tree-root . --walk filesystem
           nix flake check --all-systems --no-build
-          nix build --no-link .#packages.x86_64-linux.{pi,readseek,twg,pi-extensions}
+          nix build --no-link .#packages.x86_64-linux.{pi,twg,pi-extensions}
           git diff --check
 
       - name: Create dependency pull request

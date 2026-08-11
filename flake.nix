@@ -221,7 +221,6 @@
         in
         {
           pi-smoke = custom.pi;
-          readseek-smoke = custom.readseek;
           twg-smoke = custom.twg;
           inherit (custom) pi-extensions;
 
