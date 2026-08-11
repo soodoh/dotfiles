@@ -18,6 +18,13 @@ let
     set -gx GPG_TTY (tty)
 
     set -a fish_function_path ${fishSource}/custom/functions
+
+    # The Git plugin normally creates its abbreviations during Fisher's install
+    # event. Home Manager only exposes the immutable plugin files, so initialize
+    # them explicitly before sourcing our overrides.
+    if functions -q __git.init
+      __git.init
+    end
     set -l custom_conf_dir ${fishSource}/custom/conf.d
     for file in $custom_conf_dir/*.fish
       source $file
