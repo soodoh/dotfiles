@@ -1,0 +1,8 @@
+{
+  "name": "nix-pi-wrapper",
+  "private": true,
+  "version": "0.84.1",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.1"
+  }
+}

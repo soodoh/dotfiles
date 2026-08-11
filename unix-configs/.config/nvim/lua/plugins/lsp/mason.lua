@@ -24,7 +24,6 @@ return {
       require("mason-tool-installer").setup({
         ensure_installed = {
           -- LSP
-          "ansible-language-server",
           "awk-language-server",
           "bash-language-server",
           "css-lsp",
@@ -47,7 +46,6 @@ return {
           "yaml-language-server",
 
           -- Linters
-          "ansible-lint",
           "yamllint",
 
           -- Formatters

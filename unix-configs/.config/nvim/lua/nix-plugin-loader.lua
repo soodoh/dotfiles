@@ -1,0 +1,1 @@
+/nix/store/w3vdk0nx6bj938df7zypy2lymy1033cr-home-manager-files/.config/nvim/lua/nix-plugin-loader.lua

@@ -1,0 +1,2 @@
+# Store-backed migrated snapshots preserve upstream/vendor formatting verbatim.
+nix/dotfiles/** -whitespace

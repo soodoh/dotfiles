@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+client_name="${1:-}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+pi_session_list="$script_dir/pi-session-list"
+pi_session_preview="$script_dir/pi-session-preview"
+printf -v pi_session_preview_command '%q' "$pi_session_preview"
+
+if [[ -z "$client_name" ]]; then
+  exit 0
+fi
+
+if ! command -v fzf >/dev/null 2>&1 || ! command -v fzf-tmux >/dev/null 2>&1; then
+  tmux display-message -c "$client_name" "Alt+P requires fzf and fzf-tmux" 2>/dev/null || true
+  exit 0
+fi
+
+fzf_probe_status=0
+printf '' | fzf --track \
+  --bind 'load:reload-sync(true)+unbind(load)' \
+  --filter __pi_feature_probe__ >/dev/null 2>&1 || fzf_probe_status=$?
+if [[ "$fzf_probe_status" -eq 2 ]]; then
+  tmux display-message -c "$client_name" "Alt+P requires fzf 0.44.1 or newer" 2>/dev/null || true
+  exit 0
+fi
+
+umask 077
+picker_tmp="$(mktemp -d)"
+initial_candidates="$picker_tmp/initial"
+pane_order="$picker_tmp/order"
+cleanup() {
+  rm -f "$initial_candidates" "$pane_order"
+  rmdir "$picker_tmp" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+"$pi_session_list" >"$initial_candidates"
+while IFS=$'\t' read -r pane_id _; do
+  if [[ "$pane_id" =~ ^%[0-9]+$ ]]; then
+    printf '%s\n' "$pane_id" >>"$pane_order"
+  fi
+done <"$initial_candidates"
+printf -v pi_session_reload_command '%q --order-file %q' \
+  "$pi_session_list" "$pane_order"
+
+if ! selection="$(cat "$initial_candidates" | fzf-tmux -p 90%,80% \
+  --ansi --no-sort --track \
+  --info=hidden \
+  --delimiter=$'\t' --with-nth=4.. --nth=1 \
+  --border-label ' pi sessions ' --prompt 'π  ' \
+  --header ' type to filter • enter jump • esc close ' \
+  --bind 'tab:down,btab:up' \
+  --bind "load:reload-sync(sleep 1; $pi_session_reload_command)+refresh-preview" \
+  --preview-window 'right:55%:wrap' \
+  --preview-label ' live pane output ' \
+  --preview "$pi_session_preview_command {1}" \
+  --color='bg:#1a1b26,bg+:#24283b,fg:#a9b1d6,fg+:#c0caf5,hl:#7aa2f7,hl+:#7dcfff,prompt:#bb9af7,pointer:#7aa2f7,marker:#9ece6a,spinner:#e0af68,header:#565f89,border:#3b4261,label:#7aa2f7')"; then
+  exit 0
+fi
+
+IFS=$'\t' read -r pane_id session_id window_id _ <<<"$selection"
+if [[ ! "$pane_id" =~ ^%[0-9]+$ ]] ||
+  [[ ! "$session_id" =~ ^\$[0-9]+$ ]] ||
+  [[ ! "$window_id" =~ ^@[0-9]+$ ]]; then
+  exit 0
+fi
+
+if ! "$pi_session_list" --validate "$pane_id" "$session_id" "$window_id"; then
+  tmux display-message -c "$client_name" "Pi pane is no longer available" 2>/dev/null || true
+  exit 0
+fi
+
+current="$(tmux display-message -p -t "$pane_id" \
+  "#{pane_id}"$'\t'"#{session_id}"$'\t'"#{window_id}" 2>/dev/null || true)"
+if [[ "$current" != "$pane_id"$'\t'"$session_id"$'\t'"$window_id" ]]; then
+  tmux display-message -c "$client_name" "Pi pane is no longer available" 2>/dev/null || true
+  exit 0
+fi
+
+tmux switch-client -c "$client_name" -t "$pane_id" 2>/dev/null ||
+  tmux display-message -c "$client_name" "Unable to switch to Pi pane" 2>/dev/null || true

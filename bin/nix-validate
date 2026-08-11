@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+nix fmt -- --ci --tree-root . --walk filesystem
+nix run .#statix -- check .
+nix run .#deadnix -- --fail .
+nix flake check --all-systems
+nix eval .#darwinConfigurations.personal-macos.config.system.build.toplevel.drvPath >/dev/null
+nix eval .#darwinConfigurations.work-macos.config.system.build.toplevel.drvPath >/dev/null
+nix build --no-link .#homeConfigurations.personal-arch.activationPackage
+nix build --no-link .#homeConfigurations.personal-debian.activationPackage
+nix build --no-link .#packages."$(nix eval --impure --raw --expr builtins.currentSystem)".{pi,readseek,twg,pi-extensions}
+git diff --check
