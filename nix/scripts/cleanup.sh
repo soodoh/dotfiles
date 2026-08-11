@@ -89,7 +89,7 @@ if [ -n "$brew_bin" ] && [ -x "$brew_bin" ]; then
       rm -f "$HOME/Library/LaunchAgents/$service_label.plist"
     fi
     "$brew_bin" services stop "$formula_name" >/dev/null 2>&1 || true
-    "$brew_bin" uninstall --force --formula "$formula_name"
+    "$brew_bin" uninstall --force --ignore-dependencies --formula "$formula_name"
   done
   printf '%s' "$casks" | jq -r '.[]' | while IFS= read -r item; do [ -n "$item" ] && "$brew_bin" uninstall --cask "$item"; done
   "$brew_bin" autoremove
