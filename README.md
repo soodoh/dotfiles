@@ -199,7 +199,7 @@ Keep secrets and authenticated sessions outside the Nix store:
 
 ### Known work-profile security exception
 
-The owner explicitly accepted preserving the work profile's LiteLLM default at `http://192.168.0.100:4000/v1`. Its committed `settings.security.test.mjs` remains a documented expected failure and must not be represented as a passing security check; repository validation may proceed only with this recorded exception. Revisit the exception when that endpoint supports TLS or the default can move to the existing HTTPS `llm-hub` provider.
+The owner explicitly accepted preserving the work profile's LiteLLM default at `http://192.168.0.100:4000/v1`. Its committed `settings.security.test.mjs` remains a documented expected failure and must not be represented as a passing security check; repository validation may proceed only with this recorded exception. Revisit the exception when that endpoint supports TLS.
 
 ## Rollback and garbage collection
 
