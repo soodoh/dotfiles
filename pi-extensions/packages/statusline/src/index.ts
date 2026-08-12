@@ -15,6 +15,7 @@ import type {
 import {
 	discoverProviderUsageTargets,
 	invalidateProviderUsageDiscovery,
+	mappedProviderUsageFamily,
 	refreshProviderUsage,
 	renderProviderUsage,
 } from "./provider-usage";
@@ -508,6 +509,7 @@ function buildStatusLines(
 						theme,
 						providerMode === "active",
 						(text) => color(theme, "model", text),
+						mappedProviderUsageFamily(ctx.model),
 					);
 				case "context":
 					return renderContext(ctx, contextTokens, theme);

@@ -75,13 +75,18 @@ const OAUTH_PROVIDER_IDS = new Set([
 	"google-antigravity",
 ]);
 const LLMHUB_USAGE_PROVIDER_ID = "llm-hub";
+const LITELLM_PROVIDER_ID = "litellm";
+const OPENAI_USAGE_FAMILY = "openai";
 const API_KEY_PROVIDER_IDS = new Set([
 	"anthropic",
-	"openai",
+	OPENAI_USAGE_FAMILY,
 	"openrouter",
 	LLMHUB_USAGE_PROVIDER_ID,
 ]);
-const USAGE_IGNORED_PROVIDER_IDS = new Set(["google-vertex", "litellm"]);
+const USAGE_IGNORED_PROVIDER_IDS = new Set([
+	"google-vertex",
+	LITELLM_PROVIDER_ID,
+]);
 const PROVIDER_FAMILY_ORDER = [
 	LLMHUB_USAGE_PROVIDER_ID,
 	"github-copilot",
@@ -345,10 +350,25 @@ function getStoredCredential(
 
 function providerFamily(providerId: string): string {
 	const normalized = normalizeProviderId(providerId);
-	if (normalized === "openai-codex" || normalized === "openai") {
-		return "openai";
+	if (normalized === "openai-codex" || normalized === OPENAI_USAGE_FAMILY) {
+		return OPENAI_USAGE_FAMILY;
 	}
 	return normalized;
+}
+
+export function mappedProviderUsageFamily(
+	model: ModelLike | undefined,
+): string | undefined {
+	if (
+		!model?.provider ||
+		normalizeProviderId(model.provider) !== LITELLM_PROVIDER_ID
+	) {
+		return undefined;
+	}
+	const route = model.id?.trim().split("/", 1)[0]?.trim().toLowerCase();
+	return route === "chatgpt" || route === OPENAI_USAGE_FAMILY
+		? OPENAI_USAGE_FAMILY
+		: undefined;
 }
 
 function compareProviderIds(a: string, b: string): number {
@@ -1519,9 +1539,17 @@ function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
 function providerUsageBadges(
 	targets: ProviderUsageTarget[],
 	activeOnly: boolean,
+	activeFamilyOverride?: string,
 ): { active: boolean; text: string }[] {
 	hydrateSharedCache();
 	return targets
+		.map((target) => ({
+			...target,
+			active:
+				target.active ||
+				(activeFamilyOverride !== undefined &&
+					providerFamily(target.providerId) === activeFamilyOverride),
+		}))
 		.filter((target) => !activeOnly || target.active)
 		.sort((a, b) => compareProviderIds(a.providerId, b.providerId))
 		.flatMap((target) =>
@@ -1547,8 +1575,9 @@ export function renderProviderUsage(
 	theme: ThemeLike,
 	activeOnly: boolean,
 	renderActive: (text: string) => string = (text) => theme.fg("dim", text),
+	activeFamilyOverride?: string,
 ): string | undefined {
-	const badges = providerUsageBadges(targets, activeOnly);
+	const badges = providerUsageBadges(targets, activeOnly, activeFamilyOverride);
 	if (badges.length === 0) return undefined;
 	const separator = theme.fg("dim", PROVIDER_BADGE_SEPARATOR);
 	return badges

@@ -9,6 +9,7 @@ import {
 	discoverProviderUsageTargets,
 	formatProviderUsage,
 	invalidateProviderUsageCache,
+	mappedProviderUsageFamily,
 	type ProviderUsageTarget,
 	refreshProviderUsage,
 	renderProviderUsage,
@@ -75,6 +76,7 @@ function render(targets: ProviderUsageTarget[], activeOnly = false): string {
 function renderStyled(
 	targets: ProviderUsageTarget[],
 	activeOnly = false,
+	activeFamilyOverride?: string,
 ): string {
 	return (
 		renderProviderUsage(
@@ -82,6 +84,7 @@ function renderStyled(
 			styledTheme,
 			activeOnly,
 			(text) => `<model>${text}</model>`,
+			activeFamilyOverride,
 		) ?? ""
 	);
 }
@@ -947,6 +950,98 @@ describe("provider usage", () => {
 		expect(
 			discoverProviderUsageTargets(llmHubContext({ authenticated: false })),
 		).toEqual([]);
+	});
+
+	test("maps only exact ChatGPT and OpenAI LiteLLM route segments", () => {
+		for (const id of ["chatgpt/gpt-5.6-sol", " OpenAI/gpt-5 "]) {
+			expect(mappedProviderUsageFamily({ provider: "LiteLLM", id })).toBe(
+				"openai",
+			);
+		}
+
+		for (const id of [
+			"openrouter/openai/gpt-5",
+			"my-chatgpt/gpt-5",
+			"gpt-5.6-sol",
+			undefined,
+		]) {
+			expect(
+				mappedProviderUsageFamily({ provider: "litellm", id }),
+			).toBeUndefined();
+		}
+		expect(
+			mappedProviderUsageFamily({
+				provider: "llm-hub",
+				id: "chatgpt/gpt-5.6-sol",
+			}),
+		).toBeUndefined();
+	});
+
+	test("activates the resolved OpenAI family badge only while rendering", () => {
+		const ctx: ProviderUsageContext = {
+			model: { provider: "litellm", id: "chatgpt/gpt-5.6-sol" },
+			modelRegistry: { getAvailable: () => [] },
+			readStoredCredential(provider) {
+				if (provider === "openai-codex") {
+					return { type: "oauth", access: "codex-token" };
+				}
+				return provider === "openai" ? { type: "api_key" } : undefined;
+			},
+		};
+		const targets = discoverProviderUsageTargets(ctx);
+		const activeFamily = mappedProviderUsageFamily(ctx.model);
+
+		expect(targets).toEqual([
+			{ providerId: "openai-codex", authKind: "oauth", active: false },
+		]);
+		expect(formatProviderUsage(targets)).toBeUndefined();
+		expect(renderStyled(targets, false, activeFamily)).toBe(
+			"<model>OpenAI ?</model>",
+		);
+		expect(renderStyled(targets, true, activeFamily)).toBe(
+			"<model>OpenAI ?</model>",
+		);
+	});
+
+	test("does not fabricate an OpenAI target for mapped LiteLLM models", () => {
+		const ctx: ProviderUsageContext = {
+			model: { provider: "litellm", id: "openai/gpt-5" },
+			modelRegistry: { getAvailable: () => [] },
+			readStoredCredential(provider) {
+				return provider === "anthropic"
+					? { type: "oauth", access: "anthropic-token" }
+					: undefined;
+			},
+		};
+		const targets = discoverProviderUsageTargets(ctx);
+		const activeFamily = mappedProviderUsageFamily(ctx.model);
+
+		expect(targets).toEqual([
+			{ providerId: "anthropic", authKind: "oauth", active: false },
+		]);
+		expect(renderStyled(targets, false, activeFamily)).toBe("");
+		expect(renderStyled(targets, true, activeFamily)).toBe("");
+	});
+
+	test("highlights mapped OpenAI unknown usage after a fetch failure", async () => {
+		fetchCalls(() => new Response("unauthorized", { status: 401 }));
+		const ctx: ProviderUsageContext = {
+			model: { provider: "litellm", id: "chatgpt/gpt-5.6-sol" },
+			modelRegistry: { getAvailable: () => [] },
+			readStoredCredential(provider) {
+				return provider === "openai-codex"
+					? { type: "oauth", access: "codex-token" }
+					: undefined;
+			},
+		};
+		const targets = discoverProviderUsageTargets(ctx);
+
+		await refreshAndWait(ctx, targets);
+
+		expect(formatProviderUsage(targets)).toBeUndefined();
+		expect(
+			renderStyled(targets, false, mappedProviderUsageFamily(ctx.model)),
+		).toBe("<model>OpenAI ?</model>");
 	});
 
 	test("ignores LiteLLM providers for usage discovery", async () => {
