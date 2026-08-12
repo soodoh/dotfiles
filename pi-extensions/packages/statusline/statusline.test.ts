@@ -585,6 +585,71 @@ describe("statusline extension", () => {
 		).not.toThrow();
 	});
 
+	test("highlights the selected model provider with the model accent", async () => {
+		const fetchMock = vi.fn(async () =>
+			Response.json({ five_hour: { used_percent: 10 } }),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+		let widgetFactory: WidgetFactory | undefined;
+		const pi = createPi();
+		statusline(pi);
+		const ctx: StatuslineContext = {
+			hasUI: true,
+			ui: {
+				setFooter() {},
+				setWidget(_key, factory) {
+					widgetFactory = factory;
+				},
+			},
+			model: {
+				name: "Claude Sonnet Test",
+				id: "sonnet-test",
+				provider: "anthropic",
+				contextWindow: 1000,
+			},
+			modelRegistry: {
+				getAvailable: () => [{ provider: "anthropic" }],
+				async getApiKeyForProvider() {
+					return "active-anthropic-token";
+				},
+				isUsingOAuth: () => true,
+			},
+			readStoredCredential: (provider) =>
+				provider === "anthropic"
+					? {
+							type: "oauth",
+							access: "active-anthropic-token",
+							refresh: "active-anthropic-refresh",
+							expires: Date.now() + 60_000,
+						}
+					: undefined,
+			sessionManager: { getBranch: () => [] },
+			settingsManager: { getCompactionSettings: () => ({ enabled: true }) },
+			getContextUsage: () => ({
+				tokens: 250,
+				contextWindow: 1000,
+				percent: 25,
+			}),
+		};
+
+		pi.handlers.get("session_start")?.({}, ctx);
+		const widget = widgetFactory?.(
+			{},
+			{
+				fg: (color, text) => `<${color}>${text}</${color}>`,
+			},
+		);
+		widget?.render(120);
+
+		await vi.waitFor(() => {
+			const providerLine = widget?.render(120)[1];
+			expect(providerLine).toContain(
+				"\u001b[38;2;215;135;175mAnthropic 10%\u001b[0m",
+			);
+		});
+		expect(fetchMock).toHaveBeenCalled();
+	});
+
 	test("skips provider usage network egress when provider_usage is not configured", async () => {
 		const fetchMock = vi.fn(async () => Response.json({}));
 		vi.stubGlobal("fetch", fetchMock);

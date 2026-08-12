@@ -473,6 +473,7 @@ function buildStatusLines(
 						providerUsageTargets,
 						theme,
 						providerMode === "active",
+						(text) => color(theme, "model", text),
 					);
 				case "context":
 					return renderContext(ctx, contextTokens, theme);

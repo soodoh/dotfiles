@@ -15,6 +15,9 @@ import {
 } from "./provider-usage";
 
 const theme = { fg: (_color: string, text: string) => text };
+const styledTheme = {
+	fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
+};
 type FetchCall = {
 	url: string;
 	init: RequestInit;
@@ -67,6 +70,20 @@ async function refreshAndWait(
 
 function render(targets: ProviderUsageTarget[], activeOnly = false): string {
 	return renderProviderUsage(targets, theme, activeOnly) ?? "";
+}
+
+function renderStyled(
+	targets: ProviderUsageTarget[],
+	activeOnly = false,
+): string {
+	return (
+		renderProviderUsage(
+			targets,
+			styledTheme,
+			activeOnly,
+			(text) => `<model>${text}</model>`,
+		) ?? ""
+	);
 }
 
 function jwtWithPayload(payload: Record<string, unknown>): string {
@@ -659,6 +676,7 @@ describe("provider usage", () => {
 
 		await refreshAndWait(openRouterCtx, openRouterTargets);
 		expect(render(openRouterTargets)).toContain("OpenRouter ?");
+		expect(renderStyled(openRouterTargets)).toBe("<model>OpenRouter ?</model>");
 
 		invalidateProviderUsageCache();
 		fetchCalls(() => {
@@ -677,6 +695,7 @@ describe("provider usage", () => {
 
 		await refreshAndWait(anthropicCtx, anthropicTargets);
 		expect(render(anthropicTargets)).toContain("Anthropic ?");
+		expect(renderStyled(anthropicTargets)).toBe("<model>Anthropic ?</model>");
 	});
 
 	test("renders multiple provider badges and filters active-only output", async () => {
@@ -700,8 +719,23 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
+		expect(formatProviderUsage(targets)).toBe(
+			"OpenRouter $2.50 · Anthropic 10%",
+		);
 		expect(render(targets)).toBe("OpenRouter $2.50 · Anthropic 10%");
 		expect(render(targets, true)).toBe("Anthropic 10%");
+		expect(renderStyled(targets)).toBe(
+			"<dim>OpenRouter $2.50</dim><dim> · </dim><model>Anthropic 10%</model>",
+		);
+		expect(renderStyled(targets, true)).toBe("<model>Anthropic 10%</model>");
+
+		const noActiveTargets = targets.map((target) => ({
+			...target,
+			active: false,
+		}));
+		expect(renderStyled(noActiveTargets)).toBe(
+			"<dim>OpenRouter $2.50</dim><dim> · </dim><dim>Anthropic 10%</dim>",
+		);
 	});
 
 	test("orders provider targets consistently regardless of active provider", () => {

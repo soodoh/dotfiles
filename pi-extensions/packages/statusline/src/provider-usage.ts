@@ -1516,23 +1516,44 @@ function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
 	return [`${providerDisplayLabel(target.providerId)} ${scopeText ?? "?"}`];
 }
 
+function providerUsageBadges(
+	targets: ProviderUsageTarget[],
+	activeOnly: boolean,
+): { active: boolean; text: string }[] {
+	hydrateSharedCache();
+	return targets
+		.filter((target) => !activeOnly || target.active)
+		.sort((a, b) => compareProviderIds(a.providerId, b.providerId))
+		.flatMap((target) =>
+			providerUsageLabelsForTarget(target).map((text) => ({
+				active: target.active,
+				text,
+			})),
+		);
+}
+
 export function formatProviderUsage(
 	targets: ProviderUsageTarget[],
 	activeOnly = false,
 ): string | undefined {
-	hydrateSharedCache();
-	const labels = targets
-		.filter((target) => !activeOnly || target.active)
-		.sort((a, b) => compareProviderIds(a.providerId, b.providerId))
-		.flatMap(providerUsageLabelsForTarget);
-	return labels.length > 0 ? labels.join(PROVIDER_BADGE_SEPARATOR) : undefined;
+	const badges = providerUsageBadges(targets, activeOnly);
+	return badges.length > 0
+		? badges.map(({ text }) => text).join(PROVIDER_BADGE_SEPARATOR)
+		: undefined;
 }
 
 export function renderProviderUsage(
 	targets: ProviderUsageTarget[],
 	theme: ThemeLike,
 	activeOnly: boolean,
+	renderActive: (text: string) => string = (text) => theme.fg("dim", text),
 ): string | undefined {
-	const text = formatProviderUsage(targets, activeOnly);
-	return text ? theme.fg("dim", text) : undefined;
+	const badges = providerUsageBadges(targets, activeOnly);
+	if (badges.length === 0) return undefined;
+	const separator = theme.fg("dim", PROVIDER_BADGE_SEPARATOR);
+	return badges
+		.map(({ active, text }) =>
+			active ? renderActive(text) : theme.fg("dim", text),
+		)
+		.join(separator);
 }
