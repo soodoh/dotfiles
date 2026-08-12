@@ -85,9 +85,14 @@ in
     };
   }
   // lib.optionalAttrs (lib.hasSuffix "-darwin" host.system) {
-    "aerospace" = {
-      source = "${darwin}/aerospace";
-      recursive = true;
+    "aerospace/aerospace.toml" = {
+      source = "${darwin}/aerospace/aerospace.toml";
+      onChange = ''
+        if ${lib.getExe pkgs.aerospace} list-workspaces --all >/dev/null 2>&1; then
+          verboseEcho "Reloading AeroSpace configuration"
+          run ${lib.getExe pkgs.aerospace} reload-config --no-gui
+        fi
+      '';
     };
     "sketchybar" = {
       source = "${darwin}/sketchybar";

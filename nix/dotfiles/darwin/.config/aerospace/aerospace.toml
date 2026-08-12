@@ -1,3 +1,9 @@
+# Version 2 stops inferring persistent workspaces from key bindings.
+config-version = 2
+
+# Preserve the four workspaces used by bindings and monitor assignments.
+persistent-workspaces = ['1', '2', '3', '4']
+
 # Login startup is managed declaratively by nix-darwin.
 after-login-command = []
 
