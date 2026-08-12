@@ -156,10 +156,29 @@ test("lists multiple sessions and multiple Pi panes in one session once", () => 
 			paneTitle: "π - Other session",
 		}),
 	];
-	const rows = buildRows({ panes, heartbeats: [heartbeat()], processes: processTable(), now });
+	const rows = buildRows({
+		panes,
+		heartbeats: [heartbeat({ state: "TOOL", toolName: "read" })],
+		processes: processTable(),
+		now,
+	});
 	assert.deepEqual(rows.map((row) => row.paneId).sort(), ["%1", "%2", "%3"]);
 	assert.equal(new Set(rows.map((row) => row.paneId)).size, 3);
 	assert.equal(rows.find((row) => row.paneId === "%2").status, "UNKNOWN");
+
+	const displays = rows.map((row) =>
+		rowToCandidate(row)
+			.split("\t")[3]
+			.replace(/\u001b\[[0-9;]*m/g, ""),
+	);
+	const statusOffsets = displays.map((display, index) =>
+		display.indexOf(rows[index].status),
+	);
+	const elapsedOffsets = displays.map((display, index) =>
+		display.indexOf(rows[index].elapsed),
+	);
+	assert.equal(new Set(statusOffsets).size, 1);
+	assert.equal(new Set(elapsedOffsets).size, 1);
 });
 
 test("omits a non-Pi Node pane and a heartbeat with no live pane", () => {
@@ -254,10 +273,14 @@ test("keeps the opening pane order while appending newly discovered panes", () =
 });
 
 test("keeps stable hidden targets separate from sanitized display text", () => {
+	const project = "project-name-that-exceeds-twenty-four-characters";
 	const rows = buildRows({
 		panes: [pane({ paneTitle: "π - malicious\t$(touch /tmp/nope)\nname" })],
 		heartbeats: [
-			heartbeat({ sessionName: "bad\tname\u001b[31m", cwd: "/tmp/project\nname" }),
+			heartbeat({
+				sessionName: "bad\tname\u001b[31m",
+				cwd: `/tmp/${project}\n`,
+			}),
 		],
 		processes: processTable(),
 		now,
@@ -265,10 +288,17 @@ test("keeps stable hidden targets separate from sanitized display text", () => {
 	const candidate = rowToCandidate(rows[0]);
 	assert.equal(rows[0].title, "dotfiles");
 	assert.equal(rows[0].tmuxTarget, "1.1");
+	assert.equal(rows[0].project, project);
 	assert.equal(candidate.includes("bad name"), false);
 	const [paneId, sessionId, windowId, display] = candidate.split("\t");
 	assert.deepEqual([paneId, sessionId, windowId], ["%1", "$1", "@1"]);
 	assert.equal(display.includes("\u001b]52"), false);
+	assert.equal(display.includes("dotfiles"), false);
+	assert.equal(display.includes("1.1"), false);
+	const projectIndex = display.indexOf(project);
+	const statusIndex = display.indexOf("WAITING");
+	const elapsedIndex = display.indexOf("2m");
+	assert.equal(projectIndex < statusIndex && statusIndex < elapsedIndex, true);
 	assert.equal(sanitizeDisplayText("a\tb\nc", 20), "a b c");
 });
 

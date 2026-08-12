@@ -30,7 +30,6 @@ const STATUS_STYLE = {
 
 const RESET = "\u001b[0m";
 const TEXT = "\u001b[38;2;169;177;214m";
-const TARGET = "\u001b[38;2;122;162;247m";
 const MUTED = "\u001b[38;2;86;95;137m";
 
 const isRecord = (value) => typeof value === "object" && value !== null;
@@ -248,7 +247,7 @@ export const formatElapsed = (timestamp, now) => {
 
 const projectName = (heartbeat, pane) => {
 	const cwd = sanitizeDisplayText(heartbeat?.cwd, 512);
-	return sanitizeDisplayText(cwd ? basename(cwd) : pane.sessionName, 24) || "-";
+	return sanitizeDisplayText(cwd ? basename(cwd) : pane.sessionName, 80) || "-";
 };
 
 const displayStatus = (status, toolName) => {
@@ -259,11 +258,11 @@ const displayStatus = (status, toolName) => {
 
 const renderRow = (row) => {
 	const style = STATUS_STYLE[row.status];
-	const status = displayStatus(row.status, row.toolName).padEnd(20);
-	const title = row.title.padEnd(38);
-	const target = row.tmuxTarget.padEnd(8);
-	const project = row.project.padEnd(20);
-	return `${style.color}${style.glyph} ${status}${RESET} ${TEXT}${title}${RESET} ${TARGET}${target}${RESET} ${MUTED}${project} ${row.elapsed}${RESET}`;
+	const project = row.project.padEnd(row.projectColumnWidth);
+	const status = displayStatus(row.status, row.toolName).padEnd(
+		row.statusColumnWidth,
+	);
+	return `${TEXT}${project}${RESET} ${style.color}${style.glyph} ${status}${RESET} ${MUTED}${row.elapsed}${RESET}`;
 };
 
 export const buildRows = ({ panes, heartbeats, processes, now }) => {
@@ -314,6 +313,20 @@ export const buildRows = ({ panes, heartbeats, processes, now }) => {
 		if (left.title !== right.title) return left.title < right.title ? -1 : 1;
 		return Number(left.paneId.slice(1)) - Number(right.paneId.slice(1));
 	});
+
+	const projectColumnWidth = rows.reduce(
+		(width, row) => Math.max(width, row.project.length),
+		0,
+	);
+	const statusColumnWidth = rows.reduce(
+		(width, row) =>
+			Math.max(width, displayStatus(row.status, row.toolName).length),
+		0,
+	);
+	for (const row of rows) {
+		row.projectColumnWidth = projectColumnWidth;
+		row.statusColumnWidth = statusColumnWidth;
+	}
 	return rows;
 };
 
