@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
-exec sudo --set-home nix run .#darwin-rebuild -- switch --flake .#personal-macos
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/lib/sudo-session.sh"
+cd "$script_dir/.."
+start_sudo_session
+/usr/bin/sudo --set-home nix run .#darwin-rebuild -- switch --flake .#personal-macos

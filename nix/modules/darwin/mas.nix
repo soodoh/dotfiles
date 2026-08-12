@@ -5,12 +5,15 @@
   ...
 }:
 let
-  installCommands = lib.concatStringsSep "\n" (
+  managedIds = lib.concatStringsSep " " (map toString (builtins.attrValues host.applications.mas));
+  reconcileCommands = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (name: id: ''
       if printf '%s\n' "$installed" | ${pkgs.gnugrep}/bin/grep -Eq "^[[:space:]]*${toString id}[[:space:]]"; then
-        if ! run_mas upgrade ${toString id}; then
-          echo >&2 "warning: MAS could not upgrade ${name} (${toString id})"
-          mas_failed=1
+        if printf '%s\n' "$outdated" | ${pkgs.gnugrep}/bin/grep -Eq "^[[:space:]]*${toString id}[[:space:]]"; then
+          if ! run_mas upgrade ${toString id}; then
+            echo >&2 "warning: MAS could not upgrade ${name} (${toString id})"
+            mas_failed=1
+          fi
         fi
       elif ! run_mas install ${toString id}; then
         echo >&2 "warning: MAS could not install ${name} (${toString id})"
@@ -28,10 +31,14 @@ in
     run_mas() {
       /usr/bin/sudo --user=${host.username} --set-home ${pkgs.mas}/bin/mas "$@"
     }
-    if installed="$(run_mas list 2>/dev/null)"; then
-      ${installCommands}
+    if installed="$(run_mas list ${managedIds} 2>/dev/null)"; then
+      outdated=""
+      if ! outdated="$(run_mas outdated --inaccurate ${managedIds} 2>/dev/null)"; then
+        echo >&2 "warning: MAS could not check for application updates; missing applications will still be installed"
+      fi
+      ${reconcileCommands}
     else
-      echo >&2 "warning: Mac App Store account is unavailable; MAS reconciliation was skipped"
+      echo >&2 "warning: MAS could not inventory installed applications; reconciliation was skipped"
       mas_failed=1
     fi
 

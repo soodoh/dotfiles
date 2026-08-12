@@ -2,14 +2,14 @@ import { RuleConfigSeverity } from "@commitlint/types";
 import type { UserConfig } from "@commitlint/types";
 
 const Configuration: UserConfig = {
-  extends: ["@commitlint/config-conventional"],
-  rules: {
-    "scope-enum": [
-      RuleConfigSeverity.Error,
-      "always",
-      ["root", "agents", "nvim", "mac", "shell", "tmux"]
-    ],
-  },
+	extends: ["@commitlint/config-conventional"],
+	rules: {
+		"scope-enum": [
+			RuleConfigSeverity.Error,
+			"always",
+			["root", "nix", "agents", "nvim", "mac", "shell", "tmux"],
+		],
+	},
 };
 
 export default Configuration;
