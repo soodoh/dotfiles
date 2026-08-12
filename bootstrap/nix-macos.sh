@@ -22,4 +22,8 @@ if [ ! -e /etc/synthetic.conf ]; then
   sudo /usr/bin/install -m 0644 -o root -g wheel /dev/null /etc/synthetic.conf
 fi
 cd "$repo_root"
-sudo --set-home "$nix_command" --extra-experimental-features 'nix-command flakes' run .#darwin-rebuild -- switch --flake ".#$host"
+sudo --set-home "$nix_command" \
+  --extra-experimental-features 'nix-command flakes' \
+  --option max-jobs auto \
+  --option cores 0 \
+  run .#darwin-rebuild -- switch --flake ".#$host"
