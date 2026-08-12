@@ -1,15 +1,69 @@
 {
   config,
   host,
+  inputs,
   lib,
   pkgs,
   ...
 }:
+let
+  cfg = config.services.comin;
+  cominConfig = import "${inputs.comin}/nix/comin-config.nix" {
+    inherit config pkgs lib;
+  };
+  githubWebFlowKey = ../../keys/github-web-flow.gpg;
+
+  restartSupervisor = pkgs.writeShellScript "restart-comin-supervisor" ''
+    if [ "''${COMIN_STATUS:-}" != "done" ]; then
+      exit 0
+    fi
+
+    case "''${COMIN_SUPERVISOR_PID:-}" in
+      "" | *[!0-9]*) exit 1 ;;
+    esac
+
+    /bin/kill -HUP "$COMIN_SUPERVISOR_PID"
+  '';
+
+  cominSupervisor = pkgs.writeShellScriptBin "comin-supervisor" ''
+    set -u
+
+    child_pid=""
+
+    restart() {
+      trap - HUP
+      if [ -n "$child_pid" ]; then
+        /bin/kill -TERM "$child_pid" 2>/dev/null || true
+        wait "$child_pid" 2>/dev/null || true
+      fi
+      exec /run/current-system/sw/bin/comin-supervisor
+    }
+
+    shutdown() {
+      trap - HUP TERM INT
+      if [ -n "$child_pid" ]; then
+        /bin/kill -TERM "$child_pid" 2>/dev/null || true
+        wait "$child_pid" 2>/dev/null || true
+      fi
+      exit 0
+    }
+
+    trap restart HUP
+    trap shutdown TERM INT
+
+    export COMIN_SUPERVISOR_PID="$$"
+    ${lib.getExe cfg.package} run --config ${cominConfig.cominConfigYaml} &
+    child_pid=$!
+    wait "$child_pid"
+  '';
+in
 {
   services.comin = {
     enable = true;
     hostname = host.name;
     buildTimeout = 7200;
+    gpgPublicKeyPaths = [ (toString githubWebFlowKey) ];
+    postDeploymentCommand = restartSupervisor;
     remotes = [
       {
         name = "origin";
@@ -26,104 +80,21 @@
     ];
   };
 
-  # Comin updates its on-disk plist during activation but cannot reload itself
-  # until after deployment state is persisted. Start a detached root worker
-  # that outlives Comin's post-deployment hook, then reloads the staged plist.
-  services.comin.postDeploymentCommand =
-    let
-      reloadWorker = pkgs.writeShellScript "reload-staged-comin" ''
-        previous_pid="$1"
-        while /bin/kill -0 "$previous_pid" >/dev/null 2>&1; do
-          /bin/sleep 1
-        done
-        /bin/launchctl bootout system/com.github.nlewo.comin 2>/dev/null || true
-        /bin/launchctl bootstrap system /Library/LaunchDaemons/com.github.nlewo.comin.plist
-      '';
-    in
-    pkgs.writeShellScript "reload-comin-after-deployment" ''
-      if [ "''${COMIN_STATUS:-}" != "done" ]; then
-        exit 0
-      fi
+  environment.systemPackages = [ cominSupervisor ];
 
-      nohup ${reloadWorker} "$PPID" \
-        </dev/null \
-        >>/var/log/comin-reloader.log \
-        2>&1 &
-    '';
-
-  # Remove submitted reloaders from transition deployments. The detached
-  # worker above does not register a persistent launchd job.
-  system.activationScripts.extraActivation.text = lib.mkAfter ''
-    /bin/launchctl bootout system/com.github.nlewo.comin.reloader 2>/dev/null || true
-  '';
-
-  # Comin is the process running activation. Reconcile every other launchd
-  # service normally, but only stage Comin's plist. Comin compares the loaded
-  # job before and after activation, records success, and exits so launchd can
-  # restart it from the staged plist.
-  system.activationScripts.launchd.text =
-    let
-      launchdActivation = basedir: target: ''
-        if ! diff '${config.system.build.launchd}/Library/${basedir}/${target}' '/Library/${basedir}/${target}' &> /dev/null; then
-          if test -f '/Library/${basedir}/${target}'; then
-            echo "reloading service $(basename ${target} .plist)" >&2
-            ${lib.optionalString (
-              target != "com.github.nlewo.comin.plist"
-            ) "launchctl unload '/Library/${basedir}/${target}' || true"}
-          else
-            echo "creating service $(basename ${target} .plist)" >&2
-          fi
-          if test -L '/Library/${basedir}/${target}'; then
-            rm '/Library/${basedir}/${target}'
-          fi
-          cp -f '${config.system.build.launchd}/Library/${basedir}/${target}' '/Library/${basedir}/${target}'
-          ${lib.optionalString (
-            target != "com.github.nlewo.comin.plist"
-          ) "launchctl load -w '/Library/${basedir}/${target}'"}
-        fi
-      '';
-      launchAgents = lib.filter (file: file.enable) (lib.attrValues config.environment.launchAgents);
-      launchDaemons = lib.filter (file: file.enable) (lib.attrValues config.environment.launchDaemons);
-    in
-    lib.mkForce ''
-      echo "setting up launchd services..." >&2
-
-      ${lib.concatStringsSep "\n" (
-        lib.mapAttrsToList (name: value: "launchctl setenv ${name} '${value}'") config.launchd.envVariables
-      )}
-
-      ${lib.concatMapStringsSep "\n" (file: launchdActivation "LaunchAgents" file.target) launchAgents}
-      ${lib.concatMapStringsSep "\n" (file: launchdActivation "LaunchDaemons" file.target) launchDaemons}
-
-      for f in /run/current-system/Library/LaunchAgents/*; do
-        [[ -e "$f" ]] || break
-        f=''${f#/run/current-system/Library/LaunchAgents/}
-        if [[ ! -e "${config.system.build.launchd}/Library/LaunchAgents/$f" ]]; then
-          echo "removing service $(basename "$f" .plist)" >&2
-          launchctl unload "/Library/LaunchAgents/$f" || true
-          rm -f "/Library/LaunchAgents/$f"
-        fi
-      done
-
-      for f in /run/current-system/Library/LaunchDaemons/*; do
-        [[ -e "$f" ]] || break
-        f=''${f#/run/current-system/Library/LaunchDaemons/}
-        if [[ ! -e "${config.system.build.launchd}/Library/LaunchDaemons/$f" ]]; then
-          echo "removing service $(basename "$f" .plist)" >&2
-          launchctl unload "/Library/LaunchDaemons/$f" || true
-          rm -f "/Library/LaunchDaemons/$f"
-        fi
-      done
-    '';
-
-  # The deprecated activate-user shim invokes grep before nix-darwin sets an
-  # activation PATH. Include the native paths required by that transition shim.
-  launchd.daemons.comin.serviceConfig.EnvironmentVariables.PATH = lib.mkForce (
-    lib.makeBinPath [
-      config.nix.package
-      pkgs.git
-      pkgs.openssh
-    ]
-    + ":/usr/bin:/bin:/usr/sbin:/sbin"
-  );
+  # Keep launchd's definition generation-independent. The stable supervisor
+  # re-execs its new generation only after deployment state has been persisted.
+  launchd.daemons.comin = {
+    command = lib.mkForce "/run/current-system/sw/bin/comin-supervisor";
+    serviceConfig.EnvironmentVariables.PATH = lib.mkForce (
+      lib.concatStringsSep ":" [
+        "/run/current-system/sw/bin"
+        "/nix/var/nix/profiles/default/bin"
+        "/usr/bin"
+        "/bin"
+        "/usr/sbin"
+        "/sbin"
+      ]
+    );
+  };
 }

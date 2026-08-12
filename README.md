@@ -64,6 +64,8 @@ Configuration and dotfile changes are store-backed and take effect only after a 
 
 Both Darwin configurations enable [Comin](https://github.com/nlewo/comin) as the root system launch daemon `com.github.nlewo.comin`. It polls the public, read-only HTTPS remote `https://github.com/soodoh/dotfiles.git` every 300 seconds while the Mac is awake. Only `main` is enabled: `host.name` sets `services.comin.hostname`, so each daemon evaluates and switches only its matching output (`darwinConfigurations.personal-macos` or `darwinConfigurations.work-macos`). Failed evaluations or builds are recorded but never switched over, leaving the current system generation active.
 
+The launchd plist calls the stable `/run/current-system/sw/bin/comin-supervisor` path instead of generation-specific store paths. The supervisor runs the generation-specific Comin binary and configuration, then re-execs itself after a successful deployment has been persisted. This keeps nix-darwin's normal launchd reconciliation intact and avoids unloading the daemon that is performing activation.
+
 The first existing bootstrap or manual switch is intentionally built from the local checkout. That activation installs and starts Comin with launchd `RunAtLoad` and `KeepAlive`; subsequent deployments use Comin's root-owned state and bare repository under `/var/lib/comin`, not the developer checkout. Run one appropriate entrypoint after this configuration reaches each Mac:
 
 ```bash
@@ -76,7 +78,11 @@ The first existing bootstrap or manual switch is intentionally built from the lo
 ./bin/nix-switch-work-macos              # for an existing installation
 ```
 
-Only changes committed and merged to `main` are deployable. Automatic deployment does not run `nix-update`, change `flake.lock`, remove unmanaged software, update macOS, or alter the existing Homebrew/MAS activation behavior. Existing nix-darwin generations, weekly GC policy, and rollback remain in place; Comin's default retention additionally keeps multiple successful deployment records and GC roots.
+Only GitHub-signed squash merges to protected `main` are deployable. Comin verifies the fetched tip against the committed GitHub `web-flow` GPG key before evaluation. Branch protection requires the `lint` and `darwin` checks, rejects unsigned or non-PR updates, and blocks force-pushes and deletion. This intentionally trusts GitHub's merge-signing identity together with the repository's access controls; rotate `nix/keys/github-web-flow.gpg` only against GitHub's published key.
+
+Automatic deployment does not run `nix-update`, change `flake.lock`, remove unmanaged software, update macOS, or alter the existing Homebrew/MAS activation behavior. Existing nix-darwin generations, weekly GC policy, and rollback remain in place; Comin's default retention additionally keeps multiple successful deployment records and GC roots.
+
+Migrating an existing Comin installation to the stable supervisor requires one manual switch after this change is squash-merged. Do not ask the old Comin daemon to deploy the migration because its loaded plist is generation-specific. Pull the signed merge locally, confirm `git log -1 --show-signature`, run the appropriate `./bin/nix-switch-*-macos` wrapper, and verify that `launchctl print system/com.github.nlewo.comin` contains `/run/current-system/sw/bin/comin-supervisor`.
 
 Inspect or trigger Comin with:
 
@@ -138,11 +144,11 @@ Run comprehensive validation explicitly with:
 ./bin/nix-validate
 ```
 
-General GitHub Actions CI formats and statically analyzes the Nix code, evaluates all four host configurations, and builds only the lightweight Linux policy and script checks. Complete host realization is intentionally omitted from general CI.
+GitHub Actions runs formatting, static analysis, all-system evaluation, and lightweight Linux checks on Ubuntu. A separate hosted Apple Silicon job fully realizes both Darwin configurations plus the Comin deployment and launchd-boundary checks. Protected `main` requires both the `lint` and `darwin` jobs before GitHub creates its signed squash commit.
 
 `./bin/nix-validate` fully builds every configuration for the current platform: both Darwin configurations on macOS or both Home Manager configurations on Linux. It also builds the custom packages and checks for that platform. Lefthook runs this comprehensive command before pushes containing relevant Nix-managed changes; a validation failure blocks the push unless an emergency push intentionally uses `git push --no-verify`.
 
-Cross-platform realization remains platform-specific: Darwin cannot natively build the Linux configurations, and Linux cannot natively build the Darwin configurations. Cross-platform configurations still receive evaluation-only coverage.
+Cross-platform realization remains platform-specific locally: Darwin cannot natively build the Linux configurations, and Linux cannot natively build the Darwin configurations. Cross-platform configurations still receive evaluation-only coverage.
 
 The pinned nixpkgs revision needs one narrow Darwin build workaround: oxlint's `@napi-rs/cli` process probe is redirected from sandbox-blocked `/bin/ps` to Nix's store-backed `ps`. Revisit this override when updating `nixpkgs`.
 
