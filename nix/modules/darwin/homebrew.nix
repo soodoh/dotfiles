@@ -3,6 +3,7 @@
   host,
   inputs,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -13,6 +14,14 @@ let
   // lib.optionalAttrs (host.profile == "work") {
     "snowflakedb/homebrew-snowflake-cli" = inputs.homebrew-snowflake-cli;
   };
+
+  scrollReverserVersion = pkgs.scroll-reverser.version;
+  scrollReverserUrl = "https://pilotmoon.com/downloads/ScrollReverser-${scrollReverserVersion}.zip";
+  scrollReverserCachePath =
+    "${host.homeDirectory}/Library/Caches/Homebrew/downloads/"
+    + "${builtins.hashString "sha256" scrollReverserUrl}--${builtins.baseNameOf scrollReverserUrl}";
+  stageScrollReverser =
+    host.profile == "work" && builtins.elem "scroll-reverser" host.applications.homebrewCasks;
 in
 {
   nix-homebrew = {
@@ -49,6 +58,18 @@ in
   # nix-homebrew cannot replace a mutable taps directory when switching to
   # immutable pinned taps. Preserve it for the confirmation-gated cleanup.
   system.activationScripts.preActivation.text = lib.mkBefore ''
+    ${lib.optionalString stageScrollReverser ''
+      # Zscaler blocks Homebrew's direct request to pilotmoon.com. Stage the
+      # same hash-pinned upstream archive from nixpkgs in Homebrew's cache;
+      # Homebrew still verifies and owns the installed cask application.
+      /usr/bin/sudo --user=${lib.escapeShellArg host.username} --set-home \
+        /usr/bin/install -d -m 0755 \
+        ${lib.escapeShellArg (builtins.dirOf scrollReverserCachePath)}
+      /usr/bin/sudo --user=${lib.escapeShellArg host.username} --set-home \
+        /usr/bin/install -m 0644 \
+        ${lib.escapeShellArg pkgs.scroll-reverser.src} \
+        ${lib.escapeShellArg scrollReverserCachePath}
+    ''}
     for taps_path in /opt/homebrew/Library/Taps /usr/local/Homebrew/Library/Taps; do
       if [ ! -e "$taps_path" ]; then
         continue
