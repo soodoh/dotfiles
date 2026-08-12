@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-exec sudo --set-home nix run .#darwin-rebuild -- switch --flake .#work-macos
+certificate_bundle="/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
+if [ ! -r "$certificate_bundle" ]; then
+  echo >&2 "Corporate certificate bundle is unavailable: $certificate_bundle"
+  exit 1
+fi
+trusted_public_keys="cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+exec sudo --set-home env \
+  NIX_REMOTE=local \
+  NIX_CONFIG="trusted-public-keys = $trusted_public_keys
+ssl-cert-file = $certificate_bundle" \
+  nix run .#darwin-rebuild -- \
+  switch \
+  --option trusted-public-keys "$trusted_public_keys" \
+  --option ssl-cert-file "$certificate_bundle" \
+  --flake .#work-macos
