@@ -14,13 +14,13 @@
     "aerospace"
     "sketchybar"
     "jankyborders"
-    "scroll-reverser"
     "lunar"
   ]
   ++ extraNixApplications;
 
   homebrewCasks = [
     "nextcloud"
+    "scroll-reverser"
     "wispr-flow"
     "zen"
   ]
@@ -40,7 +40,7 @@
     AeroSpace = "/Applications/Nix Apps/AeroSpace.app";
     Lunar = "/Applications/Nix Apps/Lunar.app";
     Nextcloud = "/Applications/Nextcloud.app";
-    "Scroll Reverser" = "/Applications/Nix Apps/Scroll Reverser.app";
+    "Scroll Reverser" = "/Applications/Scroll Reverser.app";
     Tailscale = "/Applications/Tailscale.app";
   };
 
