@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import statusline from "./index";
+import { invalidateGit } from "./src/git-status";
 
 const execFileAsync = promisify(execFile);
 const tempDirs: string[] = [];
@@ -83,6 +84,7 @@ function createPi(thinkingLevel: "off" | "high" = "off") {
 }
 
 beforeEach(async () => {
+	invalidateGit();
 	const cacheDir = await tempDir("pi-statusline-provider-cache");
 	vi.stubEnv(
 		"PI_PROVIDER_USAGE_CACHE_PATH",
