@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { open } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
@@ -197,6 +198,42 @@ type RuntimeMetadata = {
 	piSessionFile?: string;
 	cwd: string;
 	sessionName?: string;
+	sessionStartedAt?: number;
+};
+
+const MAX_SESSION_HEADER_BYTES = 4 * 1024;
+
+export const readSessionStartedAt = async (
+	filePath: string | undefined,
+	fallbackAt: number,
+): Promise<number> => {
+	if (!filePath) return fallbackAt;
+	try {
+		const handle = await open(filePath, "r");
+		try {
+			const buffer = Buffer.alloc(MAX_SESSION_HEADER_BYTES);
+			const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+			const firstLine = buffer.toString("utf8", 0, bytesRead).split("\n", 1)[0];
+			if (!firstLine) return fallbackAt;
+			const parsed: unknown = JSON.parse(firstLine);
+			if (
+				typeof parsed !== "object" ||
+				parsed === null ||
+				!("timestamp" in parsed) ||
+				typeof parsed.timestamp !== "string"
+			) {
+				return fallbackAt;
+			}
+			const startedAt = Date.parse(parsed.timestamp);
+			return Number.isFinite(startedAt) && startedAt >= 0
+				? startedAt
+				: fallbackAt;
+		} finally {
+			await handle.close();
+		}
+	} catch {
+		return fallbackAt;
+	}
 };
 
 export type RuntimeDependencies = {
@@ -227,6 +264,7 @@ export class TmuxSessionRuntime {
 	readonly instanceId = randomUUID();
 	readonly filePath: string;
 	private lifecycle: LifecycleState;
+	private readonly sessionStartedAt: number;
 	private metadata: RuntimeMetadata;
 	private active = false;
 	private timer: ReturnType<typeof setInterval> | undefined;
@@ -242,7 +280,8 @@ export class TmuxSessionRuntime {
 		stateDirectory = getStateDirectory(),
 	) {
 		this.metadata = metadata;
-		this.lifecycle = initialLifecycleState(dependencies.now());
+		this.sessionStartedAt = metadata.sessionStartedAt ?? dependencies.now();
+		this.lifecycle = initialLifecycleState(this.sessionStartedAt);
 		this.filePath = join(
 			stateDirectory,
 			heartbeatFileName(tmuxIdentity, processIdentity.pid),
@@ -335,6 +374,7 @@ export class TmuxSessionRuntime {
 			sessionName: this.metadata.sessionName,
 			lifecycle: this.lifecycle,
 			toolName: currentToolName(this.lifecycle),
+			sessionStartedAt: this.sessionStartedAt,
 			heartbeatAt: at,
 		});
 		this.writeQueue = this.writeQueue
@@ -352,14 +392,20 @@ export const createTmuxSessionRuntime = async (
 ): Promise<TmuxSessionRuntime | undefined> => {
 	const identity = await discoverRuntimeIdentity();
 	if (!identity) return undefined;
+	const piSessionFile = ctx.sessionManager.getSessionFile();
+	const sessionStartedAt = await readSessionStartedAt(
+		piSessionFile,
+		Date.now(),
+	);
 	return new TmuxSessionRuntime(
 		identity.processIdentity,
 		identity.tmuxIdentity,
 		{
 			piSessionId: ctx.sessionManager.getSessionId(),
-			piSessionFile: ctx.sessionManager.getSessionFile(),
+			piSessionFile,
 			cwd: ctx.cwd,
 			sessionName,
+			sessionStartedAt,
 		},
 	);
 };

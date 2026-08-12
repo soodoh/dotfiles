@@ -30,6 +30,8 @@ const STATUS_STYLE = {
 
 const RESET = "\u001b[0m";
 const TEXT = "\u001b[38;2;169;177;214m";
+const BRANCH = "\u001b[38;2;122;162;247m";
+const BRANCH_ICON = "\uF126";
 const MUTED = "\u001b[38;2;86;95;137m";
 
 const isRecord = (value) => typeof value === "object" && value !== null;
@@ -188,6 +190,8 @@ const isHeartbeat = (value) =>
 	typeof value.cwd === "string" &&
 	typeof value.state === "string" &&
 	isFiniteTimestamp(value.stateChangedAt) &&
+	(value.sessionStartedAt === undefined ||
+		isFiniteTimestamp(value.sessionStartedAt)) &&
 	isFiniteTimestamp(value.heartbeatAt);
 
 const processIsDescendant = (processes, processId, ancestorId) => {
@@ -245,10 +249,10 @@ export const formatElapsed = (timestamp, now) => {
 	return `${Math.floor(hours / 24)}d`;
 };
 
-const projectName = (heartbeat, pane) => {
-	const cwd = sanitizeDisplayText(heartbeat?.cwd, 512);
-	return sanitizeDisplayText(cwd ? basename(cwd) : pane.sessionName, 80) || "-";
-};
+const projectName = (cwd, pane) =>
+	sanitizeDisplayText(cwd ? basename(cwd) : pane.sessionName, 80) || "-";
+
+const displayBranch = (branch) => (branch ? `${BRANCH_ICON} ${branch}` : "-");
 
 const displayStatus = (status, toolName) => {
 	if (status !== "TOOL") return status;
@@ -256,16 +260,27 @@ const displayStatus = (status, toolName) => {
 	return tool ? `TOOL ${tool}` : "TOOL";
 };
 
+const displayState = (row) =>
+	`${displayStatus(row.status, row.toolName)} ${row.elapsed}`;
+
 const renderRow = (row) => {
 	const style = STATUS_STYLE[row.status];
 	const project = row.project.padEnd(row.projectColumnWidth);
-	const status = displayStatus(row.status, row.toolName).padEnd(
-		row.statusColumnWidth,
-	);
-	return `${TEXT}${project}${RESET} ${style.color}${style.glyph} ${status}${RESET} ${MUTED}${row.elapsed}${RESET}`;
+	const branch = displayBranch(row.branch).padEnd(row.branchColumnWidth);
+	const state = displayState(row).padEnd(row.stateColumnWidth);
+	const ageGap = " ".repeat(row.sessionAgeGapWidth);
+	const sessionAge = row.sessionAge.padStart(row.sessionAgeColumnWidth);
+	return `${TEXT}${project}${RESET} ${BRANCH}${branch}${RESET} ${style.color}${style.glyph} ${state}${RESET}${ageGap}${MUTED}${sessionAge}${RESET}`;
 };
 
-export const buildRows = ({ panes, heartbeats, processes, now }) => {
+export const buildRows = ({
+	panes,
+	heartbeats,
+	processes,
+	now,
+	branchForCwd = () => "",
+	displayWidth,
+}) => {
 	const rows = [];
 	for (const pane of panes) {
 		const matches = heartbeats
@@ -286,6 +301,12 @@ export const buildRows = ({ panes, heartbeats, processes, now }) => {
 		const stateTimestamp = heartbeat
 			? Math.min(now, heartbeat.stateChangedAt)
 			: Math.min(now, pane.windowActivity * 1_000 || now);
+		const sessionStartedAt = heartbeat?.sessionStartedAt;
+		const sessionAge = isFiniteTimestamp(sessionStartedAt)
+			? formatElapsed(Math.min(now, sessionStartedAt), now)
+			: "-";
+		const cwd = sanitizeDisplayText(heartbeat?.cwd, 512);
+		const branch = sanitizeDisplayText(cwd ? branchForCwd(cwd) : "", 80);
 		const row = {
 			paneId: pane.paneId,
 			sessionId: pane.sessionId,
@@ -294,9 +315,11 @@ export const buildRows = ({ panes, heartbeats, processes, now }) => {
 			toolName: fresh ? heartbeat.toolName : undefined,
 			title,
 			tmuxTarget: `${pane.windowIndex}.${pane.paneIndex}`,
-			project: projectName(heartbeat, pane),
+			project: projectName(cwd, pane),
+			branch,
 			stateTimestamp,
 			elapsed: formatElapsed(stateTimestamp, now),
+			sessionAge,
 		};
 		rows.push(row);
 	}
@@ -318,14 +341,37 @@ export const buildRows = ({ panes, heartbeats, processes, now }) => {
 		(width, row) => Math.max(width, row.project.length),
 		0,
 	);
-	const statusColumnWidth = rows.reduce(
-		(width, row) =>
-			Math.max(width, displayStatus(row.status, row.toolName).length),
+	const branchColumnWidth = rows.reduce(
+		(width, row) => Math.max(width, displayBranch(row.branch).length),
 		0,
 	);
+	const stateColumnWidth = rows.reduce(
+		(width, row) => Math.max(width, displayState(row).length),
+		0,
+	);
+	const sessionAgeColumnWidth = rows.reduce(
+		(width, row) => Math.max(width, row.sessionAge.length),
+		0,
+	);
+	const minimumRowWidth =
+		projectColumnWidth +
+		1 +
+		branchColumnWidth +
+		1 +
+		2 +
+		stateColumnWidth +
+		1 +
+		sessionAgeColumnWidth;
+	const sessionAgeGapWidth =
+		Number.isSafeInteger(displayWidth) && displayWidth > 0
+			? Math.max(1, displayWidth - minimumRowWidth + 1)
+			: 1;
 	for (const row of rows) {
 		row.projectColumnWidth = projectColumnWidth;
-		row.statusColumnWidth = statusColumnWidth;
+		row.branchColumnWidth = branchColumnWidth;
+		row.stateColumnWidth = stateColumnWidth;
+		row.sessionAgeColumnWidth = sessionAgeColumnWidth;
+		row.sessionAgeGapWidth = sessionAgeGapWidth;
 	}
 	return rows;
 };

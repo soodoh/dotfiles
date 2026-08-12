@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { lstat, readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { lstat, open, readFile, readdir } from "node:fs/promises";
+import { isAbsolute, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
 	applyPaneOrder,
@@ -39,6 +39,16 @@ const run = (command, args) => {
 		maxBuffer: 4 * 1024 * 1024,
 	});
 	return result.status === 0 ? result.stdout : "";
+};
+
+const branchCache = new Map();
+const gitBranchForCwd = (cwd) => {
+	if (branchCache.has(cwd)) return branchCache.get(cwd);
+	const branch =
+		run("git", ["-C", cwd, "symbolic-ref", "--quiet", "--short", "HEAD"]).trim() ||
+		run("git", ["-C", cwd, "rev-parse", "--short", "HEAD"]).trim();
+	branchCache.set(cwd, branch);
+	return branch;
 };
 
 const readHeartbeats = async (panes) => {
@@ -93,6 +103,64 @@ const readHeartbeats = async (panes) => {
 	return records;
 };
 
+const MAX_SESSION_HEADER_BYTES = 4 * 1024;
+
+const readSessionStartedAt = async (filePath) => {
+	if (
+		typeof filePath !== "string" ||
+		filePath.length > 1_024 ||
+		!isAbsolute(filePath)
+	) {
+		return undefined;
+	}
+	try {
+		const stats = await lstat(filePath);
+		if (!stats.isFile() || stats.isSymbolicLink()) return undefined;
+		const handle = await open(filePath, "r");
+		try {
+			const buffer = Buffer.alloc(MAX_SESSION_HEADER_BYTES);
+			const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+			const firstLine = buffer.toString("utf8", 0, bytesRead).split("\n", 1)[0];
+			if (!firstLine) return undefined;
+			const parsed = JSON.parse(firstLine);
+			const startedAt = Date.parse(parsed?.timestamp);
+			return Number.isFinite(startedAt) && startedAt >= 0
+				? startedAt
+				: undefined;
+		} finally {
+			await handle.close();
+		}
+	} catch {
+		return undefined;
+	}
+};
+
+const hydrateSessionStartedAt = async (heartbeats, panes) => {
+	const paneIds = new Set(panes.map((pane) => pane.paneId));
+	const cache = new Map();
+	const hydrated = [];
+	for (const heartbeat of heartbeats) {
+		if (
+			Number.isFinite(heartbeat?.sessionStartedAt) ||
+			!paneIds.has(heartbeat?.tmuxPaneId)
+		) {
+			hydrated.push(heartbeat);
+			continue;
+		}
+		const filePath = heartbeat?.piSessionFile;
+		if (!cache.has(filePath)) {
+			cache.set(filePath, await readSessionStartedAt(filePath));
+		}
+		const sessionStartedAt = cache.get(filePath);
+		hydrated.push(
+			sessionStartedAt === undefined
+				? heartbeat
+				: { ...heartbeat, sessionStartedAt },
+		);
+	}
+	return hydrated;
+};
+
 const readPaneOrder = async (filePath) => {
 	if (!filePath) return [];
 	try {
@@ -115,6 +183,26 @@ const paneOrder = await readPaneOrder(
 	orderFileIndex >= 0 ? process.argv[orderFileIndex + 1] : undefined,
 );
 
+const clientNameIndex = process.argv.indexOf("--client-name");
+const clientName =
+	clientNameIndex >= 0 ? process.argv[clientNameIndex + 1] : undefined;
+const clientWidth = Number(
+	clientName
+		? run("tmux", [
+				"display-message",
+				"-p",
+				"-c",
+				clientName,
+				"#{client_width}",
+			]).trim()
+		: "",
+);
+let displayWidth;
+if (Number.isSafeInteger(clientWidth) && clientWidth > 0) {
+	const popupWidth = Math.floor(clientWidth * 0.9);
+	displayWidth = Math.max(1, popupWidth - Math.floor(popupWidth * 0.55) - 6);
+}
+
 const tmuxOutput = run("tmux", ["list-panes", "-a", "-F", TMUX_FORMAT]);
 const panes = parseTmuxPanes(tmuxOutput);
 const processOutput = run("ps", [
@@ -132,16 +220,23 @@ const processOutput = run("ps", [
 	"-o",
 	"lstart=",
 ]);
+const heartbeats = await hydrateSessionStartedAt(
+	await readHeartbeats(panes),
+	panes,
+);
 let rows = buildRows({
 	panes,
-	heartbeats: await readHeartbeats(panes),
+	heartbeats,
 	processes: parseProcessTable(processOutput),
 	now: Date.now(),
+	branchForCwd: gitBranchForCwd,
+	displayWidth,
 });
 if (paneOrder.length > 0) rows = applyPaneOrder(rows, paneOrder);
 
-if (process.argv[2] === "--validate") {
-	const [paneId, sessionId, windowId] = process.argv.slice(3);
+const validateIndex = process.argv.indexOf("--validate");
+if (validateIndex >= 0) {
+	const [paneId, sessionId, windowId] = process.argv.slice(validateIndex + 1);
 	const valid = rows.some(
 		(row) =>
 			row.paneId === paneId &&

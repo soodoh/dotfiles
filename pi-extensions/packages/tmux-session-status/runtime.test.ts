@@ -1,8 +1,12 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
 	normalizeTty,
 	parseProcessIdentity,
 	parseTmuxIdentity,
+	readSessionStartedAt,
 	TmuxSessionRuntime,
 } from "./runtime";
 import type { HeartbeatRecord } from "./store";
@@ -59,6 +63,27 @@ describe("tmux session runtime", () => {
 		expect(parseProcessIdentity("200 100 200 0 ?? bad")).toBeUndefined();
 	});
 
+	test("reads the original Pi session timestamp with a safe fallback", async () => {
+		const directory = await mkdtemp(join(tmpdir(), "pi-session-age-test-"));
+		try {
+			const filePath = join(directory, "session.jsonl");
+			const timestamp = "2026-06-24T07:56:13.548Z";
+			await writeFile(
+				filePath,
+				`${JSON.stringify({ type: "session", timestamp })}\n{"type":"message"}\n`,
+				"utf8",
+			);
+			expect(await readSessionStartedAt(filePath, 123)).toBe(
+				Date.parse(timestamp),
+			);
+			expect(
+				await readSessionStartedAt(join(directory, "missing.jsonl"), 123),
+			).toBe(123);
+		} finally {
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
 	test("starts one timer, writes transitions, and cleans up on shutdown", async () => {
 		const writes: HeartbeatRecord[] = [];
 		const removals: Array<{ filePath: string; instanceId: string }> = [];
@@ -86,6 +111,7 @@ describe("tmux session runtime", () => {
 		await runtime.start();
 		expect(vi.getTimerCount()).toBe(1);
 		expect(writes.at(-1)?.state).toBe("STARTING");
+		expect(writes.at(-1)?.sessionStartedAt).toBe(1_000);
 
 		await runtime.dispatch({ type: "RESOURCES_READY", at: 1_100 });
 		await runtime.dispatch({ type: "AGENT_STARTED", at: 1_200 });
@@ -144,6 +170,7 @@ describe("tmux session runtime", () => {
 		await vi.advanceTimersByTimeAsync(5_000);
 		await flushPromises();
 		expect(writes.at(-1)?.heartbeatAt).toBe(6_000);
+		expect(writes.at(-1)?.sessionStartedAt).toBe(1_000);
 		await runtime.shutdown();
 	});
 });

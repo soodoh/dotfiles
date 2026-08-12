@@ -77,6 +77,7 @@ const heartbeat = (overrides = {}) => ({
 	sessionName: "Define Pi session view",
 	state: "WAITING",
 	stateChangedAt: now - 120_000,
+	sessionStartedAt: now - 900_000,
 	heartbeatAt: now - 1_000,
 	...overrides,
 });
@@ -161,6 +162,8 @@ test("lists multiple sessions and multiple Pi panes in one session once", () => 
 		heartbeats: [heartbeat({ state: "TOOL", toolName: "read" })],
 		processes: processTable(),
 		now,
+		branchForCwd: () => "main",
+		displayWidth: 80,
 	});
 	assert.deepEqual(rows.map((row) => row.paneId).sort(), ["%1", "%2", "%3"]);
 	assert.equal(new Set(rows.map((row) => row.paneId)).size, 3);
@@ -171,14 +174,20 @@ test("lists multiple sessions and multiple Pi panes in one session once", () => 
 			.split("\t")[3]
 			.replace(/\u001b\[[0-9;]*m/g, ""),
 	);
-	const statusOffsets = displays.map((display, index) =>
+	const branchOffsets = displays.map((display, index) =>
+		rows[index].branch ? display.indexOf("\uF126") : display.indexOf("-"),
+	);
+	const stateOffsets = displays.map((display, index) =>
 		display.indexOf(rows[index].status),
 	);
-	const elapsedOffsets = displays.map((display, index) =>
-		display.indexOf(rows[index].elapsed),
+	const sessionAgeEnds = displays.map((display, index) =>
+		display.lastIndexOf(rows[index].sessionAge) + rows[index].sessionAge.length,
 	);
-	assert.equal(new Set(statusOffsets).size, 1);
-	assert.equal(new Set(elapsedOffsets).size, 1);
+	assert.equal(new Set(branchOffsets).size, 1);
+	assert.equal(new Set(stateOffsets).size, 1);
+	assert.deepEqual(displays.map((display) => display.length), [80, 80, 80]);
+	assert.deepEqual(sessionAgeEnds, displays.map((display) => display.length));
+	assert.equal(displays.some((display) => display.includes("TOOL read 2m")), true);
 });
 
 test("omits a non-Pi Node pane and a heartbeat with no live pane", () => {
@@ -284,11 +293,15 @@ test("keeps stable hidden targets separate from sanitized display text", () => {
 		],
 		processes: processTable(),
 		now,
+		branchForCwd: (cwd) =>
+			cwd === `/tmp/${project}` ? "feature/pi-picker" : "",
 	});
 	const candidate = rowToCandidate(rows[0]);
 	assert.equal(rows[0].title, "dotfiles");
 	assert.equal(rows[0].tmuxTarget, "1.1");
 	assert.equal(rows[0].project, project);
+	assert.equal(rows[0].branch, "feature/pi-picker");
+	assert.equal(rows[0].sessionAge, "15m");
 	assert.equal(candidate.includes("bad name"), false);
 	const [paneId, sessionId, windowId, display] = candidate.split("\t");
 	assert.deepEqual([paneId, sessionId, windowId], ["%1", "$1", "@1"]);
@@ -296,9 +309,17 @@ test("keeps stable hidden targets separate from sanitized display text", () => {
 	assert.equal(display.includes("dotfiles"), false);
 	assert.equal(display.includes("1.1"), false);
 	const projectIndex = display.indexOf(project);
+	const branchIndex = display.indexOf("\uF126 feature/pi-picker");
 	const statusIndex = display.indexOf("WAITING");
 	const elapsedIndex = display.indexOf("2m");
-	assert.equal(projectIndex < statusIndex && statusIndex < elapsedIndex, true);
+	const sessionAgeIndex = display.indexOf("15m");
+	assert.equal(
+		projectIndex < branchIndex &&
+			branchIndex < statusIndex &&
+			statusIndex < elapsedIndex &&
+			elapsedIndex < sessionAgeIndex,
+		true,
+	);
 	assert.equal(sanitizeDisplayText("a\tb\nc", 20), "a b c");
 });
 

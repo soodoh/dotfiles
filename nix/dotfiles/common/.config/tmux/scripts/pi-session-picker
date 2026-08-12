@@ -36,14 +36,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"$pi_session_list" >"$initial_candidates"
+"$pi_session_list" --client-name "$client_name" >"$initial_candidates"
 while IFS=$'\t' read -r pane_id _; do
   if [[ "$pane_id" =~ ^%[0-9]+$ ]]; then
     printf '%s\n' "$pane_id" >>"$pane_order"
   fi
 done <"$initial_candidates"
-printf -v pi_session_reload_command '%q --order-file %q' \
-  "$pi_session_list" "$pane_order"
+printf -v pi_session_reload_command '%q --client-name %q --order-file %q' \
+  "$pi_session_list" "$client_name" "$pane_order"
 
 if ! selection="$(cat "$initial_candidates" | fzf-tmux -p 90%,80% \
   --ansi --no-sort --track \
@@ -67,7 +67,7 @@ if [[ ! "$pane_id" =~ ^%[0-9]+$ ]] ||
   exit 0
 fi
 
-if ! "$pi_session_list" --validate "$pane_id" "$session_id" "$window_id"; then
+if ! "$pi_session_list" --client-name "$client_name" --validate "$pane_id" "$session_id" "$window_id"; then
   tmux display-message -c "$client_name" "Pi pane is no longer available" 2>/dev/null || true
   exit 0
 fi

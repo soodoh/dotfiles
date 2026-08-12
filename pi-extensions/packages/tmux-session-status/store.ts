@@ -54,6 +54,7 @@ export type HeartbeatRecord = {
 	sessionName?: string;
 	state: PiSessionStatus;
 	toolName?: string;
+	sessionStartedAt: number;
 	stateChangedAt: number;
 	heartbeatAt: number;
 };
@@ -116,6 +117,7 @@ export const createHeartbeatRecord = ({
 	sessionName,
 	lifecycle,
 	toolName,
+	sessionStartedAt,
 	heartbeatAt,
 }: {
 	instanceId: string;
@@ -127,6 +129,7 @@ export const createHeartbeatRecord = ({
 	sessionName?: string;
 	lifecycle: LifecycleState;
 	toolName?: string;
+	sessionStartedAt: number;
 	heartbeatAt: number;
 }): HeartbeatRecord => ({
 	schemaVersion: HEARTBEAT_SCHEMA_VERSION,
@@ -157,6 +160,7 @@ export const createHeartbeatRecord = ({
 	sessionName: sanitizeStateString(sessionName, MAX_LENGTHS.title),
 	state: lifecycle.status,
 	toolName: sanitizeStateString(toolName, MAX_LENGTHS.tool),
+	sessionStartedAt,
 	stateChangedAt: lifecycle.stateChangedAt,
 	heartbeatAt,
 });

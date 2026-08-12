@@ -54,6 +54,7 @@ const record = (instanceId = "instance-one") =>
 		cwd: "/home/user/project",
 		sessionName: "Picker tests",
 		lifecycle: initialLifecycleState(1_000),
+		sessionStartedAt: 500,
 		heartbeatAt: 2_000,
 	});
 
@@ -94,6 +95,7 @@ describe("tmux heartbeat storage", () => {
 
 		const parsed = JSON.parse(await readFile(filePath, "utf8"));
 		expect(parsed.instanceId).toBe("instance-one");
+		expect(parsed.sessionStartedAt).toBe(500);
 		expect((await stat(join(root, "state"))).mode & 0o777).toBe(0o700);
 		expect((await stat(filePath)).mode & 0o777).toBe(0o600);
 		expect(await readdir(join(root, "state"))).toEqual(["heartbeat.json"]);
