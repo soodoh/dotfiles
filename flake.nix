@@ -345,13 +345,10 @@
               grep -F '/nix/keys/github-web-flow.gpg' '${cominYaml}'
               grep -F 'post_deployment_command:' '${cominYaml}'
               grep -F '/bin/kill -HUP "$COMIN_SUPERVISOR_PID"' '${workConfig.services.comin.postDeploymentCommand}'
-              grep -F 'supervisor_pid="$$"' '${workConfig.system.build.toplevel}/sw/bin/comin-supervisor'
-              grep -F '/usr/bin/touch "/var/lib/comin/supervisor-$supervisor_pid"' '${workConfig.system.build.toplevel}/sw/bin/comin-supervisor'
-              grep -F 'rm -f "/var/lib/comin/supervisor-$supervisor_pid"' '${workConfig.system.build.toplevel}/sw/bin/comin-supervisor'
-              grep -F "name 'supervisor-*'" '${workConfig.system.build.toplevel}/activate'
-              grep -F 'pgrep -P "$supervisor_pid" -x comin' '${workConfig.system.build.toplevel}/activate'
+              grep -F '/bin/ps -p "$PPID" -o command=' '${workConfig.system.build.toplevel}/activate'
+              grep -F "grep -Eq '(^|/)comin( |$)'" '${workConfig.system.build.toplevel}/activate'
               grep -F '/usr/bin/cmp -s' '${workConfig.system.build.toplevel}/activate'
-              checks_line="$(grep -n "name 'supervisor-\\*'" '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
+              checks_line="$(grep -n '/bin/ps -p \"$PPID\" -o command=' '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
               launchd_line="$(grep -n 'setting up launchd services' '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
               test "$checks_line" -lt "$launchd_line"
               test '${cominPath}' = '/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin'
