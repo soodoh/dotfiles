@@ -27,5 +27,5 @@ sudo --set-home "$nix_command" \
   --option max-jobs auto \
   --option cores 0 \
   --extra-substituters https://nix-community.cachix.org \
-  --extra-trusted-public-keys 'nix-community.cachix.org-1:mB9Mx8lqQ0j03zqvkHxz24DeDGl8Gy3hYlG5tx8jW5A=' \
+  --extra-trusted-public-keys 'nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=' \
   run .#darwin-rebuild -- switch --flake ".#$host"
