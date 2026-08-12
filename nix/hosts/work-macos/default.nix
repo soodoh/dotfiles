@@ -44,6 +44,26 @@ in
     email = "paul.diloreto@docusign.com";
   };
   applications = applications // {
+    dock = [
+      "/Applications/Tailscale.app"
+      {
+        nixPackage = "ghostty-bin";
+        bundle = "Ghostty.app";
+      }
+      "/Applications/Google Chrome.app"
+      "/Applications/Zen.app"
+      "/Applications/Slack.app"
+      {
+        nixPackage = "dotfilesPackages.google-calendar";
+        bundle = "Google Calendar.app";
+      }
+      {
+        nixPackage = "obsidian";
+        bundle = "Obsidian.app";
+      }
+      "/System/Applications/Messages.app"
+      "/System/Applications/System Settings.app"
+    ];
     # Work MDM owns Tailscale installation and startup.
     mas = builtins.removeAttrs applications.mas [ "Tailscale" ];
     masFallbackCasks = { };
