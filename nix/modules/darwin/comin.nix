@@ -27,8 +27,8 @@
   };
 
   # Comin updates its on-disk plist during activation but cannot reload itself
-  # until after deployment state is persisted. Submit a detached launchd job
-  # that waits for Comin's clean exit, then reloads the staged definition.
+  # until after deployment state is persisted. Start a detached root worker
+  # that outlives Comin's post-deployment hook, then reloads the staged plist.
   services.comin.postDeploymentCommand =
     let
       reloadWorker = pkgs.writeShellScript "reload-staged-comin" ''
@@ -38,9 +38,6 @@
         done
         /bin/launchctl bootout system/com.github.nlewo.comin 2>/dev/null || true
         /bin/launchctl bootstrap system /Library/LaunchDaemons/com.github.nlewo.comin.plist
-        # Submitted launchd jobs that exit in under 10 seconds are treated as
-        # failed and retried. Stay alive long enough to retire successfully.
-        /bin/sleep 11
       '';
     in
     pkgs.writeShellScript "reload-comin-after-deployment" ''
@@ -48,12 +45,17 @@
         exit 0
       fi
 
-      /bin/launchctl submit \
-        -l com.github.nlewo.comin.reloader \
-        -o /var/log/comin-reloader.log \
-        -e /var/log/comin-reloader.log \
-        -- ${reloadWorker} "$PPID"
+      nohup ${reloadWorker} "$PPID" \
+        </dev/null \
+        >>/var/log/comin-reloader.log \
+        2>&1 &
     '';
+
+  # Remove submitted reloaders from transition deployments. The detached
+  # worker above does not register a persistent launchd job.
+  system.activationScripts.extraActivation.text = lib.mkAfter ''
+    /bin/launchctl bootout system/com.github.nlewo.comin.reloader 2>/dev/null || true
+  '';
 
   # Comin is the process running activation. Reconcile every other launchd
   # service normally, but only stage Comin's plist. Comin compares the loaded
