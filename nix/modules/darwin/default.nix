@@ -9,6 +9,7 @@
 {
   imports = [
     ./applications.nix
+    ./comin.nix
     ./homebrew.nix
     ./mas.nix
     ./login-items.nix
@@ -39,7 +40,7 @@
         "https://nix-community.cachix.org"
       ];
       trusted-public-keys = [
-        "cache.nixos.org-1:6NCHdD59X431o0yWZ9h8QJ3zkW9nN2Eq9T7zPv8XoeI="
+        "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
         "nix-community.cachix.org-1:mB9Mx8lqQ0j03zqvkHxz24DeDGl8Gy3hYlG5tx8jW5A="
       ];
       builders-use-substitutes = true;
@@ -62,6 +63,7 @@
 
   system = {
     primaryUser = host.username;
+    configurationRevision = inputs.self.rev or inputs.self.dirtyRev or null;
     stateVersion = 6;
   };
 

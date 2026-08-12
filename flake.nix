@@ -9,6 +9,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    comin = {
+      url = "github:nlewo/comin";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -41,6 +46,7 @@
     inputs@{
       nixpkgs,
       nix-darwin,
+      comin,
       home-manager,
       nix-homebrew,
       fenix,
@@ -116,6 +122,7 @@
           };
           modules = [
             nix-homebrew.darwinModules.nix-homebrew
+            comin.darwinModules.comin
             home-manager.darwinModules.home-manager
             ./nix/modules/darwin
           ];
@@ -342,6 +349,33 @@
         // lib.optionalAttrs (system == "aarch64-darwin") {
           personal-macos = darwinConfigurations.personal-macos.system;
           work-macos = darwinConfigurations.work-macos.system;
+          comin-deployment-config =
+            let
+              isValid =
+                hostname:
+                let
+                  cominConfig = darwinConfigurations.${hostname}.config.services.comin;
+                  remoteCount = builtins.length cominConfig.remotes;
+                  remote = lib.head cominConfig.remotes;
+                in
+                cominConfig.enable
+                && cominConfig.hostname == hostname
+                && cominConfig.buildTimeout == 7200
+                && remoteCount == 1
+                && remote.name == "origin"
+                && remote.url == "https://github.com/soodoh/dotfiles.git"
+                && remote.branches.main.name == "main"
+                && remote.branches.main.operation == "switch"
+                && remote.branches.testing.name == ""
+                && remote.poller.period == 300;
+            in
+            assert lib.assertMsg (isValid "personal-macos")
+              "personal-macos has an invalid Comin deployment configuration";
+            assert lib.assertMsg (isValid "work-macos")
+              "work-macos has an invalid Comin deployment configuration";
+            pkgs.runCommand "comin-deployment-config" { } ''
+              touch "$out"
+            '';
         }
       );
 

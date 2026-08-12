@@ -60,6 +60,51 @@ nix run .#home-manager -- switch --flake .#personal-debian
 
 Configuration and dotfile changes are store-backed and take effect only after a successful rebuild. On macOS, activation keeps the existing primary user's login shell pointed at the Nix-managed Fish and reloads an active tmux server after Home Manager links the new configuration. Normal switches do not remove unmanaged software.
 
+## Automatic macOS deployment
+
+Both Darwin configurations enable [Comin](https://github.com/nlewo/comin) as the root system launch daemon `com.github.nlewo.comin`. It polls the public, read-only HTTPS remote `https://github.com/soodoh/dotfiles.git` every 300 seconds while the Mac is awake. Only `main` is enabled: `host.name` sets `services.comin.hostname`, so each daemon evaluates and switches only its matching output (`darwinConfigurations.personal-macos` or `darwinConfigurations.work-macos`). Failed evaluations or builds are recorded but never switched over, leaving the current system generation active.
+
+The first existing bootstrap or manual switch is intentionally built from the local checkout. That activation installs and starts Comin with launchd `RunAtLoad` and `KeepAlive`; subsequent deployments use Comin's root-owned state and bare repository under `/var/lib/comin`, not the developer checkout. Run one appropriate entrypoint after this configuration reaches each Mac:
+
+```bash
+# Personal
+./bootstrap/nix-macos.sh personal-macos  # for a new installation
+./bin/nix-switch-personal-macos          # for an existing installation
+
+# Work
+./bootstrap/nix-macos.sh work-macos      # for a new installation
+./bin/nix-switch-work-macos              # for an existing installation
+```
+
+Only changes committed and merged to `main` are deployable. Automatic deployment does not run `nix-update`, change `flake.lock`, perform cleanup, update macOS, or alter the existing Homebrew/MAS activation behavior. Existing nix-darwin generations, weekly GC policy, and rollback remain in place; Comin's default retention additionally keeps multiple successful deployment records and GC roots.
+
+Inspect or trigger Comin with:
+
+```bash
+sudo launchctl print system/com.github.nlewo.comin
+sudo /run/current-system/sw/bin/comin status
+sudo /run/current-system/sw/bin/comin deployment latest
+sudo tail -n 200 /var/log/comin.log
+
+# Fetch now instead of waiting for the next poll.
+sudo /run/current-system/sw/bin/comin fetch
+
+# Restart the launch daemon if diagnosis requires it.
+sudo launchctl kickstart -k system/com.github.nlewo.comin
+
+# Show the Git revision embedded by nix-darwin and list generations.
+darwin-version --configuration-revision
+nix run .#darwin-rebuild -- --list-generations
+```
+
+To hold the machine on a rolled-back generation, suspend Comin before using the existing rollback command, then resume it when `main` is ready to deploy again:
+
+```bash
+sudo /run/current-system/sw/bin/comin suspend
+sudo --set-home nix run .#darwin-rebuild -- switch --rollback
+sudo /run/current-system/sw/bin/comin resume
+```
+
 ## Updates
 
 Activation uses only versions available from pinned sources. `flake.lock` pins Nix inputs, Homebrew itself, and immutable Homebrew tap snapshots; npm dependency closures and TWG release checksums change only through an explicit update target:
