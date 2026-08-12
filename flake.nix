@@ -295,20 +295,24 @@
               isValid =
                 hostname:
                 let
-                  cominConfig = darwinConfigurations.${hostname}.config.services.comin;
+                  hostConfig = darwinConfigurations.${hostname}.config;
+                  cominConfig = hostConfig.services.comin;
                   remoteCount = builtins.length cominConfig.remotes;
                   remote = lib.head cominConfig.remotes;
+                  webFlowKey = toString ./nix/keys/github-web-flow.gpg;
                 in
                 cominConfig.enable
                 && cominConfig.hostname == hostname
                 && cominConfig.buildTimeout == 7200
+                && cominConfig.gpgPublicKeyPaths == [ webFlowKey ]
                 && remoteCount == 1
                 && remote.name == "origin"
                 && remote.url == "https://github.com/soodoh/dotfiles.git"
                 && remote.branches.main.name == "main"
                 && remote.branches.main.operation == "switch"
                 && remote.branches.testing.name == ""
-                && remote.poller.period == 300;
+                && remote.poller.period == 300
+                && hostConfig.launchd.daemons.comin.command == "/run/current-system/sw/bin/comin-supervisor";
             in
             assert lib.assertMsg (isValid "personal-macos")
               "personal-macos has an invalid Comin deployment configuration";
@@ -321,29 +325,37 @@
             let
               workConfig = darwinConfigurations.work-macos.config;
               cominPath = workConfig.launchd.daemons.comin.serviceConfig.EnvironmentVariables.PATH;
+              cominPlist = workConfig.environment.launchDaemons."com.github.nlewo.comin.plist".source;
+              cominYaml =
+                (import "${comin}/nix/comin-config.nix" {
+                  config = workConfig;
+                  inherit pkgs lib;
+                }).cominConfigYaml;
               homeApps =
                 workConfig.home-manager.users."paul.diloreto".home.file."Applications/Home Manager Apps".source;
             in
             pkgs.runCommand "comin-darwin-activation" { } ''
-              if grep -F "launchctl unload '/Library/LaunchDaemons/com.github.nlewo.comin.plist'" ${workConfig.system.build.toplevel}/activate; then
-                echo >&2 "Comin activation still unloads its own launchd service"
-                exit 1
-              fi
-              if grep -F '/Applications/Nix Apps' ${workConfig.system.build.toplevel}/activate; then
-                echo >&2 "root activation still manages protected application bundles"
-                exit 1
-              fi
               test -d '${homeApps}'
-              grep -F 'nohup' '${workConfig.services.comin.postDeploymentCommand}'
-              grep -F 'reload-staged-comin' '${workConfig.services.comin.postDeploymentCommand}'
-              grep -F 'bootout system/com.github.nlewo.comin.reloader' ${workConfig.system.build.toplevel}/activate
-              test '${cominPath}' = '${
-                lib.makeBinPath [
-                  workConfig.nix.package
-                  pkgs.git
-                  pkgs.openssh
-                ]
-              }:/usr/bin:/bin:/usr/sbin:/sbin'
+              grep -F '/run/current-system/sw/bin/comin-supervisor' '${cominPlist}'
+              if grep -E '/nix/store/[^ ]+-(comin|comin-supervisor)' '${cominPlist}'; then
+                echo >&2 "Comin launchd command is generation-specific"
+                exit 1
+              fi
+              grep -F 'gpg_public_key_paths:' '${cominYaml}'
+              grep -F '/nix/keys/github-web-flow.gpg' '${cominYaml}'
+              grep -F 'post_deployment_command:' '${cominYaml}'
+              grep -F '/bin/kill -HUP "$COMIN_SUPERVISOR_PID"' '${workConfig.services.comin.postDeploymentCommand}'
+              grep -F '/bin/ps -p "$PPID" -o command=' '${workConfig.system.build.toplevel}/activate'
+              grep -F "grep -Eq '(^|/)comin( |$)'" '${workConfig.system.build.toplevel}/activate'
+              grep -F '/usr/bin/cmp -s' '${workConfig.system.build.toplevel}/activate'
+              checks_line="$(grep -n '/bin/ps -p \"$PPID\" -o command=' '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
+              launchd_line="$(grep -n 'setting up launchd services' '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
+              test "$checks_line" -lt "$launchd_line"
+              test '${cominPath}' = '/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+              if rg -U 'system\.activationScripts\.launchd[[:space:]]*=' ${./nix/modules/darwin/comin.nix}; then
+                echo >&2 "Comin still overrides nix-darwin launchd activation"
+                exit 1
+              fi
               touch "$out"
             '';
         }
