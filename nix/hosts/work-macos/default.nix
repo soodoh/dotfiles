@@ -63,6 +63,7 @@ in
       }
       "/System/Applications/Messages.app"
       "/System/Applications/System Settings.app"
+      "/Applications/Privileges.app"
     ];
     # Work MDM owns Tailscale installation and startup.
     mas = builtins.removeAttrs applications.mas [ "Tailscale" ];
