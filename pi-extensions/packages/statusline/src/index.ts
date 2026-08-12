@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { readStoredCredential } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import {
 	type GitStatus,
 	getGitStatus,
@@ -159,7 +159,7 @@ type StatuslineSection =
 	| "provider_usage"
 	| "context";
 type StatuslineLayout = StatuslineSection[][];
-type ProviderUsageRenderMode = "full" | "active" | "omit";
+type ProviderUsageRenderMode = "full" | "active";
 
 const DEFAULT_STATUSLINE_LAYOUT: StatuslineLayout = [
 	["model", "thinking", "git", "context"],
@@ -423,6 +423,41 @@ function formatLine(parts: (string | undefined)[]): string {
 	return ` ${visibleParts.join(` ${SEPARATOR_COLOR}${POWERLINE_THIN_LEFT}${ANSI_RESET} `)}${ANSI_RESET} `;
 }
 
+function wrapLineParts(parts: (string | undefined)[], width: number): string[] {
+	const visibleParts = parts.filter((part): part is string => Boolean(part));
+	if (visibleParts.length === 0) return [];
+	if (!width) return [formatLine(visibleParts)];
+
+	const lines: string[] = [];
+	let currentParts: string[] = [];
+
+	for (const part of visibleParts) {
+		const candidateParts = [...currentParts, part];
+		if (displayLength(formatLine(candidateParts)) <= width) {
+			currentParts = candidateParts;
+			continue;
+		}
+
+		if (currentParts.length > 0) {
+			lines.push(formatLine(currentParts));
+			currentParts = [];
+		}
+
+		const standaloneLine = formatLine([part]);
+		if (displayLength(standaloneLine) > width) {
+			lines.push(...wrapTextWithAnsi(standaloneLine, width));
+		} else {
+			currentParts = [part];
+		}
+	}
+
+	if (currentParts.length > 0) {
+		lines.push(formatLine(currentParts));
+	}
+
+	return lines;
+}
+
 function sessionCwd(ctx: ExtensionContext): string {
 	return resolve(ctx.sessionManager?.getCwd?.() ?? process.cwd());
 }
@@ -467,8 +502,7 @@ function buildStatusLines(
 				case "git":
 					return git ? renderGit(git, theme) : undefined;
 				case "provider_usage":
-					if (!providerUsageEnabled || providerMode === "omit")
-						return undefined;
+					if (!providerUsageEnabled) return undefined;
 					return renderProviderUsage(
 						providerUsageTargets,
 						theme,
@@ -484,24 +518,16 @@ function buildStatusLines(
 
 	const lines: string[] = [];
 	for (const lineSections of layout) {
-		const fullLine = formatLine(renderSectionParts(lineSections, "full"));
+		const fullParts = renderSectionParts(lineSections, "full");
+		const fullLine = formatLine(fullParts);
 		if (!width || displayLength(fullLine) <= width) {
 			if (fullLine) lines.push(fullLine);
 			continue;
 		}
 
-		const activeProviderLine = formatLine(
-			renderSectionParts(lineSections, "active"),
+		lines.push(
+			...wrapLineParts(renderSectionParts(lineSections, "active"), width),
 		);
-		if (displayLength(activeProviderLine) <= width) {
-			if (activeProviderLine) lines.push(activeProviderLine);
-			continue;
-		}
-
-		const omitLine = formatLine(renderSectionParts(lineSections, "omit"));
-		if (omitLine) {
-			lines.push(truncateToWidth(omitLine, width, ""));
-		}
 	}
 
 	return lines;

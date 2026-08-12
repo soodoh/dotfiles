@@ -13,7 +13,7 @@ This package was created to provide similar statusline-focused functionality to 
 - Shows provider usage badges when the `provider_usage` section is configured and Pi exposes the relevant provider/auth data. All supported authenticated providers are shown (e.g. GitHub Copilot, OpenAI Codex subscription, Anthropic, and OpenRouter), with the selected model's provider highlighted in the model accent.
 - Shows context usage as percentage plus context window, with warning colors above 70% and 90%.
 - Indicates auto-compaction when Pi reports it as enabled.
-- Adapts to terminal width by hiding less important provider detail first.
+- Adapts to terminal width by hiding less important provider detail first, then wrapping overflow onto additional lines.
 - Uses Nerd Font icons throughout; a Nerd Font is required in the terminal client.
 
 ## Install
@@ -51,7 +51,7 @@ There are no slash commands. The statusline is intentionally always-on once the 
 
 ## Statusline segments
 
-The rendered line is width-aware and may omit provider detail in narrow terminals.
+The rendered line is width-aware: narrow terminals use active-only provider detail when needed, then wrap remaining overflow onto additional lines without truncating sections.
 
 | Segment        | Description                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------ |

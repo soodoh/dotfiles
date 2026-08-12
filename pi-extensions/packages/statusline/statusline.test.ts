@@ -340,7 +340,7 @@ describe("statusline extension", () => {
 		expect(line.indexOf("main")).toBeLessThan(line.indexOf("12.5%/1.0k"));
 	});
 
-	test("truncates statusline fallback to the viewport width", () => {
+	test("wraps statusline overflow within the viewport width", () => {
 		let widgetFactory: WidgetFactory | undefined;
 		let footerFactory: FooterFactory | undefined;
 		const pi = createPi();
@@ -390,8 +390,11 @@ describe("statusline extension", () => {
 		const lines =
 			widgetFactory?.({}, { fg: (_color, text) => text }).render(43) ?? [];
 
-		expect(lines.length).toBeGreaterThan(0);
+		expect(lines.length).toBeGreaterThan(1);
 		expect(lines.every((line) => visibleWidth(line) <= 43)).toBe(true);
+		expect(lines.join("\n")).toContain("GPT-5.5");
+		expect(lines.join("\n")).toContain("paul/autobranding");
+		expect(lines.join("\n")).toContain("7.9%/272k");
 	});
 
 	test("invalid project sections override global sections and fall back to defaults", () => {
@@ -642,7 +645,7 @@ describe("statusline extension", () => {
 		widget?.render(120);
 
 		await vi.waitFor(() => {
-			const providerLine = widget?.render(120)[1];
+			const providerLine = widget?.render(120).join("\n");
 			expect(providerLine).toContain(
 				"\u001b[38;2;215;135;175mAnthropic 10%\u001b[0m",
 			);
