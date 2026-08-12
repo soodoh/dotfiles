@@ -30,6 +30,7 @@ let
     set -u
 
     child_pid=""
+    unattended_marker="/var/lib/comin/unattended-activation-$$"
 
     restart() {
       trap - HUP
@@ -53,10 +54,14 @@ let
     trap shutdown TERM INT
 
     export COMIN_SUPERVISOR_PID="$$"
-    export DOTFILES_COMIN_UNATTENDED=1
+    /usr/bin/touch "$unattended_marker"
+    trap '/bin/rm -f "$unattended_marker"' EXIT
     ${lib.getExe cfg.package} run --config ${cominConfig.cominConfigYaml} &
     child_pid=$!
     wait "$child_pid"
+    status=$?
+    /bin/rm -f "$unattended_marker"
+    exit "$status"
   '';
 in
 {
@@ -88,7 +93,7 @@ in
   # activation. Fail unattended deployment before launchd reconciliation;
   # plist changes must be installed by an explicit manual switch.
   system.activationScripts.checks.text = lib.mkAfter ''
-    if [ "''${DOTFILES_COMIN_UNATTENDED:-}" = "1" ] \
+    if [ -n "$(/usr/bin/find /var/lib/comin -maxdepth 1 -name 'unattended-activation-*' -print -quit 2>/dev/null)" ] \
       && ! /usr/bin/cmp -s '${cominPlist}' /Library/LaunchDaemons/com.github.nlewo.comin.plist; then
       echo >&2 "Comin's launchd definition changed; apply this generation with a manual nix-darwin switch"
       exit 1

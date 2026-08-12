@@ -85,17 +85,20 @@ Automatic deployment does not run `nix-update`, change `flake.lock`, remove unma
 Migrating an existing Comin installation to the stable supervisor requires one manual switch after this change is squash-merged. Do not ask the old Comin daemon to deploy the migration because its loaded plist is generation-specific. Verify and switch from a clean checkout whose `HEAD` exactly matches `origin/main`:
 
 ```bash
+set -euo pipefail
 git fetch origin
 test -z "$(git status --porcelain)"
 test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
 
 gnupg_home="$(mktemp -d)"
+trap 'rm -rf "$gnupg_home"' EXIT
 chmod 700 "$gnupg_home"
 GNUPGHOME="$gnupg_home" gpg --batch --import nix/keys/github-web-flow.gpg
 GNUPGHOME="$gnupg_home" gpg --batch --with-colons --fingerprint \
   | grep -F 'fpr:::::::::968479A1AFF927E37D1A566BB5690EEEBB952194:'
 GNUPGHOME="$gnupg_home" git verify-commit HEAD
 rm -rf "$gnupg_home"
+trap - EXIT
 
 ./bin/nix-switch-personal-macos  # or ./bin/nix-switch-work-macos
 sudo launchctl print system/com.github.nlewo.comin \

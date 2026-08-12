@@ -345,10 +345,12 @@
               grep -F '/nix/keys/github-web-flow.gpg' '${cominYaml}'
               grep -F 'post_deployment_command:' '${cominYaml}'
               grep -F '/bin/kill -HUP "$COMIN_SUPERVISOR_PID"' '${workConfig.services.comin.postDeploymentCommand}'
-              grep -F 'export DOTFILES_COMIN_UNATTENDED=1' '${workConfig.system.build.toplevel}/sw/bin/comin-supervisor'
-              grep -F 'DOTFILES_COMIN_UNATTENDED' '${workConfig.system.build.toplevel}/activate'
+              grep -F 'unattended_marker="/var/lib/comin/unattended-activation-$$"' '${workConfig.system.build.toplevel}/sw/bin/comin-supervisor'
+              grep -F '/usr/bin/touch "$unattended_marker"' '${workConfig.system.build.toplevel}/sw/bin/comin-supervisor'
+              grep -F 'rm -f "$unattended_marker"' '${workConfig.system.build.toplevel}/sw/bin/comin-supervisor'
+              grep -F "name 'unattended-activation-*'" '${workConfig.system.build.toplevel}/activate'
               grep -F '/usr/bin/cmp -s' '${workConfig.system.build.toplevel}/activate'
-              checks_line="$(grep -n 'DOTFILES_COMIN_UNATTENDED' '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
+              checks_line="$(grep -n "name 'unattended-activation-\\*'" '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
               launchd_line="$(grep -n 'setting up launchd services' '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
               test "$checks_line" -lt "$launchd_line"
               test '${cominPath}' = '/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin'
