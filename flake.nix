@@ -84,18 +84,10 @@
       dotfilesOverlay = final: previous: {
         dotfilesPackages = import ./nix/packages { pkgs = final; };
 
-        # @napi-rs/cli hardcodes /bin/ps while assembling oxlint's native
-        # module. Darwin's Nix sandbox blocks that host path, so point the probe
-        # at the reproducible store-backed implementation instead.
-        oxlint = previous.oxlint.overrideAttrs (oldAttrs: {
-          preBuild =
-            (oldAttrs.preBuild or "")
-            + lib.optionalString final.stdenv.hostPlatform.isDarwin ''
-              substituteInPlace node_modules/.pnpm/@napi-rs+cli@*/node_modules/@napi-rs/cli/dist/cli.js \
-                --replace-fail 'executeProcessIncarnationCommand("/bin/ps",' \
-                'executeProcessIncarnationCommand("${final.unixtools.ps}/bin/ps",'
-            '';
-        });
+        # TODO: Return to previous.oxlint once @napi-rs/cli's Darwin /bin/ps fix
+        # is available in nixpkgs and its oxlint build is publicly cached.
+        oxlint =
+          if final.stdenv.hostPlatform.isDarwin then final.dotfilesPackages.oxlint-npm else previous.oxlint;
 
       };
 

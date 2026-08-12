@@ -5,4 +5,5 @@
 }
 // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
   google-calendar = pkgs.callPackage ./google-calendar { };
+  oxlint-npm = pkgs.callPackage ./oxlint-npm { };
 }
