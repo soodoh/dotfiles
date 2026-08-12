@@ -3,6 +3,9 @@
   extraHomebrewCasks ? [ ],
   extraMasApplications ? { },
   extraApprovedBundleIds ? [ ],
+  extraCleanupProtectedBundleIds ? [ ],
+  extraCleanupProtectedHomebrewCasks ? [ ],
+  extraCleanupProtectedHomebrewTaps ? [ ],
 }:
 {
   nix = [
@@ -54,4 +57,16 @@
     "md.obsidian"
   ]
   ++ extraApprovedBundleIds;
+
+  # These remain owned by corporate management or the operator. Cleanup must
+  # ignore them without making nix-darwin responsible for installation.
+  cleanupProtected = {
+    bundleIds = extraCleanupProtectedBundleIds;
+    homebrewCasks = extraCleanupProtectedHomebrewCasks;
+    homebrewTaps = [
+      "homebrew/core"
+      "homebrew/cask"
+    ]
+    ++ extraCleanupProtectedHomebrewTaps;
+  };
 }

@@ -5,18 +5,25 @@
   "desired": {
     "profile": "personal",
     "applications": {
-      "homebrewCasks": ["nextcloud", "zen", "wispr-flow"],
+      "homebrewCasks": ["nextcloud", "zen", "wispr-flow", "vendor/tap/desired-cask"],
       "mas": {"Tailscale": 1475387142, "Amphetamine": 937984704, "HP": 1474276998, "MissingApp": 999},
       "masFallbackCasks": {"Tailscale": "tailscale-app", "MissingApp": "missing-app"},
-      "approvedBundleIds": ["com.google.Chrome", "io.tailscale.ipn.macsys"]
+      "approvedBundleIds": ["com.google.Chrome", "io.tailscale.ipn.macsys"],
+      "cleanupProtected": {
+        "bundleIds": ["com.corporate.Managed"],
+        "homebrewCasks": ["corporate-app"],
+        "homebrewTaps": ["corporate/tap"]
+      }
     }
   },
   "observed": {
-    "homebrew": {"formulae": ["stow"], "casks": ["nextcloud", "legacy-app", "missing-app", "docker-desktop"], "taps": ["homebrew/core", "legacy/tap"]},
+    "homebrew": {"formulae": ["stow"], "casks": ["nextcloud", "desired-cask", "corporate-app", "legacy-app", "missing-app", "docker-desktop"], "taps": ["homebrew/core", "corporate/tap", "legacy/tap"]},
     "mas": [{"id": 1475387142, "name": "Tailscale"}, {"id": 123, "name": "Unapproved"}],
     "applications": [
       {"path": "/Applications/Google Chrome.app", "name": "Google Chrome.app", "bundleId": "com.google.Chrome", "source": "nix"},
       {"path": "/Applications/Legacy.app", "name": "Legacy.app", "bundleId": "com.vendor.Legacy", "source": "manual"},
+      {"path": "/Applications/Corporate.app", "name": "Corporate.app", "bundleId": "com.corporate.Managed", "source": "manual"},
+      {"path": "/Applications/Unknown.app", "name": "Unknown.app", "bundleId": "", "source": "manual"},
       {"path": "/System/Applications/Safari.app", "name": "Safari.app", "bundleId": "com.apple.Safari", "source": "apple-system"}
     ],
     "legacyGlobals": {"npm": ["corepack"], "bun": ["@jarkkojs/readseek"], "cargo": ["starship"], "uv": ["ruff"]},

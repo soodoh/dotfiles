@@ -4,6 +4,7 @@
   home.sessionPath = [ "/Applications/SnowflakeCLI.app/Contents/MacOS" ];
   home.packages = [
     pkgs.azure-cli
+    pkgs.google-cloud-sdk
     pkgs.dotfilesPackages.twg
   ];
 }

@@ -16,6 +16,11 @@
 
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
 
+    homebrew-core = {
+      url = "github:Homebrew/homebrew-core";
+      flake = false;
+    };
+
     homebrew-cask = {
       url = "github:Homebrew/homebrew-cask";
       flake = false;
@@ -240,6 +245,7 @@
                 mkdir -p \
                   "$HOME/.local/share/fnm/aliases/default/bin" \
                   "$HOME/.bun/bin" \
+                  "$HOME/.bun/install/global/node_modules" \
                   "$HOME/.cargo/bin" \
                   "$HOME/.local/bin" \
                   "$HOME/fake-bin" \
@@ -261,6 +267,9 @@
                 cat > "$HOME/.cargo/bin/cargo" <<'EOF'
                 #!/bin/sh
                 printf '%s\n' 'yazi-cli v1.0.0:' '    ya'
+                EOF
+                cat > "$HOME/.cargo/.crates2.json" <<'EOF'
+                {"installs":{"yazi-cli 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)":{}}}
                 EOF
                 cat > "$HOME/.local/bin/uv" <<'EOF'
                 #!/bin/sh
@@ -319,6 +328,10 @@
                 grep -F "Homebrew casks: legacy-app" cleanup.log
                 grep -F "MAS fallback casks are protected until desired MAS apps are installed: missing-app" cleanup.log
                 if grep -E 'Homebrew casks:.*missing-app' cleanup.log; then exit 1; fi
+                grep -F "Application bundles without identifiers are protected: /Applications/Unknown.app" cleanup.log
+                if grep -E 'Homebrew casks:.*(corporate-app|desired-cask)' cleanup.log; then exit 1; fi
+                if grep -E 'Homebrew taps:.*corporate/tap' cleanup.log; then exit 1; fi
+                if grep -E 'Application bundles:.*(Corporate|Unknown)\\.app' cleanup.log; then exit 1; fi
                 touch "$out"
               '';
         }

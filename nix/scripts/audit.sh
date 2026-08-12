@@ -55,12 +55,16 @@ brew_app_names="$(printf '%s' "$brew_info" | jq -r '.casks[]?.artifacts[]? | sel
 applications='[]'
 if [ "$(uname -s)" = Darwin ]; then
   while IFS= read -r -d '' app; do
-    bundle_id="$(mdls -name kMDItemCFBundleIdentifier -raw "$app" 2>/dev/null || true)"
-    [ "$bundle_id" = "(null)" ] && bundle_id=""
+    bundle_id="$(plutil -extract CFBundleIdentifier raw -o - "$app/Contents/Info.plist" 2>/dev/null || true)"
+    if [ -z "$bundle_id" ]; then
+      bundle_id="$(mdls -name kMDItemCFBundleIdentifier -raw "$app" 2>/dev/null || true)"
+      [ "$bundle_id" = "(null)" ] && bundle_id=""
+    fi
     app_name="$(basename "$app")"
     case "$app" in
       /System/Applications/*) source="apple-system" ;;
       /Applications/Nix\ Apps/*) source="nix" ;;
+      "$HOME"/Applications/*) source="manual" ;;
       *)
         if printf '%s\n' "$brew_app_names" | grep -Fxq "$app_name"; then source="homebrew";
         elif printf '%s' "$bundle_id" | grep -q '^com\.apple\.'; then source="apple-system";
@@ -82,12 +86,13 @@ if [ -x "$legacy_npm" ] && [ -x "$legacy_node" ]; then
     npm_globals="$(printf '%s' "$npm_raw" | jq '[.dependencies // {} | keys[]]' 2>/dev/null || printf '[]')"
   fi
 fi
-if [ -x "$legacy_bun" ]; then
+if [ -x "$legacy_bun" ] && [ -d "$HOME/.bun/install/global/node_modules" ]; then
   if bun_raw="$(BUN_INSTALL="$HOME/.bun" "$legacy_bun" pm ls -g 2>/dev/null)"; then
     bun_globals="$(printf '%s\n' "$bun_raw" | sed -E '1d; s/^[^[:space:]]+[[:space:]]+//; s/@[^@[:space:]]+$//' | json_lines)"
   fi
 fi
-if [ -x "$legacy_cargo" ]; then
+cargo_installs="$HOME/.cargo/.crates2.json"
+if [ -x "$legacy_cargo" ] && [ -f "$cargo_installs" ] && jq -e '.installs | length > 0' "$cargo_installs" >/dev/null 2>&1; then
   if cargo_raw="$("$legacy_cargo" install --list 2>/dev/null)"; then
     cargo_globals="$(printf '%s\n' "$cargo_raw" | awk '/^[^ ]/ {sub(/ v.*/, ""); print}' | json_lines)"
   fi
@@ -106,7 +111,7 @@ elif command -v apt-mark >/dev/null 2>&1; then
 fi
 
 legacy='[]'
-for item in "$HOME/.local/share/fnm" "$HOME/.rustup" "$HOME/.bun/install/global"; do
+for item in "$HOME/.local/share/fnm" "$HOME/.rustup" "$HOME/.bun/install/global" /opt/homebrew/Library/Taps.before-nix-homebrew /usr/local/Homebrew/Library/Taps.before-nix-homebrew; do
   if [ -e "$item" ]; then legacy="$(printf '%s' "$legacy" | jq --arg item "$item" '. + [$item]')"; fi
 done
 for command_name in stow fnm rustup; do

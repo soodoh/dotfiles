@@ -7,6 +7,7 @@
 }:
 let
   homebrewTaps = {
+    "homebrew/homebrew-core" = inputs.homebrew-core;
     "homebrew/homebrew-cask" = inputs.homebrew-cask;
   }
   // lib.optionalAttrs (host.profile == "work") {
@@ -44,6 +45,26 @@ in
     };
     global.autoUpdate = false;
   };
+
+  # nix-homebrew cannot replace a mutable taps directory when switching to
+  # immutable pinned taps. Preserve it for the confirmation-gated cleanup.
+  system.activationScripts.preActivation.text = lib.mkBefore ''
+    for taps_path in /opt/homebrew/Library/Taps /usr/local/Homebrew/Library/Taps; do
+      if [ ! -e "$taps_path" ]; then
+        continue
+      fi
+      if [ -L "$taps_path" ] && [[ "$(readlink "$taps_path")" == /nix/store/* ]]; then
+        continue
+      fi
+      backup_path="$taps_path.before-nix-homebrew"
+      if [ -e "$backup_path" ]; then
+        echo >&2 "Cannot preserve mutable Homebrew taps: $backup_path already exists"
+        exit 1
+      fi
+      echo >&2 "preserving mutable Homebrew taps at $backup_path..."
+      mv "$taps_path" "$backup_path"
+    done
+  '';
 
   system.activationScripts.postActivation.text = ''
     echo >&2 "Homebrew fallback drift (report-only during switch):"

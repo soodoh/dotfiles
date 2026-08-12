@@ -23,9 +23,11 @@ for command_name in $replacement_commands; do
   if [ -z "$resolved_path" ] || [[ "$resolved_path" != /nix/store/* ]]; then smoke_ok=false; fi
 done
 
-approved_casks="$(printf '%s' "$audit_json" | jq '.desired.applications.homebrewCasks // []')"
+approved_casks="$(printf '%s' "$audit_json" | jq '[.desired.applications.homebrewCasks[]? | split("/")[-1]]')"
+protected_unmanaged_casks="$(printf '%s' "$audit_json" | jq '[.desired.applications.cleanupProtected.homebrewCasks[]? | split("/")[-1]]')"
+protected_taps="$(printf '%s' "$audit_json" | jq '.desired.applications.cleanupProtected.homebrewTaps // []')"
 approved_mas="$(printf '%s' "$audit_json" | jq '[.desired.applications.mas // {} | .[]]')"
-approved_bundles="$(printf '%s' "$audit_json" | jq '.desired.applications.approvedBundleIds // []')"
+approved_bundles="$(printf '%s' "$audit_json" | jq '[(.desired.applications.approvedBundleIds // [])[], (.desired.applications.cleanupProtected.bundleIds // [])[]] | unique')"
 protected_mas_casks="$(printf '%s' "$audit_json" | jq '
   (.desired.applications.mas // {}) as $desired
   | [.observed.mas[]?.id] as $installed
@@ -33,11 +35,15 @@ protected_mas_casks="$(printf '%s' "$audit_json" | jq '
       | select(.key as $name | $desired[$name] as $id | ($installed | index($id) | not))
       | .value]
 ')"
-formulae="$(printf '%s' "$audit_json" | jq '.observed.homebrew.formulae // []')"
-casks="$(printf '%s' "$audit_json" | jq --argjson approved "$approved_casks" --argjson protected "$protected_mas_casks" '[.observed.homebrew.casks[]? | select(. as $item | ($approved + $protected) | index($item) | not)]')"
-taps="$(printf '%s' "$audit_json" | jq '[.observed.homebrew.taps[]? | select(. != "homebrew/core" and . != "homebrew/cask")]')"
+formulae="$(printf '%s' "$audit_json" | jq '[.observed.homebrew.formulae[]? | split("/")[-1]] | unique')"
+casks="$(printf '%s' "$audit_json" | jq --argjson approved "$approved_casks" --argjson unmanaged "$protected_unmanaged_casks" --argjson mas "$protected_mas_casks" '[.observed.homebrew.casks[]? | select(. as $item | ($approved + $unmanaged + $mas) | index($item) | not)]')"
+taps="$(printf '%s' "$audit_json" | jq --argjson protected "$protected_taps" '[.observed.homebrew.taps[]? | select(. != "homebrew/core") | select(. as $item | $protected | index($item) | not)]')"
 mas="$(printf '%s' "$audit_json" | jq --argjson approved "$approved_mas" '[.observed.mas[]? | select(.id as $id | $approved | index($id) | not)]')"
-apps="$(printf '%s' "$audit_json" | jq --argjson approved "$approved_bundles" '[.observed.applications[]? | select(.source == "manual") | select((.bundleId | startswith("com.apple.")) | not) | select(.bundleId as $id | $approved | index($id) | not)]')"
+unidentified_apps="$(printf '%s' "$audit_json" | jq '[.observed.applications[]? | select(.source == "manual" and .bundleId == "")]')"
+apps="$(printf '%s' "$audit_json" | jq --argjson approved "$approved_bundles" '[.observed.applications[]? | select(.source == "manual" and .bundleId != "") | select(.bundleId as $id | $approved | index($id) | not)]')"
+if [ "$(printf '%s' "$unidentified_apps" | jq length)" -gt 0 ]; then
+  echo >&2 "Application bundles without identifiers are protected: $(printf '%s' "$unidentified_apps" | jq -r 'map(.path) | join(", ")')"
+fi
 if [ "$(printf '%s' "$protected_mas_casks" | jq length)" -gt 0 ]; then
   echo >&2 "MAS fallback casks are protected until desired MAS apps are installed: $(printf '%s' "$protected_mas_casks" | jq -r 'join(", ")')"
 fi
@@ -55,7 +61,7 @@ globals='{"npm":[],"bun":[],"cargo":[],"uv":[]}'
 legacy_dirs='[]'
 if $smoke_ok; then
   globals="$(printf '%s' "$audit_json" | jq '.observed.legacyGlobals // {npm:[],bun:[],cargo:[],uv:[]}')"
-  for item in "$HOME/.local/share/fnm" "$HOME/.rustup" "$HOME/.bun/install/global"; do
+  for item in "$HOME/.local/share/fnm" "$HOME/.rustup" "$HOME/.bun/install/global" /opt/homebrew/Library/Taps.before-nix-homebrew /usr/local/Homebrew/Library/Taps.before-nix-homebrew; do
     if [ -e "$item" ]; then legacy_dirs="$(printf '%s' "$legacy_dirs" | jq --arg item "$item" '. + [$item]')"; fi
   done
 else
@@ -73,6 +79,37 @@ if [ "$confirmation" != CLEAN ]; then
 fi
 mkdir -p "$HOME/.Trash"
 
+remove_legacy_cask() {
+  local cask_name="$1"
+  local caskroom="$2/$cask_name"
+  local receipt="$caskroom/.metadata/INSTALL_RECEIPT.json"
+  local config="$caskroom/.metadata/config.json"
+  if [ ! -f "$receipt" ] || ! jq -e '[.uninstall_artifacts[]? | keys[] | select(. != "app")] | length == 0' "$receipt" >/dev/null; then
+    echo >&2 "Cannot safely remove unavailable cask $cask_name: unsupported or missing receipt"
+    return 1
+  fi
+
+  local appdir="/Applications"
+  if [ -f "$config" ]; then
+    appdir="$(jq -r '.default.appdir // "/Applications"' "$config")"
+  fi
+  while IFS= read -r app_name; do
+    [ -z "$app_name" ] && continue
+    local app_path="$appdir/$app_name"
+    [ -e "$app_path" ] || continue
+    local app_destination
+    app_destination="$HOME/.Trash/$(basename "$app_path").$(date +%Y%m%d%H%M%S)"
+    if ! mv "$app_path" "$app_destination" 2>/dev/null; then
+      /usr/bin/sudo mv "$app_path" "$app_destination"
+    fi
+  done < <(jq -r '.uninstall_artifacts[]?.app[]?' "$receipt")
+
+  if [ -e "$caskroom" ]; then
+    mv "$caskroom" "$HOME/.Trash/homebrew-cask-$cask_name.$(date +%Y%m%d%H%M%S)"
+  fi
+  echo "Removed unavailable legacy cask $cask_name using its install receipt."
+}
+
 brew_bin="$(command -v brew 2>/dev/null || true)"
 for candidate in "$brew_bin" /opt/homebrew/bin/brew /usr/local/bin/brew; do
   if [ -x "$candidate" ]; then brew_bin="$candidate"; break; fi
@@ -89,7 +126,13 @@ if [ -n "$brew_bin" ] && [ -x "$brew_bin" ]; then
     "$brew_bin" services stop "$formula_name" >/dev/null 2>&1 || true
     "$brew_bin" uninstall --force --ignore-dependencies --formula "$formula_name"
   done
-  printf '%s' "$casks" | jq -r '.[]' | while IFS= read -r item; do [ -n "$item" ] && "$brew_bin" uninstall --force --cask "$item"; done
+  caskroom="$($brew_bin --caskroom)"
+  printf '%s' "$casks" | jq -r '.[]' | while IFS= read -r item; do
+    [ -z "$item" ] && continue
+    if ! "$brew_bin" uninstall --force --cask "$item"; then
+      remove_legacy_cask "$item" "$caskroom"
+    fi
+  done
   "$brew_bin" autoremove
   printf '%s' "$taps" | jq -r '.[]' | while IFS= read -r item; do [ -n "$item" ] && "$brew_bin" untap --force "$item"; done
 fi
@@ -107,17 +150,39 @@ printf '%s' "$apps" | jq -c '.[]' | while IFS= read -r app; do
   fi
 done
 
-legacy_npm="$HOME/.local/share/fnm/aliases/default/bin/npm"
-legacy_node="$(dirname "$legacy_npm")/node"
-legacy_bun="$HOME/.bun/bin/bun"
 legacy_cargo="$HOME/.cargo/bin/cargo"
 legacy_uv="$HOME/.local/bin/uv"
-[ -x "$legacy_npm" ] && [ -x "$legacy_node" ] && printf '%s' "$globals" | jq -r '.npm[]' | while read -r item; do "$legacy_node" "$legacy_npm" uninstall -g "$item"; done || true
-[ -x "$legacy_bun" ] && printf '%s' "$globals" | jq -r '.bun[]' | while read -r item; do BUN_INSTALL="$HOME/.bun" "$legacy_bun" remove -g "$item"; done || true
-[ -x "$legacy_cargo" ] && printf '%s' "$globals" | jq -r '.cargo[]' | while read -r item; do "$legacy_cargo" uninstall "$item"; done || true
-[ -x "$legacy_uv" ] && printf '%s' "$globals" | jq -r '.uv[]' | while read -r item; do "$legacy_uv" tool uninstall "$item"; done || true
+if [ -x "$legacy_cargo" ]; then
+  printf '%s' "$globals" | jq -r '.cargo[]' | while IFS= read -r item; do
+    if ! "$legacy_cargo" uninstall "$item"; then
+      echo >&2 "Warning: failed to uninstall legacy Cargo package $item"
+    fi
+  done
+fi
+if [ -x "$legacy_uv" ]; then
+  printf '%s' "$globals" | jq -r '.uv[]' | while IFS= read -r item; do
+    if ! "$legacy_uv" tool uninstall "$item"; then
+      echo >&2 "Warning: failed to uninstall legacy uv tool $item"
+    fi
+  done
+fi
+
+# The npm and Bun globals live entirely inside directories already included in
+# the reviewed plan, so moving those trees is safer than running old managers.
+quarantine_root="$HOME/.local/state/dotfiles-nix/cleanup-quarantine/$(date +%Y%m%d%H%M%S)"
 printf '%s' "$legacy_dirs" | jq -r '.[]' | while IFS= read -r item; do
-  [ -e "$item" ] && mv "$item" "$HOME/.Trash/$(basename "$item").$(date +%Y%m%d%H%M%S)"
+  [ -e "$item" ] || continue
+  destination="$HOME/.Trash/$(basename "$item").$(date +%Y%m%d%H%M%S)"
+  if mv "$item" "$destination" 2>/dev/null; then
+    continue
+  fi
+
+  mkdir -p "$quarantine_root"
+  destination="$quarantine_root/$(basename "$item")"
+  echo >&2 "Trash access unavailable; quarantining $item at $destination"
+  if ! mv "$item" "$destination" 2>/dev/null; then
+    /usr/bin/sudo mv "$item" "$destination"
+  fi
 done
 
 echo "Cleanup completed. Regenerate the audit before any further cleanup."

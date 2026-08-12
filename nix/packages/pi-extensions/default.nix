@@ -1,8 +1,11 @@
 {
   buildNpmPackage,
+  darwin,
   lib,
+  libgit2,
   nodejs_24,
   runCommand,
+  stdenv,
 }:
 let
   version = "0.1.0";
@@ -24,6 +27,7 @@ let
     npmDepsFetcherVersion = 2;
     npmFlags = [ "--legacy-peer-deps" ];
     dontNpmBuild = true;
+    nativeBuildInputs = lib.optionals stdenv.hostPlatform.isDarwin [ darwin.cctools ];
 
     installPhase = ''
       runHook preInstall
@@ -31,6 +35,17 @@ let
       mkdir -p "$package_root"
       cp -R node_modules "$package_root/node_modules"
       test -f "$package_root/node_modules/pi-subagents/index.ts"
+      ${lib.optionalString stdenv.hostPlatform.isDarwin ''
+        readseek_binary="$package_root/node_modules/@jarkkojs/readseek-darwin-arm64/bin/readseek"
+        chmod u+w "$readseek_binary"
+        install_name_tool \
+          -change /opt/homebrew/opt/libgit2/lib/libgit2.1.9.dylib \
+          ${libgit2}/lib/libgit2.1.9.dylib \
+          "$readseek_binary"
+        /usr/bin/codesign --force --sign - "$readseek_binary"
+        /usr/bin/codesign --verify "$readseek_binary"
+        otool -L "$readseek_binary" | grep -F '${libgit2}/lib/libgit2.1.9.dylib'
+      ''}
       runHook postInstall
     '';
   };
