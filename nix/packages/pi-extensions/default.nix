@@ -16,6 +16,7 @@ let
   dependencySource = lib.fileset.toSource {
     root = ./.;
     fileset = lib.fileset.unions [
+      ./.npmrc
       ./package.json
       ./package-lock.json
     ];
@@ -25,7 +26,10 @@ let
     inherit version;
     src = dependencySource;
 
-    npmDeps = importNpmLock { npmRoot = dependencySource; };
+    npmDeps = importNpmLock {
+      package = lib.importJSON ./package.json;
+      packageLock = lib.importJSON ./package-lock.json;
+    };
     inherit (importNpmLock) npmConfigHook;
     npmFlags = [ "--legacy-peer-deps" ];
     dontNpmBuild = true;
