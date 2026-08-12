@@ -38,6 +38,9 @@
         done
         /bin/launchctl bootout system/com.github.nlewo.comin 2>/dev/null || true
         /bin/launchctl bootstrap system /Library/LaunchDaemons/com.github.nlewo.comin.plist
+        # Submitted launchd jobs that exit in under 10 seconds are treated as
+        # failed and retried. Stay alive long enough to retire successfully.
+        /bin/sleep 11
       '';
     in
     pkgs.writeShellScript "reload-comin-after-deployment" ''
