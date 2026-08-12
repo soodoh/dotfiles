@@ -4,10 +4,9 @@
   ...
 }:
 let
-  cleanSource = import ../../lib/clean-source.nix { inherit lib; };
-  fishSource = cleanSource ../../dotfiles/common/.config/fish;
-  abbreviationTips = cleanSource ../../dotfiles/common/.config/fish/plugins/abbreviation-tips;
-  gitPlugin = cleanSource ../../dotfiles/common/.config/fish/plugins/git;
+  fishSource = ../../dotfiles/common/.config/fish;
+  abbreviationTips = ../../dotfiles/common/.config/fish/plugins/abbreviation-tips;
+  gitPlugin = ../../dotfiles/common/.config/fish/plugins/git;
   isDarwin = lib.hasSuffix "-darwin" host.system;
   interactiveInit = ''
     set -gx EDITOR nvim
@@ -81,7 +80,7 @@ in
   };
 
   xdg.configFile."fish/custom" = {
-    source = "${fishSource}/custom";
+    source = fishSource + "/custom";
     recursive = true;
   };
 

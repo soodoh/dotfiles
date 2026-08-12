@@ -36,10 +36,6 @@
       flake = false;
     };
 
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -49,7 +45,6 @@
       comin,
       home-manager,
       nix-homebrew,
-      fenix,
       ...
     }:
     let
@@ -96,7 +91,6 @@
         import nixpkgs {
           inherit system;
           overlays = [
-            fenix.overlays.default
             dotfilesOverlay
           ];
           config = { inherit allowUnfreePredicate; };
@@ -157,7 +151,6 @@
         custom
         // {
           nix-audit = scripts.audit;
-          nix-cleanup = scripts.cleanup;
           inherit (pkgs) deadnix statix;
           pi = pkgs.pi-coding-agent;
           default = pkgs.pi-coding-agent;
@@ -174,12 +167,7 @@
           audit = {
             type = "app";
             program = "${scripts.audit}/bin/nix-audit";
-            meta.description = "Audit unmanaged and legacy system state.";
-          };
-          cleanup = {
-            type = "app";
-            program = "${scripts.cleanup}/bin/nix-cleanup";
-            meta.description = "Remove confirmed unmanaged and legacy system state.";
+            meta.description = "Report declared, external, and missing system state.";
           };
           home-manager = {
             type = "app";
@@ -200,15 +188,10 @@
         system:
         let
           pkgs = mkPkgs system;
-          custom = pkgs.dotfilesPackages;
           scripts = import ./nix/scripts { inherit pkgs; };
-          cleanSource = import ./nix/lib/clean-source.nix { inherit lib; };
-          policySource = cleanSource ./nix;
+          policySource = ./nix;
         in
         {
-          pi-smoke = pkgs.pi-coding-agent;
-          twg-smoke = custom.twg;
-          inherit (custom) pi-extensions;
 
           immutable-plugin-policy =
             pkgs.runCommand "immutable-plugin-policy" { nativeBuildInputs = [ pkgs.ripgrep ]; }
@@ -224,19 +207,8 @@
                 touch "$out"
               '';
 
-          dotfile-targets = pkgs.runCommand "dotfile-targets" { } ''
-            test -f ${policySource}/dotfiles/common/.config/nvim/init.lua
-            test -f ${policySource}/dotfiles/common/.config/fish/custom/conf.d/abbreviations.fish
-            test -f ${policySource}/dotfiles/common/.config/atuin/config.toml
-            test -f ${policySource}/dotfiles/common/.config/tmux/tmux.conf
-            test -f ${policySource}/dotfiles/darwin/.config/aerospace/aerospace.toml
-            test -f ${policySource}/dotfiles/profiles/personal/.pi/agent/settings.json
-            test -f ${policySource}/dotfiles/profiles/work/.pi/agent/settings.json
-            touch "$out"
-          '';
-
-          audit-legacy-discovery =
-            pkgs.runCommand "audit-legacy-discovery"
+          audit-external-state =
+            pkgs.runCommand "audit-external-state"
               {
                 nativeBuildInputs = [
                   scripts.audit
@@ -251,8 +223,7 @@
                   "$HOME/.bun/install/global/node_modules" \
                   "$HOME/.cargo/bin" \
                   "$HOME/.local/bin" \
-                  "$HOME/fake-bin" \
-                  "$HOME/fake-cellar/sketchybar/1.0.0"
+                  "$HOME/fake-bin"
 
                 cat > "$HOME/.local/share/fnm/aliases/default/bin/node" <<'EOF'
                 #!/bin/sh
@@ -278,17 +249,13 @@
                 #!/bin/sh
                 printf '%s\n' 'ruff v1.0.0'
                 EOF
-                cat > "$HOME/fake-cellar/sketchybar/1.0.0/INSTALL_RECEIPT.json" <<'EOF'
-                {"installed_on_request":true,"source":{"tap":"legacy/tap"}}
-                EOF
                 cat > "$HOME/fake-bin/brew" <<'EOF'
                 #!/bin/sh
-                case "$1" in
-                  leaves) printf '%s\n' legacy-formula ;;
-                  --cellar) printf '%s\n' "$HOME/fake-cellar" ;;
-                  list) printf '%s\n' legacy-cask ;;
-                  tap) printf '%s\n' legacy/tap ;;
-                  info) printf '%s\n' '{"casks":[]}' ;;
+                case "$1:$2" in
+                  list:--formula) printf '%s\n' legacy-formula ;;
+                  list:--cask) printf '%s\n' legacy-cask ;;
+                  tap:*) printf '%s\n' legacy/tap ;;
+                  info:*) printf '%s\n' '{"casks":[]}' ;;
                 esac
                 EOF
                 chmod +x \
@@ -302,41 +269,19 @@
 
                 nix-audit personal-macos --json > report.json
                 jq -e '
-                  .observed.homebrew.formulae == ["legacy-formula", "legacy/tap/sketchybar"] and
-                  .observed.homebrew.casks == ["legacy-cask"] and
-                  .observed.homebrew.taps == ["legacy/tap"] and
-                  .observed.legacyGlobals.npm == ["corepack", "npm"] and
-                  .observed.legacyGlobals.bun == ["demo"] and
-                  .observed.legacyGlobals.cargo == ["yazi-cli"] and
-                  .observed.legacyGlobals.uv == ["ruff"]
+                  .schemaVersion == 2 and
+                  .external.homebrew.formulae == ["legacy-formula"] and
+                  .external.homebrew.casks == ["legacy-cask"] and
+                  .external.homebrew.taps == ["legacy/tap"] and
+                  .external.globalPackages.npm == ["corepack", "npm"] and
+                  .external.globalPackages.bun == ["demo"] and
+                  .external.globalPackages.cargo == ["yazi-cli"] and
+                  .external.globalPackages.uv == ["ruff"] and
+                  (.missing.homebrewCasks | index("nextcloud") != null)
                 ' report.json
                 touch "$out"
               '';
 
-          cleanup-confirmation =
-            pkgs.runCommand "cleanup-confirmation" { nativeBuildInputs = [ scripts.cleanup ]; }
-              ''
-                export HOME="$TMPDIR/home"
-                mkdir -p "$HOME"
-                export NIX_DOTFILES_AUDIT_FIXTURE=${./nix/scripts/fixtures/audit-personal-macos.json}
-                set +e
-                nix-cleanup personal-macos </dev/null > cleanup.log 2>&1
-                status=$?
-                set -e
-                test "$status" -eq 3
-                grep -F "Cleanup cancelled; nothing was removed." cleanup.log
-                grep -F "legacy-app" cleanup.log
-                grep -F "legacy/tap" cleanup.log
-                grep -F "Docker Desktop is protected" cleanup.log
-                grep -F "Homebrew casks: legacy-app" cleanup.log
-                grep -F "MAS fallback casks are protected until desired MAS apps are installed: missing-app" cleanup.log
-                if grep -E 'Homebrew casks:.*missing-app' cleanup.log; then exit 1; fi
-                grep -F "Application bundles without identifiers are protected: /Applications/Unknown.app" cleanup.log
-                if grep -E 'Homebrew casks:.*(corporate-app|desired-cask)' cleanup.log; then exit 1; fi
-                if grep -E 'Homebrew taps:.*corporate/tap' cleanup.log; then exit 1; fi
-                if grep -E 'Application bundles:.*(Corporate|Unknown)\\.app' cleanup.log; then exit 1; fi
-                touch "$out"
-              '';
         }
         // lib.optionalAttrs (system == "x86_64-linux") {
           personal-arch = homeConfigurations.personal-arch.activationPackage;

@@ -5,16 +5,14 @@
     pkgs.nodejs_24
     pkgs.python3
     pkgs.uv
-    (pkgs.fenix.stable.withComponents [
-      "cargo"
-      "clippy"
-      "rust-src"
-      "rustc"
-      "rustfmt"
-    ])
+    pkgs.cargo
+    pkgs.clippy
+    pkgs.rustc
+    pkgs.rustfmt
   ];
 
   home.sessionVariables = {
     COREPACK_ENABLE_PROJECT_SPEC = "0";
+    RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
   };
 }

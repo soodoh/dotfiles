@@ -22,7 +22,6 @@
   nixpkgs = {
     hostPlatform = host.system;
     overlays = [
-      inputs.fenix.overlays.default
       inputs.self.overlays.default
     ];
     config.allowUnfreePredicate = allowUnfreePredicate;

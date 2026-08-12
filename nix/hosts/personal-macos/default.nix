@@ -23,16 +23,6 @@
       extraMasApplications = {
         HP = 1474276998;
       };
-      extraApprovedBundleIds = [
-        "com.hnc.Discord"
-        "com.hp.SmartMac"
-        "com.moonlight-stream.Moonlight"
-        "com.prusa3d.slic3r"
-        "net.ankiweb.dtop"
-        "com.google.Chrome"
-        "com.tinyspeck.slackmacgap"
-        "us.zoom.xos"
-      ];
     })
     // {
       dock = [

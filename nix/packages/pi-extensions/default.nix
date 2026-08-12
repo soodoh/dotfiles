@@ -11,14 +11,13 @@
 }:
 let
   version = "0.1.0";
-  cleanSource = import ../../lib/clean-source.nix { inherit lib; };
-  extensionSource = cleanSource ../../../pi-extensions;
+  extensionSource = ../../../pi-extensions;
   dependencySource = lib.fileset.toSource {
-    root = ./.;
+    root = extensionSource;
     fileset = lib.fileset.unions [
-      ./.npmrc
-      ./package.json
-      ./package-lock.json
+      (extensionSource + "/.npmrc")
+      (extensionSource + "/package.json")
+      (extensionSource + "/package-lock.json")
     ];
   };
   extensionDependencies = buildNpmPackage {
@@ -27,11 +26,12 @@ let
     src = dependencySource;
 
     npmDeps = importNpmLock {
-      package = lib.importJSON ./package.json;
-      packageLock = lib.importJSON ./package-lock.json;
+      package = lib.importJSON (extensionSource + "/package.json");
+      packageLock = lib.importJSON (extensionSource + "/package-lock.json");
     };
     inherit (importNpmLock) npmConfigHook;
     npmFlags = [ "--legacy-peer-deps" ];
+    npmInstallFlags = [ "--omit=dev" ];
     dontNpmBuild = true;
     nativeBuildInputs = lib.optionals stdenv.hostPlatform.isDarwin [ darwin.cctools ];
 
@@ -91,11 +91,10 @@ runCommand "pi-extensions-${version}"
     PACKAGE_ROOT="$package_root" node <<'NODE'
     const { readFileSync, writeFileSync } = require("node:fs");
     const packageRoot = process.env.PACKAGE_ROOT;
-    const wrapper = JSON.parse(readFileSync("${./package.json}", "utf8"));
     const manifestPath = packageRoot + "/package.json";
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 
-    for (const packageName of wrapper.bundledPiPackages) {
+    for (const packageName of manifest.bundledPiPackages) {
       const dependencyRoot = "node_modules/" + packageName;
       const dependencyManifest = JSON.parse(
         readFileSync(packageRoot + "/" + dependencyRoot + "/package.json", "utf8"),

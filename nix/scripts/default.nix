@@ -6,7 +6,15 @@ let
     personal-arch = import ../hosts/personal-arch;
     personal-debian = import ../hosts/personal-debian;
   };
-  hostsJson = pkgs.writeText "dotfiles-hosts.json" (builtins.toJSON hosts);
+  auditHosts = builtins.mapAttrs (_name: host: {
+    inherit (host) name system;
+    applications = {
+      nix = host.applications.nix or [ ];
+      homebrewCasks = host.applications.homebrewCasks or [ ];
+      mas = host.applications.mas or { };
+    };
+  }) hosts;
+  hostsJson = pkgs.writeText "dotfiles-audit-hosts.json" (builtins.toJSON auditHosts);
   audit = pkgs.writeShellApplication {
     name = "nix-audit";
     runtimeInputs = with pkgs; [
@@ -21,19 +29,7 @@ let
       ${builtins.readFile ./audit.sh}
     '';
   };
-  cleanup = pkgs.writeShellApplication {
-    name = "nix-cleanup";
-    runtimeInputs = with pkgs; [
-      coreutils
-      gnugrep
-      jq
-    ];
-    text = ''
-      export NIX_DOTFILES_AUDIT_BIN=${audit}/bin/nix-audit
-      ${builtins.readFile ./cleanup.sh}
-    '';
-  };
 in
 {
-  inherit audit cleanup hostsJson;
+  inherit audit hostsJson;
 }

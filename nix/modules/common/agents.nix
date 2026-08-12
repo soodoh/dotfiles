@@ -5,54 +5,107 @@
   ...
 }:
 let
-  cleanSource = import ../../lib/clean-source.nix { inherit lib; };
-  profileSource = cleanSource ../../dotfiles/profiles/${host.profile};
+  sharedSource = ../../dotfiles/profiles/common;
+  profileSource = ../../dotfiles/profiles/${host.profile};
+  skillCatalog = sharedSource + "/.agents/skills";
+  skillEntries = builtins.readDir skillCatalog;
+  availableSkills = builtins.filter (name: skillEntries.${name} == "directory") (
+    builtins.attrNames skillEntries
+  );
+  personalSkills = [
+    "find-skills"
+    "grill-me"
+    "obsidian-cli"
+    "playwright-cli"
+    "skill-creator"
+    "thermo-nuclear-code-quality-review"
+    "vercel-react-best-practices"
+  ];
+  selectedSkills = if host.profile == "personal" then personalSkills else availableSkills;
+  sharedSkillLock = builtins.fromJSON (
+    builtins.readFile (sharedSource + "/.agents/.skill-lock.json")
+  );
+  selectedSkillLock = sharedSkillLock // {
+    skills = lib.filterAttrs (name: _skill: builtins.elem name selectedSkills) sharedSkillLock.skills;
+  };
+  selectedSkillLockFile = pkgs.writeText "${host.profile}-skill-lock.json" (
+    builtins.toJSON selectedSkillLock
+  );
+  agentsSource = pkgs.runCommand "${host.profile}-agents" { } ''
+    mkdir -p "$out/skills"
+    for skill in ${lib.escapeShellArgs selectedSkills}; do
+      cp -R ${skillCatalog}/"$skill" "$out/skills/$skill"
+    done
+    cp ${selectedSkillLockFile} "$out/.skill-lock.json"
+  '';
+
+  sourceFor =
+    target:
+    let
+      profilePath = profileSource + "/${target}";
+    in
+    if builtins.pathExists profilePath then profilePath else sharedSource + "/${target}";
   mutablePiFiles = [
     {
-      source = "${profileSource}/.pi/agent/settings.json";
+      source = sourceFor ".pi/agent/settings.json";
       target = ".pi/agent/settings.json";
     }
     {
-      source = "${profileSource}/.pi/agent/mcp.json";
+      source = sourceFor ".pi/agent/mcp.json";
       target = ".pi/agent/mcp.json";
     }
     {
-      source = "${profileSource}/.pi/agent/extensions/pi-openai-fast.json";
+      source = sourceFor ".pi/agent/extensions/pi-openai-fast.json";
       target = ".pi/agent/extensions/pi-openai-fast.json";
     }
     {
-      source = "${profileSource}/.pi/agent/extensions/subagent/config.json";
+      source = sourceFor ".pi/agent/extensions/subagent/config.json";
       target = ".pi/agent/extensions/subagent/config.json";
     }
   ];
   mutablePiTrees = [
     {
-      source = "${profileSource}/.pi/workflows";
+      source = sharedSource + "/.pi/workflows";
+      target = ".pi/workflows";
+    }
+    {
+      source = profileSource + "/.pi/workflows";
       target = ".pi/workflows";
     }
   ];
-  immutableProfileSource = lib.cleanSourceWith {
-    src = profileSource;
-    filter =
-      path: _type:
-      let
-        pathString = toString path;
-        isMutableFile = lib.any (file: lib.hasSuffix "/${file.target}" pathString) mutablePiFiles;
-        isMutableTree = lib.any (
-          tree: lib.hasSuffix "/${tree.target}" pathString || lib.hasInfix "/${tree.target}/" pathString
-        ) mutablePiTrees;
-      in
-      !(isMutableFile || isMutableTree);
-  };
+  mkImmutableSource =
+    source:
+    lib.cleanSourceWith {
+      src = source;
+      filter =
+        path: _type:
+        let
+          pathString = toString path;
+          isAgentCatalog = lib.hasSuffix "/.agents" pathString || lib.hasInfix "/.agents/" pathString;
+          isMutableFile = lib.any (file: lib.hasSuffix "/${file.target}" pathString) mutablePiFiles;
+          isMutableTree = lib.any (
+            tree: lib.hasSuffix "/${tree.target}" pathString || lib.hasInfix "/${tree.target}/" pathString
+          ) mutablePiTrees;
+        in
+        !(isAgentCatalog || isMutableFile || isMutableTree);
+    };
+  immutableSharedSource = mkImmutableSource sharedSource;
+  immutableProfileSource = mkImmutableSource profileSource;
+  mergedProfileSource = pkgs.runCommand "${host.profile}-agent-profile" { } ''
+    mkdir -p "$out"
+    cp -R ${immutableSharedSource}/. "$out/"
+    chmod -R u+w "$out"
+    cp -R ${immutableProfileSource}/. "$out/"
+  '';
 in
 {
   home.file = {
     ".agents" = {
-      source = "${immutableProfileSource}/.agents";
+      source = agentsSource;
       recursive = true;
     };
     ".pi/agent" = {
-      source = "${immutableProfileSource}/.pi/agent";
+      source = "${mergedProfileSource}/.pi/agent";
       recursive = true;
     };
     ".pi/agent/pi-extensions" = {

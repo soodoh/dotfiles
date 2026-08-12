@@ -12,10 +12,10 @@ The Nix migration is complete. The flake and `nix/dotfiles/` are the canonical c
 - `nix/hosts/` — explicit host metadata and application sets
 - `nix/modules/` — shared, Darwin, Linux, and profile modules
 - `nix/packages/` — pinned TWG and Pi extension packages
-- `nix/dotfiles/` — store-backed common, Darwin, and isolated profile files
-- `nix/scripts/` — read-only audit and confirmation-gated cleanup
+- `nix/dotfiles/` — store-backed common, Darwin, shared agent, and profile-specific files
+- `nix/scripts/` — read-only external-state reporting
 - `bootstrap/nix-*.sh` — official multi-user Nix bootstraps
-- `bin/nix-*` — switch, update, validate, audit, and cleanup entrypoints
+- `bin/nix-*` — switch, update, validate, and audit entrypoints
 
 ## Commands
 
@@ -27,10 +27,9 @@ The Nix migration is complete. The flake and `nix/dotfiles/` are the canonical c
 ./bin/nix-update lock
 ./bin/nix-validate
 ./bin/nix-audit personal-macos
-./bin/nix-cleanup personal-macos
 ```
 
-Normal switch operations are non-destructive. Cleanup must regenerate a plan and require `CLEAN`. Never remove Docker Desktop until Colima, `hello-world`, and Compose verification pass.
+Normal switch operations do not remove unmanaged software. Audit reports external and missing state; the operator decides how to handle it manually.
 
 ## Neovim and Fish
 

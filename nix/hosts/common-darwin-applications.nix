@@ -2,10 +2,6 @@
   extraNixApplications ? [ ],
   extraHomebrewCasks ? [ ],
   extraMasApplications ? { },
-  extraApprovedBundleIds ? [ ],
-  extraCleanupProtectedBundleIds ? [ ],
-  extraCleanupProtectedHomebrewCasks ? [ ],
-  extraCleanupProtectedHomebrewTaps ? [ ],
 }:
 {
   nix = [
@@ -32,10 +28,6 @@
   }
   // extraMasApplications;
 
-  masFallbackCasks = {
-    Tailscale = "tailscale-app";
-  };
-
   loginItems = {
     AeroSpace = "~/Applications/Home Manager Apps/AeroSpace.app";
     Lunar = "~/Applications/Home Manager Apps/Lunar.app";
@@ -44,29 +36,4 @@
     Tailscale = "/Applications/Tailscale.app";
   };
 
-  approvedBundleIds = [
-    "app.zen-browser.zen"
-    "bobko.aerospace"
-    "com.electron.wispr-flow"
-    "com.if.Amphetamine"
-    "com.mitchellh.ghostty"
-    "fyi.lunar.Lunar"
-    "com.nextcloud.desktopclient"
-    "com.pilotmoon.scroll-reverser"
-    "io.tailscale.ipn.macsys"
-    "md.obsidian"
-  ]
-  ++ extraApprovedBundleIds;
-
-  # These remain owned by corporate management or the operator. Cleanup must
-  # ignore them without making nix-darwin responsible for installation.
-  cleanupProtected = {
-    bundleIds = extraCleanupProtectedBundleIds;
-    homebrewCasks = extraCleanupProtectedHomebrewCasks;
-    homebrewTaps = [
-      "homebrew/core"
-      "homebrew/cask"
-    ]
-    ++ extraCleanupProtectedHomebrewTaps;
-  };
 }

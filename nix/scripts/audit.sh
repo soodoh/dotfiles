@@ -1,10 +1,12 @@
 set -euo pipefail
+
 host="${1:-}"
 mode="${2:-}"
-if [ -z "$host" ]; then
+if [ -z "$host" ] || { [ -n "$mode" ] && [ "$mode" != "--json" ]; }; then
   echo >&2 "usage: nix-audit <host> [--json]"
   exit 2
 fi
+
 host_json="$(jq -c --arg host "$host" '.[$host] // empty' "$NIX_DOTFILES_HOSTS_JSON")"
 if [ -z "$host_json" ]; then
   echo >&2 "unknown host: $host"
@@ -12,32 +14,27 @@ if [ -z "$host_json" ]; then
 fi
 
 json_lines() {
-  jq -Rsc 'split("\n") | map(select(length > 0))'
+  jq -Rsc 'split("\n") | map(select(length > 0)) | unique'
 }
 
 nix_profile='{}'
 if command -v nix >/dev/null 2>&1; then
-  nix_profile="$(nix profile list --json 2>/dev/null || printf '{}')"
+  nix_profile="$(nix profile list --json 2>/dev/null | jq '.elements // {}' || printf '{}')"
 fi
-brew_formulae='[]'; brew_casks='[]'; brew_taps='[]'; brew_info='{"casks":[]}'
+
+brew_formulae='[]'
+brew_casks='[]'
+brew_taps='[]'
+brew_info='{"casks":[]}'
 brew_bin="$(command -v brew 2>/dev/null || true)"
 for candidate in "$brew_bin" /opt/homebrew/bin/brew /usr/local/bin/brew; do
-  if [ -x "$candidate" ]; then brew_bin="$candidate"; break; fi
+  if [ -x "$candidate" ]; then
+    brew_bin="$candidate"
+    break
+  fi
 done
 if [ -n "$brew_bin" ] && [ -x "$brew_bin" ]; then
-  brew_formulae="$("$brew_bin" leaves --installed-on-request 2>/dev/null | json_lines)"
-  brew_cellar="$("$brew_bin" --cellar 2>/dev/null || true)"
-  if [ -d "$brew_cellar" ]; then
-    while IFS= read -r receipt; do
-      if ! jq -e '.installed_on_request == true' "$receipt" >/dev/null 2>&1; then continue; fi
-      formula_name="$(basename "$(dirname "$(dirname "$receipt")")")"
-      formula_tap="$(jq -r '.source.tap // ""' "$receipt")"
-      if [ -n "$formula_tap" ] && [ "$formula_tap" != homebrew/core ]; then
-        formula_name="$formula_tap/$formula_name"
-      fi
-      brew_formulae="$(printf '%s' "$brew_formulae" | jq --arg formula "$formula_name" '. + [$formula] | unique')"
-    done < <(find "$brew_cellar" -mindepth 3 -maxdepth 3 -name INSTALL_RECEIPT.json -print)
-  fi
+  brew_formulae="$("$brew_bin" list --formula 2>/dev/null | json_lines)"
   brew_casks="$("$brew_bin" list --cask 2>/dev/null | json_lines)"
   brew_taps="$("$brew_bin" tap 2>/dev/null | json_lines)"
   if [ "$(printf '%s' "$brew_casks" | jq length)" -gt 0 ]; then
@@ -50,6 +47,7 @@ mas_apps='[]'
 if command -v mas >/dev/null 2>&1; then
   mas_apps="$(mas list 2>/dev/null | awk '{id=$1; $1=""; sub(/^ +/, ""); sub(/  \([^)]*\)$/, ""); print id "\t" $0}' | jq -Rsc 'split("\n") | map(select(length > 0) | split("\t") | {id:(.[0]|tonumber),name:.[1]})')"
 fi
+mas_ids="$(printf '%s' "$mas_apps" | jq '[.[].id]')"
 
 brew_app_names="$(printf '%s' "$brew_info" | jq -r '.casks[]?.artifacts[]? | select(.app?) | (.target // .app[]?) | select(type == "string") | split("/")[-1]' 2>/dev/null || true)"
 applications='[]'
@@ -60,22 +58,44 @@ if [ "$(uname -s)" = Darwin ]; then
       bundle_id="$(mdls -name kMDItemCFBundleIdentifier -raw "$app" 2>/dev/null || true)"
       [ "$bundle_id" = "(null)" ] && bundle_id=""
     fi
+
+    store_id="$(mdls -name kMDItemAppStoreAdamID -raw "$app" 2>/dev/null || true)"
+    case "$store_id" in
+      ''|'(null)'|*[!0-9]*) store_id_json=null ;;
+      *) store_id_json="$store_id" ;;
+    esac
+
     app_name="$(basename "$app")"
     case "$app" in
       /System/Applications/*) source="apple-system" ;;
-      /Applications/Nix\ Apps/*) source="nix" ;;
-      "$HOME"/Applications/*) source="manual" ;;
+      /Applications/Nix\ Apps/*|"$HOME"/Applications/Home\ Manager\ Apps/*) source="nix" ;;
       *)
-        if printf '%s\n' "$brew_app_names" | grep -Fxq "$app_name"; then source="homebrew";
-        elif printf '%s' "$bundle_id" | grep -q '^com\.apple\.'; then source="apple-system";
-        else source="manual"; fi
+        if printf '%s\n' "$brew_app_names" | grep -Fxq "$app_name"; then
+          source="homebrew"
+        elif [ "$store_id_json" != null ] && printf '%s' "$mas_ids" | jq -e --argjson id "$store_id_json" 'index($id) != null' >/dev/null; then
+          source="mas"
+        elif printf '%s' "$bundle_id" | grep -q '^com\.apple\.'; then
+          source="apple-system"
+        else
+          source="manual"
+        fi
         ;;
     esac
-    applications="$(printf '%s' "$applications" | jq --arg path "$app" --arg name "$app_name" --arg bundle "$bundle_id" --arg source "$source" '. + [{path:$path,name:$name,bundleId:$bundle,source:$source}]')"
+
+    applications="$(printf '%s' "$applications" | jq \
+      --arg path "$app" \
+      --arg name "$app_name" \
+      --arg bundle "$bundle_id" \
+      --arg source "$source" \
+      --argjson storeId "$store_id_json" \
+      '. + [{path:$path,name:$name,bundleId:$bundle,storeId:$storeId,source:$source}]')"
   done < <(find /Applications "$HOME/Applications" -maxdepth 2 \( -type d -o -type l \) -name '*.app' -print0 2>/dev/null || true)
 fi
 
-npm_globals='[]'; bun_globals='[]'; cargo_globals='[]'; uv_globals='[]'
+npm_globals='[]'
+bun_globals='[]'
+cargo_globals='[]'
+uv_globals='[]'
 legacy_npm="$HOME/.local/share/fnm/aliases/default/bin/npm"
 legacy_node="$(dirname "$legacy_npm")/node"
 legacy_bun="$HOME/.bun/bin/bun"
@@ -110,16 +130,37 @@ elif command -v apt-mark >/dev/null 2>&1; then
   native="$(apt-mark showmanual 2>/dev/null | jq -Rsc '{manager:"apt",packages:(split("\n")|map(select(length>0)))}')"
 fi
 
-legacy='[]'
+legacy_artifacts='[]'
 for item in "$HOME/.local/share/fnm" "$HOME/.rustup" "$HOME/.bun/install/global" /opt/homebrew/Library/Taps.before-nix-homebrew /usr/local/Homebrew/Library/Taps.before-nix-homebrew; do
-  if [ -e "$item" ]; then legacy="$(printf '%s' "$legacy" | jq --arg item "$item" '. + [$item]')"; fi
+  if [ -e "$item" ]; then
+    legacy_artifacts="$(printf '%s' "$legacy_artifacts" | jq --arg path "$item" '. + [{kind:"legacy-artifact",path:$path}]')"
+  fi
 done
 for command_name in stow fnm rustup; do
   if command -v "$command_name" >/dev/null 2>&1; then
     command_path="$(command -v "$command_name")"
-    legacy="$(printf '%s' "$legacy" | jq --arg item "$command_name:$command_path" '. + [$item]')"
+    legacy_artifacts="$(printf '%s' "$legacy_artifacts" | jq --arg path "$command_path" --arg command "$command_name" '. + [{kind:"legacy-command",path:$path,command:$command}]')"
   fi
 done
+
+configuration_artifacts='[]'
+managed_directories=".agents .config/atuin .config/fish .config/ghostty .config/lazygit .config/nvim .config/sesh .config/tmux .config/yazi .pi/agent .pi/workflows"
+if [ "$(uname -s)" = Darwin ]; then
+  managed_directories="$managed_directories .config/aerospace .config/sketchybar"
+fi
+for relative in $managed_directories; do
+  path="$HOME/$relative"
+  if [ -L "$path" ]; then
+    target="$(readlink "$path")"
+    case "$target" in
+      /nix/store/*) ;;
+      *) configuration_artifacts="$(printf '%s' "$configuration_artifacts" | jq --arg path "$path" --arg target "$target" '. + [{kind:"non-store-directory-symlink",path:$path,target:$target}]')" ;;
+    esac
+  fi
+done
+while IFS= read -r backup; do
+  configuration_artifacts="$(printf '%s' "$configuration_artifacts" | jq --arg path "$backup" '. + [{kind:"home-manager-backup",path:$path}]')"
+done < <(find "$HOME/.config" "$HOME/.agents" "$HOME/.pi" -name '*.hm-backup*' -print 2>/dev/null || true)
 
 report="$(jq -n \
   --arg host "$host" \
@@ -136,14 +177,80 @@ report="$(jq -n \
   --argjson cargo "$cargo_globals" \
   --argjson uv "$uv_globals" \
   --argjson native "$native" \
-  --argjson legacy "$legacy" \
-  '{schemaVersion:1,host:$host,generatedAt:$generatedAt,desired:$desired,observed:{nixProfile:$nixProfile,homebrew:{formulae:$formulae,casks:$casks,taps:$taps},mas:$mas,applications:$applications,legacyGlobals:{npm:$npm,bun:$bun,cargo:$cargo,uv:$uv},native:$native,legacyArtifacts:$legacy}}')"
+  --argjson legacyArtifacts "$legacy_artifacts" \
+  --argjson configurationArtifacts "$configuration_artifacts" \
+  '
+    ($desired.applications.homebrewCasks // [] | map(split("/")[-1]) | unique) as $declaredCasks
+    | (["homebrew/core", "homebrew/cask"] + [
+        $desired.applications.homebrewCasks[]?
+        | split("/")
+        | select(length >= 3)
+        | .[0:2]
+        | join("/")
+      ] | unique) as $declaredTaps
+    | ($desired.applications.mas // {} | to_entries | map({name:.key,id:.value})) as $declaredMas
+    | ($declaredMas | map(.id)) as $declaredMasIds
+    | ($mas | map(.id)) as $installedMasIds
+    | {
+        schemaVersion: 2,
+        host: $host,
+        generatedAt: $generatedAt,
+        declared: {
+          nixApplications: ($desired.applications.nix // []),
+          homebrew: {casks:$declaredCasks,taps:$declaredTaps},
+          masApplications: $declaredMas
+        },
+        external: {
+          nixProfileEntries: $nixProfile,
+          homebrew: {
+            formulae: $formulae,
+            casks: [$casks[]? | select(. as $item | $declaredCasks | index($item) | not)],
+            taps: [$taps[]? | select(. as $item | $declaredTaps | index($item) | not)]
+          },
+          masApplications: [$mas[]? | select(.id as $id | $declaredMasIds | index($id) | not)],
+          applicationBundles: [$applications[]? | select(.source == "manual")],
+          globalPackages: {npm:$npm,bun:$bun,cargo:$cargo,uv:$uv},
+          nativePackages: $native,
+          configurationArtifacts: ($legacyArtifacts + $configurationArtifacts | unique_by([.kind,.path]))
+        },
+        missing: {
+          homebrewCasks: [$declaredCasks[] | select(. as $item | $casks | index($item) | not)],
+          masApplications: [$declaredMas[] | select(.id as $id | $installedMasIds | index($id) | not)]
+        }
+      }
+  ')"
 
-state_dir="$HOME/.local/state/dotfiles-nix"
-mkdir -p "$state_dir"
-printf '%s\n' "$report" > "$state_dir/audit-$host.json"
 if [ "$mode" = "--json" ]; then
   printf '%s\n' "$report"
 else
-  printf '%s\n' "$report" | jq -r '"Audit: \(.host) @ \(.generatedAt)\n  Nix profile entries: \(.observed.nixProfile | length)\n  Homebrew formulae/casks/taps: \(.observed.homebrew.formulae|length)/\(.observed.homebrew.casks|length)/\(.observed.homebrew.taps|length)\n  MAS apps: \(.observed.mas|length)\n  Application bundles: \(.observed.applications|length)\n  Legacy artifacts: \(.observed.legacyArtifacts|length)\n  Native \(.observed.native.manager // "package") packages: \(.observed.native.packages|length) (report only)\nJSON: '"$state_dir/audit-$host.json"'"'
+  printf '%s\n' "$report" | jq -r '
+    def section($label; $items):
+      $label,
+      (if ($items | length) == 0 then "  (none)" else ($items[] | "  \(.)") end);
+
+    "Audit: \(.host) @ \(.generatedAt)",
+    "",
+    "Declared:",
+    section("  Nix applications"; [.declared.nixApplications[]]),
+    section("  Homebrew casks"; [.declared.homebrew.casks[]]),
+    section("  MAS applications"; [.declared.masApplications[] | "\(.id):\(.name)"]),
+    "",
+    "Not managed by Nix:",
+    section("  Nix profile entries"; [.external.nixProfileEntries | keys[]]),
+    section("  Homebrew formulae"; [.external.homebrew.formulae[]]),
+    section("  Homebrew casks"; [.external.homebrew.casks[]]),
+    section("  Homebrew taps"; [.external.homebrew.taps[]]),
+    section("  MAS applications"; [.external.masApplications[] | "\(.id):\(.name)"]),
+    section("  Application bundles"; [.external.applicationBundles[] | "\(.path) [\(.bundleId // "")]" ]),
+    section("  npm globals"; [.external.globalPackages.npm[]]),
+    section("  Bun globals"; [.external.globalPackages.bun[]]),
+    section("  Cargo globals"; [.external.globalPackages.cargo[]]),
+    section("  uv tools"; [.external.globalPackages.uv[]]),
+    section("  Native \(.external.nativePackages.manager // "package") packages"; [.external.nativePackages.packages[]]),
+    section("  Configuration artifacts"; [.external.configurationArtifacts[] | "\(.kind): \(.path)\(if .target then " -> \(.target)" else "" end)"]),
+    "",
+    "Declared but missing:",
+    section("  Homebrew casks"; [.missing.homebrewCasks[]]),
+    section("  MAS applications"; [.missing.masApplications[] | "\(.id):\(.name)"])
+  '
 fi

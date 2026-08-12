@@ -25,5 +25,5 @@ case "$current_system" in
     ;;
 esac
 nix build --no-link ".#packages.$current_system".{pi,twg,pi-extensions}
-nix build --no-link ".#checks.$current_system".{immutable-plugin-policy,dotfile-targets,audit-legacy-discovery,cleanup-confirmation}
+nix build --no-link ".#checks.$current_system".{immutable-plugin-policy,audit-external-state}
 git diff --check

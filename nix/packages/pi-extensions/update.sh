@@ -1,36 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")"
 
+repo_root="$(cd "$(dirname "$0")/../../.." && pwd)"
+manifest="$repo_root/pi-extensions/package.json"
+check_script="$repo_root/bin/check-dependency-sync"
 target="${1:-all}"
 requested_version="${2:-}"
-workspace_manifest="../../../pi-extensions/package.json"
-check_script="../../../bin/check-dependency-sync"
-
-sync_workspace_dependencies() {
-  jq -S --slurpfile workspace "$workspace_manifest" '
-    . as $wrapper
-    | .dependencies = (
-        ($workspace[0].dependencies // {})
-        + (reduce (.bundledPiPackages // [])[] as $package
-            ({};
-              if $wrapper.dependencies[$package] == null then
-                .
-              else
-                .[$package] = $wrapper.dependencies[$package]
-              end
-            ))
-      )
-  ' package.json > package.json.tmp
-  mv package.json.tmp package.json
-}
 
 set_dependency_version() {
   local package_name="$1"
   local version="$2"
-  jq -S --arg package "$package_name" --arg version "$version" \
-    '.dependencies[$package] = $version' package.json > package.json.tmp
-  mv package.json.tmp package.json
+  jq --tab --arg package "$package_name" --arg version "$version" \
+    '.dependencies[$package] = $version' "$manifest" > "$manifest.tmp"
+  mv "$manifest.tmp" "$manifest"
   printf 'Pinned %s at %s\n' "$package_name" "$version"
 }
 
@@ -48,13 +30,12 @@ case "$target" in
     exec "$check_script"
     ;;
   all)
-    sync_workspace_dependencies
     while IFS= read -r package_name; do
       update_dependency "$package_name"
-    done < <(jq -r '.bundledPiPackages[]' package.json)
+    done < <(jq -r '.bundledPiPackages[]' "$manifest")
     ;;
   *)
-    if ! jq -e --arg package "$target" '.bundledPiPackages | index($package) != null' package.json >/dev/null; then
+    if ! jq -e --arg package "$target" '.bundledPiPackages | index($package) != null' "$manifest" >/dev/null; then
       echo >&2 "unknown bundled Pi extension dependency: $target"
       exit 2
     fi
@@ -62,8 +43,11 @@ case "$target" in
     ;;
 esac
 
+cd "$repo_root/pi-extensions"
+npm install --package-lock-only --workspaces=false --legacy-peer-deps --install-links=false --ignore-scripts --no-audit --no-fund
+node ../nix/packages/fix-npm-lock-integrity.mjs package-lock.json
+cd "$repo_root"
+bun install --lockfile-only --ignore-scripts
 "$check_script"
-npm install --package-lock-only --legacy-peer-deps --ignore-scripts --no-audit --no-fund
-node ../fix-npm-lock-integrity.mjs package-lock.json
-nix build ../../..#pi-extensions.dependencies --no-link
+nix build "$repo_root#pi-extensions.dependencies" --no-link
 printf 'Updated the pinned Pi extension closure\n'

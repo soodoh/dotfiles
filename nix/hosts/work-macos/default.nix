@@ -2,35 +2,6 @@ let
   applications = import ../common-darwin-applications.nix {
     extraNixApplications = [ "dotfilesPackages.google-calendar" ];
     extraHomebrewCasks = [ "snowflakedb/snowflake-cli/snowflake-cli" ];
-    extraApprovedBundleIds = [ "com.snowflake.snowflake-cli" ];
-    extraCleanupProtectedBundleIds = [
-      "com.docker.docker"
-      "com.figma.Desktop"
-      "com.google.Chrome"
-      "com.google.drivefs"
-      "com.google.drivefs.shortcuts.docs"
-      "com.google.drivefs.shortcuts.sheets"
-      "com.google.drivefs.shortcuts.slides"
-      "com.jamf.selfserviceplus"
-      "com.microsoft.VSCode"
-      "com.okta.mobile"
-      "com.paloaltonetworks.GlobalProtect.client"
-      "com.paloaltonetworks.cortex.app"
-      "com.postmanlabs.mac"
-      "com.tinyspeck.slackmacgap"
-      "com.zscaler.installer.uninstall"
-      "com.zscaler.zscaler"
-      "corp.sap.privileges"
-      "io.tailscale.ipn.macos"
-      "org.mozilla.firefox"
-      "org.videolan.vlc"
-      "us.zoom.xos"
-    ];
-    extraCleanupProtectedHomebrewCasks = [
-      "docker-desktop"
-      "visual-studio-code"
-    ];
-    extraCleanupProtectedHomebrewTaps = [ "snowflakedb/snowflake-cli" ];
   };
 in
 {
@@ -67,10 +38,6 @@ in
     ];
     # Work MDM owns Tailscale installation and startup.
     mas = builtins.removeAttrs applications.mas [ "Tailscale" ];
-    masFallbackCasks = { };
     loginItems = builtins.removeAttrs applications.loginItems [ "Tailscale" ];
-    approvedBundleIds = builtins.filter (
-      id: id != "io.tailscale.ipn.macsys"
-    ) applications.approvedBundleIds;
   };
 }

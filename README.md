@@ -76,7 +76,7 @@ The first existing bootstrap or manual switch is intentionally built from the lo
 ./bin/nix-switch-work-macos              # for an existing installation
 ```
 
-Only changes committed and merged to `main` are deployable. Automatic deployment does not run `nix-update`, change `flake.lock`, perform cleanup, update macOS, or alter the existing Homebrew/MAS activation behavior. Existing nix-darwin generations, weekly GC policy, and rollback remain in place; Comin's default retention additionally keeps multiple successful deployment records and GC roots.
+Only changes committed and merged to `main` are deployable. Automatic deployment does not run `nix-update`, change `flake.lock`, remove unmanaged software, update macOS, or alter the existing Homebrew/MAS activation behavior. Existing nix-darwin generations, weekly GC policy, and rollback remain in place; Comin's default retention additionally keeps multiple successful deployment records and GC roots.
 
 Inspect or trigger Comin with:
 
@@ -107,7 +107,7 @@ sudo /run/current-system/sw/bin/comin resume
 
 ## Updates
 
-Activation uses only versions available from pinned sources. `flake.lock` pins Nix inputs, Homebrew itself, and immutable Homebrew tap snapshots. Renovate updates both Pi-extension manifests and their Bun/npm lockfiles together in reviewable pull requests. Manual update targets remain available for flake inputs, bundled Pi packages, and TWG release checksums:
+Activation uses only versions available from pinned sources. `flake.lock` pins Nix inputs, Homebrew itself, and immutable Homebrew tap snapshots. Renovate updates the canonical Pi-extension manifest and its Bun/npm lockfiles together in reviewable pull requests. Manual update targets remain available for flake inputs, bundled Pi packages, and TWG release checksums:
 
 ```bash
 ./bin/nix-update lock
@@ -146,35 +146,20 @@ Cross-platform realization remains platform-specific: Darwin cannot natively bui
 
 The pinned nixpkgs revision needs one narrow Darwin build workaround: oxlint's `@napi-rs/cli` process probe is redirected from sandbox-blocked `/bin/ps` to Nix's store-backed `ps`. Revisit this override when updating `nixpkgs`.
 
-## Audit and cleanup
+## Audit
 
-Audit is read-only and reports Nix state, Homebrew, MAS, application bundles and ownership, obsolete globals and directories, and native packages:
+Audit is side-effect free and reports declared state, software and configuration outside Nix ownership, and declared Homebrew or MAS applications that are missing. It never removes anything:
 
 ```bash
 ./bin/nix-audit personal-macos
 # equivalent
 nix run .#audit -- personal-macos
+
+# Persist machine-readable output explicitly when needed.
+./bin/nix-audit personal-macos --json > audit.json
 ```
 
-Cleanup is never part of activation. It always regenerates an audit/plan, prints exact removals, and requires typing `CLEAN`:
-
-```bash
-./bin/nix-cleanup personal-macos
-# equivalent
-nix run .#cleanup -- personal-macos
-```
-
-Cleanup protects Apple/system apps, leaves APT/Pacman report-only, and refuses legacy global removal unless Nix replacements are active. Docker Desktop remains protected unless these fresh checks all pass:
-
-Home Manager materializes the default Colima profile at `~/.colima/default/colima.yaml` from a store-backed source with the Docker runtime, Apple Virtualization, VirtioFS, and Rosetta enabled. The runtime copy remains user-writable because Colima updates it during startup. Starting the VM remains an explicit user action.
-
-```bash
-colima start
-docker run --rm hello-world
-docker compose version
-```
-
-Review the plan even with these safeguards. Moving an application to Trash does not remove vendor support files or privileged helpers.
+External items may be intentional, especially native Linux packages and applications installed by corporate management. Review the report and handle them manually if desired.
 
 ## macOS package sources
 
@@ -183,9 +168,13 @@ Nix owns the CLI environment and maintained macOS packages. Homebrew owns only t
 - personal casks: `nextcloud`, `prusaslicer`, `wispr-flow`, `zen`
 - work casks: `nextcloud`, `snowflakedb/snowflake-cli/snowflake-cli`, `wispr-flow`, `zen`
 
-Ordinary activation installs/upgrades desired casks only from the locked tap revisions, reports drift, and uses `cleanup = "none"` so unmanaged packages continue to exist. Tap metadata and installer checksums are reproducible from `flake.lock`; applications with built-in self-updaters can still update themselves outside Homebrew.
+Ordinary activation installs/upgrades desired casks only from the locked tap revisions and uses `cleanup = "none"`, so unmanaged packages continue to exist. Tap metadata and installer checksums are reproducible from `flake.lock`; applications with built-in self-updaters can still update themselves outside Homebrew.
 
-MAS IDs are declared per host. Current IDs include Tailscale `1475387142`, Amphetamine `937984704`, and HP `1474276998`. If the App Store account is unavailable, activation warns, prints exact `mas install` follow-up commands, and continues. Credentials are never stored in Nix. Cleanup protects a declared Homebrew fallback cask until its desired MAS app is actually installed.
+MAS IDs are declared per host. Current IDs include Tailscale `1475387142`, Amphetamine `937984704`, and HP `1474276998`. If the App Store account is unavailable, activation warns, prints exact `mas install` follow-up commands, and continues. Credentials are never stored in Nix.
+
+## Containers
+
+Nix installs Colima, Docker, and Compose. Home Manager materializes the writable default Colima profile at `~/.colima/default/colima.yaml` from a store-backed source, and the user launchd agent starts Colima at login with the Docker runtime, Apple Virtualization, VirtioFS, and Rosetta enabled.
 
 ## Manual authentication and secrets
 

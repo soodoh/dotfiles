@@ -1,7 +1,6 @@
-{ lib, pkgs, ... }:
+{ pkgs, ... }:
 let
-  cleanSource = import ../../lib/clean-source.nix { inherit lib; };
-  neovimSource = cleanSource ../../dotfiles/common/.config/nvim;
+  neovimSource = ../../dotfiles/common/.config/nvim;
 
   pinnedPlugin =
     name: owner: repo: rev: hash:

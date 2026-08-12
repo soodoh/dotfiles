@@ -39,27 +39,6 @@
         "type": "github"
       }
     },
-    "fenix": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "rust-analyzer-src": "rust-analyzer-src"
-      },
-      "locked": {
-        "lastModified": 1786348189,
-        "narHash": "sha256-tnTpFky6/GeXVMBO+hLJK2jWS4J8TYloL+rqRME9gAk=",
-        "owner": "nix-community",
-        "repo": "fenix",
-        "rev": "a0b1aef63d7e9c5568958e0d90f6fe48f0f4a7a2",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-community",
-        "repo": "fenix",
-        "type": "github"
-      }
-    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -217,7 +196,6 @@
     "root": {
       "inputs": {
         "comin": "comin",
-        "fenix": "fenix",
         "home-manager": "home-manager",
         "homebrew-cask": "homebrew-cask",
         "homebrew-core": "homebrew-core",
@@ -225,23 +203,6 @@
         "nix-darwin": "nix-darwin",
         "nix-homebrew": "nix-homebrew",
         "nixpkgs": "nixpkgs_2"
-      }
-    },
-    "rust-analyzer-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1786285255,
-        "narHash": "sha256-zJukKxGKLxcO7E6+P49Qe6XaSbbyGG44kFvQYLWaD3M=",
-        "owner": "rust-lang",
-        "repo": "rust-analyzer",
-        "rev": "57411b3a0fb0181ed5965f6541d5ed39a9d79d4c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "rust-lang",
-        "ref": "nightly",
-        "repo": "rust-analyzer",
-        "type": "github"
       }
     },
     "treefmt-nix": {

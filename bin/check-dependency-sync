@@ -7,41 +7,25 @@ const repoRoot = resolve(__dirname, "..");
 const readJson = (relativePath) =>
   JSON.parse(readFileSync(resolve(repoRoot, relativePath), "utf8"));
 
-const workspace = readJson("pi-extensions/package.json");
-const wrapper = readJson("nix/packages/pi-extensions/package.json");
+const extensionManifest = readJson("pi-extensions/package.json");
+const extensionLock = readJson("pi-extensions/package-lock.json");
 const rootManifest = readJson("package.json");
 const biomeConfig = readJson("pi-extensions/biome.json");
-const workspaceDependencies = workspace.dependencies ?? {};
-const wrapperDependencies = wrapper.dependencies ?? {};
-const bundledPackages = wrapper.bundledPiPackages ?? [];
+const bundledPackages = extensionManifest.bundledPiPackages ?? [];
 const bundledPackageSet = new Set(bundledPackages);
+const extensionDependencies = extensionManifest.dependencies ?? {};
+const lockRoot = extensionLock.packages?.[""] ?? {};
 const errors = [];
+const normalizeRecord = (record) => Object.fromEntries(Object.entries(record).sort(([a], [b]) => a.localeCompare(b)));
 
 if (bundledPackageSet.size !== bundledPackages.length) {
   errors.push("bundledPiPackages contains duplicate package names");
 }
 
-for (const [packageName, declaration] of Object.entries(workspaceDependencies)) {
-  if (bundledPackageSet.has(packageName)) {
-    errors.push(
-      `${packageName} is both a workspace dependency and a bundled Pi package; the canonical declarations would conflict`,
-    );
-    continue;
-  }
-
-  if (!(packageName in wrapperDependencies)) {
-    errors.push(`workspace dependency ${packageName} is missing from the Nix wrapper`);
-  } else if (wrapperDependencies[packageName] !== declaration) {
-    errors.push(
-      `workspace dependency ${packageName} must be ${declaration} in the Nix wrapper, found ${wrapperDependencies[packageName]}`,
-    );
-  }
-}
-
 for (const packageName of bundledPackages) {
-  const declaration = wrapperDependencies[packageName];
+  const declaration = extensionDependencies[packageName];
   if (declaration === undefined) {
-    errors.push(`bundled Pi package ${packageName} is missing from the Nix wrapper`);
+    errors.push(`bundled Pi package ${packageName} is missing from dependencies`);
   } else if (
     !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(declaration)
   ) {
@@ -49,9 +33,11 @@ for (const packageName of bundledPackages) {
   }
 }
 
-for (const packageName of Object.keys(wrapperDependencies)) {
-  if (!(packageName in workspaceDependencies) && !bundledPackageSet.has(packageName)) {
-    errors.push(`stale Nix wrapper dependency ${packageName} has no canonical source`);
+for (const dependencyType of ["dependencies", "devDependencies", "peerDependencies"]) {
+  const declared = extensionManifest[dependencyType] ?? {};
+  const locked = lockRoot[dependencyType] ?? {};
+  if (JSON.stringify(normalizeRecord(declared)) !== JSON.stringify(normalizeRecord(locked))) {
+    errors.push(`pi-extensions ${dependencyType} do not match package-lock.json`);
   }
 }
 
@@ -81,4 +67,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("Nix Pi-extension wrapper dependencies are synchronized");
+console.log("Pi extension dependencies and generated metadata are synchronized");
