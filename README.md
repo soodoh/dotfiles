@@ -107,7 +107,7 @@ sudo /run/current-system/sw/bin/comin resume
 
 ## Updates
 
-Activation uses only versions available from pinned sources. `flake.lock` pins Nix inputs, Homebrew itself, and immutable Homebrew tap snapshots; npm dependency closures and TWG release checksums change only through an explicit update target:
+Activation uses only versions available from pinned sources. `flake.lock` pins Nix inputs, Homebrew itself, and immutable Homebrew tap snapshots. Renovate updates both Pi-extension manifests and their Bun/npm lockfiles together in reviewable pull requests. Manual update targets remain available for flake inputs, bundled Pi packages, and TWG release checksums:
 
 ```bash
 ./bin/nix-update lock
@@ -118,9 +118,9 @@ Activation uses only versions available from pinned sources. `flake.lock` pins N
 ./bin/nix-update all
 ```
 
-Review every lock/hash diff before switching.
+Review every lockfile diff before switching.
 
-Renovate updates root flake inputs, including the Homebrew cask taps, through reviewable pull requests. Do not run `brew update` or `brew upgrade`; pull the reviewed `main` branch and switch instead. Homebrew upgrades during activation can only use package definitions from the locked tap snapshots.
+Renovate also updates root flake inputs, including the Homebrew cask taps. Do not run `brew update` or `brew upgrade`; pull the reviewed `main` branch and switch instead. Homebrew upgrades during activation can only use package definitions from the locked tap snapshots.
 
 Pi and every configured third-party Pi package are installed from a Nix-built npm closure. Settings reference only the store-backed local package; Pi does not need to populate `~/.pi/agent/npm` at startup.
 

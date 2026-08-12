@@ -27,10 +27,8 @@ jobs:
         with:
           github_access_token: ${{ github.token }}
 
-      - name: Update generated Nix dependencies
-        run: |
-          ./bin/nix-update agents
-          ./bin/nix-update twg
+      - name: Update TWG package
+        run: ./bin/nix-update twg
 
       - name: Update vendored agent skills
         env:
@@ -73,7 +71,6 @@ jobs:
           body: |
             Updates dependencies that require repository-specific generation:
 
-            - Nix npm wrapper manifests, lock files, and fixed-output hashes
             - the TWG release and platform hashes
             - vendored personal and work agent skills
 

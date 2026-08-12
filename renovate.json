@@ -39,14 +39,12 @@
       "groupName": "Homebrew taps"
     },
     {
-      "description": "Generated Nix npm closures are updated by the dependency workflow",
-      "matchManagers": [
-        "npm"
-      ],
+      "description": "Update the Pi extension runtime closure atomically",
       "matchFileNames": [
+        "pi-extensions/package.json",
         "nix/packages/pi-extensions/package.json"
       ],
-      "enabled": false
+      "groupName": "Pi extension dependency closure"
     },
     {
       "description": "Keep the Bun package-manager declaration exactly pinned",

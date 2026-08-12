@@ -1,6 +1,7 @@
 {
   buildNpmPackage,
   darwin,
+  importNpmLock,
   lib,
   libgit2,
   nodejs_24,
@@ -24,8 +25,8 @@ let
     inherit version;
     src = dependencySource;
 
-    npmDepsHash = "sha256-1Lvsq5/vvj7plb9jE33zSbPfzLaFPz5xLxe6gCfy/uk=";
-    npmDepsFetcherVersion = 2;
+    npmDeps = importNpmLock { npmRoot = dependencySource; };
+    inherit (importNpmLock) npmConfigHook;
     npmFlags = [ "--legacy-peer-deps" ];
     dontNpmBuild = true;
     nativeBuildInputs = lib.optionals stdenv.hostPlatform.isDarwin [ darwin.cctools ];

@@ -43,17 +43,6 @@ update_dependency() {
   set_dependency_version "$package_name" "$version"
 }
 
-set_npm_deps_hash() {
-  python3 - "$1" <<'PY'
-from pathlib import Path
-import re, sys
-path = Path("default.nix")
-text = path.read_text()
-text = re.sub(r'npmDepsHash = "[^"]+";', f'npmDepsHash = "{sys.argv[1]}";', text, count=1)
-path.write_text(text)
-PY
-}
-
 case "$target" in
   check)
     exec "$check_script"
@@ -76,17 +65,5 @@ esac
 "$check_script"
 npm install --package-lock-only --legacy-peer-deps --ignore-scripts --no-audit --no-fund
 node ../fix-npm-lock-integrity.mjs package-lock.json
-fake_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-set_npm_deps_hash "$fake_hash"
-if build_output="$(nix build ../../..#pi-extensions.dependencies --no-link 2>&1)"; then
-  echo >&2 "dependency build unexpectedly accepted the fake npm hash"
-  exit 1
-fi
-hash="$(printf '%s\n' "$build_output" | sed -n 's/^[[:space:]]*got:[[:space:]]*//p' | tail -n 1)"
-if [ -z "$hash" ]; then
-  printf '%s\n' "$build_output" >&2
-  echo >&2 "failed to determine the npm dependency hash"
-  exit 1
-fi
-set_npm_deps_hash "$hash"
-printf 'Updated the pinned Pi extension closure (%s)\n' "$hash"
+nix build ../../..#pi-extensions.dependencies --no-link
+printf 'Updated the pinned Pi extension closure\n'
