@@ -368,6 +368,32 @@
             pkgs.runCommand "comin-deployment-config" { } ''
               touch "$out"
             '';
+          comin-darwin-activation =
+            let
+              workConfig = darwinConfigurations.work-macos.config;
+              cominPath = workConfig.launchd.daemons.comin.serviceConfig.EnvironmentVariables.PATH;
+              homeApps =
+                workConfig.home-manager.users."paul.diloreto".home.file."Applications/Home Manager Apps".source;
+            in
+            pkgs.runCommand "comin-darwin-activation" { } ''
+              if grep -F "launchctl unload '/Library/LaunchDaemons/com.github.nlewo.comin.plist'" ${workConfig.system.build.toplevel}/activate; then
+                echo >&2 "Comin activation still unloads its own launchd service"
+                exit 1
+              fi
+              if grep -F '/Applications/Nix Apps' ${workConfig.system.build.toplevel}/activate; then
+                echo >&2 "root activation still manages protected application bundles"
+                exit 1
+              fi
+              test -d '${homeApps}'
+              test '${cominPath}' = '${
+                lib.makeBinPath [
+                  workConfig.nix.package
+                  pkgs.git
+                  pkgs.openssh
+                ]
+              }:/usr/bin:/bin:/usr/sbin:/sbin'
+              touch "$out"
+            '';
         }
       );
 

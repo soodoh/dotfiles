@@ -37,8 +37,8 @@
   };
 
   loginItems = {
-    AeroSpace = "/Applications/Nix Apps/AeroSpace.app";
-    Lunar = "/Applications/Nix Apps/Lunar.app";
+    AeroSpace = "~/Applications/Home Manager Apps/AeroSpace.app";
+    Lunar = "~/Applications/Home Manager Apps/Lunar.app";
     Nextcloud = "/Applications/Nextcloud.app";
     "Scroll Reverser" = "/Applications/Scroll Reverser.app";
     Tailscale = "/Applications/Tailscale.app";
