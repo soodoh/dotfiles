@@ -4,6 +4,7 @@
   lib,
   libgit2,
   nodejs_24,
+  pi-coding-agent,
   runCommand,
   stdenv,
 }:
@@ -64,7 +65,22 @@ runCommand "pi-extensions-${version}"
     package_root="$out/share/pi-extensions"
     mkdir -p "$package_root"
     cp -R ${extensionSource}/. "$package_root/"
-    ln -s ${extensionDependencies}/share/pi-extensions/node_modules "$package_root/node_modules"
+    dependencies_root=${extensionDependencies}/share/pi-extensions/node_modules
+    pi_package_root=${pi-coding-agent}/lib/node_modules/pi-monorepo
+    mkdir -p "$package_root/node_modules/@earendil-works"
+
+    for dependency in "$dependencies_root"/* "$dependencies_root"/.[!.]*; do
+      [ -e "$dependency" ] || continue
+      [ "$(basename "$dependency")" = "@earendil-works" ] && continue
+      ln -s "$dependency" "$package_root/node_modules/$(basename "$dependency")"
+    done
+
+    for dependency in "$dependencies_root/@earendil-works"/* "$pi_package_root/node_modules/@earendil-works"/*; do
+      [ -e "$dependency" ] || continue
+      target="$package_root/node_modules/@earendil-works/$(basename "$dependency")"
+      [ -e "$target" ] || ln -s "$dependency" "$target"
+    done
+    ln -s "$pi_package_root" "$package_root/node_modules/@earendil-works/pi-coding-agent"
     chmod u+w "$package_root/package.json"
 
     PACKAGE_ROOT="$package_root" node <<'NODE'
@@ -95,5 +111,7 @@ runCommand "pi-extensions-${version}"
 
     test -f "$package_root/packages/statusline/index.ts"
     test -f "$package_root/node_modules/pi-subagents/index.ts"
+    test -f "$package_root/node_modules/@earendil-works/pi-coding-agent/dist/index.js"
+    test -f "$package_root/node_modules/@earendil-works/pi-tui/dist/index.js"
     grep -F 'node_modules/pi-mcp-adapter/index.ts' "$package_root/package.json"
   ''
