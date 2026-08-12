@@ -19,5 +19,9 @@ if [ ! -x "$nix_command" ]; then
   exit 1
 fi
 cd "$repo_root"
-"$nix_command" --extra-experimental-features 'nix-command flakes' run .#home-manager -- switch --flake .#personal-debian
+"$nix_command" \
+  --extra-experimental-features 'nix-command flakes' \
+  --option max-jobs auto \
+  --option cores 0 \
+  run .#home-manager -- switch --flake .#personal-debian
 echo "Set the native login shell once: chsh -s /usr/bin/fish"
