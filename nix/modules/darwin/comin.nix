@@ -30,7 +30,7 @@ let
     set -u
 
     child_pid=""
-    unattended_marker="/var/lib/comin/unattended-activation-$$"
+    supervisor_pid="$$"
 
     restart() {
       trap - HUP
@@ -54,13 +54,13 @@ let
     trap shutdown TERM INT
 
     export COMIN_SUPERVISOR_PID="$$"
-    /usr/bin/touch "$unattended_marker"
-    trap '/bin/rm -f "$unattended_marker"' EXIT
+    /usr/bin/touch "/var/lib/comin/supervisor-$supervisor_pid"
+    trap '/bin/rm -f "/var/lib/comin/supervisor-$supervisor_pid"' EXIT
     ${lib.getExe cfg.package} run --config ${cominConfig.cominConfigYaml} &
     child_pid=$!
     wait "$child_pid"
     status=$?
-    /bin/rm -f "$unattended_marker"
+    /bin/rm -f "/var/lib/comin/supervisor-$supervisor_pid"
     exit "$status"
   '';
 in
@@ -93,7 +93,21 @@ in
   # activation. Fail unattended deployment before launchd reconciliation;
   # plist changes must be installed by an explicit manual switch.
   system.activationScripts.checks.text = lib.mkAfter ''
-    if [ -n "$(/usr/bin/find /var/lib/comin -maxdepth 1 -name 'unattended-activation-*' -print -quit 2>/dev/null)" ] \
+    unattended=false
+    while IFS= read -r marker; do
+      supervisor_pid="''${marker##*-}"
+      if [[ "$supervisor_pid" =~ ^[0-9]+$ ]] \
+        && /bin/kill -0 "$supervisor_pid" 2>/dev/null \
+        && /bin/ps -p "$supervisor_pid" -o command= \
+          | /usr/bin/grep -q '/comin-supervisor$' \
+        && /usr/bin/pgrep -P "$supervisor_pid" -x comin >/dev/null; then
+        unattended=true
+        break
+      fi
+      /bin/rm -f "$marker"
+    done < <(/usr/bin/find /var/lib/comin -maxdepth 1 -name 'supervisor-*' -type f -print 2>/dev/null)
+
+    if "$unattended" \
       && ! /usr/bin/cmp -s '${cominPlist}' /Library/LaunchDaemons/com.github.nlewo.comin.plist; then
       echo >&2 "Comin's launchd definition changed; apply this generation with a manual nix-darwin switch"
       exit 1
