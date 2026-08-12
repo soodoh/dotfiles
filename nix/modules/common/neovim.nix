@@ -3,19 +3,20 @@ let
   cleanSource = import ../../lib/clean-source.nix { inherit lib; };
   neovimSource = cleanSource ../../dotfiles/common/.config/nvim;
 
-  plugin =
-    attr: owner: repo: rev:
-    if builtins.hasAttr attr pkgs.vimPlugins then
-      builtins.getAttr attr pkgs.vimPlugins
-    else
-      pkgs.vimUtils.buildVimPlugin {
-        pname = attr;
-        version = builtins.substring 0 12 rev;
-        src = builtins.fetchGit {
-          url = "https://github.com/${owner}/${repo}.git";
-          inherit rev;
-        };
+  pinnedPlugin =
+    name: owner: repo: rev: hash:
+    pkgs.vimUtils.buildVimPlugin {
+      pname = name;
+      version = builtins.substring 0 12 rev;
+      src = pkgs.fetchFromGitHub {
+        inherit
+          owner
+          repo
+          rev
+          hash
+          ;
       };
+    };
 
   treesitterGrammarNames = [
     "bash"
@@ -82,8 +83,9 @@ in
       git-conflict-nvim
       # renovate: packageName=linrongbin16/gitlinker.nvim currentValue=master
       (
-        (plugin "gitlinker-linrongbin-nvim" "linrongbin16" "gitlinker.nvim"
+        (pinnedPlugin "gitlinker-linrongbin-nvim" "linrongbin16" "gitlinker.nvim"
           "a1b74070bbd5e50128190c85b09f1431ea5fbd83"
+          "sha256-dzo+wrDuWxrv041wgxUZvBpZO4pWbZ/C8zlwEnssyGY="
         ).overrideAttrs
         (_oldAttrs: {
           # The upstream spec helper is test-only and not a loadable plugin module.
@@ -109,8 +111,9 @@ in
       telescope-fzf-native-nvim
       # renovate: packageName=nvim-telescope/telescope-live-grep-raw.nvim currentValue=master
       (
-        (plugin "telescope-live-grep-raw-nvim" "nvim-telescope" "telescope-live-grep-raw.nvim"
+        (pinnedPlugin "telescope-live-grep-raw-nvim" "nvim-telescope" "telescope-live-grep-raw.nvim"
           "53e9df55b3651dd7cf77e172f1e8c9a17407acca"
+          "sha256-kGGVegympVG4lzJ0zdFjsjiioy0gSQbJuENjll3jNlQ="
         ).overrideAttrs
         (_oldAttrs: {
           # Other modules require telescope.nvim and cannot be loaded in the
@@ -125,21 +128,15 @@ in
       tokyonight-nvim
       trouble-nvim
       # renovate: packageName=lbrayner/vim-rzip currentValue=master
-      (plugin "vim-rzip" "lbrayner" "vim-rzip" "f65400fed27b27c7cff7ef8d428c4e5ff749bf28")
+      (pinnedPlugin "vim-rzip" "lbrayner" "vim-rzip" "f65400fed27b27c7cff7ef8d428c4e5ff749bf28"
+        "sha256-xy7rNqDVqlGapKClrP5BhfOORlMzHOQ8oIc8FdZT/AE="
+      )
       which-key-nvim
       yazi-nvim
-      # renovate: packageName=Kaiser-Yang/blink-cmp-avante currentValue=master
-      (plugin "blink-cmp-avante" "Kaiser-Yang" "blink-cmp-avante"
-        "4f494c6e124acbe31a8f5d58effa0c14aa38a6d5"
-      )
-      # renovate: packageName=MahanRahmati/blink-nerdfont.nvim currentValue=main
-      (plugin "blink-nerdfont-nvim" "MahanRahmati" "blink-nerdfont.nvim"
-        "e5034457a0a3f3444c0a48af8f5d7db0ad02a204"
-      )
-      # renovate: packageName=moyiz/blink-emoji.nvim currentValue=master
-      (plugin "blink-emoji-nvim" "moyiz" "blink-emoji.nvim" "dff709139ad5389fb55ebab026e75278a12b325a")
-      # renovate: packageName=pablopunk/pi.nvim currentValue=main
-      (plugin "pi-nvim" "pablopunk" "pi.nvim" "9b619b4f9fb96fa4dc1a6a7776a651980cd819a0")
+      blink-cmp-avante
+      blink-nerdfont-nvim
+      blink-emoji-nvim
+      pi-nvim
     ];
     extraPackages = [
       pkgs.awk-language-server
