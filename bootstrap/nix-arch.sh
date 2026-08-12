@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-for command_name in curl fish; do
+for command_name in curl fish git; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     echo >&2 "Missing native $command_name. Run: sudo pacman -Syu --needed curl fish git"
     exit 1

@@ -174,20 +174,24 @@
           audit = {
             type = "app";
             program = "${scripts.audit}/bin/nix-audit";
+            meta.description = "Audit unmanaged and legacy system state.";
           };
           cleanup = {
             type = "app";
             program = "${scripts.cleanup}/bin/nix-cleanup";
+            meta.description = "Remove confirmed unmanaged and legacy system state.";
           };
           home-manager = {
             type = "app";
             program = "${home-manager.packages.${system}.default}/bin/home-manager";
+            meta.description = "Run Home Manager for a declared user configuration.";
           };
         }
         // lib.optionalAttrs (lib.hasSuffix "-darwin" system) {
           darwin-rebuild = {
             type = "app";
             program = "${nix-darwin.packages.${system}.default}/bin/darwin-rebuild";
+            meta.description = "Run nix-darwin rebuild commands for a declared macOS configuration.";
           };
         }
       );

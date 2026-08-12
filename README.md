@@ -221,4 +221,4 @@ nix-darwin optimizes the store automatically and runs weekly garbage collection,
 
 ## Linux ownership boundary
 
-Arch and Debian are non-NixOS hosts. Nix does not own kernel/system updates, services, `/etc`, drivers, desktop integration, native package drift, or login-shell installation. Use `nix-native-package-audit` (add `--json` for JSON) for a read-only `pacman -Qqe` or `apt-mark showmanual` report.
+Arch and Debian are non-NixOS hosts. Nix does not own kernel/system updates, services, `/etc`, drivers, desktop integration, native package drift, or login-shell installation. Use `nix-native-package-audit` (add `--json` for JSON) for a read-only `pacman -Qqe` or `apt-mark showmanual` report and to verify that `/usr/bin/fish` is installed, registered in `/etc/shells`, and configured as the account login shell.
