@@ -385,6 +385,8 @@
                 exit 1
               fi
               test -d '${homeApps}'
+              grep -F 'launchctl submit' '${workConfig.services.comin.postDeploymentCommand}'
+              grep -F 'reload-staged-comin' '${workConfig.services.comin.postDeploymentCommand}'
               test '${cominPath}' = '${
                 lib.makeBinPath [
                   workConfig.nix.package
