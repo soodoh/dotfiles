@@ -64,7 +64,7 @@ Configuration and dotfile changes are store-backed and take effect only after a 
 
 Both Darwin configurations enable [Comin](https://github.com/nlewo/comin) as the root system launch daemon `com.github.nlewo.comin`. It polls the public, read-only HTTPS remote `https://github.com/soodoh/dotfiles.git` every 300 seconds while the Mac is awake. Only `main` is enabled: `host.name` sets `services.comin.hostname`, so each daemon evaluates and switches only its matching output (`darwinConfigurations.personal-macos` or `darwinConfigurations.work-macos`). Failed evaluations or builds are recorded but never switched over, leaving the current system generation active.
 
-The launchd plist calls the stable `/run/current-system/sw/bin/comin-supervisor` path instead of generation-specific store paths. The supervisor runs the generation-specific Comin binary and configuration, then re-execs itself after a successful deployment has been persisted. This keeps nix-darwin's normal launchd reconciliation intact and avoids unloading the daemon that is performing activation.
+The launchd plist calls the stable `/run/current-system/sw/bin/comin-supervisor` path instead of generation-specific store paths. The supervisor runs the generation-specific Comin binary and configuration, then re-execs itself after a successful deployment has been persisted. Routine deployments therefore leave the plist unchanged and keep nix-darwin's normal launchd reconciliation intact. An unattended generation that would change the plist fails before launchd reconciliation and must be applied with a manual switch.
 
 The first existing bootstrap or manual switch is intentionally built from the local checkout. That activation installs and starts Comin with launchd `RunAtLoad` and `KeepAlive`; subsequent deployments use Comin's root-owned state and bare repository under `/var/lib/comin`, not the developer checkout. Run one appropriate entrypoint after this configuration reaches each Mac:
 
@@ -82,7 +82,27 @@ Only GitHub-signed squash merges to protected `main` are deployable. Comin verif
 
 Automatic deployment does not run `nix-update`, change `flake.lock`, remove unmanaged software, update macOS, or alter the existing Homebrew/MAS activation behavior. Existing nix-darwin generations, weekly GC policy, and rollback remain in place; Comin's default retention additionally keeps multiple successful deployment records and GC roots.
 
-Migrating an existing Comin installation to the stable supervisor requires one manual switch after this change is squash-merged. Do not ask the old Comin daemon to deploy the migration because its loaded plist is generation-specific. Pull the signed merge locally, confirm `git log -1 --show-signature`, run the appropriate `./bin/nix-switch-*-macos` wrapper, and verify that `launchctl print system/com.github.nlewo.comin` contains `/run/current-system/sw/bin/comin-supervisor`.
+Migrating an existing Comin installation to the stable supervisor requires one manual switch after this change is squash-merged. Do not ask the old Comin daemon to deploy the migration because its loaded plist is generation-specific. Verify and switch from a clean checkout whose `HEAD` exactly matches `origin/main`:
+
+```bash
+git fetch origin
+test -z "$(git status --porcelain)"
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+gnupg_home="$(mktemp -d)"
+chmod 700 "$gnupg_home"
+GNUPGHOME="$gnupg_home" gpg --batch --import nix/keys/github-web-flow.gpg
+GNUPGHOME="$gnupg_home" gpg --batch --with-colons --fingerprint \
+  | grep -F 'fpr:::::::::968479A1AFF927E37D1A566BB5690EEEBB952194:'
+GNUPGHOME="$gnupg_home" git verify-commit HEAD
+rm -rf "$gnupg_home"
+
+./bin/nix-switch-personal-macos  # or ./bin/nix-switch-work-macos
+sudo launchctl print system/com.github.nlewo.comin \
+  | grep /run/current-system/sw/bin/comin-supervisor
+```
+
+Future changes to Comin's plist, including relevant nix-darwin serialization changes, also require an explicit manual switch; unattended activation prints the required action and leaves the running generation in place.
 
 Inspect or trigger Comin with:
 

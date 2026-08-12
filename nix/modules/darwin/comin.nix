@@ -12,6 +12,7 @@ let
     inherit config pkgs lib;
   };
   githubWebFlowKey = ../../keys/github-web-flow.gpg;
+  cominPlist = config.environment.launchDaemons."com.github.nlewo.comin.plist".source;
 
   restartSupervisor = pkgs.writeShellScript "restart-comin-supervisor" ''
     if [ "''${COMIN_STATUS:-}" != "done" ]; then
@@ -52,6 +53,7 @@ let
     trap shutdown TERM INT
 
     export COMIN_SUPERVISOR_PID="$$"
+    export DOTFILES_COMIN_UNATTENDED=1
     ${lib.getExe cfg.package} run --config ${cominConfig.cominConfigYaml} &
     child_pid=$!
     wait "$child_pid"
@@ -82,8 +84,19 @@ in
 
   environment.systemPackages = [ cominSupervisor ];
 
-  # Keep launchd's definition generation-independent. The stable supervisor
-  # re-execs its new generation only after deployment state has been persisted.
+  # A changed plist would make nix-darwin unload the daemon performing the
+  # activation. Fail unattended deployment before launchd reconciliation;
+  # plist changes must be installed by an explicit manual switch.
+  system.activationScripts.checks.text = lib.mkAfter ''
+    if [ "''${DOTFILES_COMIN_UNATTENDED:-}" = "1" ] \
+      && ! /usr/bin/cmp -s '${cominPlist}' /Library/LaunchDaemons/com.github.nlewo.comin.plist; then
+      echo >&2 "Comin's launchd definition changed; apply this generation with a manual nix-darwin switch"
+      exit 1
+    fi
+  '';
+
+  # Keep routine launchd definitions generation-independent. The activation
+  # guard above turns any future plist change into a manual migration.
   launchd.daemons.comin = {
     command = lib.mkForce "/run/current-system/sw/bin/comin-supervisor";
     serviceConfig.EnvironmentVariables.PATH = lib.mkForce (
