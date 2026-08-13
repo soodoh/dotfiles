@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { basename, isAbsolute, join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { homedir } from "node:os";
 
 export const FIELD_SEPARATOR = "\u001f";
@@ -249,8 +249,8 @@ export const formatElapsed = (timestamp, now) => {
 	return `${Math.floor(hours / 24)}d`;
 };
 
-const projectName = (cwd, pane) =>
-	sanitizeDisplayText(cwd ? basename(cwd) : pane.sessionName, 80) || "-";
+const tmuxSessionName = (pane) =>
+	sanitizeDisplayText(pane.sessionName, 80) || "tmux session";
 
 const displayBranch = (branch) => (branch ? `${BRANCH_ICON} ${branch}` : "-");
 
@@ -265,12 +265,12 @@ const displayState = (row) =>
 
 const renderRow = (row) => {
 	const style = STATUS_STYLE[row.status];
-	const project = row.project.padEnd(row.projectColumnWidth);
+	const sessionName = row.sessionName.padEnd(row.sessionNameColumnWidth);
 	const branch = displayBranch(row.branch).padEnd(row.branchColumnWidth);
 	const state = displayState(row).padEnd(row.stateColumnWidth);
 	const ageGap = " ".repeat(row.sessionAgeGapWidth);
 	const sessionAge = row.sessionAge.padStart(row.sessionAgeColumnWidth);
-	return `${TEXT}${project}${RESET} ${BRANCH}${branch}${RESET} ${style.color}${style.glyph} ${state}${RESET}${ageGap}${MUTED}${sessionAge}${RESET}`;
+	return `${TEXT}${sessionName}${RESET} ${BRANCH}${branch}${RESET} ${style.color}${style.glyph} ${state}${RESET}${ageGap}${MUTED}${sessionAge}${RESET}`;
 };
 
 export const buildRows = ({
@@ -297,7 +297,7 @@ export const buildRows = ({
 		const status = fresh && isKnownStatus(heartbeat.state)
 			? heartbeat.state
 			: "UNKNOWN";
-		const title = pane.sessionName || "tmux session";
+		const sessionName = tmuxSessionName(pane);
 		const stateTimestamp = heartbeat
 			? Math.min(now, heartbeat.stateChangedAt)
 			: Math.min(now, pane.windowActivity * 1_000 || now);
@@ -313,9 +313,9 @@ export const buildRows = ({
 			windowId: pane.windowId,
 			status,
 			toolName: fresh ? heartbeat.toolName : undefined,
-			title,
+			title: sessionName,
 			tmuxTarget: `${pane.windowIndex}.${pane.paneIndex}`,
-			project: projectName(cwd, pane),
+			sessionName,
 			branch,
 			stateTimestamp,
 			elapsed: formatElapsed(stateTimestamp, now),
@@ -337,8 +337,8 @@ export const buildRows = ({
 		return Number(left.paneId.slice(1)) - Number(right.paneId.slice(1));
 	});
 
-	const projectColumnWidth = rows.reduce(
-		(width, row) => Math.max(width, row.project.length),
+	const sessionNameColumnWidth = rows.reduce(
+		(width, row) => Math.max(width, row.sessionName.length),
 		0,
 	);
 	const branchColumnWidth = rows.reduce(
@@ -354,7 +354,7 @@ export const buildRows = ({
 		0,
 	);
 	const minimumRowWidth =
-		projectColumnWidth +
+		sessionNameColumnWidth +
 		1 +
 		branchColumnWidth +
 		1 +
@@ -367,7 +367,7 @@ export const buildRows = ({
 			? Math.max(1, displayWidth - minimumRowWidth + 1)
 			: 1;
 	for (const row of rows) {
-		row.projectColumnWidth = projectColumnWidth;
+		row.sessionNameColumnWidth = sessionNameColumnWidth;
 		row.branchColumnWidth = branchColumnWidth;
 		row.stateColumnWidth = stateColumnWidth;
 		row.sessionAgeColumnWidth = sessionAgeColumnWidth;
