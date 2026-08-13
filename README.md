@@ -60,6 +60,8 @@ nix run .#home-manager -- switch --flake .#personal-debian
 
 Configuration and dotfile changes are store-backed and take effect only after a successful rebuild. On macOS, activation keeps the existing primary user's login shell pointed at the Nix-managed Fish and reloads an active tmux server after Home Manager links the new configuration. Normal switches do not remove unmanaged software.
 
+Pi settings that must remain writable are copied from the selected profile after every Home Manager activation. Pi can modify those live files between switches, but the next manual switch or Comin deployment replaces them with the committed configuration. Workflow run history under `~/.pi/workflows/projects` is preserved; declared saved workflows are replaced as a unit so repository deletions take effect.
+
 ## Automatic macOS deployment
 
 Both Darwin configurations enable [Comin](https://github.com/nlewo/comin) as the root system launch daemon `com.github.nlewo.comin`. It polls the public, read-only HTTPS remote `https://github.com/soodoh/dotfiles.git` every 300 seconds while the Mac is awake. Only `main` is enabled: `host.name` sets `services.comin.hostname`, so each daemon evaluates and switches only its matching output (`darwinConfigurations.personal-macos` or `darwinConfigurations.work-macos`). Failed evaluations or builds are recorded but never switched over, leaving the current system generation active.
