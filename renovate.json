@@ -46,19 +46,6 @@
       "groupName": "Pi extension dependency closure"
     },
     {
-      "description": "Keep the Bun package-manager declaration exactly pinned",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "matchFileNames": [
-        "package.json"
-      ],
-      "matchPackageNames": [
-        "bun"
-      ],
-      "rangeStrategy": "pin"
-    },
-    {
       "description": "Update the Biome package and schema together",
       "matchPackageNames": [
         "@biomejs/biome"
@@ -89,20 +76,6 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+[A-Z0-9_]+:\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
       ]
-    },
-    {
-      "customType": "regex",
-      "description": "Track the exact Bun package-manager version",
-      "managerFilePatterns": [
-        "/^package\\.json$/"
-      ],
-      "matchStrings": [
-        "\\\"packageManager\\\"\\s*:\\s*\\\"bun@(?<currentValue>\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)\\\""
-      ],
-      "depNameTemplate": "bun",
-      "packageNameTemplate": "bun",
-      "datasourceTemplate": "npm",
-      "versioningTemplate": "npm"
     },
     {
       "customType": "regex",

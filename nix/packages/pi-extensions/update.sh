@@ -44,10 +44,8 @@ case "$target" in
 esac
 
 cd "$repo_root/pi-extensions"
-npm install --package-lock-only --workspaces=false --legacy-peer-deps --install-links=false --ignore-scripts --no-audit --no-fund
-node ../nix/packages/fix-npm-lock-integrity.mjs package-lock.json
+npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 cd "$repo_root"
-bun install --lockfile-only --ignore-scripts
 "$check_script"
 nix build "$repo_root#pi-extensions.dependencies" --no-link
 printf 'Updated the pinned Pi extension closure\n'

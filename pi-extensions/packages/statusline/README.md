@@ -21,7 +21,7 @@ This package was created to provide similar statusline-focused functionality to 
 This extension is part of the local `pi-extensions` package. From the dotfiles repository root, install dependencies and link the package once:
 
 ```bash
-bun install
+npm --prefix pi-extensions install
 ln -sfn "$PWD/pi-extensions" "$HOME/.pi/agent/pi-extensions"
 ```
 
@@ -131,6 +131,6 @@ Or to put git on a separate line from the model:
 From the repository root:
 
 ```bash
-bun run --filter statusline typecheck
-bun run --filter statusline test
+npm --prefix pi-extensions run typecheck
+npm --prefix pi-extensions run test -- packages/statusline
 ```

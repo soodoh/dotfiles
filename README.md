@@ -138,7 +138,7 @@ sudo /run/current-system/sw/bin/comin resume
 
 ## Updates
 
-Activation uses only versions available from pinned sources. `flake.lock` pins Nix inputs, Homebrew itself, and immutable Homebrew tap snapshots. Renovate updates the canonical Pi-extension manifest and its Bun/npm lockfiles together in reviewable pull requests. Manual update targets remain available for flake inputs, bundled Pi packages, and TWG release checksums:
+Activation uses only versions available from pinned sources. `flake.lock` pins Nix inputs, Homebrew itself, and immutable Homebrew tap snapshots. Renovate updates the canonical Pi-extension manifest and npm lockfile together in reviewable pull requests. Manual update targets remain available for flake inputs, bundled Pi packages, and TWG release checksums:
 
 ```bash
 ./bin/nix-update lock
@@ -160,7 +160,7 @@ Pi and every configured third-party Pi package are installed from a Nix-built np
 Install the tracked Git hooks after cloning or whenever the hook setup changes:
 
 ```bash
-bunx lefthook install
+npm --prefix pi-extensions exec -- lefthook install
 ```
 
 Run comprehensive validation explicitly with:
