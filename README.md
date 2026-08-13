@@ -167,11 +167,11 @@ Run comprehensive validation explicitly with:
 ./bin/nix-validate
 ```
 
-GitHub Actions runs formatting, static analysis, all-system evaluation, and lightweight Linux checks on Ubuntu. A separate hosted Apple Silicon job fully realizes both Darwin configurations plus the Comin deployment and launchd-boundary checks. Protected `main` requires both the `lint` and `darwin` jobs before GitHub creates its signed squash commit.
+GitHub Actions runs formatting, static analysis, all-system evaluation, and fully realizes both Linux Home Manager configurations plus the Linux checks on Ubuntu. A separate hosted Apple Silicon job fully realizes both Darwin configurations plus the Comin deployment and launchd-boundary checks. Protected `main` requires both the `lint` and `darwin` jobs before GitHub creates its signed squash commit.
 
-`./bin/nix-validate` fully builds every configuration for the current platform: both Darwin configurations on macOS or both Home Manager configurations on Linux. It also builds the custom packages and checks for that platform. Lefthook runs this comprehensive command before pushes containing relevant Nix-managed changes; a validation failure blocks the push unless an emergency push intentionally uses `git push --no-verify`.
+`./bin/nix-validate` provides the same comprehensive validation as an explicit local preflight for the current platform. Lefthook only enforces commit-message formatting; protected `main` and the required GitHub Actions jobs enforce repository validation before merge.
 
-Cross-platform realization remains platform-specific locally: Darwin cannot natively build the Linux configurations, and Linux cannot natively build the Darwin configurations. Cross-platform configurations still receive evaluation-only coverage.
+Cross-platform realization remains platform-specific locally: Darwin cannot natively build the Linux configurations, and Linux cannot natively build the Darwin configurations. GitHub Actions realizes every supported configuration on its native platform.
 
 The pinned nixpkgs revision needs one narrow Darwin build workaround: oxlint's `@napi-rs/cli` process probe is redirected from sandbox-blocked `/bin/ps` to Nix's store-backed `ps`. Revisit this override when updating `nixpkgs`.
 

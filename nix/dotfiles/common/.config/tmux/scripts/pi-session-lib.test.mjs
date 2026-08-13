@@ -281,10 +281,16 @@ test("keeps the opening pane order while appending newly discovered panes", () =
 	assert.deepEqual(orderedRows.map((row) => row.paneId), ["%2", "%1", "%3"]);
 });
 
-test("keeps stable hidden targets separate from sanitized display text", () => {
+test("shows the sanitized tmux session name instead of the project name", () => {
 	const project = "project-name-that-exceeds-twenty-four-characters";
+	const tmuxSession = "work session";
 	const rows = buildRows({
-		panes: [pane({ paneTitle: "π - malicious\t$(touch /tmp/nope)\nname" })],
+		panes: [
+			pane({
+				sessionName: "work\tsession",
+				paneTitle: "π - malicious\t$(touch /tmp/nope)\nname",
+			}),
+		],
 		heartbeats: [
 			heartbeat({
 				sessionName: "bad\tname\u001b[31m",
@@ -297,24 +303,24 @@ test("keeps stable hidden targets separate from sanitized display text", () => {
 			cwd === `/tmp/${project}` ? "feature/pi-picker" : "",
 	});
 	const candidate = rowToCandidate(rows[0]);
-	assert.equal(rows[0].title, "dotfiles");
+	assert.equal(rows[0].title, tmuxSession);
 	assert.equal(rows[0].tmuxTarget, "1.1");
-	assert.equal(rows[0].project, project);
+	assert.equal(rows[0].sessionName, tmuxSession);
 	assert.equal(rows[0].branch, "feature/pi-picker");
 	assert.equal(rows[0].sessionAge, "15m");
 	assert.equal(candidate.includes("bad name"), false);
 	const [paneId, sessionId, windowId, display] = candidate.split("\t");
 	assert.deepEqual([paneId, sessionId, windowId], ["%1", "$1", "@1"]);
 	assert.equal(display.includes("\u001b]52"), false);
-	assert.equal(display.includes("dotfiles"), false);
+	assert.equal(display.includes(project), false);
 	assert.equal(display.includes("1.1"), false);
-	const projectIndex = display.indexOf(project);
+	const sessionIndex = display.indexOf(tmuxSession);
 	const branchIndex = display.indexOf("\uF126 feature/pi-picker");
 	const statusIndex = display.indexOf("WAITING");
 	const elapsedIndex = display.indexOf("2m");
 	const sessionAgeIndex = display.indexOf("15m");
 	assert.equal(
-		projectIndex < branchIndex &&
+		sessionIndex < branchIndex &&
 			branchIndex < statusIndex &&
 			statusIndex < elapsedIndex &&
 			elapsedIndex < sessionAgeIndex,
