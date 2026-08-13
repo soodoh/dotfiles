@@ -62,15 +62,32 @@ let
       source = sourceFor ".pi/agent/extensions/subagent/config.json";
       target = ".pi/agent/extensions/subagent/config.json";
     }
+    {
+      source = sourceFor ".pi/workflows/.gitignore";
+      target = ".pi/workflows/.gitignore";
+    }
+    {
+      source = sourceFor ".pi/workflows/settings.json";
+      target = ".pi/workflows/settings.json";
+    }
+    {
+      source = sourceFor ".pi/workflows/model-tiers.json";
+      target = ".pi/workflows/model-tiers.json";
+    }
   ];
   mutablePiTrees = [
     {
-      source = sharedSource + "/.pi/workflows";
-      target = ".pi/workflows";
-    }
-    {
-      source = profileSource + "/.pi/workflows";
-      target = ".pi/workflows";
+      source = pkgs.runCommand "${host.profile}-saved-pi-workflows" { } ''
+        mkdir -p "$out"
+        ${lib.optionalString (builtins.pathExists (sharedSource + "/.pi/workflows/saved")) ''
+          cp -R ${sharedSource + "/.pi/workflows/saved"}/. "$out/"
+          chmod -R u+w "$out"
+        ''}
+        ${lib.optionalString (builtins.pathExists (profileSource + "/.pi/workflows/saved")) ''
+          cp -R ${profileSource + "/.pi/workflows/saved"}/. "$out/"
+        ''}
+      '';
+      target = ".pi/workflows/saved";
     }
   ];
   mkImmutableSource =
@@ -113,46 +130,38 @@ in
     };
   };
 
-  # Pi and its extensions update these files at runtime: core settings, MCP
-  # setup, extension preferences, workflow settings/model tiers, and saved
-  # workflows. Seed them from the profile instead of linking them into the
-  # read-only Nix store. Existing writable files are intentionally preserved.
-  home.activation.seedMutablePiConfig = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-    seed_mutable_pi_config() {
+  # Pi and its extensions update these files at runtime. Keep the live copies
+  # writable, but restore the declared profile on every activation so Nix
+  # changes and removals always take effect.
+  home.activation.replaceMutablePiConfig = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    replace_mutable_pi_config() {
       source="$1"
       target="$2"
+      target_dir="$(dirname "$target")"
 
-      if [ -L "$target" ]; then
-        case "$(readlink "$target")" in
-          /nix/store/*) rm -f "$target" ;;
-          *) return ;;
-        esac
-      fi
-
-      if [ ! -e "$target" ]; then
-        target_dir="$(dirname "$target")"
-        mkdir -p "$target_dir"
-        install -m 600 "$source" "$target.tmp"
-        mv -f "$target.tmp" "$target"
-      fi
+      mkdir -p "$target_dir"
+      install -m 600 "$source" "$target.tmp"
+      mv -f "$target.tmp" "$target"
     }
 
-    seed_mutable_pi_tree() {
+    replace_mutable_pi_tree() {
       source_root="$1"
       target_root="$2"
 
+      rm -rf "$target_root"
+      mkdir -p "$target_root"
       find "$source_root" -type f -print | while IFS= read -r source_file; do
         relative="''${source_file#"$source_root"/}"
-        seed_mutable_pi_config "$source_file" "$target_root/$relative"
+        replace_mutable_pi_config "$source_file" "$target_root/$relative"
       done
     }
 
     ${lib.concatMapStringsSep "\n" (file: ''
-      seed_mutable_pi_config ${lib.escapeShellArg file.source} "$HOME/${file.target}"
+      replace_mutable_pi_config ${lib.escapeShellArg file.source} "$HOME/${file.target}"
     '') mutablePiFiles}
 
     ${lib.concatMapStringsSep "\n" (tree: ''
-      seed_mutable_pi_tree ${lib.escapeShellArg tree.source} "$HOME/${tree.target}"
+      replace_mutable_pi_tree ${lib.escapeShellArg tree.source} "$HOME/${tree.target}"
     '') mutablePiTrees}
   '';
 }
