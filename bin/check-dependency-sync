@@ -9,7 +9,6 @@ const readJson = (relativePath) =>
 
 const extensionManifest = readJson("pi-extensions/package.json");
 const extensionLock = readJson("pi-extensions/package-lock.json");
-const rootManifest = readJson("package.json");
 const biomeConfig = readJson("pi-extensions/biome.json");
 const bundledPackages = extensionManifest.bundledPiPackages ?? [];
 const bundledPackageSet = new Set(bundledPackages);
@@ -41,16 +40,16 @@ for (const dependencyType of ["dependencies", "devDependencies", "peerDependenci
   }
 }
 
-const biomeDeclaration = rootManifest.devDependencies?.["@biomejs/biome"];
+const biomeDeclaration = extensionManifest.devDependencies?.["@biomejs/biome"];
 const biomeDependencyVersion = biomeDeclaration?.replace(/^[~^]/, "");
 const biomeSchemaMatch = biomeConfig.$schema?.match(
   /^https:\/\/biomejs\.dev\/schemas\/(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\/schema\.json$/,
 );
 
 if (!biomeDependencyVersion) {
-  errors.push("root @biomejs/biome dependency is missing");
+  errors.push("pi-extensions @biomejs/biome dependency is missing");
 } else if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(biomeDependencyVersion)) {
-  errors.push(`root @biomejs/biome dependency has an unsupported range: ${biomeDeclaration}`);
+  errors.push(`pi-extensions @biomejs/biome dependency has an unsupported range: ${biomeDeclaration}`);
 } else if (!biomeSchemaMatch) {
   errors.push(`Biome schema URL is not version-pinned: ${biomeConfig.$schema}`);
 } else if (biomeSchemaMatch[1] !== biomeDependencyVersion) {

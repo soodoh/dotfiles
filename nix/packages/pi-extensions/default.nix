@@ -12,6 +12,12 @@
 let
   version = "0.1.0";
   extensionSource = ../../../pi-extensions;
+  extensionManifest = lib.importJSON (extensionSource + "/package.json");
+  extensionLock = lib.importJSON (extensionSource + "/package-lock.json");
+  runtimeManifest = removeAttrs extensionManifest [ "devDependencies" ];
+  runtimeLock = extensionLock // {
+    packages = lib.filterAttrs (_: package: !(package.dev or false)) extensionLock.packages;
+  };
   dependencySource = lib.fileset.toSource {
     root = extensionSource;
     fileset = lib.fileset.unions [
@@ -26,8 +32,8 @@ let
     src = dependencySource;
 
     npmDeps = importNpmLock {
-      package = lib.importJSON (extensionSource + "/package.json");
-      packageLock = lib.importJSON (extensionSource + "/package-lock.json");
+      package = runtimeManifest;
+      packageLock = runtimeLock;
     };
     inherit (importNpmLock) npmConfigHook;
     npmFlags = [ "--legacy-peer-deps" ];

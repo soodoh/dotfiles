@@ -32,7 +32,7 @@ The refinement prompt tells the model to keep the current title unless the domin
 This extension is part of the local `pi-extensions` package. From the dotfiles repository root, install dependencies and link the package once:
 
 ```bash
-bun install
+npm --prefix pi-extensions install
 ln -sfn "$PWD/pi-extensions" "$HOME/.pi/agent/pi-extensions"
 ```
 
@@ -86,7 +86,7 @@ Use a small, fast, non-reasoning task model for low latency and cost. The extens
 The workspace exposes validation scripts from `pi-extensions`. From the repository root:
 
 ```bash
-bun run --cwd pi-extensions test -- packages/auto-session-name/auto-session-name.test.ts
-bun run --cwd pi-extensions typecheck
-bun run --cwd pi-extensions check
+npm --prefix pi-extensions run test -- packages/auto-session-name/auto-session-name.test.ts
+npm --prefix pi-extensions run typecheck
+npm --prefix pi-extensions run check
 ```
