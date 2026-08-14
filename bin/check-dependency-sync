@@ -15,6 +15,15 @@ const bundledPackageSet = new Set(bundledPackages);
 const extensionDependencies = extensionManifest.dependencies ?? {};
 const lockRoot = extensionLock.packages?.[""] ?? {};
 const errors = [];
+const mcpProfiles = ["personal", "work"].map((profile) => {
+  const packageRoot = `nix/packages/mcp-servers/${profile}`;
+  return {
+    profile,
+    manifest: readJson(`${packageRoot}/package.json`),
+    lock: readJson(`${packageRoot}/package-lock.json`),
+    config: readJson(`nix/dotfiles/profiles/${profile}/.pi/agent/mcp.json`),
+  };
+});
 const normalizeRecord = (record) => Object.fromEntries(Object.entries(record).sort(([a], [b]) => a.localeCompare(b)));
 
 if (bundledPackageSet.size !== bundledPackages.length) {
@@ -37,6 +46,34 @@ for (const dependencyType of ["dependencies", "devDependencies", "peerDependenci
   const locked = lockRoot[dependencyType] ?? {};
   if (JSON.stringify(normalizeRecord(declared)) !== JSON.stringify(normalizeRecord(locked))) {
     errors.push(`pi-extensions ${dependencyType} do not match package-lock.json`);
+  }
+}
+
+for (const { profile, manifest, lock, config } of mcpProfiles) {
+  const dependencies = manifest.dependencies ?? {};
+  const commands = manifest.mcpCommands ?? {};
+  const lockedDependencies = lock.packages?.[""]?.dependencies ?? {};
+  const configuredCommands = Object.values(config.mcpServers ?? {})
+    .map((server) => server.command)
+    .filter((command) => command !== undefined);
+
+  if (JSON.stringify(normalizeRecord(dependencies)) !== JSON.stringify(normalizeRecord(lockedDependencies))) {
+    errors.push(`${profile} MCP dependencies do not match package-lock.json`);
+  }
+  for (const [command, npmCommand] of Object.entries(commands)) {
+    if (!configuredCommands.includes(command)) {
+      errors.push(`${profile} MCP package command ${command} is not used by mcp.json`);
+    }
+    if (typeof npmCommand !== "string" || npmCommand.length === 0) {
+      errors.push(`${profile} MCP package command ${command} has no npm executable`);
+    }
+  }
+  for (const command of configuredCommands) {
+    if (command === "npx") {
+      errors.push(`${profile} mcp.json still uses mutable npx execution`);
+    } else if (!(command in commands)) {
+      errors.push(`${profile} mcp.json command ${command} is not installed by its MCP package`);
+    }
   }
 }
 
@@ -66,4 +103,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("Pi extension dependencies and generated metadata are synchronized");
+console.log("Pi extension and MCP dependencies are synchronized");

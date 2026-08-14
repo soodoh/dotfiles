@@ -204,6 +204,10 @@
                   echo >&2 "mutable Pi npm package installation remains in Nix-managed settings"
                   exit 1
                 fi
+                if rg -n '"command":\s*"npx"' ${policySource}/dotfiles; then
+                  echo >&2 "mutable MCP npx execution remains in Nix-managed settings"
+                  exit 1
+                fi
                 touch "$out"
               '';
 

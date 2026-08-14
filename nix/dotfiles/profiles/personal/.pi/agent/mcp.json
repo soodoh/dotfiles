@@ -13,8 +13,8 @@
 			"directTools": true
 		},
 		"playwright": {
-			"command": "npx",
-			"args": ["-y", "@playwright/mcp@latest", "--extension"],
+			"command": "playwright-mcp",
+			"args": ["--extension"],
 			"lifecycle": "lazy"
 		}
 	}
