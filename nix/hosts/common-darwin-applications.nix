@@ -7,16 +7,12 @@
   nix = [
     "ghostty-bin"
     "obsidian"
-    "aerospace"
-    "sketchybar"
-    "jankyborders"
     "lunar"
   ]
   ++ extraNixApplications;
 
   homebrewCasks = [
     "nextcloud"
-    "scroll-reverser"
     "wispr-flow"
     "zen"
   ]
@@ -29,10 +25,8 @@
   // extraMasApplications;
 
   loginItems = {
-    AeroSpace = "~/Applications/Home Manager Apps/AeroSpace.app";
     Lunar = "~/Applications/Home Manager Apps/Lunar.app";
     Nextcloud = "/Applications/Nextcloud.app";
-    "Scroll Reverser" = "/Applications/Scroll Reverser.app";
     Tailscale = "/Applications/Tailscale.app";
   };
 

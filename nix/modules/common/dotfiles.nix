@@ -7,7 +7,6 @@
 }:
 let
   common = ../../dotfiles/common/.config;
-  darwin = ../../dotfiles/darwin/.config;
   isDarwin = lib.hasSuffix "-darwin" host.system;
 in
 {
@@ -38,21 +37,6 @@ in
     };
     "yazi" = {
       source = "${common}/yazi";
-      recursive = true;
-    };
-  }
-  // lib.optionalAttrs (lib.hasSuffix "-darwin" host.system) {
-    "aerospace/aerospace.toml" = {
-      source = "${darwin}/aerospace/aerospace.toml";
-      onChange = ''
-        if ${lib.getExe pkgs.aerospace} list-workspaces --all >/dev/null 2>&1; then
-          verboseEcho "Reloading AeroSpace configuration"
-          run ${lib.getExe pkgs.aerospace} reload-config --no-gui
-        fi
-      '';
-    };
-    "sketchybar" = {
-      source = "${darwin}/sketchybar";
       recursive = true;
     };
   };

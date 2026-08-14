@@ -20,9 +20,14 @@ in
       };
     };
 
-    # Root Nix processes must use the corporate bundle directly; importing a
-    # machine-local certificate into the flake would make evaluation impure.
+    # Root Nix and Comin must use the machine-local corporate bundle without
+    # importing it into the otherwise pure flake evaluation.
     nix.envVars.NIX_SSL_CERT_FILE = certificateBundle;
-    launchd.daemons.comin.serviceConfig.EnvironmentVariables.NIX_SSL_CERT_FILE = certificateBundle;
+    launchd.daemons.comin.serviceConfig.EnvironmentVariables = {
+      NIX_SSL_CERT_FILE = certificateBundle;
+      SSL_CERT_FILE = certificateBundle;
+      GIT_SSL_CAINFO = certificateBundle;
+      CURL_CA_BUNDLE = certificateBundle;
+    };
   };
 }

@@ -15,8 +15,19 @@ let
     on run
       set hadError to false
       set desiredItems to {${loginItemRecords}}
+      set obsoleteItems to {"AeroSpace"}
 
       tell application "System Events"
+        -- AeroSpace startup moved to Home Manager's launchd agent.
+        repeat with obsoleteItem in obsoleteItems
+          try
+            if exists login item (obsoleteItem as text) then delete login item (obsoleteItem as text)
+          on error errorMessage
+            log "failed to remove obsolete login item " & obsoleteItem & ": " & errorMessage
+            set hadError to true
+          end try
+        end repeat
+
         repeat with desiredItem in desiredItems
           set itemName to item 1 of desiredItem
           set itemPath to item 2 of desiredItem

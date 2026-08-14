@@ -4,20 +4,17 @@ config-version = 2
 # Preserve the four workspaces used by bindings and monitor assignments.
 persistent-workspaces = ['1', '2', '3', '4']
 
-# Login startup is managed declaratively by nix-darwin.
+# Startup and companion services are managed by Home Manager launchd agents.
 after-login-command = []
-
-# SketchyBar and JankyBorders are owned by nix-darwin launch agents.
 after-startup-command = []
+start-at-login = false
 
-# Keep AeroSpace's native SMAppService registration aligned with the Nix login item.
-start-at-login = true
-
-# Notify Sketchybar about workspace change
+# Notify SketchyBar about workspace changes. The Home Manager module overrides
+# the executable with its stable user-profile path.
 exec-on-workspace-change = [
   '/bin/bash',
   '-c',
-  '/run/current-system/sw/bin/sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE',
+  'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE',
 ]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization

@@ -18,7 +18,9 @@ case "$current_system" in
   *-darwin)
     nix build --no-link \
       .#darwinConfigurations.personal-macos.system \
-      .#darwinConfigurations.work-macos.system
+      .#darwinConfigurations.work-macos.system \
+      ".#checks.$current_system.comin-deployment-config" \
+      ".#checks.$current_system.comin-darwin-activation"
     ;;
   *-linux)
     nix build --no-link \

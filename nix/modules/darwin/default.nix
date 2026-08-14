@@ -11,7 +11,6 @@
     ./applications.nix
     ./comin.nix
     ./homebrew.nix
-    ./mas.nix
     ./login-items.nix
     ./defaults.nix
     ./window-management.nix
@@ -34,12 +33,8 @@
         "nix-command"
         "flakes"
       ];
-      substituters = [
-        "https://cache.nixos.org/"
-        "https://nix-community.cachix.org"
-      ];
+      substituters = [ "https://nix-community.cachix.org" ];
       trusted-public-keys = [
-        "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
         "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       ];
       builders-use-substitutes = true;
@@ -71,7 +66,14 @@
     shell = pkgs.fish;
   };
   environment.shells = [ pkgs.fish ];
-  programs.fish.enable = true;
+  programs = {
+    fish.enable = true;
+    mas = {
+      enable = true;
+      packages = host.applications.mas;
+      update = false;
+    };
+  };
 
   # users.users describes the existing admin account to Home Manager, but recent
   # nix-darwin releases intentionally do not manage admin users through
