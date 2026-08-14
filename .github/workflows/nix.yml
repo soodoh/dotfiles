@@ -18,10 +18,21 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
         with:
           extra_nix_config: experimental-features = nix-command flakes
       - run: ./bin/check-dependency-sync
+      - name: Validate Pi extensions
+        working-directory: pi-extensions
+        env:
+          COREPACK_ENABLE_PROJECT_SPEC: "1"
+        run: |
+          corepack npm ci
+          corepack npm run ci
       - run: nix fmt -- --ci --tree-root . --walk filesystem
       - run: nix run .#statix -- check .
       - run: nix run .#deadnix -- --fail .
