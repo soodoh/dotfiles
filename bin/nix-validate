@@ -2,10 +2,16 @@
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
-./bin/check-dependency-sync
+export COREPACK_ENABLE_PROJECT_SPEC=1
+corepack npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
+for profile in personal work; do
+  (
+    cd "nix/packages/mcp-servers/$profile"
+    corepack npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
+  )
+done
 (
   cd pi-extensions
-  export COREPACK_ENABLE_PROJECT_SPEC=1
   corepack npm ci
   corepack npm run ci
 )

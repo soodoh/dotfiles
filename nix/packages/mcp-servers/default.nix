@@ -8,9 +8,14 @@
 }:
 let
   profileSource = ./. + "/${profile}";
-  manifest = lib.importJSON (profileSource + "/package.json");
-  commands = manifest.mcpCommands;
-  package = removeAttrs manifest [ "mcpCommands" ];
+  configSource = ../../dotfiles/profiles + "/${profile}/.pi/agent/mcp.json";
+  config = lib.importJSON configSource;
+  package = lib.importJSON (profileSource + "/package.json");
+  commands = lib.unique (
+    builtins.filter builtins.isString (
+      map (server: server.command or null) (builtins.attrValues config.mcpServers)
+    )
+  );
 in
 buildNpmPackage {
   pname = "${profile}-mcp-servers";
@@ -31,13 +36,11 @@ buildNpmPackage {
     mkdir -p "$package_root" "$out/bin"
     cp -R node_modules "$package_root/node_modules"
 
-    ${lib.concatStringsSep "\n" (
-      lib.mapAttrsToList (command: npmCommand: ''
-        test -x "$package_root/node_modules/.bin/${npmCommand}"
-        makeWrapper "$package_root/node_modules/.bin/${npmCommand}" "$out/bin/${command}" \
-          --prefix PATH : ${lib.makeBinPath [ nodejs_24 ]}
-      '') commands
-    )}
+    ${lib.concatMapStringsSep "\n" (command: ''
+      test -x "$package_root/node_modules/.bin/${command}"
+      makeWrapper "$package_root/node_modules/.bin/${command}" "$out/bin/${command}" \
+        --prefix PATH : ${lib.makeBinPath [ nodejs_24 ]}
+    '') commands}
     runHook postInstall
   '';
 

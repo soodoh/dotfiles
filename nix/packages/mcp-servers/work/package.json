@@ -2,13 +2,6 @@
   "name": "work-mcp-servers",
   "version": "1.0.0",
   "private": true,
-  "mcpCommands": {
-    "azure-devops-mcp": "mcp-server-azuredevops",
-    "azure-mcp": "azmcp",
-    "figma-developer-mcp": "figma-developer-mcp",
-    "kusto-mcp": "kusto-mcp",
-    "playwright-mcp": "playwright-mcp"
-  },
   "dependencies": {
     "@azure-devops/mcp": "2.9.0",
     "@azure/mcp": "3.0.0-beta.35",

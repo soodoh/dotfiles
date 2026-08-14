@@ -100,7 +100,7 @@ runCommand "pi-extensions-${version}"
     const manifestPath = packageRoot + "/package.json";
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 
-    for (const packageName of manifest.bundledPiPackages) {
+    for (const packageName of new Set(manifest.bundleDependencies)) {
       const dependencyRoot = "node_modules/" + packageName;
       const dependencyManifest = JSON.parse(
         readFileSync(packageRoot + "/" + dependencyRoot + "/package.json", "utf8"),

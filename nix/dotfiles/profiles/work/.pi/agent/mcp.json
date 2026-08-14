@@ -30,7 +30,7 @@
 			"directTools": true
 		},
 		"azure": {
-			"command": "azure-mcp",
+			"command": "azmcp",
 			"args": ["server", "start"],
 			"lifecycle": "lazy",
 			"directTools": false
@@ -41,7 +41,7 @@
 			"directTools": false
 		},
 		"azure-devops": {
-			"command": "azure-devops-mcp",
+			"command": "mcp-server-azuredevops",
 			"args": ["DocusignOrg"],
 			"lifecycle": "lazy",
 			"directTools": false

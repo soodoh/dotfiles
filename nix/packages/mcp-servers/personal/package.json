@@ -2,9 +2,6 @@
   "name": "personal-mcp-servers",
   "version": "1.0.0",
   "private": true,
-  "mcpCommands": {
-    "playwright-mcp": "playwright-mcp"
-  },
   "dependencies": {
     "@playwright/mcp": "0.0.79"
   }

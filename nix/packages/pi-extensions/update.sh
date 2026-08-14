@@ -3,7 +3,6 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/../../.." && pwd)"
 manifest="$repo_root/pi-extensions/package.json"
-check_script="$repo_root/bin/check-dependency-sync"
 target="${1:-all}"
 requested_version="${2:-}"
 
@@ -34,15 +33,16 @@ update_dependency() {
 
 case "$target" in
   check)
-    exec "$check_script"
+    project_npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
+    exit
     ;;
   all)
     while IFS= read -r package_name; do
       update_dependency "$package_name"
-    done < <(jq -r '.bundledPiPackages[]' "$manifest")
+    done < <(jq -r '.bundleDependencies[]' "$manifest")
     ;;
   *)
-    if ! jq -e --arg package "$target" '.bundledPiPackages | index($package) != null' "$manifest" >/dev/null; then
+    if ! jq -e --arg package "$target" '.bundleDependencies | index($package) != null' "$manifest" >/dev/null; then
       echo >&2 "unknown bundled Pi extension dependency: $target"
       exit 2
     fi
@@ -51,7 +51,6 @@ case "$target" in
 esac
 
 project_npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-cd "$repo_root"
-"$check_script"
+project_npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
 nix build "$repo_root#pi-extensions.dependencies" --no-link
 printf 'Updated the pinned Pi extension closure\n'
