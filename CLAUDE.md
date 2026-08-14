@@ -39,4 +39,4 @@ Fish configuration/plugins are store-backed. Linux Fish remains a native login-s
 
 ## Commit standards
 
-Commits use `type(scope): message` with scopes `root`, `agents`, `nvim`, `mac`, `shell`, or `tmux`. Never add `Co-authored-by` trailers.
+Commits use `type(scope): message` with scopes `root`, `nix`, `agents`, `nvim`, `mac`, `shell`, or `tmux`. Never add `Co-authored-by` trailers.

@@ -11,8 +11,5 @@
     pkgs.rustfmt
   ];
 
-  home.sessionVariables = {
-    COREPACK_ENABLE_PROJECT_SPEC = "0";
-    RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
-  };
+  home.sessionVariables.RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
 }

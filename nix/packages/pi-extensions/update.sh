@@ -7,6 +7,13 @@ check_script="$repo_root/bin/check-dependency-sync"
 target="${1:-all}"
 requested_version="${2:-}"
 
+project_npm() {
+  (
+    cd "$repo_root/pi-extensions"
+    COREPACK_ENABLE_PROJECT_SPEC=1 corepack npm "$@"
+  )
+}
+
 set_dependency_version() {
   local package_name="$1"
   local version="$2"
@@ -20,7 +27,7 @@ update_dependency() {
   local package_name="$1"
   local version="${2:-}"
   if [ -z "$version" ]; then
-    version="$(npm view "$package_name" version)"
+    version="$(project_npm view "$package_name" version)"
   fi
   set_dependency_version "$package_name" "$version"
 }
@@ -43,8 +50,7 @@ case "$target" in
     ;;
 esac
 
-cd "$repo_root/pi-extensions"
-npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+project_npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 cd "$repo_root"
 "$check_script"
 nix build "$repo_root#pi-extensions.dependencies" --no-link
