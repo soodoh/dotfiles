@@ -80,11 +80,11 @@ The first existing bootstrap or manual switch is intentionally built from the lo
 ./bin/nix-switch-work-macos              # for an existing installation
 ```
 
-Only GitHub-signed squash merges to protected `main` are deployable. Comin verifies the fetched tip against the committed GitHub `web-flow` GPG key before evaluation. Branch protection requires the `lint` and `darwin` checks, rejects unsigned or non-PR updates, and blocks force-pushes and deletion. This intentionally trusts GitHub's merge-signing identity together with the repository's access controls; rotate `nix/keys/github-web-flow.gpg` only against GitHub's published key.
+Every commit that reaches `main` is eligible for automatic deployment. Comin does not require commit signatures, so direct pushes and merged pull requests are handled identically. Run `./bin/nix-validate` before pushing when a local preflight is desired.
 
 Automatic deployment does not run `nix-update`, change `flake.lock`, remove unmanaged software, update macOS, or alter the existing Homebrew/MAS activation behavior. Existing nix-darwin generations, weekly GC policy, and rollback remain in place; Comin's default retention additionally keeps multiple successful deployment records and GC roots.
 
-Migrating an existing Comin installation to the stable supervisor and moving Colima, SketchyBar, and JankyBorders from legacy nix-darwin user agents to Home Manager requires one manual switch after this change is squash-merged. Suspend Comin first so it cannot race the operator, then verify and switch from a clean checkout whose `HEAD` exactly matches `origin/main`. Any failure before the final `comin resume` intentionally leaves automatic deployment suspended:
+An existing Comin daemon that still requires GitHub signatures cannot deploy an unsigned transition commit. After this change reaches `main` through a direct push, apply it once with a manual switch on each Mac from a clean checkout; future direct pushes are automatic. The procedure below also migrates the stable supervisor and moves Colima, SketchyBar, and JankyBorders from legacy nix-darwin user agents to Home Manager when needed. Suspend Comin first so it cannot race the operator. Any failure before the final `comin resume` intentionally leaves automatic deployment suspended:
 
 ```bash
 set -euo pipefail
@@ -93,16 +93,6 @@ sudo /run/current-system/sw/bin/comin suspend
 git fetch origin
 test -z "$(git status --porcelain)"
 test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
-
-gnupg_home="$(mktemp -d)"
-trap 'rm -rf "$gnupg_home"' EXIT
-chmod 700 "$gnupg_home"
-GNUPGHOME="$gnupg_home" gpg --batch --import nix/keys/github-web-flow.gpg
-GNUPGHOME="$gnupg_home" gpg --batch --with-colons --fingerprint \
-  | grep -F 'fpr:::::::::968479A1AFF927E37D1A566BB5690EEEBB952194:'
-GNUPGHOME="$gnupg_home" git verify-commit HEAD
-rm -rf "$gnupg_home"
-trap - EXIT
 
 # Stop the existing VM before removing its foreground launch agent so the new
 # Home Manager agent can take ownership cleanly after the switch.
@@ -199,9 +189,9 @@ Run comprehensive validation explicitly with:
 ./bin/nix-validate
 ```
 
-GitHub Actions runs formatting, static analysis, all-system evaluation, and fully realizes both Linux Home Manager configurations plus the Linux checks on Ubuntu. A separate hosted Apple Silicon job fully realizes both Darwin configurations plus the Comin deployment and launchd-boundary checks. Protected `main` requires both the `lint` and `darwin` jobs before GitHub creates its signed squash commit.
+GitHub Actions runs formatting, static analysis, all-system evaluation, and fully realizes both Linux Home Manager configurations plus the Linux checks on Ubuntu. A separate hosted Apple Silicon job fully realizes both Darwin configurations plus the Comin deployment and launchd-boundary checks. The workflow runs for pull requests and pushes to `main`, but does not gate direct pushes.
 
-`./bin/nix-validate` provides the same comprehensive validation as an explicit local preflight for the current platform. Lefthook only enforces commit-message formatting; protected `main` and the required GitHub Actions jobs enforce repository validation before merge.
+`./bin/nix-validate` provides the same comprehensive validation as an explicit local preflight for the current platform. Lefthook only enforces commit-message formatting, so run the validation explicitly before pushing changes that should be checked prior to automatic deployment.
 
 Cross-platform realization remains platform-specific locally: Darwin cannot natively build the Linux configurations, and Linux cannot natively build the Darwin configurations. GitHub Actions realizes every supported configuration on its native platform.
 

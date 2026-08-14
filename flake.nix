@@ -297,12 +297,10 @@
                   cominConfig = hostConfig.services.comin;
                   remoteCount = builtins.length cominConfig.remotes;
                   remote = lib.head cominConfig.remotes;
-                  webFlowKey = toString ./nix/keys/github-web-flow.gpg;
                 in
                 cominConfig.enable
                 && cominConfig.hostname == hostname
                 && cominConfig.buildTimeout == 7200
-                && cominConfig.gpgPublicKeyPaths == [ webFlowKey ]
                 && remoteCount == 1
                 && remote.name == "origin"
                 && remote.url == "https://github.com/soodoh/dotfiles.git"
@@ -341,8 +339,6 @@
                 echo >&2 "Comin launchd command is generation-specific"
                 exit 1
               fi
-              grep -F 'gpg_public_key_paths:' '${cominYaml}'
-              grep -F '/nix/keys/github-web-flow.gpg' '${cominYaml}'
               grep -F 'post_deployment_command:' '${cominYaml}'
               grep -F '/bin/kill -HUP "$COMIN_SUPERVISOR_PID"' '${workConfig.services.comin.postDeploymentCommand}'
               grep -F '/bin/ps -p "$PPID" -o command=' '${workConfig.system.build.toplevel}/activate'

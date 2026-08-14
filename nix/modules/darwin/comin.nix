@@ -11,7 +11,6 @@ let
   cominConfig = import "${inputs.comin}/nix/comin-config.nix" {
     inherit config pkgs lib;
   };
-  githubWebFlowKey = ../../keys/github-web-flow.gpg;
   cominPlist = config.environment.launchDaemons."com.github.nlewo.comin.plist".source;
 
   restartSupervisor = pkgs.writeShellScript "restart-comin-supervisor" ''
@@ -64,7 +63,6 @@ in
     enable = true;
     hostname = host.name;
     buildTimeout = 7200;
-    gpgPublicKeyPaths = [ (toString githubWebFlowKey) ];
     postDeploymentCommand = restartSupervisor;
     remotes = [
       {
