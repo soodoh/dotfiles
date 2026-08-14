@@ -19,8 +19,8 @@
 			"directTools": false
 		},
 		"playwright": {
-			"command": "npx",
-			"args": ["-y", "@playwright/mcp@latest", "--extension"],
+			"command": "playwright-mcp",
+			"args": ["--extension"],
 			"lifecycle": "lazy"
 		},
 		"glean": {
@@ -30,26 +30,25 @@
 			"directTools": true
 		},
 		"azure": {
-			"command": "npx",
-			"args": ["-y", "@azure/mcp@latest", "server", "start"],
+			"command": "azure-mcp",
+			"args": ["server", "start"],
 			"lifecycle": "lazy",
 			"directTools": false
 		},
 		"kusto": {
-			"command": "npx",
-			"args": ["-y", "kusto-mcp@latest"],
+			"command": "kusto-mcp",
 			"lifecycle": "lazy",
 			"directTools": false
 		},
 		"azure-devops": {
-			"command": "npx",
-			"args": ["-y", "@azure-devops/mcp@latest", "DocusignOrg"],
+			"command": "azure-devops-mcp",
+			"args": ["DocusignOrg"],
 			"lifecycle": "lazy",
 			"directTools": false
 		},
 		"figma": {
-			"command": "npx",
-			"args": ["-y", "figma-developer-mcp", "--stdio"],
+			"command": "figma-developer-mcp",
+			"args": ["--stdio"],
 			"env": {
 				"FIGMA_API_KEY": "${FIGMA_API_KEY}"
 			},
