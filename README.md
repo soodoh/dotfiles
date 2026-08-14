@@ -84,37 +84,6 @@ Every commit that reaches `main` is eligible for automatic deployment. Comin doe
 
 Automatic deployment does not run `nix-update`, change `flake.lock`, remove unmanaged software, update macOS, or alter the existing Homebrew/MAS activation behavior. Existing nix-darwin generations, weekly GC policy, and rollback remain in place; Comin's default retention additionally keeps multiple successful deployment records and GC roots.
 
-An existing Comin daemon that still requires GitHub signatures cannot deploy an unsigned transition commit. After this change reaches `main` through a direct push, apply it once with a manual switch on each Mac from a clean checkout; future direct pushes are automatic. The procedure below also migrates the stable supervisor and moves Colima, SketchyBar, and JankyBorders from legacy nix-darwin user agents to Home Manager when needed. Suspend Comin first so it cannot race the operator. Any failure before the final `comin resume` intentionally leaves automatic deployment suspended:
-
-```bash
-set -euo pipefail
-sudo /run/current-system/sw/bin/comin suspend
-
-git fetch origin
-test -z "$(git status --porcelain)"
-test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
-
-# Stop the existing VM before removing its foreground launch agent so the new
-# Home Manager agent can take ownership cleanly after the switch.
-/run/current-system/sw/bin/colima stop || true
-
-uid="$(id -u)"
-for label in org.nixos.colima org.nixos.sketchybar org.nixos.jankyborders; do
-  launchctl bootout "gui/$uid/$label" 2>/dev/null || true
-  rm -f "$HOME/Library/LaunchAgents/$label.plist"
-done
-
-# Remove the retired Scroll Reverser process and login item. Home Manager
-# removes its managed application link during the switch.
-/usr/bin/pkill -x "Scroll Reverser" 2>/dev/null || true
-/usr/bin/osascript -e 'tell application "System Events" to if exists login item "Scroll Reverser" then delete login item "Scroll Reverser"'
-
-./bin/nix-switch-personal-macos  # or ./bin/nix-switch-work-macos
-sudo launchctl print system/com.github.nlewo.comin \
-  | grep /run/current-system/sw/bin/comin-supervisor
-sudo /run/current-system/sw/bin/comin resume
-```
-
 Future changes to Comin's plist, including relevant nix-darwin serialization changes, also require an explicit manual switch; unattended activation prints the required action and leaves the running generation in place.
 
 Inspect or trigger Comin with:
