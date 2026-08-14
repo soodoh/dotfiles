@@ -180,7 +180,8 @@ Pi and every configured third-party Pi package are installed from a Nix-built np
 Install the tracked Git hooks after cloning or whenever the hook setup changes:
 
 ```bash
-npm --prefix pi-extensions exec -- lefthook install
+corepack npm ci
+corepack npm exec -- lefthook install
 ```
 
 Run comprehensive validation explicitly with:

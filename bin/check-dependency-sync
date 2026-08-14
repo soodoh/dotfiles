@@ -7,13 +7,22 @@ const repoRoot = resolve(__dirname, "..");
 const readJson = (relativePath) =>
   JSON.parse(readFileSync(resolve(repoRoot, relativePath), "utf8"));
 
+const rootManifest = readJson("package.json");
+const rootLock = readJson("package-lock.json");
 const extensionManifest = readJson("pi-extensions/package.json");
 const extensionLock = readJson("pi-extensions/package-lock.json");
 const biomeConfig = readJson("pi-extensions/biome.json");
 const bundledPackages = extensionManifest.bundledPiPackages ?? [];
 const bundledPackageSet = new Set(bundledPackages);
 const extensionDependencies = extensionManifest.dependencies ?? {};
-const lockRoot = extensionLock.packages?.[""] ?? {};
+const rootLockRoot = rootLock.packages?.[""] ?? {};
+const extensionLockRoot = extensionLock.packages?.[""] ?? {};
+const rootToolingPackages = [
+  "@commitlint/cli",
+  "@commitlint/config-conventional",
+  "@commitlint/types",
+  "lefthook",
+];
 const errors = [];
 const mcpProfiles = ["personal", "work"].map((profile) => {
   const packageRoot = `nix/packages/mcp-servers/${profile}`;
@@ -41,9 +50,25 @@ for (const packageName of bundledPackages) {
   }
 }
 
+const rootDevDependencies = rootManifest.devDependencies ?? {};
+const lockedRootDevDependencies = rootLockRoot.devDependencies ?? {};
+if (JSON.stringify(normalizeRecord(rootDevDependencies)) !== JSON.stringify(normalizeRecord(lockedRootDevDependencies))) {
+  errors.push("root devDependencies do not match package-lock.json");
+}
+
+const extensionDevDependencies = extensionManifest.devDependencies ?? {};
+for (const packageName of rootToolingPackages) {
+  if (!Object.hasOwn(rootDevDependencies, packageName)) {
+    errors.push(`root tooling dependency ${packageName} is missing from root devDependencies`);
+  }
+  if (Object.hasOwn(extensionDevDependencies, packageName)) {
+    errors.push(`root tooling dependency ${packageName} must not be declared by pi-extensions`);
+  }
+}
+
 for (const dependencyType of ["dependencies", "devDependencies", "peerDependencies"]) {
   const declared = extensionManifest[dependencyType] ?? {};
-  const locked = lockRoot[dependencyType] ?? {};
+  const locked = extensionLockRoot[dependencyType] ?? {};
   if (JSON.stringify(normalizeRecord(declared)) !== JSON.stringify(normalizeRecord(locked))) {
     errors.push(`pi-extensions ${dependencyType} do not match package-lock.json`);
   }

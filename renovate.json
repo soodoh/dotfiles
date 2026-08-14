@@ -39,6 +39,13 @@
       "groupName": "Homebrew taps"
     },
     {
+      "description": "Update repository-level development tooling together",
+      "matchFileNames": [
+        "package.json"
+      ],
+      "groupName": "Root repository tooling"
+    },
+    {
       "description": "Update the Pi extension runtime closure atomically",
       "matchFileNames": [
         "pi-extensions/package.json"

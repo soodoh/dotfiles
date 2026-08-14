@@ -49,9 +49,6 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.8",
-		"@commitlint/cli": "^21.2.2",
-		"@commitlint/config-conventional": "^21.2.2",
-		"@commitlint/types": "^21.2.0",
 		"@earendil-works/pi-agent-core": "0.84.1",
 		"@earendil-works/pi-ai": "0.84.1",
 		"@earendil-works/pi-coding-agent": "0.84.1",
@@ -59,7 +56,6 @@
 		"@types/node": "^26.2.0",
 		"@types/proper-lockfile": "4.1.4",
 		"@vitest/coverage-v8": "^4.1.10",
-		"lefthook": "^2.1.10",
 		"typescript": "^7.0.2",
 		"vitest": "^4.1.10"
 	},
