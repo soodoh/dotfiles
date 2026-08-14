@@ -84,10 +84,12 @@ Only GitHub-signed squash merges to protected `main` are deployable. Comin verif
 
 Automatic deployment does not run `nix-update`, change `flake.lock`, remove unmanaged software, update macOS, or alter the existing Homebrew/MAS activation behavior. Existing nix-darwin generations, weekly GC policy, and rollback remain in place; Comin's default retention additionally keeps multiple successful deployment records and GC roots.
 
-Migrating an existing Comin installation to the stable supervisor requires one manual switch after this change is squash-merged. Do not ask the old Comin daemon to deploy the migration because its loaded plist is generation-specific. Verify and switch from a clean checkout whose `HEAD` exactly matches `origin/main`:
+Migrating an existing Comin installation to the stable supervisor and moving Colima, SketchyBar, and JankyBorders from legacy nix-darwin user agents to Home Manager requires one manual switch after this change is squash-merged. Suspend Comin first so it cannot race the operator, then verify and switch from a clean checkout whose `HEAD` exactly matches `origin/main`. Any failure before the final `comin resume` intentionally leaves automatic deployment suspended:
 
 ```bash
 set -euo pipefail
+sudo /run/current-system/sw/bin/comin suspend
+
 git fetch origin
 test -z "$(git status --porcelain)"
 test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
@@ -102,9 +104,25 @@ GNUPGHOME="$gnupg_home" git verify-commit HEAD
 rm -rf "$gnupg_home"
 trap - EXIT
 
+# Stop the existing VM before removing its foreground launch agent so the new
+# Home Manager agent can take ownership cleanly after the switch.
+/run/current-system/sw/bin/colima stop || true
+
+uid="$(id -u)"
+for label in org.nixos.colima org.nixos.sketchybar org.nixos.jankyborders; do
+  launchctl bootout "gui/$uid/$label" 2>/dev/null || true
+  rm -f "$HOME/Library/LaunchAgents/$label.plist"
+done
+
+# Remove the retired Scroll Reverser process and login item. Home Manager
+# removes its managed application link during the switch.
+/usr/bin/pkill -x "Scroll Reverser" 2>/dev/null || true
+/usr/bin/osascript -e 'tell application "System Events" to if exists login item "Scroll Reverser" then delete login item "Scroll Reverser"'
+
 ./bin/nix-switch-personal-macos  # or ./bin/nix-switch-work-macos
 sudo launchctl print system/com.github.nlewo.comin \
   | grep /run/current-system/sw/bin/comin-supervisor
+sudo /run/current-system/sw/bin/comin resume
 ```
 
 Future changes to Comin's plist, including relevant nix-darwin serialization changes, also require an explicit manual switch; unattended activation prints the required action and leaves the running generation in place.
@@ -153,6 +171,18 @@ Review every lockfile diff before switching.
 
 Renovate also updates root flake inputs, including the Homebrew cask taps. Do not run `brew update` or `brew upgrade`; pull the reviewed `main` branch and switch instead. Homebrew upgrades during activation can only use package definitions from the locked tap snapshots.
 
+Mac App Store updates are intentionally excluded from activation so unrelated apps are not upgraded. After signing into the App Store, install or update only the declared IDs with:
+
+```bash
+# Personal profile
+mas install 1475387142 937984704 1474276998
+mas update 1475387142 937984704 1474276998
+
+# Work profile
+mas install 937984704
+mas update 937984704
+```
+
 Pi and every configured third-party Pi package are installed from a Nix-built npm closure. Settings reference only the store-backed local package; Pi does not need to populate `~/.pi/agent/npm` at startup.
 
 ## Validation
@@ -174,8 +204,6 @@ GitHub Actions runs formatting, static analysis, all-system evaluation, and full
 `./bin/nix-validate` provides the same comprehensive validation as an explicit local preflight for the current platform. Lefthook only enforces commit-message formatting; protected `main` and the required GitHub Actions jobs enforce repository validation before merge.
 
 Cross-platform realization remains platform-specific locally: Darwin cannot natively build the Linux configurations, and Linux cannot natively build the Darwin configurations. GitHub Actions realizes every supported configuration on its native platform.
-
-The pinned nixpkgs revision needs one narrow Darwin build workaround: oxlint's `@napi-rs/cli` process probe is redirected from sandbox-blocked `/bin/ps` to Nix's store-backed `ps`. Revisit this override when updating `nixpkgs`.
 
 ## Audit
 
@@ -200,12 +228,11 @@ Nix owns the CLI environment and maintained macOS packages. Homebrew owns only t
 - work casks: `nextcloud`, `snowflakedb/snowflake-cli/snowflake-cli`, `wispr-flow`, `zen`
 
 Ordinary activation installs/upgrades desired casks only from the locked tap revisions and uses `cleanup = "none"`, so unmanaged packages continue to exist. Tap metadata and installer checksums are reproducible from `flake.lock`; applications with built-in self-updaters can still update themselves outside Homebrew.
-
-MAS IDs are declared per host. Current IDs include Tailscale `1475387142`, Amphetamine `937984704`, and HP `1474276998`. If the App Store account is unavailable, activation warns, prints exact `mas install` follow-up commands, and continues. Credentials are never stored in Nix.
+MAS IDs are declared per host. Current IDs include Tailscale `1475387142`, Amphetamine `937984704`, and HP `1474276998`. If the App Store account is unavailable, activation warns and skips App Store work; use the exact profile-specific commands above after signing in. Credentials are never stored in Nix.
 
 ## Containers
 
-Nix installs Colima, Docker, and Compose. Home Manager materializes the writable default Colima profile at `~/.colima/default/colima.yaml` from a store-backed source, and the user launchd agent starts Colima at login with the Docker runtime, Apple Virtualization, VirtioFS, and Rosetta enabled.
+Nix installs Colima, Docker, and Compose. Home Manager manages `~/.colima/default/colima.yaml` as a store-backed symlink while Colima's runtime state remains writable, and the user launchd agent starts Colima at login with the Docker runtime, Apple Virtualization, VirtioFS, and Rosetta enabled.
 
 ## Manual authentication and secrets
 

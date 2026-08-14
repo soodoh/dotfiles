@@ -76,14 +76,8 @@
       ];
       allowUnfreePredicate = package: lib.elem (lib.getName package) allowedUnfreePackages;
 
-      dotfilesOverlay = final: previous: {
+      dotfilesOverlay = final: _previous: {
         dotfilesPackages = import ./nix/packages { pkgs = final; };
-
-        # TODO: Return to previous.oxlint once @napi-rs/cli's Darwin /bin/ps fix
-        # is available in nixpkgs and its oxlint build is publicly cached.
-        oxlint =
-          if final.stdenv.hostPlatform.isDarwin then final.dotfilesPackages.oxlint-npm else previous.oxlint;
-
       };
 
       mkPkgs =
@@ -328,7 +322,9 @@
           comin-darwin-activation =
             let
               workConfig = darwinConfigurations.work-macos.config;
-              cominPath = workConfig.launchd.daemons.comin.serviceConfig.EnvironmentVariables.PATH;
+              cominEnvironment = workConfig.launchd.daemons.comin.serviceConfig.EnvironmentVariables;
+              cominPath = cominEnvironment.PATH;
+              corporateCertificate = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem";
               cominPlist = workConfig.environment.launchDaemons."com.github.nlewo.comin.plist".source;
               cominYaml =
                 (import "${comin}/nix/comin-config.nix" {
@@ -356,6 +352,10 @@
               launchd_line="$(grep -n 'setting up launchd services' '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
               test "$checks_line" -lt "$launchd_line"
               test '${cominPath}' = '/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+              test '${cominEnvironment.NIX_SSL_CERT_FILE}' = '${corporateCertificate}'
+              test '${cominEnvironment.SSL_CERT_FILE}' = '${corporateCertificate}'
+              test '${cominEnvironment.GIT_SSL_CAINFO}' = '${corporateCertificate}'
+              test '${cominEnvironment.CURL_CA_BUNDLE}' = '${corporateCertificate}'
               if rg -U 'system\.activationScripts\.launchd[[:space:]]*=' ${./nix/modules/darwin/comin.nix}; then
                 echo >&2 "Comin still overrides nix-darwin launchd activation"
                 exit 1
