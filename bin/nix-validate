@@ -4,12 +4,10 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 export COREPACK_ENABLE_PROJECT_SPEC=1
 corepack npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
-for profile in personal work; do
-  (
-    cd "nix/packages/mcp-servers/$profile"
-    corepack npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
-  )
-done
+(
+  cd nix/packages/mcp-servers/work
+  corepack npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
+)
 (
   cd pi-extensions
   corepack npm ci

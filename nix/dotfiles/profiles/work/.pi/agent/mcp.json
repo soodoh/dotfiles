@@ -30,7 +30,7 @@
 			"directTools": true
 		},
 		"azure": {
-			"command": "azmcp",
+			"command": "azure-mcp",
 			"args": ["server", "start"],
 			"lifecycle": "lazy",
 			"directTools": false

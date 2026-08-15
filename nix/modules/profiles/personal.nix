@@ -1,4 +1,4 @@
 { pkgs, ... }:
 {
-  home.packages = [ pkgs.dotfilesPackages.mcp-servers-personal ];
+  home.packages = [ pkgs.playwright-mcp ];
 }

@@ -4,35 +4,30 @@
   lib,
   makeWrapper,
   nodejs_24,
-  profile,
 }:
 let
-  profileSource = ./. + "/${profile}";
-  configSource = ../../dotfiles/profiles + "/${profile}/.pi/agent/mcp.json";
-  config = lib.importJSON configSource;
-  package = lib.importJSON (profileSource + "/package.json");
+  source = ./work;
+  package = lib.importJSON (source + "/package.json");
+  packageLock = lib.importJSON (source + "/package-lock.json");
   commands = lib.unique (
-    builtins.filter builtins.isString (
-      map (server: server.command or null) (builtins.attrValues config.mcpServers)
-    )
+    lib.concatMap (
+      dependency: builtins.attrNames (packageLock.packages."node_modules/${dependency}".bin or { })
+    ) (builtins.attrNames package.dependencies)
   );
 in
 buildNpmPackage {
-  pname = "${profile}-mcp-servers";
+  pname = "work-mcp-servers";
   inherit (package) version;
-  src = profileSource;
+  src = source;
 
-  npmDeps = importNpmLock {
-    inherit package;
-    packageLock = lib.importJSON (profileSource + "/package-lock.json");
-  };
+  npmDeps = importNpmLock { inherit package packageLock; };
   inherit (importNpmLock) npmConfigHook;
   dontNpmBuild = true;
   nativeBuildInputs = [ makeWrapper ];
 
   installPhase = ''
     runHook preInstall
-    package_root="$out/lib/${profile}-mcp-servers"
+    package_root="$out/lib/work-mcp-servers"
     mkdir -p "$package_root" "$out/bin"
     cp -R node_modules "$package_root/node_modules"
 
@@ -45,7 +40,7 @@ buildNpmPackage {
   '';
 
   meta = {
-    description = "Pinned ${profile} MCP servers";
+    description = "Pinned work MCP servers unavailable from nixpkgs";
     license = lib.licenses.mit;
     platforms = lib.platforms.unix;
   };

@@ -7,7 +7,7 @@ let
     personal-debian = import ../hosts/personal-debian;
   };
   auditHosts = builtins.mapAttrs (_name: host: {
-    inherit (host) name system;
+    inherit (host) name system username;
     applications = {
       nix = host.applications.nix or [ ];
       homebrewCasks = host.applications.homebrewCasks or [ ];

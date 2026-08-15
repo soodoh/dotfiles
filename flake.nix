@@ -267,7 +267,8 @@
 
                 nix-audit personal-macos --json > report.json
                 jq -e '
-                  .schemaVersion == 2 and
+                  .schemaVersion == 3 and
+                  .health.loginShell == null and
                   .external.homebrew.formulae == ["legacy-formula"] and
                   .external.homebrew.casks == ["legacy-cask"] and
                   .external.homebrew.taps == ["legacy/tap"] and

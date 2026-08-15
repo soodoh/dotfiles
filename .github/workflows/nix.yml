@@ -36,12 +36,10 @@ jobs:
         env:
           COREPACK_ENABLE_PROJECT_SPEC: "1"
         run: |
-          for profile in personal work; do
-            (
-              cd "nix/packages/mcp-servers/$profile"
-              corepack npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
-            )
-          done
+          (
+            cd nix/packages/mcp-servers/work
+            corepack npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
+          )
       - name: Validate Pi extensions
         working-directory: pi-extensions
         env:

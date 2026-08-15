@@ -1,7 +1,14 @@
-{ host, lib, ... }:
 {
-  imports = [ ./native-audit.nix ];
-
+  host,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  scripts = import ../../scripts { inherit pkgs; };
+in
+{
+  home.packages = [ scripts.audit ];
   assertions = [
     {
       assertion = lib.hasPrefix "/home/" host.homeDirectory;
