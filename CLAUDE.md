@@ -2,19 +2,21 @@
 
 ## Overview
 
-Personal dotfiles managed by one pinned Nix flake for personal/work macOS and personal Arch/Debian. macOS uses nix-darwin plus Home Manager; Linux uses standalone Home Manager without NixOS. Minimal GUI fallbacks use nix-homebrew, and MAS uses the Nix-provided `mas` CLI.
+Personal dotfiles managed by one pinned Nix flake for personal/work macOS. Both hosts use nix-darwin plus Home Manager. Minimal GUI fallbacks use nix-homebrew, and MAS uses the Nix-provided `mas` CLI.
 
 The Nix migration is complete. The flake and `nix/dotfiles/` are the canonical configuration; do not reintroduce parallel legacy automation or mutable package/plugin bootstrapping.
 
+The shared user environment is exported as `homeModules.default` with profile additions under `homeModules.personal` and `homeModules.work`. Darwin hosts must keep importing these modules rather than duplicating package, Neovim, Fish, or agent configuration; future NixOS hosts should reuse the same modules and overlay.
+
 ## Layout
 
-- `flake.nix`, `flake.lock` — pinned inputs and four public configurations
+- `flake.nix`, `flake.lock` — pinned inputs and two public Darwin configurations
 - `nix/hosts/` — explicit host metadata and application sets
-- `nix/modules/` — shared, Darwin, Linux, and profile modules
+- `nix/modules/` — reusable Home Manager, Darwin, and profile modules
 - `nix/packages/` — pinned TWG and Pi extension packages
 - `nix/dotfiles/` — store-backed common, Darwin, shared agent, and profile-specific files
 - `nix/scripts/` — read-only external-state reporting
-- `bootstrap/nix-*.sh` — official multi-user Nix bootstraps
+- `bootstrap/nix-macos.sh` — official multi-user Nix bootstrap
 - `bin/nix-*` — switch, update, validate, and audit entrypoints
 
 ## Commands
@@ -22,8 +24,6 @@ The Nix migration is complete. The flake and `nix/dotfiles/` are the canonical c
 ```bash
 ./bin/nix-switch-personal-macos
 ./bin/nix-switch-work-macos
-./bin/nix-switch-personal-arch
-./bin/nix-switch-personal-debian
 ./bin/nix-update lock
 ./bin/nix-validate
 ./bin/nix-audit personal-macos
@@ -35,7 +35,7 @@ Normal switch operations do not remove unmanaged software. Audit reports externa
 
 Neovim plugins, Tree-sitter grammars, LSP servers, formatters, and linters are Nix packages. Do not reintroduce mutable plugin/tool bootstrapping.
 
-Fish configuration/plugins are store-backed. Linux Fish remains a native login-shell package; Home Manager does not manage `/etc/shells`. Keep secrets only in local `~/.config/fish/conf.d/00-secrets.fish`.
+Fish configuration/plugins are store-backed and shared through the reusable Home Manager module. Keep secrets only in local `~/.config/fish/conf.d/00-secrets.fish`.
 
 ## Commit standards
 

@@ -101,12 +101,16 @@
     backupFileExtension = "hm-backup";
     extraSpecialArgs = { inherit host inputs; };
     users.${host.username}.imports = [
-      ../common
-      ../profiles/${host.profile}.nix
+      inputs.self.homeModules.default
+      inputs.self.homeModules.${host.profile}
       {
         home = {
           inherit (host) username homeDirectory;
           stateVersion = "25.11";
+          sessionPath = [
+            "/etc/profiles/per-user/${host.username}/bin"
+            "/run/current-system/sw/bin"
+          ];
         };
         programs.home-manager.enable = true;
       }

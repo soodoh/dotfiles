@@ -123,40 +123,6 @@ if [ -x "$legacy_uv" ]; then
   fi
 fi
 
-native='{"manager":null,"packages":[]}'
-if command -v pacman >/dev/null 2>&1; then
-  native="$(pacman -Qqe 2>/dev/null | jq -Rsc '{manager:"pacman",packages:(split("\n")|map(select(length>0)))}')"
-elif command -v apt-mark >/dev/null 2>&1; then
-  native="$(apt-mark showmanual 2>/dev/null | jq -Rsc '{manager:"apt",packages:(split("\n")|map(select(length>0)))}')"
-fi
-
-login_shell='null'
-case "$(printf '%s' "$host_json" | jq -r '.system')" in
-  *-linux)
-    username="$(printf '%s' "$host_json" | jq -r '.username')"
-    desired_shell="/usr/bin/fish"
-    passwd_entry=""
-    if command -v getent >/dev/null 2>&1; then
-      passwd_entry="$(getent passwd "$username" 2>/dev/null || true)"
-    elif [ -r /etc/passwd ]; then
-      passwd_entry="$(awk -F: -v username="$username" '$1 == username { print; exit }' /etc/passwd)"
-    fi
-    current_shell="${passwd_entry##*:}"
-    shell_installed=false
-    shell_registered=false
-    shell_configured=false
-    [ -x "$desired_shell" ] && shell_installed=true
-    grep -Fxq "$desired_shell" /etc/shells 2>/dev/null && shell_registered=true
-    [ "$current_shell" = "$desired_shell" ] && shell_configured=true
-    login_shell="$(jq -n \
-      --arg desired "$desired_shell" \
-      --arg current "$current_shell" \
-      --argjson installed "$shell_installed" \
-      --argjson registered "$shell_registered" \
-      --argjson configured "$shell_configured" \
-      '{desired:$desired,current:($current | if length > 0 then . else null end),installed:$installed,registered:$registered,configured:$configured,healthy:($installed and $registered and $configured)}')"
-    ;;
-esac
 
 legacy_artifacts='[]'
 for item in "$HOME/.local/share/fnm" "$HOME/.rustup" "$HOME/.bun/install/global" /opt/homebrew/Library/Taps.before-nix-homebrew /usr/local/Homebrew/Library/Taps.before-nix-homebrew; do
@@ -204,8 +170,6 @@ report="$(jq -n \
   --argjson bun "$bun_globals" \
   --argjson cargo "$cargo_globals" \
   --argjson uv "$uv_globals" \
-  --argjson native "$native" \
-  --argjson loginShell "$login_shell" \
   --argjson legacyArtifacts "$legacy_artifacts" \
   --argjson configurationArtifacts "$configuration_artifacts" \
   '
@@ -221,10 +185,9 @@ report="$(jq -n \
     | ($declaredMas | map(.id)) as $declaredMasIds
     | ($mas | map(.id)) as $installedMasIds
     | {
-        schemaVersion: 3,
+        schemaVersion: 4,
         host: $host,
         generatedAt: $generatedAt,
-        health: {loginShell:$loginShell},
         declared: {
           nixApplications: ($desired.applications.nix // []),
           homebrew: {casks:$declaredCasks,taps:$declaredTaps},
@@ -240,7 +203,6 @@ report="$(jq -n \
           masApplications: [$mas[]? | select(.id as $id | $declaredMasIds | index($id) | not)],
           applicationBundles: [$applications[]? | select(.source == "manual")],
           globalPackages: {npm:$npm,bun:$bun,cargo:$cargo,uv:$uv},
-          nativePackages: $native,
           configurationArtifacts: ($legacyArtifacts + $configurationArtifacts | unique_by([.kind,.path]))
         },
         missing: {
@@ -276,15 +238,7 @@ else
     section("  Bun globals"; [.external.globalPackages.bun[]]),
     section("  Cargo globals"; [.external.globalPackages.cargo[]]),
     section("  uv tools"; [.external.globalPackages.uv[]]),
-    section("  Native \(.external.nativePackages.manager // "package") packages"; [.external.nativePackages.packages[]]),
     section("  Configuration artifacts"; [.external.configurationArtifacts[] | "\(.kind): \(.path)\(if .target then " -> \(.target)" else "" end)"]),
-    "",
-    "Host health:",
-    (if .health.loginShell == null then
-      "  Login shell: not applicable"
-    else
-      "  Login shell: \(.health.loginShell.current // "unavailable") (expected \(.health.loginShell.desired); installed=\(.health.loginShell.installed), registered=\(.health.loginShell.registered), configured=\(.health.loginShell.configured))"
-    end),
     "",
     "Declared but missing:",
     section("  Homebrew casks"; [.missing.homebrewCasks[]]),

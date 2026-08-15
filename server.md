@@ -1,7 +1,7 @@
 # Setup for Proxmox home server
 
 ## Initial Setup
-* Follow same setup indicated in the README.md (but use `apt`, per Debian-based setup)
+* Install and maintain the Debian-based host separately; this repository does not declare a Proxmox or standalone Debian Nix configuration.
 
 ## Build packages that are not available from the apt repositories
 

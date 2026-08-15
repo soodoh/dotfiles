@@ -1,13 +1,11 @@
 {
   config,
-  host,
   lib,
   pkgs,
   ...
 }:
 let
   common = ../../dotfiles/common/.config;
-  isDarwin = lib.hasSuffix "-darwin" host.system;
 in
 {
   xdg.enable = true;
@@ -55,10 +53,8 @@ in
         *) server_path="$profile_bin:$server_path" ;;
       esac
       run ${lib.getExe pkgs.tmux} set-environment -g PATH "$server_path"
-      ${lib.optionalString isDarwin ''
-        run ${lib.getExe pkgs.tmux} set-environment -g SHELL ${lib.escapeShellArg (lib.getExe pkgs.fish)}
-        run ${lib.getExe pkgs.tmux} set-option -g default-shell ${lib.escapeShellArg (lib.getExe pkgs.fish)}
-      ''}
+      run ${lib.getExe pkgs.tmux} set-environment -g SHELL ${lib.escapeShellArg (lib.getExe pkgs.fish)}
+      run ${lib.getExe pkgs.tmux} set-option -g default-shell ${lib.escapeShellArg (lib.getExe pkgs.fish)}
       run ${lib.getExe pkgs.tmux} source-file "$HOME/.config/tmux/tmux.conf"
     fi
   '';

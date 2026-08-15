@@ -51,7 +51,8 @@ jobs:
       - run: nix run .#statix -- check .
       - run: nix run .#deadnix -- --fail .
       - run: nix flake check --all-systems --no-build
-      - run: nix build --no-link .#checks.x86_64-linux.{personal-arch,personal-debian,immutable-plugin-policy,audit-external-state}
+      - run: nix build --no-link .#packages.x86_64-linux.{pi,twg,pi-extensions}
+      - run: nix build --no-link .#checks.x86_64-linux.{immutable-plugin-policy,audit-external-state}
       - run: git diff --check
 
 

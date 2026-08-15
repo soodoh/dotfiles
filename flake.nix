@@ -1,5 +1,5 @@
 {
-  description = "Pinned cross-platform development environments without NixOS";
+  description = "Pinned personal and work macOS development environments";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -49,18 +49,16 @@
     }:
     let
       inherit (nixpkgs) lib;
-      supportedSystems = [
+      packageSystems = [
         "aarch64-darwin"
         "aarch64-linux"
         "x86_64-linux"
       ];
-      forAllSystems = lib.genAttrs supportedSystems;
+      forAllSystems = lib.genAttrs packageSystems;
 
       hosts = {
         personal-macos = import ./nix/hosts/personal-macos;
         work-macos = import ./nix/hosts/work-macos;
-        personal-arch = import ./nix/hosts/personal-arch;
-        personal-debian = import ./nix/hosts/personal-debian;
       };
 
       allowedUnfreePackages = [
@@ -108,32 +106,22 @@
           ];
         };
 
-      mkHome =
-        host:
-        home-manager.lib.homeManagerConfiguration {
-          pkgs = mkPkgs host.system;
-          extraSpecialArgs = { inherit host inputs; };
-          modules = [
-            ./nix/modules/common
-            ./nix/modules/linux
-            ./nix/modules/profiles/${host.profile}.nix
-          ];
-        };
-
       darwinConfigurations = {
         personal-macos = mkDarwin hosts.personal-macos;
         work-macos = mkDarwin hosts.work-macos;
       };
 
-      homeConfigurations = {
-        personal-arch = mkHome hosts.personal-arch;
-        personal-debian = mkHome hosts.personal-debian;
-      };
     in
     {
-      inherit darwinConfigurations homeConfigurations;
+      inherit darwinConfigurations;
 
       overlays.default = dotfilesOverlay;
+
+      homeModules = {
+        default = ./nix/modules/common;
+        personal = ./nix/modules/profiles/personal.nix;
+        work = ./nix/modules/profiles/work.nix;
+      };
 
       packages = forAllSystems (
         system:
@@ -144,10 +132,12 @@
         in
         custom
         // {
-          nix-audit = scripts.audit;
           inherit (pkgs) deadnix statix;
           pi = pkgs.pi-coding-agent;
           default = pkgs.pi-coding-agent;
+        }
+        // lib.optionalAttrs (lib.hasSuffix "-darwin" system) {
+          nix-audit = scripts.audit;
         }
       );
 
@@ -157,19 +147,12 @@
           pkgs = mkPkgs system;
           scripts = import ./nix/scripts { inherit pkgs; };
         in
-        {
+        lib.optionalAttrs (lib.hasSuffix "-darwin" system) {
           audit = {
             type = "app";
             program = "${scripts.audit}/bin/nix-audit";
             meta.description = "Report declared, external, and missing system state.";
           };
-          home-manager = {
-            type = "app";
-            program = "${home-manager.packages.${system}.default}/bin/home-manager";
-            meta.description = "Run Home Manager for a declared user configuration.";
-          };
-        }
-        // lib.optionalAttrs (lib.hasSuffix "-darwin" system) {
           darwin-rebuild = {
             type = "app";
             program = "${nix-darwin.packages.${system}.default}/bin/darwin-rebuild";
@@ -267,8 +250,7 @@
 
                 nix-audit personal-macos --json > report.json
                 jq -e '
-                  .schemaVersion == 3 and
-                  .health.loginShell == null and
+                  .schemaVersion == 4 and
                   .external.homebrew.formulae == ["legacy-formula"] and
                   .external.homebrew.casks == ["legacy-cask"] and
                   .external.homebrew.taps == ["legacy/tap"] and
@@ -281,10 +263,6 @@
                 touch "$out"
               '';
 
-        }
-        // lib.optionalAttrs (system == "x86_64-linux") {
-          personal-arch = homeConfigurations.personal-arch.activationPackage;
-          personal-debian = homeConfigurations.personal-debian.activationPackage;
         }
         // lib.optionalAttrs (system == "aarch64-darwin") {
           personal-macos = darwinConfigurations.personal-macos.system;

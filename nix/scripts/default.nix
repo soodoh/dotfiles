@@ -3,11 +3,9 @@ let
   hosts = {
     personal-macos = import ../hosts/personal-macos;
     work-macos = import ../hosts/work-macos;
-    personal-arch = import ../hosts/personal-arch;
-    personal-debian = import ../hosts/personal-debian;
   };
   auditHosts = builtins.mapAttrs (_name: host: {
-    inherit (host) name system username;
+    inherit (host) name;
     applications = {
       nix = host.applications.nix or [ ];
       homebrewCasks = host.applications.homebrewCasks or [ ];

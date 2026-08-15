@@ -1,13 +1,17 @@
 # Nix development environments
 
-This repository defines four explicit, lock-pinned environments without requiring NixOS:
+This repository defines two explicit, lock-pinned macOS environments:
 
 - `darwinConfigurations.personal-macos` — `pauldiloreto@aarch64-darwin`
 - `darwinConfigurations.work-macos` — `paul.diloreto@aarch64-darwin`
-- `homeConfigurations.personal-arch` — `docker@x86_64-linux`
-- `homeConfigurations.personal-debian` — `proxmox@x86_64-linux`
 
 Shared CLI tools, runtimes, Fish configuration, Neovim plugins/tooling, agent packages, and dotfiles are managed by Nix and Home Manager. macOS system settings and applications use nix-darwin. Homebrew is limited to the documented fallback casks, and MAS uses the Nix-provided `mas` CLI.
+
+## Reusable Home Manager layer
+
+The platform-neutral user environment is exported as `homeModules.default`; the `personal` and `work` additions are exported under `homeModules` as well. Both Darwin configurations import those same modules, so Neovim and its plugins/tooling, Pi and its extensions, shared CLI packages, runtimes, Fish, and common dotfiles have one implementation.
+
+Linux package outputs remain available for the reusable CLI/package layer even though this flake no longer declares standalone Linux hosts. A future NixOS configuration can apply `overlays.default`, pass compatible `host` metadata through Home Manager's extra special arguments, and import `homeModules.default` plus the desired profile module instead of copying the Darwin configuration or creating a parallel dependency list.
 
 ## Install and activate a configuration
 
@@ -18,20 +22,12 @@ git clone https://github.com/soodoh/dotfiles.git
 cd dotfiles
 ```
 
-The bootstrap scripts install multi-user Nix from `https://nixos.org/nix/install` when needed, then activate exactly one declared configuration:
+The macOS bootstrap installs multi-user Nix from `https://nixos.org/nix/install` when needed, then activates exactly one declared configuration:
 
 ```bash
 # Personal Mac; pass work-macos on the work Mac.
 ./bootstrap/nix-macos.sh personal-macos
-
-# Arch: first install native curl, Fish, and Git.
-./bootstrap/nix-arch.sh
-
-# Debian: first install native curl, Fish, and Git.
-./bootstrap/nix-debian.sh
 ```
-
-On Arch and Debian, Fish remains a native APT/Pacman package so `/usr/bin/fish` is a safe login shell. Run `chsh -s /usr/bin/fish` once after installation. Home Manager owns Fish configuration and plugins but does not edit `/etc/shells` or manage operating-system packages.
 
 ## Apply configuration changes
 
@@ -42,20 +38,13 @@ Edit `flake.nix`, `nix/`, or `nix/dotfiles/`, validate the repository, review th
 
 ./bin/nix-switch-personal-macos
 ./bin/nix-switch-work-macos
-./bin/nix-switch-personal-arch
-./bin/nix-switch-personal-debian
 ```
 
 The wrappers run these flake-native commands:
 
 ```bash
-# macOS
 sudo --set-home nix run .#darwin-rebuild -- switch --flake .#personal-macos
 sudo --set-home nix run .#darwin-rebuild -- switch --flake .#work-macos
-
-# Linux
-nix run .#home-manager -- switch --flake .#personal-arch
-nix run .#home-manager -- switch --flake .#personal-debian
 ```
 
 Configuration and dotfile changes are store-backed and take effect only after a successful rebuild. On macOS, activation keeps the existing primary user's login shell pointed at the Nix-managed Fish and reloads an active tmux server after Home Manager links the new configuration. Normal switches do not remove unmanaged software.
@@ -159,11 +148,9 @@ Run comprehensive validation explicitly with:
 ./bin/nix-validate
 ```
 
-GitHub Actions runs formatting, static analysis, all-system evaluation, and fully realizes both Linux Home Manager configurations plus the Linux checks on Ubuntu. A separate hosted Apple Silicon job fully realizes both Darwin configurations plus the Comin deployment and launchd-boundary checks. The workflow runs for pull requests and pushes to `main`, but does not gate direct pushes.
+GitHub Actions runs formatting, static analysis, all-system package/check evaluation, and Linux-native checks on Ubuntu. A separate hosted Apple Silicon job fully realizes both Darwin configurations plus the Comin deployment and launchd-boundary checks. The workflow runs for pull requests and pushes to `main`, but does not gate direct pushes.
 
 `./bin/nix-validate` provides the same comprehensive validation as an explicit local preflight for the current platform. Lefthook only enforces commit-message formatting, so run the validation explicitly before pushing changes that should be checked prior to automatic deployment.
-
-Cross-platform realization remains platform-specific locally: Darwin cannot natively build the Linux configurations, and Linux cannot natively build the Darwin configurations. GitHub Actions realizes every supported configuration on its native platform.
 
 ## Audit
 
@@ -178,7 +165,7 @@ nix run .#audit -- personal-macos
 ./bin/nix-audit personal-macos --json > audit.json
 ```
 
-External items may be intentional, especially native Linux packages and applications installed by corporate management. Review the report and handle them manually if desired.
+External items may be intentional, especially applications installed by corporate management. Review the report and handle them manually if desired.
 
 ## macOS package sources
 
@@ -217,15 +204,4 @@ nix run .#darwin-rebuild -- --list-generations
 sudo --set-home nix run .#darwin-rebuild -- switch --rollback
 ```
 
-Home Manager:
-
-```bash
-nix run .#home-manager -- generations
-# Run the `activate` path printed for the generation you want.
-```
-
 nix-darwin optimizes the store automatically and runs weekly garbage collection, deleting generations/store paths older than 30 days.
-
-## Linux ownership boundary
-
-Arch and Debian are non-NixOS hosts. Nix does not own kernel/system updates, services, `/etc`, drivers, desktop integration, native package drift, or login-shell installation. Use `nix-audit personal-arch` or `nix-audit personal-debian` (add `--json` for JSON) for a read-only `pacman -Qqe` or `apt-mark showmanual` report and to verify that `/usr/bin/fish` is installed, registered in `/etc/shells`, and configured as the account login shell.
