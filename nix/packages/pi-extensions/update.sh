@@ -52,5 +52,5 @@ esac
 
 project_npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 project_npm ci --dry-run --ignore-scripts --no-audit --no-fund >/dev/null
-nix build "$repo_root#pi-extensions.dependencies" --no-link
+nix build "$repo_root#pi-extensions" --no-link
 printf 'Updated the pinned Pi extension closure\n'
