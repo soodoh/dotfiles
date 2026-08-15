@@ -7,5 +7,6 @@
     pkgs.google-cloud-sdk
     pkgs.dotfilesPackages.twg
     pkgs.dotfilesPackages.mcp-servers-work
+    (pkgs.lib.hiPrio pkgs.corepack)
   ];
 }
