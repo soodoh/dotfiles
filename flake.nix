@@ -9,11 +9,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    comin = {
-      url = "github:nlewo/comin";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -42,7 +37,6 @@
     inputs@{
       nixpkgs,
       nix-darwin,
-      comin,
       home-manager,
       nix-homebrew,
       ...
@@ -100,7 +94,6 @@
           };
           modules = [
             nix-homebrew.darwinModules.nix-homebrew
-            comin.darwinModules.comin
             home-manager.darwinModules.home-manager
             ./nix/modules/darwin
           ];
@@ -267,76 +260,6 @@
         // lib.optionalAttrs (system == "aarch64-darwin") {
           personal-macos = darwinConfigurations.personal-macos.system;
           work-macos = darwinConfigurations.work-macos.system;
-          comin-deployment-config =
-            let
-              isValid =
-                hostname:
-                let
-                  hostConfig = darwinConfigurations.${hostname}.config;
-                  cominConfig = hostConfig.services.comin;
-                  remoteCount = builtins.length cominConfig.remotes;
-                  remote = lib.head cominConfig.remotes;
-                in
-                cominConfig.enable
-                && cominConfig.hostname == hostname
-                && cominConfig.buildTimeout == 7200
-                && remoteCount == 1
-                && remote.name == "origin"
-                && remote.url == "https://github.com/soodoh/dotfiles.git"
-                && remote.branches.main.name == "main"
-                && remote.branches.main.operation == "switch"
-                && remote.branches.testing.name == ""
-                && remote.poller.period == 300
-                && hostConfig.launchd.daemons.comin.command == "/run/current-system/sw/bin/comin-supervisor";
-            in
-            assert lib.assertMsg (isValid "personal-macos")
-              "personal-macos has an invalid Comin deployment configuration";
-            assert lib.assertMsg (isValid "work-macos")
-              "work-macos has an invalid Comin deployment configuration";
-            pkgs.runCommand "comin-deployment-config" { } ''
-              touch "$out"
-            '';
-          comin-darwin-activation =
-            let
-              workConfig = darwinConfigurations.work-macos.config;
-              cominEnvironment = workConfig.launchd.daemons.comin.serviceConfig.EnvironmentVariables;
-              cominPath = cominEnvironment.PATH;
-              corporateCertificate = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem";
-              cominPlist = workConfig.environment.launchDaemons."com.github.nlewo.comin.plist".source;
-              cominYaml =
-                (import "${comin}/nix/comin-config.nix" {
-                  config = workConfig;
-                  inherit pkgs lib;
-                }).cominConfigYaml;
-              homeApps =
-                workConfig.home-manager.users."paul.diloreto".home.file."Applications/Home Manager Apps".source;
-            in
-            pkgs.runCommand "comin-darwin-activation" { } ''
-              test -d '${homeApps}'
-              grep -F '/run/current-system/sw/bin/comin-supervisor' '${cominPlist}'
-              if grep -E '/nix/store/[^ ]+-(comin|comin-supervisor)' '${cominPlist}'; then
-                echo >&2 "Comin launchd command is generation-specific"
-                exit 1
-              fi
-              grep -F 'post_deployment_command:' '${cominYaml}'
-              grep -F '/bin/kill -HUP "$COMIN_SUPERVISOR_PID"' '${workConfig.services.comin.postDeploymentCommand}'
-              grep -F '/bin/ps -p "$PPID" -o command=' '${workConfig.system.build.toplevel}/activate'
-              grep -F "grep -Eq '(^|/)comin( |$)'" '${workConfig.system.build.toplevel}/activate'
-              grep -F '/usr/bin/cmp -s' '${workConfig.system.build.toplevel}/activate'
-              checks_line="$(grep -n '/bin/ps -p \"$PPID\" -o command=' '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
-              launchd_line="$(grep -n 'setting up launchd services' '${workConfig.system.build.toplevel}/activate' | cut -d: -f1)"
-              test "$checks_line" -lt "$launchd_line"
-              test '${cominPath}' = '/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin'
-              test '${cominEnvironment.NIX_SSL_CERT_FILE}' = '${corporateCertificate}'
-              test '${cominEnvironment.SSL_CERT_FILE}' = '${corporateCertificate}'
-              test '${cominEnvironment.GIT_SSL_CAINFO}' = '${corporateCertificate}'
-              test '${cominEnvironment.CURL_CA_BUNDLE}' = '${corporateCertificate}'
-              if rg -U 'system\.activationScripts\.launchd[[:space:]]*=' ${./nix/modules/darwin/comin.nix}; then
-                echo >&2 "Comin still overrides nix-darwin launchd activation"
-                exit 1
-              fi
-              touch "$out"
-            '';
         }
       );
 

@@ -70,5 +70,3 @@ jobs:
           nix build --no-link
           .#darwinConfigurations.personal-macos.system
           .#darwinConfigurations.work-macos.system
-          .#checks.aarch64-darwin.comin-deployment-config
-          .#checks.aarch64-darwin.comin-darwin-activation

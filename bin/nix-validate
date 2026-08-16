@@ -21,9 +21,7 @@ current_system="$(nix eval --impure --raw --expr builtins.currentSystem)"
 if [[ "$current_system" == *-darwin ]]; then
   nix build --no-link \
     .#darwinConfigurations.personal-macos.system \
-    .#darwinConfigurations.work-macos.system \
-    ".#checks.$current_system.comin-deployment-config" \
-    ".#checks.$current_system.comin-darwin-activation"
+    .#darwinConfigurations.work-macos.system
 fi
 nix build --no-link ".#packages.$current_system".{pi,twg,pi-extensions}
 nix build --no-link ".#checks.$current_system".{immutable-plugin-policy,audit-external-state}

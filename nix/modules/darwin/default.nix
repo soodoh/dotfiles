@@ -9,7 +9,6 @@
 {
   imports = [
     ./applications.nix
-    ./comin.nix
     ./homebrew.nix
     ./login-items.nix
     ./defaults.nix
