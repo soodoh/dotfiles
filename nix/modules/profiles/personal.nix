@@ -1,4 +1,7 @@
 { pkgs, ... }:
 {
-  home.packages = [ pkgs.playwright-mcp ];
+  home.packages = [
+    pkgs.awscli2
+    pkgs.playwright-mcp
+  ];
 }
