@@ -22,9 +22,9 @@ The common tool and dotfile layer must remain Linux-compatible. macOS packages, 
 
 ```bash
 mise --env personal-macos run status
-mise --env personal-macos bootstrap
+MISE_ENV=personal-macos mise bootstrap
 mise --env work-macos run status
-mise --env work-macos bootstrap
+MISE_ENV=work-macos mise bootstrap
 mise run validate
 mise --env personal-macos run update
 ```

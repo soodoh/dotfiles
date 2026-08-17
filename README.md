@@ -24,11 +24,11 @@ There is no default profile. Always select one explicitly:
 
 ```bash
 mise --env personal-macos run status
-mise --env personal-macos bootstrap
+MISE_ENV=personal-macos mise bootstrap
 
 # Or on the work Mac:
 mise --env work-macos run status
-mise --env work-macos bootstrap
+MISE_ENV=work-macos mise bootstrap
 ```
 
 An inline pre-package guard rejects a profile-less bootstrap. Normal bootstrap installs missing state without pruning undeclared software or broadly upgrading existing applications.
@@ -126,7 +126,7 @@ Revert the configuration commit and bootstrap the same explicit profile again:
 
 ```bash
 git revert <commit>
-mise --env personal-macos bootstrap
+MISE_ENV=personal-macos mise bootstrap
 ```
 
 Runtime and application data are not rolled back. Follow [`docs/cutover.md`](docs/cutover.md) before removing the previous machine manager.

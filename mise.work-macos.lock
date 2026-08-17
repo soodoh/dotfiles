@@ -5,19 +5,19 @@ version = "3.0.0-beta.10"
 backend = "http:azure-mcp"
 
 [tools."http:azure-mcp"."platforms.linux-arm64"]
-checksum = "sha256:2b5411a63e7f473671da6ae6b670799465fd0a86800bea51546aaa1ed5d69dc6"
+checksum = "sha256:5fdf06ab7f89fd3ff64c67cdf9cafb770c04dc12e418b4e4339418b1abfaa256"
 url = "https://github.com/microsoft/mcp/releases/download/Azure.Mcp.Server-3.0.0-beta.10/Azure.Mcp.Server-linux-arm64.zip"
 
 [tools."http:azure-mcp"."platforms.linux-x64"]
-checksum = "sha256:db0ae9c9356e9d3e787580f56ac7150d14d6d80379369a15faadd452de5d4128"
+checksum = "sha256:dbede551d3ee0901bd92b48064c1e0e7c094100c7c85a0b16f755355532de376"
 url = "https://github.com/microsoft/mcp/releases/download/Azure.Mcp.Server-3.0.0-beta.10/Azure.Mcp.Server-linux-x64-native.zip"
 
 [tools."http:azure-mcp"."platforms.macos-arm64"]
-checksum = "sha256:df7ae0f9f9c807f54965b54a4cfedbf3cdbd05b7039df9da60530ec8f2c5cc4c"
+checksum = "sha256:b48175ccf10ab76baaba34268ccf9b671abb025a820ed75e1576307c3ed6b49a"
 url = "https://github.com/microsoft/mcp/releases/download/Azure.Mcp.Server-3.0.0-beta.10/Azure.Mcp.Server-osx-arm64.zip"
 
 [tools."http:azure-mcp"."platforms.macos-x64"]
-checksum = "sha256:79b4fab22a5b03b21d1b1f7c905ffc18ba472f57d5495aa798be2b130b1ae379"
+checksum = "sha256:adf0d9c681a282a50fb194e6d9fbff52bd3d23f45d0f2497c11f3ecfcec12b08"
 url = "https://github.com/microsoft/mcp/releases/download/Azure.Mcp.Server-3.0.0-beta.10/Azure.Mcp.Server-osx-x64.zip"
 
 [[tools."http:twg"]]
@@ -51,6 +51,7 @@ backend = "npm:figma-developer-mcp"
 [[tools."npm:kusto-mcp"]]
 version = "1.14.0"
 backend = "npm:kusto-mcp"
+
 [[tools."pipx:azure-cli"]]
 version = "2.89.0"
 backend = "pipx:azure-cli"

@@ -48,8 +48,8 @@ The following bootstrap reinstalls those app bundles under mise ownership. Third
 ## 3. Bootstrap exactly one profile
 
 ```bash
-mise --env personal-macos bootstrap
-# or: mise --env work-macos bootstrap
+MISE_ENV=personal-macos mise bootstrap
+# or: MISE_ENV=work-macos mise bootstrap
 ```
 
 Do not add a default profile or infer one from the username. Normal bootstrap installs missing applications but does not broadly upgrade existing applications or remove undeclared/MDM software.
