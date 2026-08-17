@@ -42,7 +42,7 @@ from pathlib import Path
 repo = Path(sys.argv[1])
 home = Path(sys.argv[2])
 out = Path(sys.argv[3])
-path = f"{home}/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+path = f"{home}/.local/share/mise/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 common = {"RunAtLoad": True, "EnvironmentVariables": {"PATH": path}}
 agents = {
     "dev.soodoh.aerospace": {
