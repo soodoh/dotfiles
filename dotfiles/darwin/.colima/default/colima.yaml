@@ -1,0 +1,9 @@
+cpu: 4
+memory: 8
+disk: 100
+arch: aarch64
+runtime: docker
+vmType: vz
+rosetta: true
+mountType: virtiofs
+mountInotify: true

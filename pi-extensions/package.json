@@ -13,7 +13,26 @@
 			"./packages/shared-prompt-history/index.ts",
 			"./packages/statusline/index.ts",
 			"./packages/aidev-track/index.ts",
-			"./packages/tmux-session-status/index.ts"
+			"./packages/tmux-session-status/index.ts",
+			"node_modules/pi-vim/index.ts",
+			"node_modules/pi-openai-fast/index.ts",
+			"node_modules/@plannotator/pi-extension/",
+			"node_modules/pi-mcp-adapter/index.ts",
+			"node_modules/@juicesharp/rpiv-web-tools/index.ts",
+			"node_modules/@juicesharp/rpiv-todo/index.ts",
+			"node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
+			"node_modules/pi-readseek/dist/index.ts",
+			"node_modules/pi-subagents/index.ts",
+			"node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts"
+		],
+		"skills": [
+			"node_modules/pi-mcp-adapter/skills",
+			"node_modules/pi-subagents/skills",
+			"node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
+			"node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns"
+		],
+		"prompts": [
+			"node_modules/pi-subagents/prompts"
 		]
 	},
 	"scripts": {

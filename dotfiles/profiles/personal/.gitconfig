@@ -1,0 +1,7 @@
+[user]
+	name = Paul DiLoreto
+	email = soodohh@pm.me
+[core]
+	excludesFile = ~/.config/.gitignore_global
+[init]
+	defaultBranch = main

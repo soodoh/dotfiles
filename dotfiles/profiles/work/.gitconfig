@@ -1,0 +1,7 @@
+[user]
+	name = Paul DiLoreto
+	email = paul.diloreto@docusign.com
+[core]
+	excludesFile = ~/.config/.gitignore_global
+[init]
+	defaultBranch = main

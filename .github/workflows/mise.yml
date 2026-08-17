@@ -1,0 +1,76 @@
+name: Mise validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install native validation dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential fish libgit2-dev tmux
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
+        with:
+          version: 2026.8.6
+          install: true
+          cache: true
+      - name: Parse both explicit profiles
+        run: mise run validate:config
+      - name: Validate locked shared portable tools
+        run: mise run validate:tools
+      - name: Validate linked sources and shell syntax
+        run: mise run validate:dotfiles
+      - name: Validate Pi, MCP, tmux, and profile tests
+        env:
+          VALIDATE_READSEEK: "1"
+        run: mise run validate:agents
+      - name: Validate clean Neovim
+        run: mise run validate:neovim
+      - name: Validate static macOS declarations and SketchyBar tests
+        run: mise run validate:macos
+      - name: Validate TWG metadata and stale paths
+        env:
+          VALIDATE_TWG_DOWNLOADS: "1"
+        run: mise run validate:repository
+
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install ReadSeek native dependency
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: brew install fish libgit2
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
+        with:
+          version: 2026.8.6
+          install: true
+          cache: true
+      - name: Parse both explicit profiles and validate tools
+        run: |
+          mise run validate:config
+          mise run validate:tools
+      - name: Validate linked sources and shell syntax
+        run: mise run validate:dotfiles
+      - name: Validate Pi, MCP, ReadSeek, tmux, and profile tests
+        env:
+          VALIDATE_READSEEK: "1"
+        run: mise run validate:agents
+      - name: Validate clean Neovim
+        run: mise run validate:neovim
+      - name: Validate static macOS declarations and SketchyBar tests
+        run: mise run validate:macos
+      - name: Validate repository policy
+        run: mise run validate:repository

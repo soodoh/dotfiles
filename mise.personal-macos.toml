@@ -1,0 +1,44 @@
+[env]
+DOTFILES_PROFILE = "personal-macos"
+
+[vars]
+profile = "personal-macos"
+
+[tools]
+"aqua:aws/aws-cli" = "2.35.11"
+
+[bootstrap.packages]
+"brew-cask:discord" = "latest"
+"brew-cask:anki" = "latest"
+"brew-cask:moonlight" = "latest"
+"brew-cask:google-chrome" = "latest"
+"brew-cask:slack" = "latest"
+"brew-cask:zoom" = "latest"
+"brew-cask:prusaslicer" = "latest"
+"brew-cask:rar" = "latest"
+"mas:1475387142" = "latest"
+"mas:937984704" = "latest"
+"mas:1474276998" = "latest"
+
+[bootstrap.user]
+login_shell = "/opt/homebrew/bin/fish"
+
+[bootstrap.hooks]
+pre-user = "./scripts/bootstrap/macos/login-shell.sh"
+
+[dotfiles]
+"~/.config/fish/conf.d/10-mise-profile.fish" = "dotfiles/profiles/personal/.config/fish/conf.d/10-mise-profile.fish"
+"~/.gitconfig" = "dotfiles/profiles/personal/.gitconfig"
+"~/.pi/agent/settings.json" = "dotfiles/profiles/personal/.pi/agent/settings.json"
+"~/.pi/agent/mcp.json" = "dotfiles/profiles/personal/.pi/agent/mcp.json"
+"~/.pi/agent/models.json" = "dotfiles/profiles/personal/.pi/agent/models.json"
+"~/.pi/agent/extensions/pi-openai-fast.json" = "dotfiles/profiles/personal/.pi/agent/extensions/pi-openai-fast.json"
+"~/.pi/workflows/model-tiers.json" = "dotfiles/profiles/personal/.pi/workflows/model-tiers.json"
+"~/.agents/.skill-lock.json" = "dotfiles/profiles/personal/.agents/.skill-lock.json"
+"~/.agents/skills/find-skills" = "dotfiles/profiles/common/.agents/skills/find-skills"
+"~/.agents/skills/grill-me" = "dotfiles/profiles/common/.agents/skills/grill-me"
+"~/.agents/skills/obsidian-cli" = "dotfiles/profiles/common/.agents/skills/obsidian-cli"
+"~/.agents/skills/playwright-cli" = "dotfiles/profiles/common/.agents/skills/playwright-cli"
+"~/.agents/skills/skill-creator" = "dotfiles/profiles/common/.agents/skills/skill-creator"
+"~/.agents/skills/thermo-nuclear-code-quality-review" = "dotfiles/profiles/common/.agents/skills/thermo-nuclear-code-quality-review"
+"~/.agents/skills/vercel-react-best-practices" = "dotfiles/profiles/common/.agents/skills/vercel-react-best-practices"

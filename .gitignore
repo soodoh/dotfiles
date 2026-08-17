@@ -26,8 +26,11 @@ __pycache__/
 .env.test.local
 .env.production.local
 
-# Specific to my dotfiles
-**/nvim/lazy-lock.json
+# Local mise overrides
+mise.local.toml
+mise.*.local.toml
+mise.local.lock
+mise.*.local.lock
 
 # Local git worktrees
 .worktrees/

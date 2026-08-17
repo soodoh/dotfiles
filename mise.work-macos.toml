@@ -1,0 +1,62 @@
+[env]
+DOTFILES_PROFILE = "work-macos"
+REQUESTS_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
+NODE_EXTRA_CA_CERTS = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
+SSL_CERT_FILE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
+AWS_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
+CURL_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
+HTTPLIB2_CA_CERTS = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
+_.path = [
+  "{{ env.HOME }}/.local/bin",
+  "/Applications/SnowflakeCLI.app/Contents/MacOS",
+  "{{ config_root }}/packages/work-mcp-servers/node_modules/.bin",
+]
+
+[vars]
+profile = "work-macos"
+
+[tools]
+"pipx:azure-cli" = "2.89.0"
+
+[tools."http:azure-mcp"]
+version = "3.0.0-beta.10"
+rename_exe = { azmcp = "azure-mcp" }
+
+[tools."http:azure-mcp".platforms]
+macos-arm64 = { url = "https://github.com/microsoft/mcp/releases/download/Azure.Mcp.Server-3.0.0-beta.10/Azure.Mcp.Server-osx-arm64.zip", checksum = "sha256:df7ae0f9f9c807f54965b54a4cfedbf3cdbd05b7039df9da60530ec8f2c5cc4c" }
+macos-x64 = { url = "https://github.com/microsoft/mcp/releases/download/Azure.Mcp.Server-3.0.0-beta.10/Azure.Mcp.Server-osx-x64.zip", checksum = "sha256:79b4fab22a5b03b21d1b1f7c905ffc18ba472f57d5495aa798be2b130b1ae379" }
+linux-arm64 = { url = "https://github.com/microsoft/mcp/releases/download/Azure.Mcp.Server-3.0.0-beta.10/Azure.Mcp.Server-linux-arm64.zip", checksum = "sha256:2b5411a63e7f473671da6ae6b670799465fd0a86800bea51546aaa1ed5d69dc6" }
+linux-x64 = { url = "https://github.com/microsoft/mcp/releases/download/Azure.Mcp.Server-3.0.0-beta.10/Azure.Mcp.Server-linux-x64-native.zip", checksum = "sha256:db0ae9c9356e9d3e787580f56ac7150d14d6d80379369a15faadd452de5d4128" }
+
+[tools."http:twg"]
+version = "1.1.1"
+bin = "twg"
+
+[tools."http:twg".platforms]
+macos-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v1.1.1", checksum = "sha256:9f7cfab754ac759cb5b04ee88661c0ce21375414ec88283d6d6f098dd20aaf83" }
+macos-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.1.1", checksum = "sha256:4037a9ace273e9e9d61e6ad2063b273de6d79f5fd7b116096d484a30e8522873" }
+linux-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v1.1.1", checksum = "sha256:8de4d5ad3fe2c35cf03bdb07333964169b51969ff9f8c13b94248222c9be0bc4" }
+linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.1.1", checksum = "sha256:226104f5497dfa2305d75f9f3efc174ac0f7752ad74f4c964b70d57cc6a69a17" }
+
+[bootstrap.packages]
+"brew-cask:gcloud-cli" = "latest"
+"mas:937984704" = "latest"
+
+[bootstrap.user]
+login_shell = "/opt/homebrew/bin/fish"
+
+[bootstrap.hooks]
+pre-packages = "DOTFILES_PROFILE=work-macos ./scripts/bootstrap/work-ca-preflight.sh"
+pre-user = "./scripts/bootstrap/macos/login-shell.sh"
+
+[dotfiles]
+"~/.config/fish/conf.d/10-mise-profile.fish" = "dotfiles/profiles/work/.config/fish/conf.d/10-mise-profile.fish"
+"~/.gitconfig" = "dotfiles/profiles/work/.gitconfig"
+"~/.pi/agent/settings.json" = "dotfiles/profiles/work/.pi/agent/settings.json"
+"~/.pi/agent/mcp.json" = "dotfiles/profiles/work/.pi/agent/mcp.json"
+"~/.pi/agent/models.json" = "dotfiles/profiles/work/.pi/agent/models.json"
+"~/.pi/agent/extensions/pi-openai-fast.json" = "dotfiles/profiles/work/.pi/agent/extensions/pi-openai-fast.json"
+"~/.pi/workflows/model-tiers.json" = "dotfiles/profiles/work/.pi/workflows/model-tiers.json"
+"~/.pi/workflows/saved" = "dotfiles/profiles/work/.pi/workflows/saved"
+"~/.agents/.skill-lock.json" = "dotfiles/profiles/common/.agents/.skill-lock.json"
+"~/.agents/skills" = "dotfiles/profiles/common/.agents/skills"

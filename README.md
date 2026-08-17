@@ -1,156 +1,148 @@
-# Nix development environments
+# mise development environments
 
-This repository defines two explicit, lock-pinned macOS environments:
+This repository is the canonical configuration for two explicit macOS profiles:
 
-- `darwinConfigurations.personal-macos` — `pauldiloreto@aarch64-darwin`
-- `darwinConfigurations.work-macos` — `paul.diloreto@aarch64-darwin`
+- `personal-macos`
+- `work-macos`
 
-Shared CLI tools, runtimes, Fish configuration, Neovim plugins/tooling, agent packages, and dotfiles are managed by Nix and Home Manager. macOS system settings and applications use nix-darwin. Homebrew is limited to the documented fallback casks, and MAS uses the Nix-provided `mas` CLI.
+The shared mise layer contains pinned runtimes, portable command-line tools, Neovim tooling, Fish configuration, Pi extensions, and common dotfiles. Profile files contain only identity, applications, credentials policy, skills, and agent differences.
 
-## Reusable Home Manager layer
+> [!WARNING]
+> mise machine bootstrap is experimental. This migration intentionally gives up atomic generations and immutable closures. Rollback is Git revert plus another bootstrap.
 
-The platform-neutral user environment is exported as `homeModules.default`; the `personal` and `work` additions are exported under `homeModules` as well. Both Darwin configurations import those same modules, so Neovim and its plugins/tooling, Pi and its extensions, shared CLI packages, runtimes, Fish, and common dotfiles have one implementation.
+## Prerequisite
 
-Linux package outputs remain available for the reusable CLI/package layer even though this flake no longer declares standalone Linux hosts. A future NixOS configuration can apply `overlays.default`, pass compatible `host` metadata through Home Manager's extra special arguments, and import `homeModules.default` plus the desired profile module instead of copying the Darwin configuration or creating a parallel dependency list.
+Install mise manually using the current [official installation instructions](https://mise.jdx.dev/getting-started.html). This repository does not install mise itself and has no default profile.
 
-## Install and activate a configuration
-
-All workstation installation and activation paths use the pinned flake. Clone the repository first:
+Clone the repository and trust its configuration:
 
 ```bash
 git clone https://github.com/soodoh/dotfiles.git
 cd dotfiles
+mise trust
 ```
 
-The macOS bootstrap installs multi-user Nix from `https://nixos.org/nix/install` when needed, then activates exactly one declared configuration:
+## Preflight and bootstrap
+
+Always select one profile explicitly:
 
 ```bash
-# Personal Mac; pass work-macos on the work Mac.
-./bootstrap/nix-macos.sh personal-macos
+mise --env personal-macos run status
+mise --env personal-macos bootstrap
+
+# Or on the work Mac:
+mise --env work-macos run status
+mise --env work-macos bootstrap
 ```
 
-## Apply configuration changes
+The native bootstrap sequence installs missing packages, applies symlinked dotfiles and macOS defaults, installs locked tools, configures the login shell, and automatically runs `[tasks.bootstrap]` as its final reconciliation phase. That final task builds local npm packages and reconciles the Dock, login items, launch agents, and tmux.
+Task auto-install is disabled, so `run status` and validation never provision missing tools as a side effect; the native bootstrap command owns installation.
 
-Edit `flake.nix`, `nix/`, or `nix/dotfiles/`, validate the repository, review the diff, and switch the intended host:
+Bootstrap is non-destructive:
 
-```bash
-./bin/nix-validate
+- undeclared and MDM-installed applications are never removed;
+- work Tailscale remains MDM-owned and is not installed or managed as a login item;
+- normal bootstrap installs missing applications but does not broadly upgrade existing ones;
+- conflicting unmanaged dotfiles are reported rather than replaced unless the operator explicitly chooses mise's force option.
 
-./bin/nix-switch-personal-macos
-./bin/nix-switch-work-macos
+No bootstrap was run against a live home directory while this repository replacement was implemented.
+
+## Layout
+
+- `mise.toml` — shared locked tools, packages, dotfiles, settings, tasks, and hooks
+- `mise.personal-macos.toml`, `mise.work-macos.toml` — profile-only differences
+- `mise*.lock` — exact tool resolution and checksums where supported
+- `dotfiles/common/` — portable user configuration
+- `dotfiles/darwin/` — macOS-only AeroSpace, SketchyBar, and Colima configuration
+- `dotfiles/profiles/` — Git identity, Pi settings, workflows, and skill selection
+- `pi-extensions/` — repository-local Pi package with a committed npm lockfile
+- `packages/work-mcp-servers/` — repository-local work MCP closure
+- `packages/google-calendar/` — tracked work launcher application
+- `scripts/bootstrap/`, `scripts/update/`, `scripts/validate/` — mise-invoked reconciliation and checks
+- `docs/migration-parity.md` — checked migration ledger
+- `docs/cutover.md` — later manual workstation cutover and legacy-system removal
+
+## Dotfiles and writable configuration
+
+mise links all declared files directly into this checkout. Pi settings and saved workflows are intentionally writable symlinks, so Pi can modify tracked files at runtime. Review those changes with Git and either commit or revert them.
+The profile Fish fragment resolves the checkout and points `MISE_GLOBAL_CONFIG_FILE` at its `mise.toml`, so the same locked tool layer remains active outside the repository without copying configuration.
+Fish also activates the selected profile's tool environment, but bootstrap and update guards ignore that inherited value and still require an explicit `--env`/`-E` selector from the operator.
+
+Local Fish secrets remain outside the repository:
+
+```text
+~/.config/fish/conf.d/00-secrets.fish
 ```
 
-The wrappers run these flake-native commands:
+Keep that file mode `0600` and never commit credentials. Authenticate the App Store, GitHub, AWS/Azure/Google/Snowflake CLIs, Pi providers, and MCP services interactively. TWG setup and login remain manual.
 
-```bash
-sudo --set-home nix run .#darwin-rebuild -- switch --flake .#personal-macos
-sudo --set-home nix run .#darwin-rebuild -- switch --flake .#work-macos
-```
+## Neovim
 
-Configuration and dotfile changes are store-backed and take effect only after a successful rebuild. On macOS, activation keeps the existing primary user's login shell pointed at the Nix-managed Fish and reloads an active tmux server after Home Manager links the new configuration. Normal switches do not remove unmanaged software.
+Neovim uses one plugin manager: a commit-pinned lazy.nvim bootstrap with `lazy-lock.json`. Tree-sitter owns the declared parser set. LSP servers, linters, and formatters are locked mise tools; Mason is intentionally absent.
 
-Pi settings that must remain writable are copied from the selected profile after every Home Manager activation. Pi can modify those live files between switches, but the next manual switch replaces them with the committed configuration. Workflow run history under `~/.pi/workflows/projects` is preserved; declared saved workflows are replaced as a unit so repository deletions take effect.
+Clean validation copies the configuration into temporary HOME/XDG directories, synchronizes the lock, loads every plugin module and parser, and checks every configured external executable without modifying the checked-in lock.
 
-## Updates
+## Pi and MCP servers
 
-Activation uses only versions available from pinned sources. `flake.lock` pins Nix inputs, Homebrew itself, and immutable Homebrew tap snapshots. Renovate updates the canonical Pi-extension manifest and npm lockfile together in reviewable pull requests. Manual update targets remain available for flake inputs, bundled Pi packages, and TWG release checksums:
+Pi is pinned through mise's npm backend. Bootstrap runs `npm ci` in `pi-extensions/`, verifies peer packages, aggregates bundled extension/skill/prompt resources, and validates the platform ReadSeek binary. macOS ReadSeek uses Homebrew `libgit2`; Linux uses the platform library package.
 
-```bash
-./bin/nix-update lock
-./bin/nix-update agents pi-readseek 0.9.10
-./bin/nix-update agents pi-subagents 0.45.1
-./bin/nix-update agents all
-./bin/nix-update twg 1.1.1
-./bin/nix-update all
-```
+Work-only MCP servers are installed with `npm ci` under `packages/work-mcp-servers/`. The work environment adds that package's `node_modules/.bin` directory to PATH, and work MCP settings use those repository-local commands.
 
-Review every lockfile diff before switching.
+### Accepted work security exception
 
-Renovate also updates root flake inputs, including the Homebrew cask taps. Do not run `brew update` or `brew upgrade`; pull the reviewed `main` branch and switch instead. Homebrew upgrades during activation can only use package definitions from the locked tap snapshots.
-
-Mac App Store updates are intentionally excluded from activation so unrelated apps are not upgraded. After signing into the App Store, install or update only the declared IDs with:
-
-```bash
-# Personal profile
-mas install 1475387142 937984704 1474276998
-mas update 1475387142 937984704 1474276998
-
-# Work profile
-mas install 937984704
-mas update 937984704
-```
-
-Pi and every configured third-party Pi package are installed from a Nix-built npm closure. Settings reference only the store-backed local package; Pi does not need to populate `~/.pi/agent/npm` at startup.
+The work LiteLLM endpoint remains cleartext HTTP by explicit owner decision. Its test is an expected failure: validation confirms that the test still reports the known exception and must not present it as a passing security check. Revisit this when the endpoint supports TLS.
 
 ## Validation
 
-Install the tracked Git hooks after cloning or whenever the hook setup changes:
+Run the complete repository suite without applying workstation state:
 
 ```bash
-corepack npm ci
-corepack npm exec -- lefthook install
+mise run validate
 ```
 
-Run comprehensive validation explicitly with:
+Focused tasks are also available:
+
+```text
+validate:config
+validate:tools
+validate:dotfiles
+validate:neovim
+validate:agents
+validate:macos
+validate:repository
+```
+
+CI represents both Ubuntu and macOS. It parses both profiles, installs the locked shared portable layer, runs npm and profile tests, starts Neovim in a clean temporary environment, validates Fish and shell scripts, tests tmux and SketchyBar helpers, checks TWG metadata, and rejects stale runtime paths. CI does not run a real machine bootstrap, change a login shell or Dock, load workstation services, or install App Store applications.
+
+## Updates
+
+Updates are explicit and reviewable:
 
 ```bash
-./bin/nix-validate
+mise --env personal-macos run update:tools
+mise --env personal-macos run update:agents
+mise --env personal-macos run update:skills
+mise --env personal-macos run update:neovim
+mise --env personal-macos run update:apps
+mise --env personal-macos run update:mas
+mise --env personal-macos run update:twg
 ```
 
-GitHub Actions runs formatting, static analysis, all-system package/check evaluation, and Linux-native checks on Ubuntu. A separate hosted Apple Silicon job fully realizes both Darwin configurations. The workflow runs for pull requests and pushes to `main`, but does not gate direct pushes.
+Use `work-macos` on the work profile. `update:apps` and `update:mas` are the only tasks intended to upgrade declared GUI/App Store applications. Nothing prunes undeclared software.
 
-`./bin/nix-validate` provides the same comprehensive validation as an explicit local preflight for the current platform. Lefthook only enforces commit-message formatting, so run the validation explicitly before applying configuration changes.
+Renovate continues npm, GitHub Actions, and supported mise version updates. Pi dependency changes stay atomic and exact. Repository-specific generation for skills and TWG remains in the generated-dependencies workflow.
 
-## Audit
+## Rollback
 
-Audit is side-effect free and reports declared state, software and configuration outside Nix ownership, and declared Homebrew or MAS applications that are missing. It never removes anything:
+There is no atomic machine rollback. Revert the configuration commit, review the diff, and run the same explicit profile bootstrap again:
 
 ```bash
-./bin/nix-audit personal-macos
-# equivalent
-nix run .#audit -- personal-macos
-
-# Persist machine-readable output explicitly when needed.
-./bin/nix-audit personal-macos --json > audit.json
+git revert <commit>
+mise --env personal-macos bootstrap
 ```
 
-External items may be intentional, especially applications installed by corporate management. Review the report and handle them manually if desired.
+Runtime or application data is not rolled back. Back up mutable configuration before major changes.
 
-## macOS package sources
+## Workstation cutover
 
-Nix owns the CLI environment and maintained macOS packages. Homebrew owns only the fallback casks below; Homebrew itself and every package tap are immutable inputs pinned by `flake.lock`. There are no Homebrew formulas:
-
-- personal casks: `nextcloud`, `prusaslicer`, `wispr-flow`, `zen`
-- work casks: `nextcloud`, `snowflakedb/snowflake-cli/snowflake-cli`, `wispr-flow`, `zen`
-
-Ordinary activation installs/upgrades desired casks only from the locked tap revisions and uses `cleanup = "none"`, so unmanaged packages continue to exist. Tap metadata and installer checksums are reproducible from `flake.lock`; applications with built-in self-updaters can still update themselves outside Homebrew.
-MAS IDs are declared per host. Current IDs include Tailscale `1475387142`, Amphetamine `937984704`, and HP `1474276998`. If the App Store account is unavailable, activation warns and skips App Store work; use the exact profile-specific commands above after signing in. Credentials are never stored in Nix.
-
-## Containers
-
-Nix installs Colima, Docker, and Compose. Home Manager manages `~/.colima/default/colima.yaml` as a store-backed symlink while Colima's runtime state remains writable, and the user launchd agent starts Colima at login with the Docker runtime, Apple Virtualization, VirtioFS, and Rosetta enabled.
-
-## Manual authentication and secrets
-
-Keep secrets and authenticated sessions outside the Nix store:
-
-- create `~/.config/fish/conf.d/00-secrets.fish` locally; Fish loads it through its standard `conf.d` mechanism;
-- keep API credentials only in that local mode-`0600` file and never commit it;
-- sign into the Mac App Store interactively;
-- run `twg setup`/`twg login` manually on the work profile;
-- authenticate GitHub, Azure, Snowflake, Pi providers, and other CLIs as needed.
-
-### Known work-profile security exception
-
-The owner explicitly accepted preserving the work profile's LiteLLM default at `http://192.168.0.100:4000/v1`. Its committed `settings.security.test.mjs` remains a documented expected failure and must not be represented as a passing security check; repository validation may proceed only with this recorded exception. Revisit the exception when that endpoint supports TLS.
-
-## Rollback and garbage collection
-
-macOS:
-
-```bash
-nix run .#darwin-rebuild -- --list-generations
-sudo --set-home nix run .#darwin-rebuild -- switch --rollback
-```
-
-nix-darwin optimizes the store automatically and runs weekly garbage collection, deleting generations/store paths older than 30 days.
+Do not remove the previous machine manager first. Follow [`docs/cutover.md`](docs/cutover.md), verify the new Fish path and complete smoke tests, and only then perform the documented manual removal and reboot checks.

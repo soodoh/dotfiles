@@ -1,0 +1,7 @@
+#!/bin/sh
+chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+url="https://calendar.google.com/calendar/r"
+if [ -x "$chrome" ]; then
+  exec "$chrome" --app="$url"
+fi
+exec /usr/bin/open "$url"

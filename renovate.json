@@ -6,9 +6,9 @@
     ":maintainLockFilesWeekly",
     "helpers:pinGitHubActionDigests"
   ],
-  "nix": {
-    "enabled": true
-  },
+  "ignorePaths": [
+    "dotfiles/common/.config/nvim/lazy-lock.json"
+  ],
   "packageRules": [
     {
       "matchDepTypes": [
@@ -18,8 +18,9 @@
       "rangeStrategy": "bump"
     },
     {
-      "description": "Keep Node aligned with the Nix nodejs_24 runtime",
+      "description": "Keep Node 24 aligned across mise and the idiomatic version file",
       "matchManagers": [
+        "mise",
         "nvm"
       ],
       "matchPackageNames": [
@@ -28,15 +29,11 @@
       "allowedVersions": ">=24 <25"
     },
     {
-      "description": "Update immutable Homebrew tap snapshots together",
+      "description": "Keep explicitly managed mise tools pinned",
       "matchManagers": [
-        "nix"
+        "mise"
       ],
-      "matchPackageNames": [
-        "https://github.com/Homebrew/homebrew-cask",
-        "https://github.com/snowflakedb/homebrew-snowflake-cli"
-      ],
-      "groupName": "Homebrew taps"
+      "rangeStrategy": "pin"
     },
     {
       "description": "Update repository-level development tooling together",
@@ -61,22 +58,18 @@
         "dependencies"
       ],
       "rangeStrategy": "pin"
+    },
+    {
+      "description": "lazy.nvim commits and generated skills use explicit update tasks",
+      "matchFileNames": [
+        "dotfiles/common/.config/nvim/lazy-lock.json",
+        "dotfiles/profiles/common/.agents/**",
+        "dotfiles/profiles/personal/.agents/.skill-lock.json"
+      ],
+      "enabled": false
     }
   ],
   "customManagers": [
-    {
-      "customType": "regex",
-      "description": "Track custom Neovim plugins by default-branch commit",
-      "managerFilePatterns": [
-        "/^nix/modules/common/neovim\\.nix$/"
-      ],
-      "matchStrings": [
-        "# renovate: packageName=(?<packageName>\\S+) currentValue=(?<currentRef>\\S+)\\s+[\\s\\S]*?\\\"(?<currentDigest>[a-f0-9]{40})\\\""
-      ],
-      "currentValueTemplate": "{{{currentRef}}}",
-      "depNameTemplate": "{{{packageName}}}",
-      "datasourceTemplate": "github-digest"
-    },
     {
       "customType": "regex",
       "description": "Track tools invoked by the generated dependency workflow",

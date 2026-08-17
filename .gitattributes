@@ -1,2 +1,2 @@
-# Store-backed migrated snapshots preserve upstream/vendor formatting verbatim.
-nix/dotfiles/** -whitespace
+# Vendored skill snapshots preserve upstream formatting verbatim.
+dotfiles/profiles/common/.agents/skills/** -whitespace
