@@ -21,8 +21,17 @@ install_cask_if_missing() {
   local token=$1 specification=$2
   brew list --cask --versions "$token" >/dev/null 2>&1 || brew install --cask "$specification"
 }
+
+install_formula_if_missing() {
+  local formula=$1 specification=$2
+  brew list --formula --versions "$formula" >/dev/null 2>&1 || brew install "$specification"
+}
+
 brew tap nikitabobko/tap
 install_cask_if_missing aerospace nikitabobko/tap/aerospace
+brew tap FelixKratz/formulae
+install_formula_if_missing sketchybar FelixKratz/formulae/sketchybar
+install_formula_if_missing borders FelixKratz/formulae/borders
 
 profile=${DOTFILES_PROFILE:-${MISE_ENV:-}}
 if [[ $profile == work-macos ]]; then
