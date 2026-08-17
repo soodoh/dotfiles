@@ -48,14 +48,16 @@ for app in "${apps[@]}"; do
     ((position += 1))
     continue
   fi
-  if ! dockutil --find "$app" >/dev/null 2>&1; then
-    dockutil --add "$app" --position "$position" --no-restart >/dev/null
+  name=$(basename "$app" .app)
+  if dockutil --find "$app" >/dev/null 2>&1; then
+    dockutil --move "$name" --position "$position" --no-restart >/dev/null
+    changed=true
+  elif dockutil --find "$name" >/dev/null 2>&1; then
+    dockutil --add "$app" --replacing "$name" --position "$position" --no-restart >/dev/null
     changed=true
   else
-    name=$(basename "$app" .app)
-    if dockutil --move "$name" --position "$position" --no-restart >/dev/null 2>&1; then
-      changed=true
-    fi
+    dockutil --add "$app" --position "$position" --no-restart >/dev/null
+    changed=true
   fi
   ((position += 1))
 done
