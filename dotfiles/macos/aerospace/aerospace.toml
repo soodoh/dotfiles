@@ -1,0 +1,185 @@
+# Version 2 stops inferring persistent workspaces from key bindings.
+config-version = 2
+
+# Preserve the four workspaces used by bindings and monitor assignments.
+persistent-workspaces = ['1', '2', '3', '4']
+
+# Startup and companion services are managed by mise-installed launch agents.
+after-login-command = []
+after-startup-command = ['exec-and-forget sketchybar']
+start-at-login = false
+
+# Notify SketchyBar about workspace changes. The launch agent PATH exposes the
+# mise/Homebrew-managed executable.
+exec-on-workspace-change = [
+  '/bin/bash',
+  '-c',
+  'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE',
+]
+
+# Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+# See: https://nikitabobko.github.io/AeroSpace/guide#layouts
+# The 'accordion-padding' specifies the size of accordion padding
+# You can set 0 to disable the padding feature
+accordion-padding = 30
+
+# Possible values: tiles|accordion
+default-root-container-layout = 'tiles'
+
+# Possible values: horizontal|vertical|auto
+# 'auto' means: wide monitor (anything wider than high) gets horizontal orientation,
+#               tall monitor (anything higher than wide) gets vertical orientation
+default-root-container-orientation = 'auto'
+
+# Possible values: (qwerty|dvorak)
+# See https://nikitabobko.github.io/AeroSpace/guide#key-mapping
+key-mapping.preset = 'qwerty'
+
+# Mouse follows focus when focused monitor changes
+on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+
+# Gaps between windows (inner-*) and between monitor edges (outer-*).
+# Possible values:
+# - Constant:     gaps.outer.top = 8
+# - Per monitor:  gaps.outer.top = [{ monitor.main = 16 }, { monitor."some-pattern" = 32 }, 24]
+#                 In this example, 24 is a default value when there is no match.
+#                 Monitor pattern is the same as for 'workspace-to-monitor-force-assignment'.
+#                 See: https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
+[gaps]
+inner.horizontal = 10
+inner.vertical = 5
+outer.top = [{ monitor."Built-in" = 5 }, 40]
+outer.right = 10
+outer.bottom = 10
+outer.left = 10
+
+[mode.main.binding]
+alt-ctrl-shift-enter = 'exec-and-forget /usr/bin/open "/Applications/Ghostty.app"'
+# Opens default web browser
+cmd-alt-ctrl-shift-enter = 'exec-and-forget /usr/libexec/PlistBuddy -c "Print :LSHandlers" ~/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist | awk "/LSHandlerContentType.*default-app\.web-browser/{flag=1} flag && /LSHandlerRoleAll = /{gsub(/.* = /,\"\"); gsub(/;/,\"\"); print; exit}" | xargs open -b'
+
+cmd-h = []     # Disable "hide application"
+cmd-alt-h = [] # Disable "hide others"
+
+alt-ctrl-shift-h = 'focus left --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
+alt-ctrl-shift-j = 'focus down --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
+alt-ctrl-shift-k = 'focus up --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
+alt-ctrl-shift-l = 'focus right --boundaries all-monitors-outer-frame --boundaries-action wrap-around-all-monitors'
+
+cmd-alt-ctrl-shift-h = 'move left --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+cmd-alt-ctrl-shift-j = 'move down --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+cmd-alt-ctrl-shift-k = 'move up --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+cmd-alt-ctrl-shift-l = 'move right --boundaries all-monitors-outer-frame --boundaries-action create-implicit-container'
+
+alt-ctrl-shift-y = 'workspace 1'
+alt-ctrl-shift-u = 'workspace 2'
+alt-ctrl-shift-i = 'workspace 3'
+alt-ctrl-shift-o = 'workspace 4'
+# Numbered alternative bindings
+alt-ctrl-shift-1 = 'workspace 1'
+alt-ctrl-shift-2 = 'workspace 2'
+alt-ctrl-shift-3 = 'workspace 3'
+alt-ctrl-shift-4 = 'workspace 4'
+
+cmd-alt-ctrl-shift-y = 'move-node-to-workspace --focus-follows-window 1'
+cmd-alt-ctrl-shift-u = 'move-node-to-workspace --focus-follows-window 2'
+cmd-alt-ctrl-shift-i = 'move-node-to-workspace --focus-follows-window 3'
+cmd-alt-ctrl-shift-o = 'move-node-to-workspace --focus-follows-window 4'
+# Numbered alternative bindings
+cmd-alt-ctrl-shift-1 = 'move-node-to-workspace --focus-follows-window 1'
+cmd-alt-ctrl-shift-2 = 'move-node-to-workspace --focus-follows-window 2'
+cmd-alt-ctrl-shift-3 = 'move-node-to-workspace --focus-follows-window 3'
+cmd-alt-ctrl-shift-4 = 'move-node-to-workspace --focus-follows-window 4'
+
+alt-ctrl-shift-f = 'fullscreen'
+alt-ctrl-shift-t = 'layout h_accordion tiles'         # 'layout tabbed' in i3
+alt-ctrl-shift-s = 'layout tiles horizontal vertical' # 'layout toggle split' in i3
+alt-ctrl-shift-space = 'layout floating tiling'       # 'floating toggle' in i3
+alt-ctrl-shift-r = 'balance-sizes'
+
+cmd-alt-ctrl-shift-v = 'reload-config'
+cmd-alt-ctrl-shift-r = 'mode resize'
+
+alt-ctrl-shift-w = [
+  'move-workspace-to-monitor --wrap-around next',
+  'exec-and-forget sketchybar --trigger aerospace_monitor_change TARGET_MONITOR=$(aerospace list-monitors --focused --format "%{monitor-appkit-nsscreen-screens-id}") FOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)',
+]
+cmd-alt-ctrl-shift-w = [
+  'move-workspace-to-monitor --wrap-around prev',
+  'exec-and-forget sketchybar --trigger aerospace_monitor_change TARGET_MONITOR=$(aerospace list-monitors --focused --format "%{monitor-appkit-nsscreen-screens-id}") FOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)',
+]
+
+[mode.resize.binding]
+h = 'resize width -50'
+j = 'resize height +50'
+k = 'resize height -50'
+l = 'resize width +50'
+enter = ['balance-sizes', 'mode main']
+esc = 'mode main'
+
+# This prevents "move-workspace-to-monitor" from working
+[workspace-to-monitor-force-assignment]
+1 = 'main'
+2 = 'main'
+3 = 'main'
+4 = 'secondary'
+
+# Automatically move applications to preferred workspace
+# Main workspaces
+[[on-window-detected]]
+if.app-name-regex-substring = 'google chrome'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 1']
+
+[[on-window-detected]]
+if.app-name-regex-substring = 'ghostty'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 1']
+
+# "Organization" apps
+[[on-window-detected]]
+if.app-name-regex-substring = '(?i)(firefox|google chrome|zen)'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 2']
+
+[[on-window-detected]]
+if.app-name-regex-substring = 'slack'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 2']
+
+# "Other" apps
+[[on-window-detected]]
+if.app-name-regex-substring = 'messages'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 3']
+
+[[on-window-detected]]
+if.app-name-regex-substring = 'obsidian'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 3']
+
+[[on-window-detected]]
+if.app-name-regex-substring = 'music'
+if.during-aerospace-startup = true
+check-further-callbacks = true
+run = ['move-node-to-workspace 4']
+
+# Float Bitwarden extension popups
+[[on-window-detected]]
+if.app-id = 'app.zen-browser.zen'
+if.window-title-regex-substring = 'Extension:'
+run = ['layout floating']
+
+[[on-window-detected]]
+if.app-name-regex-substring = '(?i)(firefox|google chrome)'
+if.window-title-regex-substring = '(?i)bitwarden'
+run = ['layout floating']

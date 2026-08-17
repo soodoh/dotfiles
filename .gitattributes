@@ -1,5 +1,5 @@
 # Vendored skill snapshots preserve upstream formatting verbatim.
-dotfiles/profiles/common/.agents/skills/** -whitespace
+dotfiles/*/agents/skills/** -whitespace
 
 # Colima renders its complete generated configuration through the linked file.
-dotfiles/darwin/.colima/default/colima.yaml -whitespace
+dotfiles/macos/colima/colima.yaml -whitespace

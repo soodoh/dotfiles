@@ -5,16 +5,14 @@ This repository is the canonical configuration for two explicit macOS profiles:
 - `personal-macos`
 - `work-macos`
 
-The shared mise layer contains pinned runtimes, portable command-line tools, Neovim tooling, Fish configuration, Pi extensions, and common dotfiles. Profile files contain only identity, applications, credentials policy, skills, and agent differences.
+The shared mise layer owns pinned runtimes, portable tools, common dotfiles, macOS defaults, packages, LaunchAgents, and lifecycle tasks. Each profile owns its identity, Pi configuration, complete agent skill catalog, applications, and credential policy.
 
 > [!WARNING]
-> mise machine bootstrap is experimental. This migration intentionally gives up atomic generations and immutable closures. Rollback is Git revert plus another bootstrap.
+> Machine bootstrap is experimental. Rollback is a Git revert followed by another explicit bootstrap; there are no atomic generations.
 
 ## Prerequisite
 
-Install mise manually using the current [official installation instructions](https://mise.jdx.dev/getting-started.html). This repository does not install mise itself and has no default profile.
-
-Clone the repository and trust its configuration:
+Install mise using the [official instructions](https://mise.jdx.dev/getting-started.html), clone this repository, and trust it:
 
 ```bash
 git clone https://github.com/soodoh/dotfiles.git
@@ -22,9 +20,7 @@ cd dotfiles
 mise trust
 ```
 
-## Preflight and bootstrap
-
-Always select one profile explicitly:
+There is no default profile. Always select one explicitly:
 
 ```bash
 mise --env personal-macos run status
@@ -35,115 +31,102 @@ mise --env work-macos run status
 mise --env work-macos bootstrap
 ```
 
-The native bootstrap sequence installs missing packages, applies symlinked dotfiles and macOS defaults, installs locked tools, configures the login shell, and automatically runs `[tasks.bootstrap]` as its final reconciliation phase. That final task builds local npm packages and reconciles the Dock, login items, launch agents, and tmux.
-Task auto-install is disabled, so `run status` and validation never provision missing tools as a side effect; the native bootstrap command owns installation.
-On the first migration from an existing Homebrew setup, transfer configured casks to mise ownership before bootstrap using the one-time procedure in `docs/cutover.md`; mise refuses ambiguous dual ownership by design.
-
-Bootstrap is non-destructive:
-
-- undeclared and MDM-installed applications are never removed;
-- work Tailscale remains MDM-owned and is not installed or managed as a login item;
-- normal bootstrap installs missing applications but does not broadly upgrade existing ones;
-- conflicting unmanaged dotfiles are reported rather than replaced unless the operator explicitly chooses mise's force option.
-
-No bootstrap was run against a live home directory while this repository replacement was implemented.
+An inline pre-package guard rejects a profile-less bootstrap. Normal bootstrap installs missing state without pruning undeclared software or broadly upgrading existing applications.
 
 ## Layout
 
-- `mise.toml` — shared locked tools, packages, dotfiles, settings, tasks, and hooks
-- `mise.personal-macos.toml`, `mise.work-macos.toml` — profile-only differences
-- `mise*.lock` — exact tool resolution and checksums where supported
-- `dotfiles/common/` — portable user configuration
-- `dotfiles/darwin/` — macOS-only AeroSpace, SketchyBar, and Colima configuration
-- `dotfiles/profiles/` — Git identity, Pi settings, workflows, and skill selection
-- `pi-extensions/` — repository-local Pi package with a committed npm lockfile
-- `packages/work-mcp-servers/` — repository-local work MCP closure
-- `packages/google-calendar/` — tracked work launcher application
-- `scripts/bootstrap/`, `scripts/update/`, `scripts/validate/` — mise-invoked reconciliation and checks
-- `docs/migration-parity.md` — checked migration ledger
-- `docs/cutover.md` — later manual workstation cutover and legacy-system removal
+```text
+dotfiles/
+├── common/    # portable Fish, Neovim, tmux, Pi, and CLI config
+├── macos/     # AeroSpace, SketchyBar, and Colima
+├── personal/  # personal identity, Pi config, and complete agent catalog
+└── work/      # work identity, Pi config, complete agent catalog, and apps
+```
 
-## Dotfiles and writable configuration
+Other canonical files:
 
-mise links all declared files directly into this checkout. Pi settings and saved workflows are intentionally writable symlinks, so Pi can modify tracked files at runtime. Review those changes with Git and either commit or revert them.
-The profile Fish fragment resolves the checkout and points `MISE_CONFIG_DIR` at it, so mise loads both the shared configuration and the selected `mise.<env>.toml` profile outside the repository without relocating configs or locks.
-Fish also activates the selected profile's tool environment, but bootstrap and update guards ignore that inherited value and still require an explicit `--env`/`-E` selector from the operator.
+- `mise.toml` — shared tools, bootstrap declarations, dotfiles, and tasks
+- `mise.personal-macos.toml`, `mise.work-macos.toml` — profile differences
+- `mise*.lock` — exact tool versions and checksums where supported
+- `pi-extensions/` — repository-local Pi package with a committed npm lock
+- `docs/migration-parity.md` — behavior and accepted-tradeoff ledger
+- `docs/cutover.md` — workstation cutover procedure
 
-Local Fish secrets remain outside the repository:
+There is intentionally no `packages/` container or top-level `scripts/` directory.
+
+## Bootstrap behavior
+
+Mise natively manages:
+
+- system packages, casks, and App Store applications;
+- dotfile symlinks;
+- macOS defaults;
+- the Fish login shell;
+- AeroSpace, Borders, and Colima LaunchAgents;
+- pinned language runtimes and command-line tools.
+
+AeroSpace starts SketchyBar through `after-startup-command`, avoiding a service-order wrapper.
+
+Four tapped Homebrew packages do not publish the API metadata required by mise's native package bootstrap. A small inline, missing-only task provisions the Homebrew CLI when necessary, then installs AeroSpace, SketchyBar, Borders, and the work Snowflake CLI through Homebrew. This is the only bootstrap native-gap logic.
+
+Dock ordering and login items are intentionally user-owned. Bootstrap also no longer refreshes running tmux sessions or preflights the work CA file; new processes consume the declared environment naturally.
+
+## Dotfiles and secrets
+
+Mise links declared files directly into this checkout. Pi settings, workflows, and `~/.agents` are writable symlinks, so runtime tools may dirty tracked files. Review those changes with Git and commit or revert them deliberately.
+
+Each profile owns a complete `agents/` directory containing `skills/` and `.skill-lock.json`. Shared skills are duplicated intentionally so profile updates do not require filtering or generation scripts.
+
+Keep secrets outside the repository in:
 
 ```text
 ~/.config/fish/conf.d/00-secrets.fish
 ```
 
-Keep that file mode `0600` and never commit credentials. Authenticate the App Store, GitHub, AWS/Azure/Google/Snowflake CLIs, Pi providers, and MCP services interactively. TWG setup and login remain manual.
+Authenticate App Store, GitHub, AWS/Azure/Google/Snowflake CLIs, Pi providers, MCP services, and TWG interactively. The work CA environment variables remain declared, but certificate existence is not preflighted.
 
-## Neovim
+## Pi and MCP
 
-Neovim uses one plugin manager: a commit-pinned lazy.nvim bootstrap with `lazy-lock.json`. Tree-sitter owns the declared parser set. LSP servers, linters, and formatters are locked mise tools; Mason is intentionally absent.
+Pi is pinned through mise's npm backend. Bootstrap runs `npm ci` in `pi-extensions/`; its `package.json` explicitly lists local and dependency-provided extensions, skills, and prompts.
 
-Clean validation copies the configuration into temporary HOME/XDG directories, synchronizes the lock, loads every plugin module and parser, and checks every configured external executable without modifying the checked-in lock.
+Work MCP servers are also direct mise npm tools:
 
-## Pi and MCP servers
+- `@azure-devops/mcp`
+- `figma-developer-mcp`
+- `kusto-mcp`
 
-Pi is pinned through mise's npm backend. Bootstrap runs `npm ci` in `pi-extensions/`, verifies peer packages, aggregates bundled extension/skill/prompt resources, and validates the platform ReadSeek binary. macOS ReadSeek uses Homebrew `libgit2`; Linux uses the platform library package.
+Their executables are exposed by mise without a repository-local package or custom PATH entry. Exact top-level versions are locked; npm transitive dependency locking is an accepted tradeoff.
 
-Work-only MCP servers are installed with `npm ci` under `packages/work-mcp-servers/`. The work environment adds that package's `node_modules/.bin` directory to PATH, and work MCP settings use those repository-local commands.
-
-### Accepted work security exception
-
-The work LiteLLM endpoint remains cleartext HTTP by explicit owner decision. Its test is an expected failure: validation confirms that the test still reports the known exception and must not present it as a passing security check. Revisit this when the endpoint supports TLS.
+The work LiteLLM endpoint remains cleartext HTTP by explicit owner decision. Validation preserves the expected-failure security test until that endpoint supports TLS.
 
 ## Validation
 
-Run the complete repository suite without applying workstation state:
+Run the non-destructive native checks and colocated tests:
 
 ```bash
 mise run validate
 ```
 
-Focused tasks are also available:
-
-```text
-validate:config
-validate:tools
-validate:dotfiles
-validate:neovim
-validate:agents
-validate:macos
-validate:repository
-```
-
-CI represents both Ubuntu and macOS. It parses both profiles, installs the locked shared portable layer, runs npm and profile tests, starts Neovim in a clean temporary environment, validates Fish and shell scripts, tests tmux and SketchyBar helpers, checks TWG metadata, and rejects stale runtime paths. CI does not run a real machine bootstrap, change a login shell or Dock, load workstation services, or install App Store applications.
+The suite parses and plans both profiles, checks shell syntax, runs the Pi package suite, exercises tmux and work workflow tests, verifies the expected work security failure, runs Neovim in an isolated environment, and executes colocated macOS configuration tests. CI never runs a workstation bootstrap.
 
 ## Updates
 
-Updates are explicit and reviewable:
+Updates remain explicit and grouped:
 
 ```bash
-mise --env personal-macos run update:tools
-mise --env personal-macos run update:agents
-mise --env personal-macos run update:skills
-mise --env personal-macos run update:neovim
-mise --env personal-macos run update:apps
-mise --env personal-macos run update:mas
-mise --env personal-macos run update:twg
+mise --env personal-macos run update
+mise --env work-macos run update
 ```
 
-Use `work-macos` on the work profile. `update:apps` and `update:mas` are the only tasks intended to upgrade declared GUI/App Store applications. Nothing prunes undeclared software.
+The task updates mise tools, Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. TWG's versioned URLs and checksums are edited manually because its HTTP distribution has no native version metadata source.
 
-Renovate continues npm, GitHub Actions, and supported mise version updates. Pi dependency changes stay atomic and exact. Repository-specific generation for skills and TWG remains in the generated-dependencies workflow.
+## Rollback and cutover
 
-## Rollback
-
-There is no atomic machine rollback. Revert the configuration commit, review the diff, and run the same explicit profile bootstrap again:
+Revert the configuration commit and bootstrap the same explicit profile again:
 
 ```bash
 git revert <commit>
 mise --env personal-macos bootstrap
 ```
 
-Runtime or application data is not rolled back. Back up mutable configuration before major changes.
-
-## Workstation cutover
-
-Do not remove the previous machine manager first. Follow [`docs/cutover.md`](docs/cutover.md), verify the new Fish path and complete smoke tests, and only then perform the documented manual removal and reboot checks.
+Runtime and application data are not rolled back. Follow [`docs/cutover.md`](docs/cutover.md) before removing the previous machine manager.

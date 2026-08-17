@@ -13,10 +13,15 @@ dir = "{{ env.MISE_CONFIG_DIR | default(value=config_root) }}"
 locked = true
 
 [env]
-_.path = ["{{ env.HOME }}/.local/bin", "/opt/homebrew/bin", "/opt/homebrew/sbin"]
+_.path = [
+  "{{ env.HOME }}/.local/bin",
+  "/opt/homebrew/bin",
+  "/opt/homebrew/sbin",
+]
 
 [vars]
 profile = "unset"
+skills_cli_version = "1.5.22"
 
 [tools]
 "npm:npm" = "12.0.2"
@@ -94,7 +99,6 @@ linux-x64 = { url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/
 "brew:docker" = { version = "latest", os = "macos" }
 "brew:docker-compose" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
-"brew:dockutil" = { version = "latest", os = "macos" }
 "brew:mas" = { version = "latest", os = "macos" }
 "brew-cask:ghostty" = { version = "latest", os = "macos" }
 "brew-cask:obsidian" = { version = "latest", os = "macos" }
@@ -107,121 +111,231 @@ linux-x64 = { url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/
 [bootstrap.macos.dock]
 show_recents = false
 
-[bootstrap.macos.defaults]
-NSGlobalDomain = { NSWindowShouldDragOnGesture = true }
+[bootstrap.macos.defaults.NSGlobalDomain]
+NSWindowShouldDragOnGesture = true
+AppleICUForce24HourTime = true
+AppleInterfaceStyle = "Dark"
+AppleShowAllExtensions = true
+_HIHideMenuBar = true
+
+[bootstrap.macos.defaults."com.apple.dock"]
+autohide = true
+wvous-br-corner = 0
+
+[bootstrap.macos.defaults."com.apple.finder"]
+AppleShowAllFiles = true
+NewWindowTarget = "PfHm"
+FXPreferredViewStyle = "clmv"
+FXRemoveOldTrashItems = true
+ShowExternalHardDrivesOnDesktop = true
+ShowHardDrivesOnDesktop = false
+ShowMountedServersOnDesktop = false
+ShowRemovableMediaOnDesktop = true
+
+[bootstrap.macos.defaults."com.apple.WindowManager"]
+EnableTiledWindowMargins = false
+EnableStandardClickToShowDesktop = false
+StandardHideWidgets = true
+
+[bootstrap.macos.defaults."com.apple.menuextra.clock"]
+ShowDate = 2
+ShowDayOfWeek = true
+ShowAMPM = false
+
+[bootstrap.macos.defaults."com.apple.AppleMultitouchTrackpad"]
+TrackpadRightClick = true
+TrackpadCornerSecondaryClick = 0
+
+[bootstrap.macos.defaults."com.apple.driver.AppleBluetoothMultitouch.trackpad"]
+TrackpadRightClick = true
+TrackpadCornerSecondaryClick = 0
+
+[bootstrap.macos.launchd.agents.aerospace]
+program = "/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
+run_at_load = true
+environment = { PATH = "{{ env.HOME }}/.local/share/mise/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+stdout_path = "~/Library/Logs/aerospace.log"
+stderr_path = "~/Library/Logs/aerospace.error.log"
+
+[bootstrap.macos.launchd.agents.borders]
+program = "/opt/homebrew/bin/borders"
+args = ["active_color=0xff7aa2f7", "inactive_color=0xff3b4261", "width=5.0"]
+run_at_load = true
+environment = { PATH = "{{ env.HOME }}/.local/share/mise/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+stdout_path = "~/Library/Logs/jankyborders.log"
+stderr_path = "~/Library/Logs/jankyborders.error.log"
+
+[bootstrap.macos.launchd.agents.colima-default]
+program = "/opt/homebrew/bin/colima"
+args = ["start", "--foreground", "--profile", "default"]
+run_at_load = true
+environment = { PATH = "{{ env.HOME }}/.local/share/mise/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+stdout_path = "~/Library/Logs/colima-default.log"
+stderr_path = "~/Library/Logs/colima-default.error.log"
 
 [bootstrap.hooks]
-pre-packages = "${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/require-profile.sh"
-pre-dotfiles = "${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/require-profile.sh"
-post-tools = "${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/rust-components.sh"
+pre-packages = '''
+case "${DOTFILES_PROFILE:-}" in
+  personal-macos|work-macos) ;;
+  *) printf 'error: choose an explicit profile: mise --env personal-macos bootstrap or mise --env work-macos bootstrap\n' >&2; exit 64 ;;
+esac
+'''
 
 [dotfiles]
-"~/.config/.gitignore_global" = "dotfiles/common/.config/.gitignore_global"
-"~/.config/atuin" = "dotfiles/common/.config/atuin"
-"~/.config/fish/config.fish" = "dotfiles/common/.config/fish/config.fish"
-"~/.config/fish/custom" = "dotfiles/common/.config/fish/custom"
-"~/.config/fish/plugins/abbreviation-tips" = "dotfiles/common/.config/fish/plugins/abbreviation-tips"
-"~/.config/fish/plugins/git" = "dotfiles/common/.config/fish/plugins/git"
-"~/.config/ghostty" = "dotfiles/common/.config/ghostty"
-"~/.config/lazygit" = "dotfiles/common/.config/lazygit"
-"~/.config/nvim" = "dotfiles/common/.config/nvim"
-"~/.config/sesh" = "dotfiles/common/.config/sesh"
-"~/.config/starship.toml" = "dotfiles/common/.config/starship.toml"
-"~/.config/tmux" = "dotfiles/common/.config/tmux"
-"~/.config/yazi" = "dotfiles/common/.config/yazi"
-"~/.config/aerospace" = "dotfiles/darwin/.config/aerospace"
-"~/.config/sketchybar" = "dotfiles/darwin/.config/sketchybar"
-"~/.colima/default/colima.yaml" = "dotfiles/darwin/.colima/default/colima.yaml"
-"~/.pi/agent/AGENTS.md" = "dotfiles/profiles/common/.pi/agent/AGENTS.md"
-"~/.pi/agent/extensions/subagent/config.json" = "dotfiles/profiles/common/.pi/agent/extensions/subagent/config.json"
+"~/.config/.gitignore_global" = "dotfiles/common/gitignore_global"
+"~/.config/atuin" = "dotfiles/common/atuin"
+"~/.config/fish/config.fish" = "dotfiles/common/fish/config.fish"
+"~/.config/fish/custom" = "dotfiles/common/fish/custom"
+"~/.config/fish/plugins/abbreviation-tips" = "dotfiles/common/fish/plugins/abbreviation-tips"
+"~/.config/fish/plugins/git" = "dotfiles/common/fish/plugins/git"
+"~/.config/ghostty" = "dotfiles/common/ghostty"
+"~/.config/lazygit" = "dotfiles/common/lazygit"
+"~/.config/nvim" = "dotfiles/common/nvim"
+"~/.config/sesh" = "dotfiles/common/sesh"
+"~/.config/starship.toml" = "dotfiles/common/starship.toml"
+"~/.config/tmux" = "dotfiles/common/tmux"
+"~/.config/yazi" = "dotfiles/common/yazi"
+"~/.config/aerospace" = "dotfiles/macos/aerospace"
+"~/.config/sketchybar" = "dotfiles/macos/sketchybar"
+"~/.colima/default/colima.yaml" = "dotfiles/macos/colima/colima.yaml"
+"~/.pi/agent/AGENTS.md" = "dotfiles/common/pi/agent/AGENTS.md"
+"~/.pi/agent/extensions/subagent/config.json" = "dotfiles/common/pi/agent/extensions/subagent/config.json"
 "~/.pi/agent/pi-extensions" = "pi-extensions"
-"~/.pi/workflows/.gitignore" = "dotfiles/profiles/common/.pi/workflows/.gitignore"
-"~/.pi/workflows/settings.json" = "dotfiles/profiles/common/.pi/workflows/settings.json"
+"~/.pi/workflows/.gitignore" = "dotfiles/common/pi/workflows/.gitignore"
+"~/.pi/workflows/settings.json" = "dotfiles/common/pi/workflows/settings.json"
 
 [tasks.bootstrap]
-description = "Reconcile the selected explicit macOS profile without upgrading existing apps"
-run = "./scripts/bootstrap/bootstrap.sh {{ vars.profile }}"
+description = "Install repository-local dependencies and tapped macOS packages"
+run = [{ task = "bootstrap:pi" }, { task = "bootstrap:tapped-packages" }]
+
+[tasks."bootstrap:pi"]
+run = "npm ci --prefix pi-extensions --legacy-peer-deps --no-audit --no-fund"
+
+[tasks."bootstrap:tapped-packages"]
+run = '''
+export HOMEBREW_NO_AUTO_UPDATE=1
+export HOMEBREW_NO_ANALYTICS=1
+export HOMEBREW_NO_ENV_HINTS=1
+
+brew_bin=$(command -v brew 2>/dev/null || true)
+if [ -z "$brew_bin" ]; then
+  printf 'Homebrew CLI is required for taps without mise-compatible API metadata; installing it now.\n' >&2
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  for candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    if [ -x "$candidate" ]; then
+      brew_bin=$candidate
+      break
+    fi
+  done
+fi
+if [ -z "$brew_bin" ] || [ ! -x "$brew_bin" ]; then
+  printf 'error: Homebrew CLI installation did not provide brew\n' >&2
+  exit 69
+fi
+
+"$brew_bin" list --cask aerospace >/dev/null 2>&1 || "$brew_bin" install --cask nikitabobko/tap/aerospace
+"$brew_bin" list sketchybar >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/sketchybar
+"$brew_bin" list borders >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/borders
+if [ "{{ vars.profile }}" = work-macos ]; then
+  "$brew_bin" list --cask snowflake-cli >/dev/null 2>&1 || "$brew_bin" install --cask snowflakedb/snowflake-cli/snowflake-cli
+fi
+'''
 
 [tasks.status]
-description = "Report missing or differing profile state without changing it"
-run = "./scripts/validate/status.sh {{ vars.profile }}"
+description = "Report missing or differing declarative profile state"
+run = "mise bootstrap status --missing"
 
 [tasks.validate]
-description = "Run the complete non-destructive repository validation suite"
+description = "Run native configuration checks and colocated tests"
 run = [
-  "mise run validate:config",
-  "mise run validate:tools",
-  "mise run validate:dotfiles",
-  "mise run validate:agents",
-  "mise run validate:neovim",
-  "mise run validate:macos",
-  "mise run validate:repository",
+  { task = "validate:config" },
+  { task = "validate:dotfiles" },
+  { task = "validate:agents" },
+  { task = "validate:neovim" },
+  { task = "validate:macos" },
+  { task = "validate:repository" },
 ]
 
 [tasks."validate:config"]
-run = "./scripts/validate/config.sh"
-
-[tasks."validate:tools"]
-run = "./scripts/validate/tools.py"
+run = [
+  "mise --env personal-macos config >/dev/null",
+  "mise --env personal-macos tasks validate >/dev/null",
+  "mise --env personal-macos bootstrap plan >/dev/null",
+  "mise --env work-macos config >/dev/null",
+  "mise --env work-macos tasks validate >/dev/null",
+  "mise --env work-macos bootstrap plan >/dev/null",
+]
 
 [tasks."validate:dotfiles"]
-run = ["./scripts/validate/dotfiles.py", "./scripts/validate/shell.sh"]
-
-[tasks."validate:neovim"]
-run = "./scripts/validate/neovim.sh"
+run = '''
+find dotfiles -type f -name '*.sh' -exec bash -n {} +
+fish --no-execute dotfiles/common/fish/config.fish
+find dotfiles -type f -name '*.fish' -exec fish --no-execute {} \;
+'''
 
 [tasks."validate:agents"]
-run = "./scripts/validate/agents.sh"
+run = [
+  "npm ci --ignore-scripts --no-audit --no-fund",
+  "npm --prefix pi-extensions ci --legacy-peer-deps --no-audit --no-fund",
+  "npm --prefix pi-extensions run ci",
+  "node dotfiles/common/tmux/scripts/pi-session-lib.test.mjs",
+  "node dotfiles/work/pi/workflows/saved/review-loop.test.mjs",
+  '''
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+if node dotfiles/work/pi/agent/settings.security.test.mjs >"$log" 2>&1; then
+  printf 'error: expected work HTTP security test to fail\n' >&2
+  exit 1
+fi
+grep -F 'FAIL default provider does not use a cleartext HTTP endpoint' "$log" >/dev/null
+''',
+]
+
+[tasks."validate:neovim"]
+run = "dotfiles/common/nvim/tests/validate.sh"
 
 [tasks."validate:macos"]
-run = "./scripts/validate/macos.sh"
+run = [
+  "python3 dotfiles/work/apps/google-calendar.test.py",
+  "python3 dotfiles/macos/colima/colima.test.py",
+  "for test in dotfiles/macos/sketchybar/plugins/tests/*_test.sh; do bash \"$test\"; done",
+]
 
 [tasks."validate:repository"]
-run = [
-  "./scripts/validate/twg.py",
-  "./scripts/validate/no-active-nix.sh",
-  "git diff --check",
-]
+run = "git diff --check"
 
 [tasks.update]
 description = "Update all explicitly managed dependency groups"
 run = [
-  "./scripts/bootstrap/require-profile.sh --explicit {{ vars.profile }}",
-  "mise --env {{ vars.profile }} run update:tools",
-  "mise --env {{ vars.profile }} run update:agents",
-  "mise --env {{ vars.profile }} run update:skills",
-  "mise --env {{ vars.profile }} run update:neovim",
-  "mise --env {{ vars.profile }} run update:apps",
-  "mise --env {{ vars.profile }} run update:mas",
-  "mise --env {{ vars.profile }} run update:twg",
+  '''test "{{ vars.profile }}" != unset || { printf 'error: choose an explicit profile with --env\n' >&2; exit 64; }''',
+  { task = "update:tools" },
+  { task = "update:agents" },
+  { task = "update:skills" },
+  { task = "update:neovim" },
+  { task = "update:packages" },
+  { task = "update:tapped-packages" },
 ]
 
 [tasks."update:tools"]
-run = ["./scripts/bootstrap/require-profile.sh --explicit {{ vars.profile }}", "mise --env {{ vars.profile }} upgrade --bump"]
+run = "mise upgrade --bump"
 
 [tasks."update:agents"]
-run = [
-  "./scripts/bootstrap/require-profile.sh --explicit {{ vars.profile }}",
-  "npm update --prefix pi-extensions --legacy-peer-deps",
-  "node scripts/bootstrap/pi-extensions.mjs",
-  "npm update --prefix packages/work-mcp-servers",
-]
+run = "npm update --prefix pi-extensions --legacy-peer-deps"
 
 [tasks."update:skills"]
-run = ["./scripts/bootstrap/require-profile.sh --explicit {{ vars.profile }}", "./scripts/update/skills.sh"]
+run = "npx --yes skills@{{ vars.skills_cli_version }} update --global --yes"
 
 [tasks."update:neovim"]
-run = ["./scripts/bootstrap/require-profile.sh --explicit {{ vars.profile }}", "nvim --headless '+Lazy! sync' +qa"]
+run = "nvim --headless '+Lazy! sync' +qa"
 
-[tasks."update:apps"]
-run = "./scripts/update/apps.sh {{ vars.profile }}"
+[tasks."update:packages"]
+run = "mise bootstrap packages upgrade"
 
-[tasks."update:mas"]
-run = [
-  "./scripts/bootstrap/require-profile.sh --explicit {{ vars.profile }}",
-  "./scripts/bootstrap/require-macos.sh",
-  "mise --env {{ vars.profile }} bootstrap packages upgrade --manager mas",
-]
-
-[tasks."update:twg"]
-run = ["./scripts/bootstrap/require-profile.sh --explicit {{ vars.profile }}", "./scripts/update/twg.sh"]
+[tasks."update:tapped-packages"]
+run = '''
+brew upgrade --cask nikitabobko/tap/aerospace
+brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders
+if [ "{{ vars.profile }}" = work-macos ]; then
+  brew upgrade --cask snowflakedb/snowflake-cli/snowflake-cli
+fi
+'''

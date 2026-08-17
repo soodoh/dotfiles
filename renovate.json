@@ -7,7 +7,7 @@
     "helpers:pinGitHubActionDigests"
   ],
   "ignorePaths": [
-    "dotfiles/common/.config/nvim/lazy-lock.json"
+    "dotfiles/common/nvim/lazy-lock.json"
   ],
   "packageRules": [
     {
@@ -60,25 +60,13 @@
       "rangeStrategy": "pin"
     },
     {
-      "description": "lazy.nvim commits and generated skills use explicit update tasks",
+      "description": "lazy.nvim commits and vendored skills use explicit update tasks",
       "matchFileNames": [
-        "dotfiles/common/.config/nvim/lazy-lock.json",
-        "dotfiles/profiles/common/.agents/**",
-        "dotfiles/profiles/personal/.agents/.skill-lock.json"
+        "dotfiles/common/nvim/lazy-lock.json",
+        "dotfiles/personal/agents/**",
+        "dotfiles/work/agents/**"
       ],
       "enabled": false
-    }
-  ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "description": "Track tools invoked by the generated dependency workflow",
-      "managerFilePatterns": [
-        "/^\\.github/workflows/generated-dependencies\\.yml$/"
-      ],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+[A-Z0-9_]+:\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
-      ]
     }
   ]
 }

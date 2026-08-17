@@ -9,7 +9,6 @@ HTTPLIB2_CA_CERTS = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem
 _.path = [
   "{{ env.HOME }}/.local/bin",
   "/Applications/SnowflakeCLI.app/Contents/MacOS",
-  "{{ config_root }}/packages/work-mcp-servers/node_modules/.bin",
 ]
 
 [vars]
@@ -17,6 +16,9 @@ profile = "work-macos"
 
 [tools]
 "pipx:azure-cli" = "2.89.0"
+"npm:@azure-devops/mcp" = "2.9.0"
+"npm:figma-developer-mcp" = "0.13.2"
+"npm:kusto-mcp" = "1.14.0"
 
 [tools."http:azure-mcp"]
 version = "3.0.0-beta.10"
@@ -45,18 +47,14 @@ linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.1
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"
 
-[bootstrap.hooks]
-pre-packages = "DOTFILES_PROFILE=work-macos ${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/work-ca-preflight.sh"
-pre-user = "${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/macos/login-shell.sh"
-
 [dotfiles]
-"~/.config/fish/conf.d/10-mise-profile.fish" = "dotfiles/profiles/work/.config/fish/conf.d/10-mise-profile.fish"
-"~/.gitconfig" = "dotfiles/profiles/work/.gitconfig"
-"~/.pi/agent/settings.json" = "dotfiles/profiles/work/.pi/agent/settings.json"
-"~/.pi/agent/mcp.json" = "dotfiles/profiles/work/.pi/agent/mcp.json"
-"~/.pi/agent/models.json" = "dotfiles/profiles/work/.pi/agent/models.json"
-"~/.pi/agent/extensions/pi-openai-fast.json" = "dotfiles/profiles/work/.pi/agent/extensions/pi-openai-fast.json"
-"~/.pi/workflows/model-tiers.json" = "dotfiles/profiles/work/.pi/workflows/model-tiers.json"
-"~/.pi/workflows/saved" = "dotfiles/profiles/work/.pi/workflows/saved"
-"~/.agents/.skill-lock.json" = "dotfiles/profiles/common/.agents/.skill-lock.json"
-"~/.agents/skills" = "dotfiles/profiles/common/.agents/skills"
+"~/.config/fish/conf.d/10-mise-profile.fish" = "dotfiles/work/mise-profile.fish"
+"~/.gitconfig" = "dotfiles/work/gitconfig"
+"~/.pi/agent/settings.json" = "dotfiles/work/pi/agent/settings.json"
+"~/.pi/agent/mcp.json" = "dotfiles/work/pi/agent/mcp.json"
+"~/.pi/agent/models.json" = "dotfiles/work/pi/agent/models.json"
+"~/.pi/agent/extensions/pi-openai-fast.json" = "dotfiles/work/pi/agent/extensions/pi-openai-fast.json"
+"~/.pi/workflows/model-tiers.json" = "dotfiles/work/pi/workflows/model-tiers.json"
+"~/.pi/workflows/saved" = "dotfiles/work/pi/workflows/saved"
+"~/.agents" = "dotfiles/work/agents"
+"~/Applications/Google Calendar.app" = "dotfiles/work/apps/Google Calendar.app"

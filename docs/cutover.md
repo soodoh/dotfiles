@@ -22,6 +22,12 @@ mise --env personal-macos run status
 
 The status command is read-only. Review every missing/different item and resolve unexpected dotfile conflicts before applying anything.
 
+The simplified profiles link `~/.agents` as one complete directory. After backing it up, remove the old directory containing per-skill links before the first bootstrap so mise can create the new whole-directory link:
+
+```bash
+rm -rf "$HOME/.agents"
+```
+
 ### Transfer configured casks to mise ownership
 
 mise intentionally refuses to adopt a cask that Homebrew already owns. During this one-time cutover, quit the configured GUI applications, list the casks that will be transferred, and uninstall only their Homebrew-owned app bundles. Do not use `--zap`; application data remains in the user Library for the mise-managed reinstall.
@@ -58,8 +64,9 @@ Verify, in order:
 - tmux starts and reloads the linked configuration;
 - Pi starts, loads the checkout-local extension package, and can invoke ReadSeek;
 - Docker/Compose can reach the Colima daemon;
-- work MCP commands resolve from `packages/work-mcp-servers/node_modules/.bin`;
-- GUI applications, Dock entries, Downloads stack, login items, AeroSpace, SketchyBar, JankyBorders, and Colima behave as expected;
+- work MCP commands resolve from mise-managed npm tools;
+- GUI applications, the Google Calendar app link, AeroSpace, SketchyBar, JankyBorders, and Colima behave as expected;
+- manually configure and verify the desired Dock order, Downloads stack, and login items;
 - the work Google Calendar launcher opens the expected URL;
 - work certificate environment variables are present without changing MDM-owned `/etc/zshenv`.
 
@@ -103,7 +110,7 @@ After manual uninstall:
 
 1. Reboot.
 2. Confirm the login shell is `/opt/homebrew/bin/fish`.
-3. Repeat the Fish, mise, Neovim, tmux, Pi, Docker, CLI, GUI, Dock, login-item, and service checks.
+3. Repeat the Fish, mise, Neovim, tmux, Pi, Docker, CLI, GUI, user-owned Dock/login-item, and service checks.
 4. Run the selected profile's status command and repository validation.
 5. Review `git status` and keep or revert intentional runtime changes.
 

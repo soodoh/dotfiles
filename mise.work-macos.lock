@@ -40,6 +40,17 @@ url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v1.1.1"
 checksum = "sha256:4037a9ace273e9e9d61e6ad2063b273de6d79f5fd7b116096d484a30e8522873"
 url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.1.1"
 
+[[tools."npm:@azure-devops/mcp"]]
+version = "2.9.0"
+backend = "npm:@azure-devops/mcp"
+
+[[tools."npm:figma-developer-mcp"]]
+version = "0.13.2"
+backend = "npm:figma-developer-mcp"
+
+[[tools."npm:kusto-mcp"]]
+version = "1.14.0"
+backend = "npm:kusto-mcp"
 [[tools."pipx:azure-cli"]]
 version = "2.89.0"
 backend = "pipx:azure-cli"
