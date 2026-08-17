@@ -51,6 +51,7 @@ backend = "npm:figma-developer-mcp"
 [[tools."npm:kusto-mcp"]]
 version = "1.14.0"
 backend = "npm:kusto-mcp"
+
 [[tools."pipx:azure-cli"]]
 version = "2.89.0"
 backend = "pipx:azure-cli"
