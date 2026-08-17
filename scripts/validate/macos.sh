@@ -63,6 +63,14 @@ if grep -E '^install( |$)' "$work/brew.log"; then
   exit 1
 fi
 
+rg -F '"FelixKratz/formulae" = "https://github.com/FelixKratz/homebrew-formulae.git"' mise.toml >/dev/null
+rg -F '"brew:FelixKratz/formulae/sketchybar"' mise.toml >/dev/null
+rg -F '"brew:FelixKratz/formulae/borders"' mise.toml >/dev/null
+if rg -n 'FelixKratz/formulae' scripts/bootstrap/macos/third-party-homebrew.sh; then
+  printf 'error: mise-compatible tap formulae must not use the Homebrew fallback script\n' >&2
+  exit 1
+fi
+
 rg -F 'show_recents = false' mise.toml >/dev/null
 rg -F 'NSWindowShouldDragOnGesture = true' mise.toml >/dev/null
 rg -F "'/Applications/Tailscale.app'" scripts/bootstrap/macos/dock.sh >/dev/null

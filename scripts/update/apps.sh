@@ -11,7 +11,7 @@ export DOTFILES_PROFILE=$profile
 mise --env "$profile" bootstrap packages upgrade --manager brew-cask
 export HOMEBREW_NO_AUTO_UPDATE=1
 brew upgrade --cask nikitabobko/tap/aerospace
-brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders
+mise --env "$profile" bootstrap packages upgrade brew:FelixKratz/formulae/sketchybar brew:FelixKratz/formulae/borders
 if [[ $profile == work-macos ]]; then
   brew upgrade --cask snowflakedb/snowflake-cli/snowflake-cli
 fi

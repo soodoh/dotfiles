@@ -63,6 +63,9 @@ rust = { version = "1.97.1", postinstall = "rustup component add clippy rustfmt 
 "npm:vscode-langservers-extracted" = "4.10.0"
 "npm:yaml-language-server" = "1.24.0"
 
+[bootstrap.brew.taps]
+"FelixKratz/formulae" = "https://github.com/FelixKratz/homebrew-formulae.git"
+
 [bootstrap.packages]
 "apt:fish" = { version = "latest", os = "linux" }
 "apt:git" = { version = "latest", os = "linux" }
@@ -83,6 +86,8 @@ rust = { version = "1.97.1", postinstall = "rustup component add clippy rustfmt 
 "brew:colima" = { version = "latest", os = "macos" }
 "brew:dockutil" = { version = "latest", os = "macos" }
 "brew:mas" = { version = "latest", os = "macos" }
+"brew:FelixKratz/formulae/sketchybar" = { version = "latest", os = "macos" }
+"brew:FelixKratz/formulae/borders" = { version = "latest", os = "macos" }
 "brew-cask:ghostty" = { version = "latest", os = "macos" }
 "brew-cask:obsidian" = { version = "latest", os = "macos" }
 "brew-cask:lunar" = { version = "latest", os = "macos" }

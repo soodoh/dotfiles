@@ -223,7 +223,7 @@ Casks use current releases by decision. Bootstrap package apply installs only mi
 | Zoom | personal | 2 | Homebrew cask |
 | PrusaSlicer | personal | 2 | Homebrew cask |
 | Google Calendar launcher | work | 5 | tracked `.app` built/copied by an idempotent task |
-| Snowflake CLI | work | 2 | vendor tap cask |
+| Snowflake CLI | work | 2 | Homebrew fallback for a vendor cask whose tap lacks mise API metadata |
 | Work Tailscale | work | 6 | MDM-owned; excluded from installation and login-item management |
 | Work Chrome, Slack, Privileges | work | 6 | Externally/MDM-owned; status reports missing paths but never installs/removes them |
 | Tailscale | personal | 2 | MAS ID `1475387142` |
@@ -243,9 +243,9 @@ Casks use current releases by decision. Bootstrap package apply installs only mi
 | Window drag gesture | 4 | raw `NSGlobalDomain.NSWindowShouldDragOnGesture=true` |
 | Lunar and Nextcloud login items | 5 | additive AppleScript reconciliation |
 | Personal Tailscale login item | 5 | personal-only additive reconciliation |
-| AeroSpace config/startup | 2, 3, 5 | cask/package, linked config, launch agent task |
-| SketchyBar config/startup after AeroSpace | 2, 3, 5 | formula, linked config, launch agent that waits for AeroSpace |
-| JankyBorders colors/width/logs | 2, 5 | formula and launch agent task |
+| AeroSpace config/startup | 2, 3, 5 | Homebrew fallback cask because its tap lacks mise API metadata; linked config and launch agent task |
+| SketchyBar config/startup after AeroSpace | 2, 3, 5 | mise-owned third-party tap formula, linked config, and launch agent that waits for AeroSpace |
+| JankyBorders colors/width/logs | 2, 5 | mise-owned third-party tap formula and launch agent task |
 | Colima 4 CPU / 8 GiB / 100 GiB / arm64 / Docker / VZ / Rosetta / VirtioFS / inotify | 2, 3, 5 | packages, tracked Colima profile, launch agent |
 | Explicit `colima stop` persists until next login | 5 | launch agent has no successful-exit KeepAlive; starts only at login/load |
 | Lima, Docker CLI, Compose | 2 | Homebrew formulae |
