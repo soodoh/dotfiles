@@ -43,6 +43,7 @@ Bootstrap is non-destructive:
 - undeclared and MDM-installed applications are never removed;
 - work Tailscale remains MDM-owned and is not installed or managed as a login item;
 - normal bootstrap installs missing applications but does not broadly upgrade existing ones;
+- existing Homebrew cask ownership is preserved; a missing-only reconciliation script installs casks that are not already present;
 - conflicting unmanaged dotfiles are reported rather than replaced unless the operator explicitly chooses mise's force option.
 
 No bootstrap was run against a live home directory while this repository replacement was implemented.

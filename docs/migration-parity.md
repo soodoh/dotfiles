@@ -69,7 +69,7 @@ Pinned versions below preserve the evaluated pre-migration package set where a r
 | Azure CLI | work | 2.89.0 | 1 | pipx/ubi where reliable; Homebrew fallback documented in feasibility table |
 | Azure MCP | work | 3.0.0-beta.10 | 1 | npm backend |
 | Google Cloud CLI | work | 570.0.0 | 2 | Homebrew cask/formula because native SDK packaging is platform-integrated |
-| Snowflake CLI | work | current cask | 2 | `brew-cask:snowflakedb/snowflake-cli/snowflake-cli`; preserve app-bundle PATH |
+| Snowflake CLI | work | current cask | 2 | vendor Homebrew tap/cask reconciliation; preserve app-bundle PATH |
 | TWG | work | 1.1.1 | 1 | mise HTTP backend with four platform URLs and SHA-256 checksums |
 | Work MCP server package | work | lockfile | 5 | `npm ci` in `packages/work-mcp-servers`; commands from `node_modules/.bin` |
 | Corepack availability | work/common npm builds | 0.35.0 | 1, 5 | Node toolchain/bootstrap check |
@@ -285,7 +285,7 @@ Casks use current releases by decision. Bootstrap package apply installs only mi
 | Python CLIs | pipx | Use for packages such as yamllint; exact top-level pin |
 | TWG raw vendor binary | HTTP | Strong fit: four explicit platform URLs, checksums, `bin = "twg"`; Linux still needs native runtime validation |
 | Native libraries, shells, tmux, containers, macOS services | bootstrap package managers | Homebrew/apt are appropriate because these need shared native integration |
-| GUI apps and fonts | `brew-cask` / MAS | Current releases by decision; missing-only bootstrap and explicit upgrade tasks |
+| GUI apps and fonts | Homebrew reconciliation / MAS | Current releases by decision; existing Homebrew ownership is preserved, bootstrap installs only missing casks, and explicit update tasks upgrade installed casks |
 | Azure CLI | pipx/ubi first | If a reliable standalone backend cannot reproduce the official CLI, use Homebrew on macOS and document Linux CI as metadata/config validation only |
 | Google Cloud SDK | Homebrew/native archive | Native integration and component layout make a bootstrap package preferable to an ad-hoc runtime backend |
 | Snowflake CLI | vendor cask | Bundle path and vendor tap are required; explicitly append app-bundle executable directory |

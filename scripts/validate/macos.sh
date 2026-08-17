@@ -52,7 +52,7 @@ mkdir -p "$work/bin"
 cat > "$work/bin/brew" <<'BREW'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$BREW_LOG"
-[[ $1 == list ]] && exit 0
+[[ $1 == list ]] && exit "${BREW_LIST_EXIT:-0}"
 exit 0
 BREW
 chmod +x "$work/bin/brew"
@@ -60,6 +60,19 @@ BREW_LOG="$work/brew.log" DOTFILES_PROFILE=personal-macos PATH="$work/bin:$PATH"
   scripts/bootstrap/macos/third-party-homebrew.sh
 if grep -E '^install( |$)' "$work/brew.log"; then
   printf 'error: normal bootstrap would upgrade an installed third-party Homebrew package\n' >&2
+  exit 1
+fi
+
+BREW_LOG="$work/missing-brew.log" BREW_LIST_EXIT=1 DOTFILES_PROFILE=personal-macos PATH="$work/bin:$PATH" \
+  scripts/bootstrap/macos/third-party-homebrew.sh
+expected_casks=$(scripts/bootstrap/macos/homebrew-app-manifest.sh personal-macos | wc -l | tr -d ' ')
+installed_casks=$(grep -c '^install --cask ' "$work/missing-brew.log")
+[[ $installed_casks == "$expected_casks" ]] || {
+  printf 'error: missing-cask reconciliation installed %s of %s expected casks\n' "$installed_casks" "$expected_casks" >&2
+  exit 1
+}
+if rg -n 'brew-cask:' mise*.toml; then
+  printf 'error: mise cask ownership conflicts with existing Homebrew installations\n' >&2
   exit 1
 fi
 

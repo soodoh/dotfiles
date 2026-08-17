@@ -39,7 +39,6 @@ linux-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-
 linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.1.1", checksum = "sha256:226104f5497dfa2305d75f9f3efc174ac0f7752ad74f4c964b70d57cc6a69a17" }
 
 [bootstrap.packages]
-"brew-cask:gcloud-cli" = "latest"
 "mas:937984704" = "latest"
 
 [bootstrap.user]

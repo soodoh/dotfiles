@@ -83,13 +83,6 @@ rust = { version = "1.97.1", postinstall = "rustup component add clippy rustfmt 
 "brew:colima" = { version = "latest", os = "macos" }
 "brew:dockutil" = { version = "latest", os = "macos" }
 "brew:mas" = { version = "latest", os = "macos" }
-"brew-cask:ghostty" = { version = "latest", os = "macos" }
-"brew-cask:obsidian" = { version = "latest", os = "macos" }
-"brew-cask:lunar" = { version = "latest", os = "macos" }
-"brew-cask:nextcloud" = { version = "latest", os = "macos" }
-"brew-cask:wispr-flow" = { version = "latest", os = "macos" }
-"brew-cask:zen" = { version = "latest", os = "macos" }
-"brew-cask:font-fira-code-nerd-font" = { version = "latest", os = "macos" }
 
 [bootstrap.macos.dock]
 show_recents = false

@@ -14,11 +14,11 @@ for profile in personal-macos work-macos; do
   mise --env "$profile" tasks validate >/dev/null
   resolved_profile=$(mise --env "$profile" env --json | python3 -c 'import json, sys; print(json.load(sys.stdin)["DOTFILES_PROFILE"])')
   [[ $resolved_profile == "$profile" ]] || { printf 'error: profile environment did not resolve: %s\n' "$profile" >&2; exit 1; }
-  DOTFILES_PROFILE=$resolved_profile scripts/bootstrap/require-profile.sh
+  scripts/bootstrap/require-profile.sh "$resolved_profile"
 done
 
-if DOTFILES_PROFILE='' MISE_ENV='' scripts/bootstrap/require-profile.sh >/dev/null 2>&1; then
-  printf 'error: profile guard accepted an empty profile\n' >&2
+if scripts/bootstrap/require-profile.sh invalid-profile >/dev/null 2>&1; then
+  printf 'error: profile guard accepted an invalid profile\n' >&2
   exit 1
 fi
 
