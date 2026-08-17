@@ -47,7 +47,7 @@ if "--metadata-only" in sys.argv:
 
 commands = {
     "node", "npm", "corepack", "bun", "python3", "uv", "go", "rustc", "cargo", "rustfmt",
-    "rust-analyzer", "gh", "jq", "rg", "fzf", "atuin", "lazygit", "starship", "zoxide",
+    "rust-analyzer", "gh", "jq", "rg", "fzf", "fzf-tmux", "atuin", "lazygit", "starship", "zoxide",
     "sesh", "yazi", "nvim", "tree-sitter", "docker-language-server", "lua-language-server",
     "marksman", "ruff", "shellcheck", "shfmt", "stylua", "kdlfmt", "taplo", "gopls",
     "yamllint", "pi", "playwright-mcp", "awk-language-server", "bash-language-server", "biome",
@@ -67,7 +67,7 @@ missing = sorted(command for command in commands if shutil.which(command) is Non
 if missing:
     raise SystemExit("missing configured executables: " + ", ".join(missing))
 
-for command, expected in {"node": "24.18.1", "npm": "12.0.2", "corepack": "0.35.0", "pi": "0.84.2"}.items():
+for command, expected in {"node": "24.18.1", "npm": "12.0.2", "corepack": "0.35.0", "fzf-tmux": "0.74.2", "pi": "0.84.2"}.items():
     output = subprocess.check_output([command, "--version"], text=True).strip()
     if expected not in output:
         raise SystemExit(f"{command} version differs: got {output!r}, expected {expected}")

@@ -35,7 +35,7 @@ report_link() {
   fi
 }
 
-for command in node npm bun python3 go rustc cargo gh jq rg fzf atuin lazygit starship zoxide sesh yazi nvim tree-sitter pi playwright-mcp fish tmux aerospace sketchybar borders colima docker; do
+for command in node npm bun python3 go rustc cargo gh jq rg fzf fzf-tmux atuin lazygit starship zoxide sesh yazi nvim tree-sitter pi playwright-mcp fish tmux aerospace sketchybar borders colima docker; do
   report_command "$command"
 done
 if [[ ${profile} == personal-macos ]]; then

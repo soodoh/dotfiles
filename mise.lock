@@ -523,7 +523,27 @@ checksum = "sha256:30249b47a0f60a2da557ecde76c169d0dbc82161b12aa46f9ed47af27a265
 url = "https://github.com/joshmedeski/sesh/releases/download/v2.28.0/sesh_Linux_arm64.tar.gz"
 url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/490857146"
 
+[tools."aqua:joshmedeski/sesh"."platforms.linux-arm64-musl"]
+checksum = "sha256:30249b47a0f60a2da557ecde76c169d0dbc82161b12aa46f9ed47af27a265dc6"
+url = "https://github.com/joshmedeski/sesh/releases/download/v2.28.0/sesh_Linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/490857146"
+
 [tools."aqua:joshmedeski/sesh"."platforms.linux-x64"]
+checksum = "sha256:ac4a0b07f0be4cbb13691a197055ac82e00341e77b915d878df8ad2bcc867fda"
+url = "https://github.com/joshmedeski/sesh/releases/download/v2.28.0/sesh_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/490857157"
+
+[tools."aqua:joshmedeski/sesh"."platforms.linux-x64-baseline"]
+checksum = "sha256:ac4a0b07f0be4cbb13691a197055ac82e00341e77b915d878df8ad2bcc867fda"
+url = "https://github.com/joshmedeski/sesh/releases/download/v2.28.0/sesh_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/490857157"
+
+[tools."aqua:joshmedeski/sesh"."platforms.linux-x64-musl"]
+checksum = "sha256:ac4a0b07f0be4cbb13691a197055ac82e00341e77b915d878df8ad2bcc867fda"
+url = "https://github.com/joshmedeski/sesh/releases/download/v2.28.0/sesh_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/490857157"
+
+[tools."aqua:joshmedeski/sesh"."platforms.linux-x64-musl-baseline"]
 checksum = "sha256:ac4a0b07f0be4cbb13691a197055ac82e00341e77b915d878df8ad2bcc867fda"
 url = "https://github.com/joshmedeski/sesh/releases/download/v2.28.0/sesh_Linux_x86_64.tar.gz"
 url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/490857157"
@@ -538,6 +558,11 @@ checksum = "sha256:098a4b817b1d7a183ebb3618850a5b6c1ef9cd5e9439dc032d8601b00b6d2
 url = "https://github.com/joshmedeski/sesh/releases/download/v2.28.0/sesh_Darwin_x86_64.tar.gz"
 url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/490857155"
 
+[tools."aqua:joshmedeski/sesh"."platforms.macos-x64-baseline"]
+checksum = "sha256:098a4b817b1d7a183ebb3618850a5b6c1ef9cd5e9439dc032d8601b00b6d2fe5"
+url = "https://github.com/joshmedeski/sesh/releases/download/v2.28.0/sesh_Darwin_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/490857155"
+
 [[tools."aqua:jqlang/jq"]]
 version = "1.8.2"
 backend = "aqua:jqlang/jq"
@@ -548,7 +573,31 @@ url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-linux-arm64"
 url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012756"
 provenance = "github-attestations"
 
+[tools."aqua:jqlang/jq"."platforms.linux-arm64-musl"]
+checksum = "sha256:8b85c817833814ddca00a144c33705546355afccf0cf39b188f3cdb48b852309"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-linux-arm64"
+url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012756"
+provenance = "github-attestations"
+
 [tools."aqua:jqlang/jq"."platforms.linux-x64"]
+checksum = "sha256:b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-linux-amd64"
+url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012752"
+provenance = "github-attestations"
+
+[tools."aqua:jqlang/jq"."platforms.linux-x64-baseline"]
+checksum = "sha256:b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-linux-amd64"
+url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012752"
+provenance = "github-attestations"
+
+[tools."aqua:jqlang/jq"."platforms.linux-x64-musl"]
+checksum = "sha256:b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-linux-amd64"
+url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012752"
+provenance = "github-attestations"
+
+[tools."aqua:jqlang/jq"."platforms.linux-x64-musl-baseline"]
 checksum = "sha256:b1c22172dd303f3be49e935aa56aa48a8b7a46e0bc838b4997d3bb451495870f"
 url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-linux-amd64"
 url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012752"
@@ -561,6 +610,12 @@ url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012783"
 provenance = "github-attestations"
 
 [tools."aqua:jqlang/jq"."platforms.macos-x64"]
+checksum = "sha256:e94b266e3c26690550006abe63152b782280f4e14374accdf04cbde844f00bc0"
+url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-macos-amd64"
+url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012782"
+provenance = "github-attestations"
+
+[tools."aqua:jqlang/jq"."platforms.macos-x64-baseline"]
 checksum = "sha256:e94b266e3c26690550006abe63152b782280f4e14374accdf04cbde844f00bc0"
 url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-macos-amd64"
 url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012782"
@@ -921,7 +976,27 @@ checksum = "sha256:bd56c7815e0a22cfb708669f3d5e817de91d9b54039ff7e52867142a132ad
 url = "https://github.com/docker/docker-language-server/releases/download/v0.20.1/docker-language-server-linux-arm64-v0.20.1"
 url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/304258709"
 
+[tools."github:docker/docker-language-server"."platforms.linux-arm64-musl"]
+checksum = "sha256:bd56c7815e0a22cfb708669f3d5e817de91d9b54039ff7e52867142a132ad8d7"
+url = "https://github.com/docker/docker-language-server/releases/download/v0.20.1/docker-language-server-linux-arm64-v0.20.1"
+url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/304258709"
+
 [tools."github:docker/docker-language-server"."platforms.linux-x64"]
+checksum = "sha256:01907aa5b0eae11e44cffea0a993d08aa155542a9af570295dd1dff39e67692a"
+url = "https://github.com/docker/docker-language-server/releases/download/v0.20.1/docker-language-server-linux-amd64-v0.20.1"
+url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/304258571"
+
+[tools."github:docker/docker-language-server"."platforms.linux-x64-baseline"]
+checksum = "sha256:01907aa5b0eae11e44cffea0a993d08aa155542a9af570295dd1dff39e67692a"
+url = "https://github.com/docker/docker-language-server/releases/download/v0.20.1/docker-language-server-linux-amd64-v0.20.1"
+url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/304258571"
+
+[tools."github:docker/docker-language-server"."platforms.linux-x64-musl"]
+checksum = "sha256:01907aa5b0eae11e44cffea0a993d08aa155542a9af570295dd1dff39e67692a"
+url = "https://github.com/docker/docker-language-server/releases/download/v0.20.1/docker-language-server-linux-amd64-v0.20.1"
+url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/304258571"
+
+[tools."github:docker/docker-language-server"."platforms.linux-x64-musl-baseline"]
 checksum = "sha256:01907aa5b0eae11e44cffea0a993d08aa155542a9af570295dd1dff39e67692a"
 url = "https://github.com/docker/docker-language-server/releases/download/v0.20.1/docker-language-server-linux-amd64-v0.20.1"
 url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/304258571"
@@ -932,6 +1007,11 @@ url = "https://github.com/docker/docker-language-server/releases/download/v0.20.
 url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/304258708"
 
 [tools."github:docker/docker-language-server"."platforms.macos-x64"]
+checksum = "sha256:2dbaec15645e940d1e02092f5b5e10148531a6206225e71faab7bfe71130b457"
+url = "https://github.com/docker/docker-language-server/releases/download/v0.20.1/docker-language-server-darwin-amd64-v0.20.1"
+url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/304258720"
+
+[tools."github:docker/docker-language-server"."platforms.macos-x64-baseline"]
 checksum = "sha256:2dbaec15645e940d1e02092f5b5e10148531a6206225e71faab7bfe71130b457"
 url = "https://github.com/docker/docker-language-server/releases/download/v0.20.1/docker-language-server-darwin-amd64-v0.20.1"
 url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/304258720"
@@ -979,6 +1059,46 @@ url = "https://dl.google.com/go/go1.26.5.darwin-amd64.tar.gz"
 [[tools."go:golang.org/x/tools/gopls"]]
 version = "0.23.0"
 backend = "go:golang.org/x/tools/gopls"
+
+[[tools."http:fzf-tmux"]]
+version = "0.74.2"
+backend = "http:fzf-tmux"
+
+[tools."http:fzf-tmux"."platforms.linux-arm64"]
+checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
+url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/fzf-tmux"
+
+[tools."http:fzf-tmux"."platforms.linux-arm64-musl"]
+checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
+url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/fzf-tmux"
+
+[tools."http:fzf-tmux"."platforms.linux-x64"]
+checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
+url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/fzf-tmux"
+
+[tools."http:fzf-tmux"."platforms.linux-x64-baseline"]
+checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
+url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/fzf-tmux"
+
+[tools."http:fzf-tmux"."platforms.linux-x64-musl"]
+checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
+url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/fzf-tmux"
+
+[tools."http:fzf-tmux"."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
+url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/fzf-tmux"
+
+[tools."http:fzf-tmux"."platforms.macos-arm64"]
+checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
+url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/fzf-tmux"
+
+[tools."http:fzf-tmux"."platforms.macos-x64"]
+checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
+url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/fzf-tmux"
+
+[tools."http:fzf-tmux"."platforms.macos-x64-baseline"]
+checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
+url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.2/bin/fzf-tmux"
 
 [[tools.node]]
 version = "24.18.1"
