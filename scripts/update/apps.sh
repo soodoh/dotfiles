@@ -8,11 +8,10 @@ profile=${1:-${DOTFILES_PROFILE:-${MISE_ENV:-}}}
 export DOTFILES_PROFILE=$profile
 "$repo_root/scripts/bootstrap/require-macos.sh"
 
+mise --env "$profile" bootstrap packages upgrade --manager brew-cask
 export HOMEBREW_NO_AUTO_UPDATE=1
-while IFS='|' read -r token specification; do
-  if brew list --cask --versions "$token" >/dev/null 2>&1; then
-    brew upgrade --cask "$specification"
-  fi
-done < <("$repo_root/scripts/bootstrap/macos/homebrew-app-manifest.sh" "$profile")
-
+brew upgrade --cask nikitabobko/tap/aerospace
 brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders
+if [[ $profile == work-macos ]]; then
+  brew upgrade --cask snowflakedb/snowflake-cli/snowflake-cli
+fi

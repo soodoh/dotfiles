@@ -22,6 +22,23 @@ mise --env personal-macos run status
 
 The status command is read-only. Review every missing/different item and resolve unexpected dotfile conflicts before applying anything.
 
+### Transfer configured casks to mise ownership
+
+mise intentionally refuses to adopt a cask that Homebrew already owns. During this one-time cutover, quit the configured GUI applications, list the casks that will be transferred, and uninstall only their Homebrew-owned app bundles. Do not use `--zap`; application data remains in the user Library for the mise-managed reinstall.
+
+```bash
+profile=personal-macos # or: work-macos
+configured_casks=$(awk -F'"' '/"brew-cask:/{sub(/^brew-cask:/, "", $2); print $2}' mise.toml "mise.$profile.toml")
+printf '%s\n' $configured_casks
+for cask in $configured_casks; do
+  if brew list --cask --versions "$cask" >/dev/null 2>&1; then
+    brew uninstall --cask "$cask"
+  fi
+done
+```
+
+The following bootstrap reinstalls those app bundles under mise ownership. Third-party casks that mise cannot manage directly remain explicitly Homebrew-owned.
+
 ## 3. Bootstrap exactly one profile
 
 ```bash

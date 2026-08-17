@@ -27,18 +27,14 @@ install_formula_if_missing() {
   brew list --formula --versions "$formula" >/dev/null 2>&1 || brew install "$specification"
 }
 
-repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-profile=${DOTFILES_PROFILE:-${MISE_ENV:-}}
-
 brew tap nikitabobko/tap
+install_cask_if_missing aerospace nikitabobko/tap/aerospace
 brew tap FelixKratz/formulae
-if [[ $profile == work-macos ]]; then
-  brew tap snowflakedb/snowflake-cli
-fi
-
-while IFS='|' read -r token specification; do
-  install_cask_if_missing "$token" "$specification"
-done < <("$repo_root/scripts/bootstrap/macos/homebrew-app-manifest.sh" "$profile")
-
 install_formula_if_missing sketchybar FelixKratz/formulae/sketchybar
 install_formula_if_missing borders FelixKratz/formulae/borders
+
+profile=${DOTFILES_PROFILE:-${MISE_ENV:-}}
+if [[ $profile == work-macos ]]; then
+  brew tap snowflakedb/snowflake-cli
+  install_cask_if_missing snowflake-cli snowflakedb/snowflake-cli/snowflake-cli
+fi
