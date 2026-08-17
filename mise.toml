@@ -175,7 +175,7 @@ stderr_path = "~/Library/Logs/colima-default.error.log"
 
 [bootstrap.hooks]
 pre-packages = '''
-case "${DOTFILES_PROFILE:-}" in
+case "{{ vars.profile }}" in
   personal-macos|work-macos) ;;
   *) printf 'error: choose an explicit profile: mise --env personal-macos bootstrap or mise --env work-macos bootstrap\n' >&2; exit 64 ;;
 esac

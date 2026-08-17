@@ -1,5 +1,4 @@
 [env]
-DOTFILES_PROFILE = "work-macos"
 REQUESTS_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
 NODE_EXTRA_CA_CERTS = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
 SSL_CERT_FILE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
