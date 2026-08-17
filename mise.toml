@@ -6,6 +6,9 @@ lockfile = true
 dotfiles.default_mode = "symlink"
 task.run_auto_install = false
 
+[task_config]
+dir = "{{ env.MISE_CONFIG_DIR | default(value=config_root) }}"
+
 [tool_config]
 locked = true
 
@@ -98,9 +101,9 @@ show_recents = false
 NSGlobalDomain = { NSWindowShouldDragOnGesture = true }
 
 [bootstrap.hooks]
-pre-packages = "./scripts/bootstrap/require-profile.sh"
-pre-dotfiles = "./scripts/bootstrap/require-profile.sh"
-post-tools = "./scripts/bootstrap/rust-components.sh"
+pre-packages = "${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/require-profile.sh"
+pre-dotfiles = "${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/require-profile.sh"
+post-tools = "${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/rust-components.sh"
 
 [dotfiles]
 "~/.config/.gitignore_global" = "dotfiles/common/.config/.gitignore_global"

@@ -17,6 +17,20 @@ for profile in personal-macos work-macos; do
   scripts/bootstrap/require-profile.sh "$resolved_profile"
 done
 
+for profile in personal-macos work-macos; do
+  (
+    unset MISE_CONFIG_FILE MISE_GLOBAL_CONFIG_FILE
+    export MISE_CONFIG_DIR=$repo_root MISE_ENV=$profile
+    cd "$HOME"
+    mise config ls | grep -F "mise.$profile.toml" >/dev/null
+    task_dir=$(mise tasks info status | sed -n 's/^Directory: //p')
+    task_dir=${task_dir/#\~/$HOME}
+    [[ $(cd "$task_dir" && pwd) == "$repo_root" ]]
+    resolved_profile=$(mise env --json | python3 -c 'import json, sys; print(json.load(sys.stdin)["DOTFILES_PROFILE"])')
+    [[ $resolved_profile == "$profile" ]]
+  ) || { printf 'error: global profile activation failed: %s\n' "$profile" >&2; exit 1; }
+done
+
 if scripts/bootstrap/require-profile.sh invalid-profile >/dev/null 2>&1; then
   printf 'error: profile guard accepted an invalid profile\n' >&2
   exit 1

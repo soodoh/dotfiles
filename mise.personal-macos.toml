@@ -24,7 +24,7 @@ profile = "personal-macos"
 login_shell = "/opt/homebrew/bin/fish"
 
 [bootstrap.hooks]
-pre-user = "./scripts/bootstrap/macos/login-shell.sh"
+pre-user = "${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/macos/login-shell.sh"
 
 [dotfiles]
 "~/.config/fish/conf.d/10-mise-profile.fish" = "dotfiles/profiles/personal/.config/fish/conf.d/10-mise-profile.fish"

@@ -66,7 +66,7 @@ No bootstrap was run against a live home directory while this repository replace
 ## Dotfiles and writable configuration
 
 mise links all declared files directly into this checkout. Pi settings and saved workflows are intentionally writable symlinks, so Pi can modify tracked files at runtime. Review those changes with Git and either commit or revert them.
-The profile Fish fragment resolves the checkout and points `MISE_GLOBAL_CONFIG_FILE` at its `mise.toml`, so the same locked tool layer remains active outside the repository without copying configuration.
+The profile Fish fragment resolves the checkout and points `MISE_CONFIG_DIR` at it, so mise loads both the shared configuration and the selected `mise.<env>.toml` profile outside the repository without relocating configs or locks.
 Fish also activates the selected profile's tool environment, but bootstrap and update guards ignore that inherited value and still require an explicit `--env`/`-E` selector from the operator.
 
 Local Fish secrets remain outside the repository:

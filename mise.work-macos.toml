@@ -46,8 +46,8 @@ linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.1
 login_shell = "/opt/homebrew/bin/fish"
 
 [bootstrap.hooks]
-pre-packages = "DOTFILES_PROFILE=work-macos ./scripts/bootstrap/work-ca-preflight.sh"
-pre-user = "./scripts/bootstrap/macos/login-shell.sh"
+pre-packages = "DOTFILES_PROFILE=work-macos ${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/work-ca-preflight.sh"
+pre-user = "${MISE_CONFIG_DIR:-$PWD}/scripts/bootstrap/macos/login-shell.sh"
 
 [dotfiles]
 "~/.config/fish/conf.d/10-mise-profile.fish" = "dotfiles/profiles/work/.config/fish/conf.d/10-mise-profile.fish"
