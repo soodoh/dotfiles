@@ -188,6 +188,7 @@ esac
 "~/.config/sketchybar" = "dotfiles/macos/sketchybar"
 "~/.colima/default/colima.yaml" = "dotfiles/macos/colima/colima.yaml"
 "~/.pi/agent/AGENTS.md" = "dotfiles/common/pi/agent/AGENTS.md"
+"~/.pi/agent/keybindings.json" = "dotfiles/common/pi/agent/keybindings.json"
 "~/.pi/agent/extensions/subagent/config.json" = "dotfiles/common/pi/agent/extensions/subagent/config.json"
 "~/.pi/agent/pi-extensions" = "pi-extensions"
 "~/.pi/workflows/.gitignore" = "dotfiles/common/pi/workflows/.gitignore"
