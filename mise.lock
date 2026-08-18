@@ -1434,7 +1434,7 @@ version = "3.5.0"
 backend = "npm:graphql-language-service-cli"
 
 [[tools."npm:oxlint"]]
-version = "1.78.0"
+version = "1.79.0"
 backend = "npm:oxlint"
 
 [[tools."npm:prettier"]]
