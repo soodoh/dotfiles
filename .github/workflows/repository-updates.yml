@@ -11,6 +11,7 @@ permissions:
 
 env:
   MISE_LOCKED_VERIFY_PROVENANCE: "1"
+  MISE_GITHUB_SLSA: "1"
 
 concurrency:
   group: repository-updates
