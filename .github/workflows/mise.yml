@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  MISE_LOCKED_VERIFY_PROVENANCE: "1"
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
