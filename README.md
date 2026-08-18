@@ -48,7 +48,7 @@ Other canonical files:
 - `mise.toml` — shared tools, bootstrap declarations, dotfiles, and tasks
 - `mise.personal-macos.toml`, `mise.work-macos.toml` — profile differences
 - `mise*.lock` — exact tool versions and checksums where supported
-- `pi-extensions/` — repository-local Pi package with a committed npm lock
+- `pi-extensions/` — repository-local Pi package with a committed Bun lock
 - `docs/migration-parity.md` — behavior and accepted-tradeoff ledger
 - `docs/cutover.md` — workstation cutover procedure
 
@@ -87,7 +87,7 @@ Authenticate App Store, GitHub, AWS/Azure/Google/Snowflake CLIs, Pi providers, M
 
 ## Pi and MCP
 
-Pi is pinned through mise's npm backend. Bootstrap runs `npm ci` in `pi-extensions/`; its `package.json` explicitly lists local and dependency-provided extensions, skills, and prompts.
+Pi is pinned through mise's npm backend. Bootstrap runs `bun ci` in `pi-extensions/`; its `package.json` explicitly lists local and dependency-provided extensions, skills, and prompts.
 
 Work MCP servers are also direct mise npm tools:
 

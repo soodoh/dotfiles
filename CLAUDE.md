@@ -14,7 +14,7 @@ The common tool and dotfile layer must remain Linux-compatible. macOS packages, 
 - `dotfiles/common/` — portable Fish, Neovim, tmux, Pi, and CLI configuration
 - `dotfiles/macos/` — AeroSpace, SketchyBar, and Colima configuration
 - `dotfiles/personal/`, `dotfiles/work/` — profile identity, Pi settings, complete agent catalogs, and work-only apps
-- `pi-extensions/` — local Pi package and npm lock
+- `pi-extensions/` — local Pi package and Bun lock
 - `docs/migration-parity.md` — parity ledger and accepted tradeoffs
 - `docs/cutover.md` — later manual workstation cutover
 
@@ -41,7 +41,7 @@ Fish configuration and vendored plugins are symlinked from `dotfiles/common`. Ke
 
 ## Pi and agents
 
-Pi settings, workflows, and profile-specific complete skill catalogs point directly into the checkout. Runtime Pi changes may dirty tracked files; review or revert them with Git. Preserve local npm locks, explicit bundled resource paths, and the documented work HTTP expected-failure test.
+Pi settings, workflows, and profile-specific complete skill catalogs point directly into the checkout. Runtime Pi changes may dirty tracked files; review or revert them with Git. Preserve local Bun locks, explicit bundled resource paths, and the documented work HTTP expected-failure test.
 
 ## Commit standards
 

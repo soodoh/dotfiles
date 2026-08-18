@@ -16,7 +16,7 @@
 This extension is part of the local `pi-extensions` package. From the dotfiles repository root, install dependencies and link the package once:
 
 ```bash
-npm --prefix pi-extensions install
+bun install --cwd pi-extensions
 ln -sfn "$PWD/pi-extensions" "$HOME/.pi/agent/pi-extensions"
 ```
 
@@ -78,6 +78,6 @@ Malformed lines are ignored on read, which keeps a partially written record from
 From the repository root:
 
 ```bash
-npm --prefix pi-extensions run typecheck
-npm --prefix pi-extensions run test -- packages/shared-prompt-history
+bun run --cwd pi-extensions typecheck
+bun run --cwd pi-extensions test -- packages/shared-prompt-history
 ```

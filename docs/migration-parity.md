@@ -80,7 +80,7 @@ The seven personal skills are duplicated from the work catalog where shared. Thi
 
 ## Pi extensions
 
-`pi-extensions/` remains a real local package with a committed npm lock because its TypeScript sources and runtime dependencies are maintained in this repository. Bootstrap runs its `npm ci` command through a mise task.
+`pi-extensions/` remains a real local package with a committed Bun lock because its TypeScript sources and runtime dependencies are maintained in this repository. Bootstrap runs its `bun ci` command through a mise task.
 
 The package manifest now lists all extension, skill, and prompt resources explicitly. Dependency-resource aggregation and its generator were removed. Pi, tmux, workflow, and expected-failure security tests remain colocated with their maintained files.
 
@@ -122,6 +122,6 @@ CI installs bounded dependencies on ephemeral macOS and Ubuntu runners but never
 The top-level `scripts/` directory was deleted. Its former responsibilities were resolved as follows:
 
 - replaced by native mise: bootstrap sequencing, status, login shell, taps where compatible, LaunchAgents, package upgrades, dotfile application, and configuration planning;
-- represented directly in TOML tasks: local `npm ci`, grouped updates, expected-failure orchestration, and the tapped Homebrew native gap;
+- represented directly in TOML tasks: local `bun ci`, grouped updates, expected-failure orchestration, and the tapped Homebrew native gap;
 - colocated as tests: Neovim, Pi, tmux, workflow, Calendar, Colima, and SketchyBar checks;
 - intentionally dropped: Dock/login-item reconciliation, tmux live refresh, CA preflight, generated skill filtering, generated Pi resource aggregation, and automatic TWG metadata rewriting.

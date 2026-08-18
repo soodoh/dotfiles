@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"packageManager": "npm@12.0.2",
+	"packageManager": "bun@1.3.14",
 	"keywords": [
 		"pi-package"
 	],
@@ -39,7 +39,7 @@
 		"build": "tsc --noEmit",
 		"check": "biome check .",
 		"check:write": "biome check --write .",
-		"ci": "npm run check && npm run typecheck && npm run test:typecheck && npm run test:coverage",
+		"ci": "bun run check && bun run typecheck && bun run test:typecheck && bun run test:coverage",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
 		"test:typecheck": "tsc --noEmit --project tsconfig.test.json",
@@ -47,18 +47,18 @@
 		"test:coverage:html": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.reporter=html"
 	},
 	"dependencies": {
-		"@juicesharp/rpiv-ask-user-question": "2.5.2",
-		"@juicesharp/rpiv-todo": "2.5.2",
-		"@juicesharp/rpiv-web-tools": "2.5.2",
-		"@plannotator/pi-extension": "0.27.3",
-		"@quintinshaw/pi-dynamic-workflows": "3.5.1",
-		"pi-mcp-adapter": "2.25.0",
+		"@juicesharp/rpiv-ask-user-question": "2.6.1",
+		"@juicesharp/rpiv-todo": "2.6.1",
+		"@juicesharp/rpiv-web-tools": "2.6.1",
+		"@plannotator/pi-extension": "0.27.4",
+		"@quintinshaw/pi-dynamic-workflows": "3.6.0",
+		"pi-mcp-adapter": "2.26.0",
 		"pi-openai-fast": "1.0.1",
 		"pi-readseek": "0.9.13",
-		"pi-subagents": "0.49.0",
+		"pi-subagents": "0.50.0",
 		"pi-vim": "0.14.1",
 		"proper-lockfile": "4.1.2",
-		"typebox": "1.3.14"
+		"typebox": "1.3.15"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-agent-core": "*",
@@ -67,7 +67,7 @@
 		"@earendil-works/pi-tui": "*"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.8",
+		"@biomejs/biome": "^2.5.9",
 		"@earendil-works/pi-agent-core": "0.84.2",
 		"@earendil-works/pi-ai": "0.84.2",
 		"@earendil-works/pi-coding-agent": "0.84.2",
