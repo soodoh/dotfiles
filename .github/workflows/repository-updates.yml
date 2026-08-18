@@ -30,14 +30,14 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.repository.default_branch }}
 
-      - name: Install native test dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential fish
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential
 
       - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
         with:
           version: 2026.8.8
           install: true
-          install_args: "node bun aqua:neovim/neovim aqua:BurntSushi/ripgrep"
+          install_args: "aqua:neovim/neovim"
           cache: true
 
       - name: Update TWG
@@ -77,8 +77,10 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/dotfiles/common/nvim" "$HOME/.config/nvim"
           mise run update:neovim
 
-      - name: Validate repository
-        run: mise run validate
+      - name: Validate repository updates
+        run: |
+          mise run validate:config
+          git diff --check
 
       - name: Stage repository updates
         id: changes
