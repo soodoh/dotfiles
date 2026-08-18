@@ -27,7 +27,6 @@ jobs:
         with:
           version: 2026.8.8
           install: true
-          install_args: "node bun aqua:neovim/neovim aqua:BurntSushi/ripgrep cargo:tree-sitter-cli"
           cache: true
       - name: Validate configuration and colocated tests
         run: mise run validate
@@ -45,7 +44,6 @@ jobs:
         with:
           version: 2026.8.8
           install: true
-          install_args: "node bun aqua:neovim/neovim aqua:BurntSushi/ripgrep cargo:tree-sitter-cli"
           cache: true
       - name: Validate configuration and colocated tests
         run: mise run validate
