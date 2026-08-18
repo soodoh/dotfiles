@@ -46,7 +46,9 @@ Mise natively manages:
 
 AeroSpace starts SketchyBar through `after-startup-command`, avoiding a service-order wrapper.
 
-Four tapped Homebrew packages do not publish the API metadata required by mise's native package bootstrap. A small inline, missing-only task provisions the Homebrew CLI when necessary, then installs AeroSpace, SketchyBar, Borders, and the work Snowflake CLI through Homebrew. This is the only bootstrap native-gap logic.
+Three tapped Homebrew packages do not publish the API metadata required by mise's native package bootstrap. A small inline, missing-only task provisions the Homebrew CLI when necessary, then installs AeroSpace, SketchyBar, and Borders through Homebrew. This is the only bootstrap native-gap logic.
+
+Docker Compose is mise-managed and exposed at `~/.docker/cli-plugins/docker-compose` so `docker compose` works without relying on Docker Desktop or Homebrew plugin discovery.
 
 Dock ordering and login items are intentionally user-owned. Bootstrap also no longer refreshes running tmux sessions or preflights the work CA file; new processes consume the declared environment naturally.
 
@@ -69,7 +71,7 @@ mise --env personal-macos run update
 mise --env work-macos run update
 ```
 
-The task updates mise tools, Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. TWG's versioned URLs and checksums are edited manually because its HTTP distribution has no native version metadata source.
+The task updates mise tools, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. TWG's versioned URLs and checksums are edited manually because its HTTP distribution has no native version metadata source.
 
 ## Rollback and cutover
 

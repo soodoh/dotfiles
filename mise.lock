@@ -523,6 +523,38 @@ url = "https://github.com/cli/cli/releases/download/v2.97.0/gh_2.97.0_macOS_amd6
 url_api = "https://api.github.com/repos/cli/cli/releases/assets/496108300"
 provenance = "github-attestations"
 
+[[tools."aqua:docker/cli"]]
+version = "29.7.2"
+backend = "aqua:docker/cli"
+
+[tools."aqua:docker/cli"."platforms.linux-arm64"]
+url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.7.2.tgz"
+
+[tools."aqua:docker/cli"."platforms.linux-arm64-musl"]
+url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.7.2.tgz"
+
+[tools."aqua:docker/cli"."platforms.linux-x64"]
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.7.2.tgz"
+
+[tools."aqua:docker/cli"."platforms.linux-x64-baseline"]
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.7.2.tgz"
+
+[tools."aqua:docker/cli"."platforms.linux-x64-musl"]
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.7.2.tgz"
+
+[tools."aqua:docker/cli"."platforms.linux-x64-musl-baseline"]
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.7.2.tgz"
+
+[tools."aqua:docker/cli"."platforms.macos-arm64"]
+checksum = "blake3:c8ca1f8853af6be97265b4a9ea68a3edc34cf844d4a7485a9420fd574ad3404a"
+url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.7.2.tgz"
+
+[tools."aqua:docker/cli"."platforms.macos-x64"]
+url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.7.2.tgz"
+
+[tools."aqua:docker/cli"."platforms.macos-x64-baseline"]
+url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.7.2.tgz"
+
 [[tools."aqua:jdx/usage"]]
 version = "5.1.0"
 backend = "aqua:jdx/usage"
@@ -1022,6 +1054,55 @@ checksum = "sha256:70bb2bcf57d8af862a54e2d12f2fddceefb9aa4ba3783e9a4dcbf2a8e64aa
 url = "https://github.com/sxyazi/yazi/releases/download/v26.8.15/yazi-x86_64-apple-darwin.zip"
 url_api = "https://api.github.com/repos/sxyazi/yazi/releases/assets/515472934"
 
+[[tools."aqua:tmux/tmux-builds"]]
+version = "3.7b"
+backend = "aqua:tmux/tmux-builds"
+
+[tools."aqua:tmux/tmux-builds"."platforms.linux-arm64"]
+checksum = "sha256:b2955782695283fbc3682a2f77d65616f53b986ee3cf3d80618d3b1cb95b91a6"
+url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072868"
+
+[tools."aqua:tmux/tmux-builds"."platforms.linux-arm64-musl"]
+checksum = "sha256:b2955782695283fbc3682a2f77d65616f53b986ee3cf3d80618d3b1cb95b91a6"
+url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072868"
+
+[tools."aqua:tmux/tmux-builds"."platforms.linux-x64"]
+checksum = "sha256:f85e6c1c412750a774eb3f370f33bad05fc726fb8b6a0b174ad6f0b6d954df58"
+url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072866"
+
+[tools."aqua:tmux/tmux-builds"."platforms.linux-x64-baseline"]
+checksum = "sha256:f85e6c1c412750a774eb3f370f33bad05fc726fb8b6a0b174ad6f0b6d954df58"
+url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072866"
+
+[tools."aqua:tmux/tmux-builds"."platforms.linux-x64-musl"]
+checksum = "sha256:f85e6c1c412750a774eb3f370f33bad05fc726fb8b6a0b174ad6f0b6d954df58"
+url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072866"
+
+[tools."aqua:tmux/tmux-builds"."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:f85e6c1c412750a774eb3f370f33bad05fc726fb8b6a0b174ad6f0b6d954df58"
+url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072866"
+
+[tools."aqua:tmux/tmux-builds"."platforms.macos-arm64"]
+checksum = "sha256:ee66dbcd49613eb41dc6b2f3abc5cd39d9135d67b7dfef1fdb180a3dbdc01f1e"
+url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-macos-arm64.tar.gz"
+url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072864"
+
+[tools."aqua:tmux/tmux-builds"."platforms.macos-x64"]
+checksum = "sha256:ea90f0d8e8998cf5a3a5921e985685844a13a7c3b5779f36870bd98b7f147fe6"
+url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-macos-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072865"
+
+[tools."aqua:tmux/tmux-builds"."platforms.macos-x64-baseline"]
+checksum = "sha256:ea90f0d8e8998cf5a3a5921e985685844a13a7c3b5779f36870bd98b7f147fe6"
+url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-macos-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072865"
+
 [[tools.bun]]
 version = "1.3.14"
 backend = "core:bun"
@@ -1073,6 +1154,79 @@ backend = "cargo:taplo-cli"
 [[tools."cargo:tree-sitter-cli"]]
 version = "0.26.12"
 backend = "cargo:tree-sitter-cli"
+
+[[tools."github:docker/compose"]]
+version = "5.5.0"
+backend = "github:docker/compose"
+
+[tools."github:docker/compose"."platforms.linux-arm64"]
+checksum = "sha256:ff42489f5a9b879d5d117c5ffea6defc27390b3286da8ad52cbc9c6ab5df590e"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869355"
+
+[tools."github:docker/compose"."platforms.linux-arm64".provenance.slsa]
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64.provenance.json"
+
+[tools."github:docker/compose"."platforms.linux-arm64-musl"]
+checksum = "sha256:ff42489f5a9b879d5d117c5ffea6defc27390b3286da8ad52cbc9c6ab5df590e"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869355"
+
+[tools."github:docker/compose"."platforms.linux-arm64-musl".provenance.slsa]
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64.provenance.json"
+
+[tools."github:docker/compose"."platforms.linux-x64"]
+checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
+
+[tools."github:docker/compose"."platforms.linux-x64".provenance.slsa]
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64.provenance.json"
+
+[tools."github:docker/compose"."platforms.linux-x64-baseline"]
+checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
+
+[tools."github:docker/compose"."platforms.linux-x64-baseline".provenance.slsa]
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64.provenance.json"
+
+[tools."github:docker/compose"."platforms.linux-x64-musl"]
+checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
+
+[tools."github:docker/compose"."platforms.linux-x64-musl".provenance.slsa]
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64.provenance.json"
+
+[tools."github:docker/compose"."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
+
+[tools."github:docker/compose"."platforms.linux-x64-musl-baseline".provenance.slsa]
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64.provenance.json"
+
+[tools."github:docker/compose"."platforms.macos-arm64"]
+checksum = "sha256:6777710e5a5db5709e5f4b5985844e74b73cc1a6123e3a6690b6ababf2deaf51"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869368"
+
+[tools."github:docker/compose"."platforms.macos-x64"]
+checksum = "sha256:d0f0c867fd740953899a63d6d1a291dc60200b0961de9612a01bcc560e6e29a6"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869340"
+
+[tools."github:docker/compose"."platforms.macos-x64".provenance.slsa]
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64.provenance.json"
+
+[tools."github:docker/compose"."platforms.macos-x64-baseline"]
+checksum = "sha256:d0f0c867fd740953899a63d6d1a291dc60200b0961de9612a01bcc560e6e29a6"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869340"
+
+[tools."github:docker/compose"."platforms.macos-x64-baseline".provenance.slsa]
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64.provenance.json"
 
 [[tools."github:docker/docker-language-server"]]
 version = "0.20.1"

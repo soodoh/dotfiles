@@ -51,6 +51,9 @@ rust = { version = "1.97.1", postinstall = "rustup component add clippy rustfmt 
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.13.1"
 "aqua:JohnnyMorganz/StyLua" = "2.5.2"
+"aqua:tmux/tmux-builds" = "3.7b"
+"aqua:docker/cli" = "29.7.2"
+"github:docker/compose" = "5.5.0"
 "cargo:tree-sitter-cli" = "0.26.12"
 "cargo:kdlfmt" = "0.1.7"
 "cargo:taplo-cli" = "0.10.0"
@@ -86,19 +89,11 @@ linux-x64 = { url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/
 "apt:fish" = { version = "latest", os = "linux" }
 "apt:git" = { version = "latest", os = "linux" }
 "apt:gnupg" = { version = "latest", os = "linux" }
-"apt:libgit2-dev" = { version = "latest", os = "linux" }
-"apt:tmux" = { version = "latest", os = "linux" }
-"apt:wget" = { version = "latest", os = "linux" }
-"apt:zlib1g" = { version = "latest", os = "linux" }
 "brew:fish" = { version = "latest", os = "macos" }
 "brew:gnupg" = { version = "latest", os = "macos" }
-"brew:tmux" = { version = "latest", os = "macos" }
-"brew:wget" = { version = "latest", os = "macos" }
-"brew:trash" = { version = "latest", os = "macos" }
+# Required on macOS for Readseek
 "brew:libgit2" = { version = "latest", os = "macos" }
 "brew:lima" = { version = "latest", os = "macos" }
-"brew:docker" = { version = "latest", os = "macos" }
-"brew:docker-compose" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
 "brew:mas" = { version = "latest", os = "macos" }
 "brew-cask:ghostty" = { version = "latest", os = "macos" }
@@ -206,11 +201,23 @@ esac
 "~/.pi/workflows/settings.json" = "dotfiles/common/pi/workflows/settings.json"
 
 [tasks.bootstrap]
-description = "Install repository-local dependencies and explicitly Homebrew-owned macOS packages"
-run = [{ task = "bootstrap:pi" }, { task = "bootstrap:homebrew-packages" }]
+description = "Install repository dependencies and configure managed CLI integrations"
+run = [
+  { task = "bootstrap:pi" },
+  { task = "bootstrap:homebrew-packages" },
+  { task = "configure:docker-compose-plugin" },
+]
 
 [tasks."bootstrap:pi"]
 run = "bun ci --cwd pi-extensions"
+
+[tasks."configure:docker-compose-plugin"]
+description = "Expose the mise-managed Compose binary as a Docker CLI plugin"
+run = '''
+plugin_dir="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins"
+mkdir -p "$plugin_dir"
+ln -sfn "$(mise which docker-compose)" "$plugin_dir/docker-compose"
+'''
 
 [tasks."bootstrap:homebrew-packages"]
 run = '''
@@ -237,12 +244,6 @@ fi
 "$brew_bin" list --cask aerospace >/dev/null 2>&1 || "$brew_bin" install --cask nikitabobko/tap/aerospace
 "$brew_bin" list sketchybar >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/sketchybar
 "$brew_bin" list borders >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/borders
-if [ "{{ vars.profile }}" = work-macos ]; then
-  "$brew_bin" list --cask snowflake-cli >/dev/null 2>&1 || "$brew_bin" install --cask snowflakedb/snowflake-cli/snowflake-cli
-  # The SDK installer mutates its staged tree, which mise's cask runner cannot currently reconcile.
-  # Keep gcloud explicitly Homebrew-owned so its installer controls the complete artifact lifecycle.
-  "$brew_bin" list --cask gcloud-cli >/dev/null 2>&1 || "$brew_bin" install --cask gcloud-cli
-fi
 '''
 
 [tasks.status]
@@ -312,6 +313,7 @@ description = "Update all explicitly managed dependency groups"
 run = [
   '''test "{{ vars.profile }}" != unset || { printf 'error: choose an explicit profile with --env\n' >&2; exit 64; }''',
   { task = "update:tools" },
+  { task = "configure:docker-compose-plugin" },
   { task = "update:agents" },
   { task = "update:skills" },
   { task = "update:neovim" },
@@ -338,7 +340,4 @@ run = "mise bootstrap packages upgrade"
 run = '''
 brew upgrade --cask nikitabobko/tap/aerospace
 brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders
-if [ "{{ vars.profile }}" = work-macos ]; then
-  brew upgrade --cask snowflakedb/snowflake-cli/snowflake-cli gcloud-cli
-fi
 '''

@@ -6,10 +6,7 @@ SSL_CERT_FILE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
 AWS_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
 CURL_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
 HTTPLIB2_CA_CERTS = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
-_.path = [
-  "{{ env.HOME }}/.local/bin",
-  "/Applications/SnowflakeCLI.app/Contents/MacOS",
-]
+_.path = ["{{ env.HOME }}/.local/bin"]
 GH_HOST = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBkc3NBVS91azRMRXZSK0FUdkZ3NXhpUW9IeHdlUmNjWFZ2dEtFUzZpc1U4Cjh5YndzT2RSMlpFTHIzZldPS1pKQnhOaDFYS3Z0MGhlUytSL1FOMmNwQW8KLT4gc0ZOe0J3W3ctZ3JlYXNlCktRZU1qd1UzQ3lxNDEyT1poajdUbHFiekhGNFRoTks2VUZzSVpOcTFOMU13aTNaMXJaZ0I4SldKaWNQbE5XQi8KbUpqbXdyZFBqNmx4NWp5b2J1RHZ4Y3d0MkVySTlZWWl0WStLVlVnUkx4cU1YN0JvQlFPTWZqKy9tVTIzczkzZwpwUQotLS0gaTgrNkY5YlJNMjZpMjJBcndXTUJuMTNwSmlkNUF3aWttMkovK3NNV2xsRQq6kC+amBxGxzfj0ZiLt4KXgPyuFGJYpauISsOaX71gf0aVM2SROChOnrfW6cE+DIy8jusmeA" }
 GH_ENTERPRISE_TOKEN = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAzUjM1dnZPVENhZU9kSkpHWWtNNVJjVzQ0clBaT0Jsd2V5dmoxeUVGOXhJCmtrM3dmYWYrUENpTFg3RVdqU3hFZEhINGd5ODhQdDJqVDlxVHg5cWFNNzAKLT4gLyRLIzUtZ3JlYXNlICt+fHVuTiAzKyVXICZNClBHTQotLS0gVkZSQjByNFE1MEppTmgzd0drek15U1RFTFRENzlpRTlnQmJOemg4VGFxawr6upWbDTT+jsbeEPv84q9BWoB/xTgNroM901qeudvYpUdTvehHUvT9diBA6Fsn+A6F+V8a7e1ROBCMLjwpHuun7vgegZ8zpVM" }
 ADO_MCP_AUTH_TOKEN = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB2bTZOSzlzVk1IY1RCU1Fwcy9rMEdWWEpzeG9WZDlRb2xEdUIxdXF0Y2xJCmM2dVVYeWtWSUdWbzc4V3l0Tk1GWjdVckdmWXhNOVJFdWpwVitVbkNoREkKLT4gUi8pLWdyZWFzZQpKRGp3ME1nd1N2dUN4VCt6R0Y1QjZpUUo4aWRPZHM0azczbDhyaVhqanM5QjNHWHV3d0o4V1FNVDkwbGk1dmpICkNhSnlwY0lUZk4zTk1LdjAxZ2JDNS9RbEZuNkcKLS0tIG0yV05Kays1cjNaTWdVRXJSSkE3aW5wd25qdE5nNkpMVFJjc0JCOWQyNzQKBgkdKpcXYp2HugQ02SZ9337YnM4H6L6j7qPWFf+TiHqQEhi3W87DwwgpsRsqtuVOa+UXID14x06ILIMfxtG8JxBy/RJn8/SAdB/zO2Y44sBvz1mDbbcc1J5M07a7U4bLzsP61jAUZYSvP2xg8ekF5cwKfWk" }
@@ -26,6 +23,8 @@ profile = "work-macos"
 
 [tools]
 "pipx:azure-cli" = "2.89.1"
+"pipx:snowflake-cli" = "3.24.1"
+gcloud = "580.0.0"
 "npm:@azure/mcp" = "3.0.0-beta.10"
 "npm:@azure-devops/mcp" = "2.9.0"
 "npm:figma-developer-mcp" = "0.13.2"
