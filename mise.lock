@@ -1321,46 +1321,6 @@ url = "https://dl.google.com/go/go1.26.6.darwin-amd64.tar.gz"
 version = "0.23.0"
 backend = "go:golang.org/x/tools/gopls"
 
-[[tools."http:fzf-tmux"]]
-version = "0.74.3"
-backend = "http:fzf-tmux"
-
-[tools."http:fzf-tmux"."platforms.linux-arm64"]
-checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
-url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux"
-
-[tools."http:fzf-tmux"."platforms.linux-arm64-musl"]
-checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
-url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux"
-
-[tools."http:fzf-tmux"."platforms.linux-x64"]
-checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
-url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux"
-
-[tools."http:fzf-tmux"."platforms.linux-x64-baseline"]
-checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
-url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux"
-
-[tools."http:fzf-tmux"."platforms.linux-x64-musl"]
-checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
-url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux"
-
-[tools."http:fzf-tmux"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
-url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux"
-
-[tools."http:fzf-tmux"."platforms.macos-arm64"]
-checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
-url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux"
-
-[tools."http:fzf-tmux"."platforms.macos-x64"]
-checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
-url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux"
-
-[tools."http:fzf-tmux"."platforms.macos-x64-baseline"]
-checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd"
-url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux"
-
 [[tools.node]]
 version = "24.19.0"
 backend = "core:node"

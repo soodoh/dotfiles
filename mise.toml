@@ -75,15 +75,6 @@ rust = { version = "1.97.1", postinstall = "rustup component add clippy rustfmt 
 "npm:vscode-langservers-extracted" = "4.10.0"
 "npm:yaml-language-server" = "1.24.0"
 
-[tools."http:fzf-tmux"]
-version = "0.74.3"
-bin = "fzf-tmux"
-
-[tools."http:fzf-tmux".platforms]
-macos-arm64 = { url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux", checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd" }
-macos-x64 = { url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux", checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd" }
-linux-arm64 = { url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux", checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd" }
-linux-x64 = { url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/fzf-tmux", checksum = "sha256:ea14943d739fc81952d5071a642591df25ed8dac166040a6d6036b3be197cecd" }
 
 [bootstrap.packages]
 "apt:fish" = { version = "latest", os = "linux" }

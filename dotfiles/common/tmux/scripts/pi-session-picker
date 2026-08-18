@@ -12,8 +12,8 @@ if [[ -z "$client_name" ]]; then
   exit 0
 fi
 
-if ! command -v fzf >/dev/null 2>&1 || ! command -v fzf-tmux >/dev/null 2>&1; then
-  tmux display-message -c "$client_name" "Alt+P requires fzf and fzf-tmux" 2>/dev/null || true
+if ! command -v fzf >/dev/null 2>&1; then
+  tmux display-message -c "$client_name" "Alt+P requires fzf" 2>/dev/null || true
   exit 0
 fi
 
@@ -45,7 +45,7 @@ done <"$initial_candidates"
 printf -v pi_session_reload_command '%q --client-name %q --order-file %q' \
   "$pi_session_list" "$client_name" "$pane_order"
 
-if ! selection="$(cat "$initial_candidates" | fzf-tmux -p 90%,80% \
+if ! selection="$(cat "$initial_candidates" | fzf --popup 90%,80% \
   --ansi --no-sort --track \
   --info=hidden \
   --delimiter=$'\t' --with-nth=4.. --nth=1 \
