@@ -41,9 +41,22 @@ jobs:
           cache: true
 
       - name: Update TWG
-        env:
-          MISE_LOCKED: "false"
-        run: mise --env work-macos upgrade http:twg --bump
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("mise.toml")
+          original = path.read_text()
+          unlocked = original.replace("[tool_config]\nlocked = true", "[tool_config]\nlocked = false", 1)
+          if unlocked == original:
+              raise SystemExit("failed to temporarily disable locked tool configuration")
+          path.write_text(unlocked)
+          PY
+          trap 'git restore --source=HEAD --worktree -- mise.toml' EXIT
+          mise --env work-macos upgrade http:twg --bump
+          git restore --source=HEAD --worktree -- mise.toml
+          trap - EXIT
 
       - name: Update profile skills
         shell: bash
