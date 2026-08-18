@@ -12,14 +12,18 @@ The shared mise layer owns pinned runtimes, portable tools, common dotfiles, mac
 Install mise using the [official instructions](https://mise.jdx.dev/getting-started.html), clone this repository, and trust it:
 
 ```bash
-git clone https://github.com/soodoh/dotfiles.git
-cd dotfiles
+mkdir -p ~/Projects
+git clone https://github.com/soodoh/dotfiles.git ~/Projects/dotfiles
+cd ~/Projects/dotfiles
 mise trust
 ```
 
-Copy backed up age profile from Bitwarden, then save:
+Copy the backed-up age identity file from Bitwarden, then save it with restricted permissions:
+
 ```bash
+mkdir -p ~/.config/mise
 pbpaste > ~/.config/mise/age.txt
+chmod 600 ~/.config/mise/age.txt
 ```
 
 There is no default profile. Always select one explicitly:
@@ -72,6 +76,52 @@ mise --env work-macos run update
 ```
 
 The task updates mise tools, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. TWG's versioned URLs and checksums are edited manually because its HTTP distribution has no native version metadata source.
+
+## Manual steps
+
+Bootstrap deliberately leaves interactive authentication, privacy approvals, and application-owned startup preferences to the user.
+
+### Before bootstrap
+
+- Sign in to the Mac App Store. Both profiles install at least one App Store application with `mas`.
+
+### All macOS profiles
+
+- In **System Settings > Privacy & Security > Accessibility**, grant access to `/Applications/AeroSpace.app` and `/opt/homebrew/bin/borders` after bootstrap installs them.
+- Sign in to Nextcloud and enable **Open on Login**.
+- Sign in to Tailscale, enable **Open on Login**, and select **Show only in menu bar**.
+- Authenticate GitHub and cloud CLIs, Pi providers, and MCP services as needed; their credentials are intentionally not stored in this repository.
+
+Do not add AeroSpace to Login Items. Mise already starts AeroSpace and Borders at login with managed LaunchAgents.
+
+### Work profile
+
+- Confirm that corporate device management has installed the CA bundle referenced by the work profile:
+
+  ```bash
+  test -r "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
+  ```
+
+- Authenticate TWG:
+
+  ```bash
+  twg auth setup
+  ```
+
+### Changing encrypted environment variables
+
+Example command:
+
+```bash
+mise set -E personal-macos --age-encrypt --prompt SOME_API_KEY
+```
+
+Replace the profile and variable name as needed. The command uses `~/.config/mise/age.txt`, updates the profile's `[env]` table with ciphertext, and keeps the plaintext out of shell history. Review the resulting diff and validate the selected profile before committing:
+
+```bash
+git diff -- mise.personal-macos.toml
+mise --env personal-macos run status
+```
 
 ## Rollback and cutover
 

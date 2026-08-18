@@ -103,6 +103,7 @@ linux-x64 = { url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/
 "brew-cask:wispr-flow" = { version = "latest", os = "macos" }
 "brew-cask:zen" = { version = "latest", os = "macos" }
 "brew-cask:font-fira-code-nerd-font" = { version = "latest", os = "macos" }
+"mas:1475387142" = { version = "latest", os = "macos" }
 
 [bootstrap.macos.dock]
 show_recents = false
