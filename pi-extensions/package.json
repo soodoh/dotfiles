@@ -47,12 +47,12 @@
 		"test:coverage:html": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.reporter=html"
 	},
 	"dependencies": {
-		"@juicesharp/rpiv-ask-user-question": "2.6.1",
-		"@juicesharp/rpiv-todo": "2.6.1",
-		"@juicesharp/rpiv-web-tools": "2.6.1",
+		"@juicesharp/rpiv-ask-user-question": "2.6.2",
+		"@juicesharp/rpiv-todo": "2.6.2",
+		"@juicesharp/rpiv-web-tools": "2.6.2",
 		"@plannotator/pi-extension": "0.27.4",
 		"@quintinshaw/pi-dynamic-workflows": "3.6.0",
-		"pi-mcp-adapter": "2.26.0",
+		"pi-mcp-adapter": "2.26.1",
 		"pi-openai-fast": "1.0.1",
 		"pi-readseek": "0.9.13",
 		"pi-subagents": "0.50.0",
@@ -74,9 +74,9 @@
 		"@earendil-works/pi-tui": "0.84.2",
 		"@types/node": "^26.2.0",
 		"@types/proper-lockfile": "4.1.4",
-		"@vitest/coverage-v8": "^4.1.10",
+		"@vitest/coverage-v8": "^4.1.11",
 		"typescript": "^7.0.2",
-		"vitest": "^4.1.10"
+		"vitest": "^4.1.11"
 	},
 	"bundleDependencies": [
 		"pi-vim",
