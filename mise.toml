@@ -66,7 +66,7 @@ rust = { version = "1.97.1", postinstall = "rustup component add clippy rustfmt 
 "npm:@biomejs/biome" = "2.5.9"
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = "3.5.0"
-"npm:oxlint" = "1.78.0"
+"npm:oxlint" = "1.79.0"
 "npm:prettier" = "3.9.6"
 "npm:@prisma/language-server" = "31.11.0"
 "npm:pyright" = "1.1.413"
