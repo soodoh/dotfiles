@@ -34,14 +34,17 @@ gcloud = "580.0.0"
 "npm:kusto-mcp" = "1.14.0"
 
 [tools."http:twg"]
-version = "1.1.1"
+version = "1.2.5"
 bin = "twg"
+version_list_url = "https://teamwork-graph.atlassian.com/cli/manifest.json"
+version_json_path = ".version"
+checksum_url = "https://teamwork-graph.atlassian.com/cli/SHA256SUMS-v{{ version }}"
 
 [tools."http:twg".platforms]
-macos-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v1.1.1", checksum = "sha256:9f7cfab754ac759cb5b04ee88661c0ce21375414ec88283d6d6f098dd20aaf83" }
-macos-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.1.1", checksum = "sha256:4037a9ace273e9e9d61e6ad2063b273de6d79f5fd7b116096d484a30e8522873" }
-linux-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v1.1.1", checksum = "sha256:8de4d5ad3fe2c35cf03bdb07333964169b51969ff9f8c13b94248222c9be0bc4" }
-linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.1.1", checksum = "sha256:226104f5497dfa2305d75f9f3efc174ac0f7752ad74f4c964b70d57cc6a69a17" }
+macos-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v{{ version }}" }
+macos-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v{{ version }}" }
+linux-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v{{ version }}" }
+linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v{{ version }}" }
 
 [bootstrap.packages]
 "mas:937984704" = "latest"

@@ -17,24 +17,24 @@ url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0
 url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-darwin-x86_64.tar.gz"
 
 [[tools."http:twg"]]
-version = "1.1.1"
+version = "1.2.5"
 backend = "http:twg"
 
 [tools."http:twg"."platforms.linux-arm64"]
-checksum = "sha256:8de4d5ad3fe2c35cf03bdb07333964169b51969ff9f8c13b94248222c9be0bc4"
-url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v1.1.1"
+checksum = "sha256:7aa79b501ef2b8d4c1c0c668e6fba77164c66b7f0c77839f3265b4ea2d425c99"
+url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v1.2.5"
 
 [tools."http:twg"."platforms.linux-x64"]
-checksum = "sha256:226104f5497dfa2305d75f9f3efc174ac0f7752ad74f4c964b70d57cc6a69a17"
-url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.1.1"
+checksum = "sha256:be73582744d8549538ac6652fd900ebb8d8a7db14d865e39c61defd57352e784"
+url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.2.5"
 
 [tools."http:twg"."platforms.macos-arm64"]
-checksum = "sha256:9f7cfab754ac759cb5b04ee88661c0ce21375414ec88283d6d6f098dd20aaf83"
-url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v1.1.1"
+checksum = "sha256:bc17b9c058da19ae5725ae5d8aa9b26dd539b6982bdf864dff5424d112a9b6f6"
+url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v1.2.5"
 
 [tools."http:twg"."platforms.macos-x64"]
-checksum = "sha256:4037a9ace273e9e9d61e6ad2063b273de6d79f5fd7b116096d484a30e8522873"
-url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.1.1"
+checksum = "sha256:d696728925e7abd2f97c170ffdfc16b9d677592028583f8780b3e59de04d9e5d"
+url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.2.5"
 
 [[tools."npm:@azure-devops/mcp"]]
 version = "2.9.0"
