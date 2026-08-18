@@ -1,0 +1,109 @@
+name: Repository updates
+
+on:
+  schedule:
+    - cron: "17 15 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  MISE_LOCKED_VERIFY_PROVENANCE: "1"
+
+concurrency:
+  group: repository-updates
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      UPDATE_BRANCH: automation/repository-updates
+      BASE_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential fish
+
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
+        with:
+          version: 2026.8.8
+          install: true
+          cache: true
+
+      - name: Update TWG
+        run: mise --env work-macos upgrade http:twg --bump
+
+      - name: Update profile skills
+        shell: bash
+        run: |
+          skills_cli_version="$(mise config get --file mise.toml vars.skills_cli_version)"
+          for profile in personal work; do
+            rm -f "$HOME/.agents"
+            ln -s "$GITHUB_WORKSPACE/dotfiles/$profile/agents" "$HOME/.agents"
+            npx --yes "skills@$skills_cli_version" update --global --yes
+          done
+          rm -f "$HOME/.agents"
+
+      - name: Update Neovim plugins
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.config"
+          rm -rf "$HOME/.config/nvim"
+          ln -s "$GITHUB_WORKSPACE/dotfiles/common/nvim" "$HOME/.config/nvim"
+          mise run update:neovim
+
+      - name: Validate repository
+        run: mise run validate
+
+      - name: Stage repository updates
+        id: changes
+        shell: bash
+        run: |
+          git add \
+            mise.work-macos.toml \
+            mise.work-macos.lock \
+            dotfiles/common/nvim/lazy-lock.json \
+            dotfiles/personal/agents \
+            dotfiles/work/agents
+          if git diff --cached --quiet; then
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Push update branch
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
+          git switch -C "$UPDATE_BRANCH"
+          git commit -m "chore(root): refresh repository assets"
+          git push --force origin "HEAD:$UPDATE_BRANCH"
+
+      - name: Open pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          existing_pr="$(gh pr list --head "$UPDATE_BRANCH" --state open --json number --jq '.[0].number')"
+          if [[ -z "$existing_pr" ]]; then
+            gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$UPDATE_BRANCH" \
+              --title "chore(root): refresh repository assets" \
+              --body $'Updates repository-managed assets that Renovate does not maintain:\n\n- TWG release metadata and lock entries\n- personal and work skill catalogs\n- Neovim plugin lock state\n\nThe repository validation suite passed before this PR was opened.'
+          fi

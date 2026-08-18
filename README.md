@@ -77,6 +77,8 @@ mise --env work-macos run update
 
 The task updates mise tools, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
 
+A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, and the Neovim plugin lock. It validates the resulting checkout and opens or refreshes a single update pull request when tracked files change.
+
 ## Manual steps
 
 Bootstrap deliberately leaves interactive authentication, privacy approvals, and application-owned startup preferences to the user.
