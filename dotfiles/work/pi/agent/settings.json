@@ -4,6 +4,7 @@
   "defaultModel": "gpt-5.6-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
+  "tuiMode": "fullscreen",
   "compaction": {
     "enabled": true,
     "reserveTokens": 16384,
