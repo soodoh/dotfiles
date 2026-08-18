@@ -300,7 +300,6 @@ run = "dotfiles/common/nvim/tests/validate.sh"
 
 [tasks."validate:macos"]
 run = [
-  "python3 dotfiles/work/apps/google-calendar.test.py",
   "python3 dotfiles/macos/colima/colima.test.py",
   "for test in dotfiles/macos/sketchybar/plugins/tests/*_test.sh; do bash \"$test\"; done",
 ]

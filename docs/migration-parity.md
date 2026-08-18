@@ -88,7 +88,7 @@ The package manifest now lists all extension, skill, and prompt resources explic
 
 | Behavior | Final mechanism |
 |---|---|
-| Google Calendar wrapper | Tracked under `dotfiles/work/apps` and linked to `~/Applications` |
+| Google Calendar web app | Chrome-installed PWA with a Chrome-managed app shim; intentionally user-owned |
 | Login shell | Native `[bootstrap.user]` |
 | macOS defaults | Native mise defaults declarations |
 | AeroSpace | Native mise LaunchAgent |
@@ -112,7 +112,7 @@ Mise owns only its `dev.mise.*` LaunchAgents. MDM-owned work applications and se
 - tmux and work workflow tests;
 - the documented work cleartext-HTTP expected-failure check;
 - isolated Neovim loading and parser/tool validation;
-- colocated Google Calendar, Colima, and SketchyBar tests;
+- colocated Colima and SketchyBar tests;
 - Git whitespace validation.
 
 CI installs bounded dependencies on ephemeral macOS and Ubuntu runners but never runs a workstation bootstrap, changes a login shell, loads services, or installs GUI/App Store applications.

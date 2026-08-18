@@ -65,9 +65,9 @@ Verify, in order:
 - Pi starts, loads the checkout-local extension package, and can invoke ReadSeek;
 - Docker/Compose can reach the Colima daemon;
 - work MCP commands resolve from mise-managed npm tools;
-- GUI applications, the Google Calendar app link, AeroSpace, SketchyBar, JankyBorders, and Colima behave as expected;
+- GUI applications, AeroSpace, SketchyBar, JankyBorders, and Colima behave as expected;
+- on the work Mac, open Google Calendar in Chrome and select **More → Cast, save, and share → Install page as app**; verify the Chrome-managed app has its own Dock and Cmd-Tab identity;
 - manually configure and verify the desired Dock order, Downloads stack, and login items;
-- the work Google Calendar launcher opens the expected URL;
 - work certificate environment variables are present without changing MDM-owned `/etc/zshenv`.
 
 Review `git status` afterward. Pi may intentionally have modified tracked settings or workflows.
