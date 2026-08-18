@@ -6,27 +6,27 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/kepano/obsidian-skills.git",
       "skillPath": "skills/obsidian-cli/SKILL.md",
-      "skillFolderHash": "f46ae626875f7e47c410c2ee93896c4526024ebe127719e8fb430261b5677edc",
+      "skillFolderHash": "96254a554e480359de7b685571876f2e7f9ba57d",
       "installedAt": "2026-04-28T23:20:17.545Z",
-      "updatedAt": "2026-04-28T23:20:17.545Z"
+      "updatedAt": "2026-08-18T20:02:04.566Z"
     },
     "find-skills": {
       "source": "vercel-labs/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel-labs/skills.git",
       "skillPath": "skills/find-skills/SKILL.md",
-      "skillFolderHash": "d31e234f0c90694a670222cdd1dafa853e051d7066beda389f1097c22dadd461",
+      "skillFolderHash": "76a98a285cb0434f3d39e1a873823556330e398b",
       "installedAt": "2026-04-28T23:20:22.773Z",
-      "updatedAt": "2026-04-28T23:20:22.773Z"
+      "updatedAt": "2026-08-18T20:02:05.117Z"
     },
     "playwright-cli": {
       "source": "microsoft/playwright-cli",
       "sourceType": "github",
       "sourceUrl": "https://github.com/microsoft/playwright-cli.git",
       "skillPath": "skills/playwright-cli/SKILL.md",
-      "skillFolderHash": "17b68556620db6799a69ce72946b42eea69547856486847d42d004237f07256d",
+      "skillFolderHash": "ef9a12fdadfb2ad4b67d512a10e840979f162c3a",
       "installedAt": "2026-04-29T01:21:13.083Z",
-      "updatedAt": "2026-04-29T01:21:13.083Z"
+      "updatedAt": "2026-08-18T20:02:06.432Z"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
@@ -61,10 +61,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/productivity/grill-me/SKILL.md",
-      "skillFolderHash": "c817f6f36acd483294144694a935a76d3e3eb101",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "3df14e2d3a89459bf300614be9247e3ce74798f8",
       "installedAt": "2026-07-19T18:42:41.559Z",
-      "updatedAt": "2026-07-19T18:42:41.559Z"
+      "updatedAt": "2026-08-18T20:02:07.601Z"
     }
   },
   "dismissed": {
