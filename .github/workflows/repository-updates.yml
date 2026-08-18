@@ -41,6 +41,8 @@ jobs:
           cache: true
 
       - name: Update TWG
+        env:
+          MISE_LOCKED: "false"
         run: mise --env work-macos upgrade http:twg --bump
 
       - name: Update profile skills
