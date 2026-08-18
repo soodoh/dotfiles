@@ -20,20 +20,42 @@ document_url="https://calendar.google.com/calendar/r"
 
 profile_list=$("$firefoxpwa_bin" profile list)
 current_profile_id=""
+current_profile_name=""
+current_profile_description=""
 profile_id="$default_profile_id"
+profile_name=""
+profile_description=""
 site_line=""
 while IFS= read -r line; do
-  if [[ "$line" == "ID: "* ]]; then
+  if [[ "$line" =~ ^={3,}\ (.*)\ ={3,}$ ]]; then
+    current_profile_name="${BASH_REMATCH[1]}"
+  elif [[ "$line" == "Description: "* ]]; then
+    current_profile_description="${line#Description: }"
+  elif [[ "$line" == "ID: "* ]]; then
     current_profile_id="${line#ID: }"
   elif [[ "$line" == *": $manifest_url ("* ]]; then
     site_line="$line"
     profile_id="${current_profile_id:-$default_profile_id}"
+    profile_name="$current_profile_name"
+    profile_description="$current_profile_description"
     break
   fi
 done <<< "$profile_list"
 
 profile_dir="$userdata_dir/profiles/$profile_id"
 profile_lock="$profile_dir/.parentlock"
+if [[ -x "$runtime_executable" \
+  && -n "$site_line" \
+  && -d "$app_bundle" \
+  && "$profile_name" == "Google Calendar" \
+  && "$profile_description" == "Dedicated Google Calendar web app profile" \
+  && -f "$profile_dir/user.js" ]] \
+  && cmp -s "$profile_template" "$profile_dir/user.js" \
+  && jq -e '."chrome://browser/content/browser.xhtml".TabsToolbar.collapsed == "true"' \
+    "$profile_dir/xulstore.json" >/dev/null 2>&1; then
+  exit 0
+fi
+
 if [[ -f "$profile_lock" ]] && "$lsof_bin" "$profile_lock" >/dev/null 2>&1; then
   printf 'error: close Google Calendar before configuring its FirefoxPWA profile\n' >&2
   exit 75

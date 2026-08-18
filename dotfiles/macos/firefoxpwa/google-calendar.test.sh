@@ -49,6 +49,39 @@ ID: $profile_id
 PROFILE
 }
 
+setup_current_state() {
+  local runtime="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app/Contents/MacOS/firefox"
+  local profile_dir="$HOME/Library/Application Support/firefoxpwa/profiles/$profile_id"
+
+  mkdir -p "$(dirname "$runtime")" "$HOME/Applications/Google Calendar.app" "$profile_dir"
+  : > "$runtime"
+  chmod +x "$runtime"
+  install -m 0644 "$profile_template" "$profile_dir/user.js"
+  cat > "$profile_dir/xulstore.json" <<'JSON'
+{"chrome://browser/content/browser.xhtml":{"TabsToolbar":{"collapsed":"true"}}}
+JSON
+  cat > "$FIREFOXPWA_TEST_PROFILE_LIST" <<PROFILE
+===================== Google Calendar ======================
+Description: $profile_description
+ID: $profile_id
+
+Apps:
+- Google Calendar: $manifest_url ($site_id)
+PROFILE
+}
+
+mark_profile_running() {
+  local profile_dir="$HOME/Library/Application Support/firefoxpwa/profiles/$profile_id"
+
+  : > "$profile_dir/.parentlock"
+  cat > "$test_root/lsof" <<'FAKE'
+#!/usr/bin/env bash
+exit 0
+FAKE
+  chmod +x "$test_root/lsof"
+  export FIREFOXPWA_LSOF_BIN="$test_root/lsof"
+}
+
 cat > "$test_root/firefoxpwa" <<'FAKE'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -76,6 +109,19 @@ assert_log "profile list
 runtime install
 profile update $profile_id --name Google Calendar --description $profile_description
 site install $manifest_url --profile $profile_id --document-url $document_url --start-url $document_url --name Google Calendar"
+assert_profile_configuration
+
+setup_case current
+setup_current_state
+bash "$script"
+assert_log "profile list"
+assert_profile_configuration
+
+setup_case current-running
+setup_current_state
+mark_profile_running
+bash "$script"
+assert_log "profile list"
 assert_profile_configuration
 
 setup_case existing
@@ -117,21 +163,15 @@ profile update $profile_id --name Google Calendar --description $profile_descrip
 site update $site_id"
 assert_profile_configuration
 
-setup_case running
+setup_case drifted-running
 profile_dir="$HOME/Library/Application Support/firefoxpwa/profiles/$profile_id"
 mkdir -p "$profile_dir"
-: > "$profile_dir/.parentlock"
-cat > "$test_root/lsof" <<'FAKE'
-#!/usr/bin/env bash
-exit 0
-FAKE
-chmod +x "$test_root/lsof"
-export FIREFOXPWA_LSOF_BIN="$test_root/lsof"
+mark_profile_running
 set +e
 bash "$script" >/dev/null 2>&1
 status=$?
 set -e
-[[ "$status" -eq 75 ]] || fail "running profile should fail with status 75"
+[[ "$status" -eq 75 ]] || fail "drifted running profile should fail with status 75"
 assert_log "profile list"
 
 setup_case linux
