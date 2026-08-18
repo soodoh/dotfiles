@@ -35,7 +35,7 @@ Profile-only tools include:
 |---|---|---|
 | AWS CLI | personal | aqua tool |
 | Azure CLI | work | pipx tool |
-| Azure MCP | work | checksummed HTTP tool |
+| Azure MCP | work | exact mise npm tool |
 | Azure DevOps MCP | work | exact mise npm tool |
 | Figma MCP | work | exact mise npm tool |
 | Kusto MCP | work | exact mise npm tool |
