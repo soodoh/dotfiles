@@ -96,6 +96,7 @@ linux-x64 = { url = "https://raw.githubusercontent.com/junegunn/fzf/v0.74.3/bin/
 "brew:lima" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
 "brew:mas" = { version = "latest", os = "macos" }
+"brew:firefoxpwa" = { version = "latest", os = "macos" }
 "brew-cask:ghostty" = { version = "latest", os = "macos" }
 "brew-cask:obsidian" = { version = "latest", os = "macos" }
 "brew-cask:lunar" = { version = "latest", os = "macos" }
@@ -202,10 +203,11 @@ esac
 "~/.pi/workflows/settings.json" = "dotfiles/common/pi/workflows/settings.json"
 
 [tasks.bootstrap]
-description = "Install repository dependencies and configure managed CLI integrations"
+description = "Install repository dependencies and configure managed integrations"
 run = [
   { task = "bootstrap:pi" },
   { task = "bootstrap:homebrew-packages" },
+  { task = "configure:google-calendar-webapp" },
   { task = "configure:docker-compose-plugin" },
 ]
 
@@ -219,6 +221,10 @@ plugin_dir="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins"
 mkdir -p "$plugin_dir"
 ln -sfn "$(mise which docker-compose)" "$plugin_dir/docker-compose"
 '''
+
+[tasks."configure:google-calendar-webapp"]
+description = "Install the FirefoxPWA runtime and Google Calendar web app on macOS"
+run = "bash dotfiles/macos/firefoxpwa/google-calendar.sh"
 
 [tasks."bootstrap:homebrew-packages"]
 run = '''
@@ -303,6 +309,7 @@ run = "dotfiles/common/nvim/tests/validate.sh"
 [tasks."validate:macos"]
 run = [
   "python3 dotfiles/macos/colima/colima.test.py",
+  "bash dotfiles/macos/firefoxpwa/google-calendar.test.sh",
   "for test in dotfiles/macos/sketchybar/plugins/tests/*_test.sh; do bash \"$test\"; done",
 ]
 
