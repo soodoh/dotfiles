@@ -1,64 +1,67 @@
 {
-	"lastChangelogVersion": "0.83.0",
-	"defaultProvider": "litellm",
-	"defaultModel": "chatgpt/gpt-5.6-sol",
-	"defaultThinkingLevel": "high",
-	"theme": "dark",
-	"compaction": {
-		"enabled": true,
-		"reserveTokens": 16384,
-		"keepRecentTokens": 20000
-	},
-	"collapseChangelog": true,
-	"quietStartup": true,
-	"enableSkillCommands": true,
-	"extensions": ["extensions/*.ts"],
-	"packages": [
-		{
-			"source": "./pi-extensions",
-			"extensions": [
-				"packages/auto-session-name/index.ts",
-				"packages/shared-prompt-history/index.ts",
-				"packages/statusline/index.ts",
-				"packages/aidev-track/index.ts",
-				"packages/tmux-session-status/index.ts",
-				"node_modules/pi-vim/index.ts",
-				"node_modules/pi-openai-fast/index.ts",
-				"node_modules/@plannotator/pi-extension/",
-				"node_modules/pi-mcp-adapter/index.ts",
-				"node_modules/@juicesharp/rpiv-web-tools/index.ts",
-				"node_modules/@juicesharp/rpiv-todo/index.ts",
-				"node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
-				"node_modules/pi-readseek/dist/index.ts",
-				"node_modules/pi-subagents/index.ts",
-				"node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts"
-			]
-		}
-	],
-	"steeringMode": "all",
-	"autoSessionName": {
-		"titleModel": ["github-copilot/gpt-5.6-luna"]
-	},
-	"enabledModels": [
-		"litellm/chatgpt/gpt-5.6-sol",
-		"litellm/chatgpt/gpt-5.6-luna",
-		"github-copilot/gpt-5.6-sol",
-		"github-copilot/gpt-5.6-luna",
-		"github-copilot/claude-opus-5",
-		"github-copilot/claude-sonnet-5",
-		"google-vertex/gemini-2.5-flash",
-		"google-vertex/gemini-2.5-pro"
-	],
-	"subagents": {
-		"modelScope": {
-			"enforce": true,
-			"allow": [
-				"github-copilot/gpt-5.6-sol",
-				"github-copilot/gpt-5.6-luna",
-				"github-copilot/claude-opus-5",
-				"github-copilot/claude-sonnet-5"
-			]
-		}
-	}
+  "lastChangelogVersion": "0.84.2",
+  "defaultProvider": "github-copilot",
+  "defaultModel": "gpt-5.6-sol",
+  "defaultThinkingLevel": "high",
+  "theme": "dark",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 20000
+  },
+  "collapseChangelog": true,
+  "quietStartup": true,
+  "enableSkillCommands": true,
+  "extensions": [
+    "extensions/*.ts"
+  ],
+  "packages": [
+    {
+      "source": "./pi-extensions",
+      "extensions": [
+        "packages/auto-session-name/index.ts",
+        "packages/shared-prompt-history/index.ts",
+        "packages/statusline/index.ts",
+        "packages/aidev-track/index.ts",
+        "packages/tmux-session-status/index.ts",
+        "node_modules/pi-vim/index.ts",
+        "node_modules/pi-openai-fast/index.ts",
+        "node_modules/@plannotator/pi-extension/",
+        "node_modules/pi-mcp-adapter/index.ts",
+        "node_modules/@juicesharp/rpiv-web-tools/index.ts",
+        "node_modules/@juicesharp/rpiv-todo/index.ts",
+        "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
+        "node_modules/pi-readseek/dist/index.ts",
+        "node_modules/pi-subagents/index.ts",
+        "node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts"
+      ]
+    }
+  ],
+  "steeringMode": "all",
+  "autoSessionName": {
+    "titleModel": [
+      "github-copilot/gpt-5.6-luna"
+    ]
+  },
+  "enabledModels": [
+    "litellm/chatgpt/gpt-5.6-sol",
+    "litellm/chatgpt/gpt-5.6-luna",
+    "github-copilot/gpt-5.6-sol",
+    "github-copilot/gpt-5.6-luna",
+    "github-copilot/claude-opus-5",
+    "github-copilot/claude-sonnet-5",
+    "google-vertex/gemini-2.5-flash",
+    "google-vertex/gemini-2.5-pro"
+  ],
+  "subagents": {
+    "modelScope": {
+      "enforce": true,
+      "allow": [
+        "github-copilot/gpt-5.6-sol",
+        "github-copilot/gpt-5.6-luna",
+        "github-copilot/claude-opus-5",
+        "github-copilot/claude-sonnet-5"
+      ]
+    }
+  }
 }
-

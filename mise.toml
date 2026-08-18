@@ -38,6 +38,7 @@ rust = { version = "1.97.1", postinstall = "rustup component add clippy rustfmt 
 "aqua:FiloSottile/age" = "1.3.1"
 "aqua:BurntSushi/ripgrep" = "15.2.0"
 "aqua:junegunn/fzf" = "0.74.2"
+"aqua:jdx/usage" = "5.1.0"
 "aqua:atuinsh/atuin" = "18.18.1"
 "aqua:jesseduffield/lazygit" = "0.64.0"
 "aqua:starship/starship" = "1.26.0"
@@ -207,13 +208,13 @@ esac
 "~/.pi/workflows/settings.json" = "dotfiles/common/pi/workflows/settings.json"
 
 [tasks.bootstrap]
-description = "Install repository-local dependencies and tapped macOS packages"
-run = [{ task = "bootstrap:pi" }, { task = "bootstrap:tapped-packages" }]
+description = "Install repository-local dependencies and explicitly Homebrew-owned macOS packages"
+run = [{ task = "bootstrap:pi" }, { task = "bootstrap:homebrew-packages" }]
 
 [tasks."bootstrap:pi"]
 run = "npm ci --prefix pi-extensions --legacy-peer-deps --no-audit --no-fund"
 
-[tasks."bootstrap:tapped-packages"]
+[tasks."bootstrap:homebrew-packages"]
 run = '''
 export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_ANALYTICS=1
@@ -240,6 +241,9 @@ fi
 "$brew_bin" list borders >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/borders
 if [ "{{ vars.profile }}" = work-macos ]; then
   "$brew_bin" list --cask snowflake-cli >/dev/null 2>&1 || "$brew_bin" install --cask snowflakedb/snowflake-cli/snowflake-cli
+  # The SDK installer mutates its staged tree, which mise's cask runner cannot currently reconcile.
+  # Keep gcloud explicitly Homebrew-owned so its installer controls the complete artifact lifecycle.
+  "$brew_bin" list --cask gcloud-cli >/dev/null 2>&1 || "$brew_bin" install --cask gcloud-cli
 fi
 '''
 
@@ -289,7 +293,7 @@ if node dotfiles/work/pi/agent/settings.security.test.mjs >"$log" 2>&1; then
   printf 'error: expected work HTTP security test to fail\n' >&2
   exit 1
 fi
-grep -F 'FAIL default provider does not use a cleartext HTTP endpoint' "$log" >/dev/null
+grep -F 'FAIL workflow tier provider "litellm" does not use a cleartext HTTP endpoint' "$log" >/dev/null
 ''',
 ]
 
@@ -315,7 +319,7 @@ run = [
   { task = "update:skills" },
   { task = "update:neovim" },
   { task = "update:packages" },
-  { task = "update:tapped-packages" },
+  { task = "update:homebrew-packages" },
 ]
 
 [tasks."update:tools"]
@@ -333,11 +337,11 @@ run = "nvim --headless '+Lazy! sync' +qa"
 [tasks."update:packages"]
 run = "mise bootstrap packages upgrade"
 
-[tasks."update:tapped-packages"]
+[tasks."update:homebrew-packages"]
 run = '''
 brew upgrade --cask nikitabobko/tap/aerospace
 brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders
 if [ "{{ vars.profile }}" = work-macos ]; then
-  brew upgrade --cask snowflakedb/snowflake-cli/snowflake-cli
+  brew upgrade --cask snowflakedb/snowflake-cli/snowflake-cli gcloud-cli
 fi
 '''

@@ -523,6 +523,10 @@ url = "https://github.com/cli/cli/releases/download/v2.97.0/gh_2.97.0_macOS_amd6
 url_api = "https://api.github.com/repos/cli/cli/releases/assets/496108300"
 provenance = "github-attestations"
 
+[[tools."aqua:jdx/usage"]]
+version = "5.1.0"
+backend = "aqua:jdx/usage"
+
 [[tools."aqua:jesseduffield/lazygit"]]
 version = "0.64.0"
 backend = "aqua:jesseduffield/lazygit"
