@@ -33,6 +33,8 @@ const PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS = 50;
 const PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS = 1000;
 const PROVIDER_USAGE_RETRY_MAX_DELAY_MS = 20_000;
 const PROVIDER_BADGE_SEPARATOR = " · ";
+const OPENAI_LOGO = "\u{F0004}";
+const OPENROUTER_LOGO = "\u{F0469}";
 const GITHUB_LOGO = "\uF09B";
 const GOOGLE_LOGO = "\u{F02AD}";
 
@@ -2040,9 +2042,9 @@ function providerDisplayLabel(providerId: string): string {
 		case "anthropic":
 			return "Anthropic";
 		case "openai":
-			return "OpenAI";
+			return OPENAI_LOGO;
 		case "openrouter":
-			return "OpenRouter";
+			return OPENROUTER_LOGO;
 		case "github-copilot":
 			return GITHUB_LOGO;
 		case "google-gemini-cli":

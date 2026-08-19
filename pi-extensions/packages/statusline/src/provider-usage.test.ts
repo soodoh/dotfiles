@@ -70,6 +70,8 @@ import {
 } from "./provider-usage";
 
 const theme = { fg: (_color: string, text: string) => text };
+const OPENAI_LOGO = "\u{F0004}";
+const OPENROUTER_LOGO = "\u{F0469}";
 const styledTheme = {
 	fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
 };
@@ -418,7 +420,7 @@ describe("provider usage", () => {
 		await refreshAndWait(ctx, targets);
 
 		expect(fetchMock).toHaveBeenCalled();
-		expect(render(targets)).toContain("OpenRouter $8.50");
+		expect(render(targets)).toContain(`${OPENROUTER_LOGO} $8.50`);
 	});
 
 	test("falls back from OpenRouter key status to credits", async () => {
@@ -446,7 +448,7 @@ describe("provider usage", () => {
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
 			Authorization: "Bearer openrouter-token",
 		});
-		expect(render(targets)).toContain("OpenRouter $6.75");
+		expect(render(targets)).toContain(`${OPENROUTER_LOGO} $6.75`);
 	});
 
 	test("falls back to OpenRouter credits after key status retries fail", async () => {
@@ -474,7 +476,7 @@ describe("provider usage", () => {
 			"https://openrouter.ai/api/v1/key",
 			"https://openrouter.ai/api/v1/credits",
 		]);
-		expect(render(targets)).toContain("OpenRouter $6.75");
+		expect(render(targets)).toContain(`${OPENROUTER_LOGO} $6.75`);
 	});
 
 	test("retries transient provider responses up to the maximum attempts", async () => {
@@ -685,7 +687,7 @@ describe("provider usage", () => {
 			Authorization: `Bearer ${token}`,
 			"chatgpt-account-id": "account-123",
 		});
-		expect(render(targets)).toContain("OpenAI $4.50");
+		expect(render(targets)).toContain(`${OPENAI_LOGO} $4.50`);
 	});
 
 	test("classifies a seven-day OpenAI primary window as weekly usage", async () => {
@@ -715,7 +717,7 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(render(targets)).toContain("OpenAI 12%");
+		expect(render(targets)).toContain(`${OPENAI_LOGO} 12%`);
 		expect(render(targets)).not.toContain("W12%");
 		expect(render(targets)).not.toContain("S12%");
 	});
@@ -750,7 +752,7 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(render(targets)).toContain("OpenAI S12%/W48%");
+		expect(render(targets)).toContain(`${OPENAI_LOGO} S12%/W48%`);
 	});
 
 	test("parses Google stored OAuth JSON token and quota buckets", async () => {
@@ -1353,8 +1355,10 @@ describe("provider usage", () => {
 		];
 
 		await refreshAndWait(openRouterCtx, openRouterTargets);
-		expect(render(openRouterTargets)).toContain("OpenRouter ?");
-		expect(renderStyled(openRouterTargets)).toBe("<model>OpenRouter ?</model>");
+		expect(render(openRouterTargets)).toContain(`${OPENROUTER_LOGO} ?`);
+		expect(renderStyled(openRouterTargets)).toBe(
+			`<model>${OPENROUTER_LOGO} ?</model>`,
+		);
 
 		invalidateProviderUsageCache();
 		fetchCalls(() => {
@@ -1398,12 +1402,12 @@ describe("provider usage", () => {
 		await refreshAndWait(ctx, targets);
 
 		expect(formatProviderUsage(targets)).toBe(
-			"OpenRouter $2.50 · Anthropic 10%",
+			`${OPENROUTER_LOGO} $2.50 · Anthropic 10%`,
 		);
-		expect(render(targets)).toBe("OpenRouter $2.50 · Anthropic 10%");
+		expect(render(targets)).toBe(`${OPENROUTER_LOGO} $2.50 · Anthropic 10%`);
 		expect(render(targets, true)).toBe("Anthropic 10%");
 		expect(renderStyled(targets)).toBe(
-			"<dim>OpenRouter $2.50</dim><dim> · </dim><model>Anthropic 10%</model>",
+			`<dim>${OPENROUTER_LOGO} $2.50</dim><dim> · </dim><model>Anthropic 10%</model>`,
 		);
 		expect(renderStyled(targets, true)).toBe("<model>Anthropic 10%</model>");
 
@@ -1412,7 +1416,7 @@ describe("provider usage", () => {
 			active: false,
 		}));
 		expect(renderStyled(noActiveTargets)).toBe(
-			"<dim>OpenRouter $2.50</dim><dim> · </dim><dim>Anthropic 10%</dim>",
+			`<dim>${OPENROUTER_LOGO} $2.50</dim><dim> · </dim><dim>Anthropic 10%</dim>`,
 		);
 	});
 
@@ -1671,10 +1675,10 @@ describe("provider usage", () => {
 		]);
 		expect(formatProviderUsage(targets)).toBeUndefined();
 		expect(renderStyled(targets, false, activeFamily)).toBe(
-			"<model>OpenAI ?</model>",
+			`<model>${OPENAI_LOGO} ?</model>`,
 		);
 		expect(renderStyled(targets, true, activeFamily)).toBe(
-			"<model>OpenAI ?</model>",
+			`<model>${OPENAI_LOGO} ?</model>`,
 		);
 	});
 
@@ -1716,7 +1720,7 @@ describe("provider usage", () => {
 		expect(formatProviderUsage(targets)).toBeUndefined();
 		expect(
 			renderStyled(targets, false, mappedProviderUsageFamily(ctx.model)),
-		).toBe("<model>OpenAI ?</model>");
+		).toBe(`<model>${OPENAI_LOGO} ?</model>`);
 	});
 
 	test("ignores LiteLLM providers for usage discovery", async () => {
