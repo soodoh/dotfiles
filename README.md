@@ -110,6 +110,16 @@ Do not add AeroSpace to Login Items. Mise already starts AeroSpace and Borders a
   twg auth setup
   ```
 
+- The work profile pins the MSF TrueDev toolchain: Azure kubelogin, Helm 3, k9s, kubectl, kubectx, PowerShell, and Skaffold. The shared profile already supplies Docker/Compose through Colima and jq; the work profile already supplies Azure CLI and gcloud.
+- Install the self-updating internal `msf-cli` if it is not already present, then authenticate it as needed:
+
+  ```bash
+  curl -sSL https://artifactory.docusigntest.com/artifactory/github-releases-local/msf-cli/install.sh | zsh
+  # Packages come from mise; ask MSF only to configure cluster access.
+  msf-cli setup-workstation --step kubeconfig
+  msf-cli login --resource keyvault --system-name ipg-engagements
+  ```
+
 ### Changing encrypted environment variables
 
 Example command:
