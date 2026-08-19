@@ -25,6 +25,13 @@ assert_log() {
   [[ "$actual" == "$expected" ]] || fail "unexpected command log\nexpected:\n$expected\nactual:\n$actual"
 }
 
+assert_codesign_log() {
+  local expected=$1
+  local actual
+  actual=$(cat "$FIREFOXPWA_TEST_CODESIGN_LOG")
+  [[ "$actual" == "$expected" ]] || fail "unexpected codesign log\nexpected:\n$expected\nactual:\n$actual"
+}
+
 assert_profile_configuration() {
   local profile_dir="$HOME/Library/Application Support/firefoxpwa/profiles/$profile_id"
   cmp -s "$profile_template" "$profile_dir/user.js" || fail "managed user.js was not installed"
@@ -32,16 +39,79 @@ assert_profile_configuration() {
     "$profile_dir/xulstore.json" >/dev/null || fail "icon bar was not configured as collapsed"
 }
 
+assert_runtime_icon_configuration() {
+  local runtime_bundle="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
+  local app_icon="$HOME/Applications/Google Calendar.app/Contents/Resources/app.icns"
+  local runtime_icon="$runtime_bundle/Contents/Resources/google-calendar.icns"
+
+  cmp -s "$app_icon" "$runtime_icon" || fail "runtime did not receive the Google Calendar icon"
+  python3 - "$runtime_bundle/Contents/Info.plist" <<'PY'
+import plistlib
+import sys
+from pathlib import Path
+
+with Path(sys.argv[1]).open("rb") as source:
+    info = plistlib.load(source)
+
+if info.get("CFBundleIconFile") != "google-calendar.icns" or "CFBundleIconName" in info:
+    raise SystemExit(1)
+PY
+}
+
+create_runtime_fixture() {
+  local runtime_bundle="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
+  mkdir -p "$runtime_bundle/Contents/MacOS" "$runtime_bundle/Contents/Resources"
+  : > "$runtime_bundle/Contents/MacOS/firefox"
+  chmod +x "$runtime_bundle/Contents/MacOS/firefox"
+  printf 'firefox icon\n' > "$runtime_bundle/Contents/Resources/firefox.icns"
+  cat > "$runtime_bundle/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIconFile</key><string>firefox.icns</string>
+<key>CFBundleIconName</key><string>AppIcon</string>
+</dict></plist>
+PLIST
+}
+
+create_app_fixture() {
+  local app_resources="$HOME/Applications/Google Calendar.app/Contents/Resources"
+  mkdir -p "$app_resources"
+  printf 'google calendar icon\n' > "$app_resources/app.icns"
+}
+
+configure_runtime_icon_fixture() {
+  local runtime_bundle="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
+  cp "$HOME/Applications/Google Calendar.app/Contents/Resources/app.icns" \
+    "$runtime_bundle/Contents/Resources/google-calendar.icns"
+  python3 - "$runtime_bundle/Contents/Info.plist" <<'PY'
+import plistlib
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+with path.open("rb") as source:
+    info = plistlib.load(source)
+info["CFBundleIconFile"] = "google-calendar.icns"
+info.pop("CFBundleIconName", None)
+with path.open("wb") as target:
+    plistlib.dump(info, target)
+PY
+}
+
 setup_case() {
   local name=$1
   export HOME="$test_root/$name/home"
   export FIREFOXPWA_TEST_LOG="$test_root/$name/commands.log"
+  export FIREFOXPWA_TEST_CODESIGN_LOG="$test_root/$name/codesign.log"
   export FIREFOXPWA_TEST_PROFILE_LIST="$test_root/$name/profile-list.txt"
   export FIREFOXPWA_PLATFORM="Darwin"
   export FIREFOXPWA_BIN="$test_root/firefoxpwa"
+  export FIREFOXPWA_CODESIGN_BIN="$test_root/codesign"
   export FIREFOXPWA_LSOF_BIN="lsof"
   mkdir -p "$HOME" "$(dirname "$FIREFOXPWA_TEST_LOG")"
   : > "$FIREFOXPWA_TEST_LOG"
+  : > "$FIREFOXPWA_TEST_CODESIGN_LOG"
   cat > "$FIREFOXPWA_TEST_PROFILE_LIST" <<PROFILE
 ===================== Default =====================
 Description: Default profile for all web apps
@@ -50,12 +120,12 @@ PROFILE
 }
 
 setup_current_state() {
-  local runtime="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app/Contents/MacOS/firefox"
   local profile_dir="$HOME/Library/Application Support/firefoxpwa/profiles/$profile_id"
 
-  mkdir -p "$(dirname "$runtime")" "$HOME/Applications/Google Calendar.app" "$profile_dir"
-  : > "$runtime"
-  chmod +x "$runtime"
+  create_runtime_fixture
+  create_app_fixture
+  configure_runtime_icon_fixture
+  mkdir -p "$profile_dir"
   install -m 0644 "$profile_template" "$profile_dir/user.js"
   cat > "$profile_dir/xulstore.json" <<'JSON'
 {"chrome://browser/content/browser.xhtml":{"TabsToolbar":{"collapsed":"true"}}}
@@ -88,20 +158,37 @@ set -euo pipefail
 printf '%s\n' "$*" >> "$FIREFOXPWA_TEST_LOG"
 case "$1 $2" in
   "runtime install")
-    runtime="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app/Contents/MacOS/firefox"
-    mkdir -p "$(dirname "$runtime")"
-    : > "$runtime"
-    chmod +x "$runtime"
+    runtime_bundle="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
+    mkdir -p "$runtime_bundle/Contents/MacOS" "$runtime_bundle/Contents/Resources"
+    : > "$runtime_bundle/Contents/MacOS/firefox"
+    chmod +x "$runtime_bundle/Contents/MacOS/firefox"
+    printf 'firefox icon\n' > "$runtime_bundle/Contents/Resources/firefox.icns"
+    cat > "$runtime_bundle/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIconFile</key><string>firefox.icns</string>
+<key>CFBundleIconName</key><string>AppIcon</string>
+</dict></plist>
+PLIST
     ;;
   "profile list")
     cat "$FIREFOXPWA_TEST_PROFILE_LIST"
     ;;
-  "site install")
-    mkdir -p "$HOME/Applications/Google Calendar.app"
+  "site install"|"site update")
+    app_resources="$HOME/Applications/Google Calendar.app/Contents/Resources"
+    mkdir -p "$app_resources"
+    printf 'google calendar icon\n' > "$app_resources/app.icns"
     ;;
 esac
 FAKE
 chmod +x "$test_root/firefoxpwa"
+
+cat > "$test_root/codesign" <<'FAKE'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FIREFOXPWA_TEST_CODESIGN_LOG"
+FAKE
+chmod +x "$test_root/codesign"
 
 setup_case fresh
 bash "$script"
@@ -109,27 +196,45 @@ assert_log "profile list
 runtime install
 profile update $profile_id --name Google Calendar --description $profile_description
 site install $manifest_url --profile $profile_id --document-url $document_url --start-url $document_url --name Google Calendar"
+assert_codesign_log "--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
+-s - $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
 assert_profile_configuration
+assert_runtime_icon_configuration
 
 setup_case current
 setup_current_state
 bash "$script"
 assert_log "profile list"
+assert_codesign_log ""
 assert_profile_configuration
+assert_runtime_icon_configuration
 
 setup_case current-running
 setup_current_state
 mark_profile_running
 bash "$script"
 assert_log "profile list"
+assert_codesign_log ""
 assert_profile_configuration
+assert_runtime_icon_configuration
+
+setup_case icon-drift
+setup_current_state
+rm "$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app/Contents/Resources/google-calendar.icns"
+bash "$script"
+assert_log "profile list
+runtime patch
+profile update $profile_id --name Google Calendar --description $profile_description"
+assert_codesign_log "--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
+-s - $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
+assert_profile_configuration
+assert_runtime_icon_configuration
 
 setup_case existing
-runtime="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app/Contents/MacOS/firefox"
 profile_dir="$HOME/Library/Application Support/firefoxpwa/profiles/$profile_id"
-mkdir -p "$(dirname "$runtime")" "$HOME/Applications/Google Calendar.app" "$profile_dir"
-: > "$runtime"
-chmod +x "$runtime"
+create_runtime_fixture
+create_app_fixture
+mkdir -p "$profile_dir"
 cat > "$profile_dir/xulstore.json" <<'JSON'
 {"chrome://browser/content/browser.xhtml":{"main-window":{"width":"1200"}}}
 JSON
@@ -142,15 +247,15 @@ bash "$script"
 assert_log "profile list
 runtime patch
 profile update $profile_id --name Google Calendar --description $profile_description"
+assert_codesign_log "--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
+-s - $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
 assert_profile_configuration
+assert_runtime_icon_configuration
 jq -e '."chrome://browser/content/browser.xhtml"."main-window".width == "1200"' \
   "$profile_dir/xulstore.json" >/dev/null || fail "existing XUL state was not preserved"
 
 setup_case repair
-runtime="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app/Contents/MacOS/firefox"
-mkdir -p "$(dirname "$runtime")"
-: > "$runtime"
-chmod +x "$runtime"
+create_runtime_fixture
 cat >> "$FIREFOXPWA_TEST_PROFILE_LIST" <<PROFILE
 
 Apps:
@@ -161,7 +266,10 @@ assert_log "profile list
 runtime patch
 profile update $profile_id --name Google Calendar --description $profile_description
 site update $site_id"
+assert_codesign_log "--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
+-s - $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
 assert_profile_configuration
+assert_runtime_icon_configuration
 
 setup_case drifted-running
 profile_dir="$HOME/Library/Application Support/firefoxpwa/profiles/$profile_id"
@@ -173,10 +281,12 @@ status=$?
 set -e
 [[ "$status" -eq 75 ]] || fail "drifted running profile should fail with status 75"
 assert_log "profile list"
+assert_codesign_log ""
 
 setup_case linux
 export FIREFOXPWA_PLATFORM="Linux"
 bash "$script"
 [[ ! -s "$FIREFOXPWA_TEST_LOG" ]] || fail "non-macOS execution should be a no-op"
+[[ ! -s "$FIREFOXPWA_TEST_CODESIGN_LOG" ]] || fail "non-macOS execution should not sign the runtime"
 
 printf 'PASS: FirefoxPWA Google Calendar bootstrap\n'

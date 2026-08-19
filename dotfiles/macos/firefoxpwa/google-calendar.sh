@@ -7,16 +7,39 @@ fi
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 firefoxpwa_bin="${FIREFOXPWA_BIN:-firefoxpwa}"
+codesign_bin="${FIREFOXPWA_CODESIGN_BIN:-codesign}"
 lsof_bin="${FIREFOXPWA_LSOF_BIN:-lsof}"
 python_bin="${FIREFOXPWA_PYTHON_BIN:-python3}"
 userdata_dir="${FFPWA_USERDATA:-$HOME/Library/Application Support/firefoxpwa}"
 applications_dir="${FIREFOXPWA_APPLICATIONS_DIR:-$HOME/Applications}"
-runtime_executable="$userdata_dir/runtime/Firefox.app/Contents/MacOS/firefox"
+runtime_bundle="$userdata_dir/runtime/Firefox.app"
+runtime_executable="$runtime_bundle/Contents/MacOS/firefox"
+runtime_info_plist="$runtime_bundle/Contents/Info.plist"
+runtime_icon="$runtime_bundle/Contents/Resources/google-calendar.icns"
 app_bundle="$applications_dir/Google Calendar.app"
+app_icon="$app_bundle/Contents/Resources/app.icns"
 profile_template="$script_dir/profile/user.js"
 default_profile_id="00000000000000000000000000"
 manifest_url="https://calendar.google.com/calendar/manifest.json"
 document_url="https://calendar.google.com/calendar/r"
+
+runtime_icon_is_configured() {
+  [[ -f "$app_icon" && -f "$runtime_icon" && -f "$runtime_info_plist" ]] \
+    && cmp -s "$app_icon" "$runtime_icon" \
+    && "$python_bin" - "$runtime_info_plist" <<'PY'
+import plistlib
+import sys
+from pathlib import Path
+
+with Path(sys.argv[1]).open("rb") as source:
+    info = plistlib.load(source)
+
+raise SystemExit(
+    info.get("CFBundleIconFile") != "google-calendar.icns"
+    or "CFBundleIconName" in info
+)
+PY
+}
 
 profile_list=$("$firefoxpwa_bin" profile list)
 current_profile_id=""
@@ -52,7 +75,8 @@ if [[ -x "$runtime_executable" \
   && -f "$profile_dir/user.js" ]] \
   && cmp -s "$profile_template" "$profile_dir/user.js" \
   && jq -e '."chrome://browser/content/browser.xhtml".TabsToolbar.collapsed == "true"' \
-    "$profile_dir/xulstore.json" >/dev/null 2>&1; then
+    "$profile_dir/xulstore.json" >/dev/null 2>&1 \
+  && runtime_icon_is_configured; then
   exit 0
 fi
 
@@ -108,3 +132,35 @@ elif [[ ! -d "$app_bundle" ]]; then
   site_id="${site_id%)}"
   "$firefoxpwa_bin" site update "$site_id"
 fi
+
+if [[ ! -f "$app_icon" ]]; then
+  printf 'error: Google Calendar app icon was not created at %s\n' "$app_icon" >&2
+  exit 1
+fi
+
+install -m 0644 "$app_icon" "$runtime_icon"
+"$python_bin" - "$runtime_info_plist" <<'PY'
+import os
+import plistlib
+import sys
+import tempfile
+from pathlib import Path
+
+path = Path(sys.argv[1])
+with path.open("rb") as source:
+    info = plistlib.load(source)
+
+info["CFBundleIconFile"] = "google-calendar.icns"
+info.pop("CFBundleIconName", None)
+
+with tempfile.NamedTemporaryFile("wb", dir=path.parent, delete=False) as target:
+    plistlib.dump(info, target)
+    temporary_path = target.name
+os.replace(temporary_path, path)
+PY
+
+# The runtime is the process bundle shown by Force Quit and queried by SketchyBar.
+# Re-sign it after installing the site icon because FirefoxPWA modifies this bundle.
+"$codesign_bin" --remove-signature "$runtime_bundle"
+"$codesign_bin" -s - "$runtime_bundle"
+touch "$runtime_bundle"
