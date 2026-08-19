@@ -142,7 +142,7 @@ TrackpadCornerSecondaryClick = 0
 [bootstrap.macos.launchd.agents.aerospace]
 program = "/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
 run_at_load = true
-environment = { PATH = "{{ env.HOME }}/.local/share/mise/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
 stdout_path = "~/Library/Logs/aerospace.log"
 stderr_path = "~/Library/Logs/aerospace.error.log"
 
@@ -150,15 +150,23 @@ stderr_path = "~/Library/Logs/aerospace.error.log"
 program = "/opt/homebrew/bin/borders"
 args = ["active_color=0xff7aa2f7", "inactive_color=0xff3b4261", "width=5.0"]
 run_at_load = true
-environment = { PATH = "{{ env.HOME }}/.local/share/mise/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
 stdout_path = "~/Library/Logs/jankyborders.log"
 stderr_path = "~/Library/Logs/jankyborders.error.log"
 
 [bootstrap.macos.launchd.agents.colima-default]
-program = "/opt/homebrew/bin/colima"
-args = ["start", "--foreground", "--profile", "default"]
+program = "~/.local/bin/mise"
+args = [
+  "exec",
+  "--",
+  "/opt/homebrew/bin/colima",
+  "start",
+  "--foreground",
+  "--profile",
+  "default",
+]
 run_at_load = true
-environment = { PATH = "{{ env.HOME }}/.local/share/mise/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+environment = { MISE_CONFIG_DIR = "~/Projects/dotfiles" }
 stdout_path = "~/Library/Logs/colima-default.log"
 stderr_path = "~/Library/Logs/colima-default.error.log"
 
