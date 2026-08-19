@@ -52,5 +52,11 @@
         "openai-codex/gpt-5.6-luna"
       ]
     }
-  }
+  },
+  "enabledModels": [
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-luna",
+    "openrouter/moonshotai/kimi-k3",
+    "openrouter/z-ai/glm-5.3"
+  ]
 }
