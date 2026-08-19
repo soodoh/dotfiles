@@ -211,7 +211,7 @@ test("merges concurrent Pi credential-scoped cache writes", async () => {
 			"utf8",
 		);
 		const cache = JSON.parse(cacheText);
-		expect(cache.version).toBe(5);
+		expect(cache.version).toBe(9);
 		expect(Object.keys(cache.entries)).toHaveLength(2);
 		expect(cacheText).not.toContain("first-token");
 		expect(cacheText).not.toContain("second-token");

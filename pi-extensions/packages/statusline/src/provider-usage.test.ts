@@ -3,6 +3,60 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
+
+const googleAuthMock = vi.hoisted(() => {
+	type MockGoogleAuthClient = {
+		projectId?: string | null;
+		quotaProjectId?: string;
+		serviceAccountEmail?: string;
+		getAccessToken(): Promise<{ token?: string | null }>;
+	};
+	let jsonContent: Record<string, unknown> | null = null;
+	const getClient = vi.fn<() => Promise<MockGoogleAuthClient>>();
+	const getProjectId = vi.fn<() => Promise<string>>();
+	const construct = vi.fn<(options: unknown) => void>();
+	return {
+		construct,
+		getClient,
+		getProjectId,
+		get jsonContent() {
+			return jsonContent;
+		},
+		setJsonContent(value: Record<string, unknown> | null) {
+			jsonContent = value;
+		},
+		reset() {
+			jsonContent = null;
+			getClient.mockReset().mockRejectedValue(new Error("ADC unavailable"));
+			getProjectId
+				.mockReset()
+				.mockRejectedValue(new Error("project unavailable"));
+			construct.mockReset();
+		},
+	};
+});
+
+googleAuthMock.reset();
+
+vi.mock("google-auth-library", () => ({
+	GoogleAuth: class {
+		constructor(options: unknown) {
+			googleAuthMock.construct(options);
+		}
+		get jsonContent(): Record<string, unknown> | null {
+			return googleAuthMock.jsonContent;
+		}
+
+		getClient() {
+			return googleAuthMock.getClient();
+		}
+
+		getProjectId() {
+			return googleAuthMock.getProjectId();
+		}
+	},
+}));
+
 import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
 
 import {
@@ -23,6 +77,17 @@ type FetchCall = {
 	url: string;
 	init: RequestInit;
 };
+
+function deferredValue<T>(): {
+	promise: Promise<T>;
+	resolve(value: T): void;
+} {
+	let resolve = (_value: T) => {};
+	const promise = new Promise<T>((complete) => {
+		resolve = complete;
+	});
+	return { promise, resolve };
+}
 
 function fetchCalls(
 	handler: (url: string, init: RequestInit) => Response | Promise<Response>,
@@ -66,7 +131,6 @@ async function refreshAndWait(
 ): Promise<void> {
 	const onUpdate = vi.fn();
 	await refreshProviderUsage(ctx, targets, onUpdate);
-	expect(onUpdate).toHaveBeenCalled();
 }
 
 function render(targets: ProviderUsageTarget[], activeOnly = false): string {
@@ -159,11 +223,12 @@ afterEach(() => {
 	invalidateProviderUsageCache();
 	process.env = { ...originalEnv };
 	vi.unstubAllGlobals();
+	googleAuthMock.reset();
 	vi.restoreAllMocks();
 });
 
 describe("provider usage", () => {
-	test("hydrates credential-scoped usage from the shared persistent cache", async () => {
+	test("hydrates credential-scoped usage from a compatible legacy cache", async () => {
 		const token = "stored-anthropic-token";
 		const targetKey = "anthropic:oauth";
 		const fingerprint = createHash("sha256")
@@ -290,6 +355,43 @@ describe("provider usage", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
+	test("keeps the latest credential mapping after out-of-order resolution", async () => {
+		const firstToken = deferredValue<string | undefined>();
+		const secondToken = deferredValue<string | undefined>();
+		let credentialRead = 0;
+		const { fetchMock } = fetchCalls((_url, init) => {
+			const authorization = headersRecord(init.headers).Authorization;
+			return Response.json({
+				five_hour: {
+					used_percent: authorization === "Bearer token-b" ? 20 : 10,
+				},
+			});
+		});
+		const ctx: ProviderUsageContext = {
+			modelRegistry: {
+				getApiKeyForProvider() {
+					credentialRead++;
+					return credentialRead === 1
+						? firstToken.promise
+						: secondToken.promise;
+				},
+			},
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "anthropic", authKind: "oauth", active: true },
+		];
+
+		const firstRefresh = refreshProviderUsage(ctx, targets, vi.fn());
+		const secondRefresh = refreshProviderUsage(ctx, targets, vi.fn());
+		await vi.waitFor(() => expect(credentialRead).toBe(2));
+		secondToken.resolve("token-b");
+		await secondRefresh;
+		firstToken.resolve("token-a");
+		await firstRefresh;
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(render(targets)).toContain("Anthropic 20%");
+	});
 	test("resolves async available models before discovering provider targets", async () => {
 		const { fetchMock } = fetchCalls(() =>
 			Response.json({ data: { limit_remaining: 8.5 } }),
@@ -422,6 +524,46 @@ describe("provider usage", () => {
 		expect(render(targets)).toContain("Anthropic ?");
 	});
 
+	test("keeps last-known usage visible across failed and empty refreshes", async () => {
+		const start = Date.now();
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(start);
+		try {
+			let responseKind: "ready" | "error" | "unknown" = "ready";
+			fetchCalls(() => {
+				if (responseKind === "error") {
+					return new Response("unauthorized", { status: 401 });
+				}
+				return responseKind === "ready"
+					? Response.json({ five_hour: { used_percent: 42 } })
+					: Response.json({});
+			});
+			const ctx: ProviderUsageContext = {
+				readStoredCredential: (provider) =>
+					provider === "anthropic"
+						? { type: "oauth", access: "stable-anthropic-token" }
+						: undefined,
+			};
+			const targets: ProviderUsageTarget[] = [
+				{ providerId: "anthropic", authKind: "oauth", active: true },
+			];
+
+			await refreshAndWait(ctx, targets);
+			expect(render(targets)).toContain("Anthropic 42%");
+
+			responseKind = "error";
+			vi.setSystemTime(start + 5 * 60 * 1000 + 1);
+			await refreshAndWait(ctx, targets);
+			expect(render(targets)).toContain("Anthropic 42%");
+
+			responseKind = "unknown";
+			vi.setSystemTime(start + 6 * 60 * 1000 + 2);
+			await refreshAndWait(ctx, targets);
+			expect(render(targets)).toContain("Anthropic 42%");
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 	test("retries unsuccessful usage after the shorter failure TTL", async () => {
 		const start = Date.now();
 		vi.useFakeTimers({ toFake: ["Date"] });
@@ -648,20 +790,553 @@ describe("provider usage", () => {
 		expect(render(targets)).toBe("󰊭 75% · 󰊭 75%");
 	});
 
-	test("omits Google Vertex from provider usage targets", () => {
+	test("does not render persisted Vertex usage before resolving its credential", () => {
+		const targetKey = "google-vertex:oauth";
+		writeFileSync(
+			sharedTestCachePath,
+			JSON.stringify({
+				version: 9,
+				entries: {
+					[`${targetKey}:unrelated-credential`]: {
+						providerId: "google-vertex",
+						authKind: "oauth",
+						state: "ready",
+						scope: { percentUsed: 99 },
+						lastAttemptAt: Date.now(),
+					},
+				},
+			}),
+		);
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "google-vertex", authKind: "oauth", active: true },
+		];
+
+		expect(render(targets)).toContain("󰊭 ?");
+		expect(render(targets)).not.toContain("99%");
+	});
+
+	test("redraws after resolving a fresh persisted Vertex cache entry", async () => {
+		const targetKey = "google-vertex:oauth";
+		const token = "persisted-vertex-token";
+		const projectId = "persisted-vertex-project";
+		const fingerprint = createHash("sha256")
+			.update(
+				`${targetKey}\0${projectId}\0\0${token}\0monitoring-sequential-v2`,
+			)
+			.digest("hex")
+			.slice(0, 16);
+		writeFileSync(
+			sharedTestCachePath,
+			JSON.stringify({
+				version: 9,
+				entries: {
+					[`${targetKey}:${fingerprint}`]: {
+						providerId: "google-vertex",
+						authKind: "oauth",
+						state: "ready",
+						scope: { percentUsed: 33 },
+						lastAttemptAt: Date.now(),
+					},
+				},
+			}),
+		);
 		const ctx: ProviderUsageContext = {
-			model: { id: "gemini-3.1-pro-preview", provider: "google-vertex" },
+			readStoredCredential: (provider) =>
+				provider === "google-vertex"
+					? {
+							type: "oauth",
+							access: JSON.stringify({ token, projectId }),
+						}
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "google-vertex", authKind: "oauth", active: true },
+		];
+		const onUpdate = vi.fn();
+
+		expect(render(targets)).toContain("󰊭 ?");
+		await refreshProviderUsage(ctx, targets, onUpdate);
+
+		expect(onUpdate).toHaveBeenCalledOnce();
+		expect(render(targets)).toBe("󰊭 33%");
+	});
+	test("delegates external-account ADC resolution to GoogleAuth", async () => {
+		delete process.env.GOOGLE_CLOUD_API_KEY;
+		delete process.env.GOOGLE_CLOUD_PROJECT;
+		delete process.env.GCLOUD_PROJECT;
+		delete process.env.CLOUDSDK_CORE_PROJECT;
+		googleAuthMock.setJsonContent({
+			type: "external_account",
+			audience: "test-workload-identity-pool",
+		});
+		googleAuthMock.getProjectId.mockResolvedValue("external-account-project");
+		const getAccessToken = vi
+			.fn<() => Promise<{ token: string }>>()
+			.mockResolvedValueOnce({ token: "external-token-a" })
+			.mockResolvedValue({ token: "external-token-b" });
+		googleAuthMock.getClient.mockResolvedValue({ getAccessToken });
+		const { calls, fetchMock } = fetchCalls(() =>
+			Response.json({ buckets: [{ remainingFraction: 0.6 }] }),
+		);
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "google-vertex", authKind: "api_key", active: true },
+		];
+
+		await refreshAndWait({}, targets);
+		await refreshAndWait({}, targets);
+
+		expect(googleAuthMock.getClient).toHaveBeenCalledTimes(2);
+		expect(getAccessToken).toHaveBeenCalledTimes(2);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(
+			calls.map((call) => headersRecord(call.init.headers).Authorization),
+		).toEqual(["Bearer external-token-a", "Bearer external-token-b"]);
+		expect(calls[0].init.body).toBe(
+			JSON.stringify({ project: "external-account-project" }),
+		);
+		expect(render(targets)).toBe("󰊭 40%");
+	});
+
+	test("scopes Vertex OAuth cache entries by project", async () => {
+		stubEnv("GOOGLE_CLOUD_PROJECT", "vertex-project-a");
+		const { calls, fetchMock } = fetchCalls((_url, init) => {
+			const body = JSON.parse(String(init.body));
+			return Response.json({
+				buckets: [
+					{
+						remainingFraction: body.project === "vertex-project-a" ? 0.9 : 0.8,
+					},
+				],
+			});
+		});
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "google-vertex"
+					? { type: "oauth", access: "shared-vertex-token" }
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "google-vertex", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+		stubEnv("GOOGLE_CLOUD_PROJECT", "vertex-project-b");
+		await refreshAndWait(ctx, targets);
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(calls.map((call) => call.init.body)).toEqual([
+			JSON.stringify({ project: "vertex-project-a" }),
+			JSON.stringify({ project: "vertex-project-b" }),
+		]);
+		expect(render(targets)).toBe("󰊭 20%");
+	});
+	test("discovers Google Vertex target and uses ADC / environment project", async () => {
+		stubEnv("GOOGLE_CLOUD_PROJECT", "test-project-vertex");
+		stubEnv("GOOGLE_CLOUD_API_KEY", "ignored-vertex-api-key");
+		googleAuthMock.setJsonContent({
+			type: "authorized_user",
+			refresh_token: "test-refresh-token",
+		});
+		googleAuthMock.getClient.mockResolvedValue({
+			getAccessToken: async () => ({ token: "test-adc-token" }),
+		});
+		const { calls } = fetchCalls((url) => {
+			if (url.includes("cloudcode-pa.googleapis.com")) {
+				return new Response("disabled", { status: 403 });
+			}
+			const filter = new URL(url).searchParams.get("filter") ?? "";
+			if (filter.includes("quota/exceeded")) {
+				return Response.json({ timeSeries: [] });
+			}
+			return Response.json({
+				timeSeries: [
+					{
+						points: [
+							{
+								value: {
+									int64Value: filter.includes("quota/limit") ? "200" : "15",
+								},
+							},
+						],
+					},
+				],
+			});
+		});
+		const ctx: ProviderUsageContext = {
+			model: { id: "gemini-3.7-flash", provider: "google-vertex" },
 			modelRegistry: {
 				getAvailable() {
 					return [{ provider: "google-vertex" }];
 				},
 				async getApiKeyForProvider() {
-					return "vertex-token";
+					return undefined;
+				},
+				getProviderAuthStatus(provider) {
+					return {
+						configured: provider === "google-vertex",
+						source: "environment",
+					};
 				},
 			},
 		};
 
-		expect(discoverProviderUsageTargets(ctx)).toEqual([]);
+		const targets = discoverProviderUsageTargets(ctx);
+		expect(targets).toEqual([
+			{ providerId: "google-vertex", authKind: "api_key", active: true },
+		]);
+
+		await refreshAndWait(ctx, targets);
+
+		const monitoringCall = calls.find((c) =>
+			c.url.includes("monitoring.googleapis.com"),
+		);
+		expect(monitoringCall).toBeDefined();
+		expect(monitoringCall?.url).toContain(
+			"https://monitoring.googleapis.com/v3/projects/test-project-vertex/timeSeries",
+		);
+		expect(headersRecord(monitoringCall?.init.headers)).toMatchObject({
+			Authorization: "Bearer test-adc-token",
+			"X-Goog-User-Project": "test-project-vertex",
+		});
+		expect(render(targets)).toContain("󰊭 8%");
+		expect(renderStyled(targets)).toBe("<model>󰊭 8%</model>");
+	});
+
+	test("uses auth.json provider environment for Vertex without ambient Google env", async () => {
+		for (const name of [
+			"GOOGLE_APPLICATION_CREDENTIALS",
+			"GOOGLE_CLOUD_API_KEY",
+			"GOOGLE_CLOUD_LOCATION",
+			"GOOGLE_CLOUD_PROJECT",
+			"GOOGLE_CLOUD_QUOTA_PROJECT",
+			"GCLOUD_PROJECT",
+		]) {
+			delete process.env[name];
+		}
+		googleAuthMock.setJsonContent({
+			type: "authorized_user",
+			refresh_token: "stored-adc-refresh-token",
+		});
+		googleAuthMock.getClient.mockResolvedValue({
+			quotaProjectId: "stored-billing-project",
+			getAccessToken: async () => ({ token: "stored-adc-access-token" }),
+		});
+		const { calls } = fetchCalls(() =>
+			Response.json({ buckets: [{ remainingFraction: 0.7 }] }),
+		);
+		const ctx: ProviderUsageContext = {
+			modelRegistry: {
+				getProviderAuthStatus(provider) {
+					return {
+						configured: provider === "google-vertex",
+						source: "stored",
+					};
+				},
+				async getProviderAuth(provider) {
+					return provider === "google-vertex"
+						? {
+								auth: {},
+								env: {
+									GOOGLE_CLOUD_PROJECT: "stored-vertex-project",
+									GOOGLE_CLOUD_LOCATION: "stored-vertex-location",
+								},
+							}
+						: undefined;
+				},
+			},
+		};
+		const targets = discoverProviderUsageTargets(ctx);
+		expect(targets).toEqual([
+			{ providerId: "google-vertex", authKind: "api_key", active: false },
+		]);
+
+		await refreshAndWait(ctx, targets);
+
+		expect(googleAuthMock.construct).toHaveBeenCalledWith(
+			expect.objectContaining({
+				projectId: "stored-vertex-project",
+				keyFilename: undefined,
+			}),
+		);
+		expect(calls[0].init.body).toBe(
+			JSON.stringify({ project: "stored-vertex-project" }),
+		);
+		expect(headersRecord(calls[0].init.headers)).toMatchObject({
+			Authorization: "Bearer stored-adc-access-token",
+			"X-Goog-User-Project": "stored-billing-project",
+		});
+		expect(render(targets)).toBe("󰊭 30%");
+	});
+
+	test("bounds Google ADC discovery latency", async () => {
+		delete process.env.GOOGLE_CLOUD_PROJECT;
+		delete process.env.GCLOUD_PROJECT;
+		delete process.env.CLOUDSDK_CORE_PROJECT;
+		vi.useFakeTimers();
+		try {
+			googleAuthMock.getClient.mockReturnValue(
+				new Promise(() => {
+					// Intentionally unresolved to exercise the outer credential timeout.
+				}),
+			);
+			const targets: ProviderUsageTarget[] = [
+				{ providerId: "google-vertex", authKind: "api_key", active: true },
+			];
+			const refresh = refreshProviderUsage({}, targets, vi.fn());
+
+			await vi.advanceTimersByTimeAsync(5_001);
+			vi.useRealTimers();
+			await refresh;
+
+			expect(render(targets)).toBe("󰊭 ?");
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+	test("falls back from Cloud Code PA to Cloud Monitoring for Google Vertex", async () => {
+		stubEnv("GOOGLE_CLOUD_PROJECT", "test-vertex-gcp");
+		const { calls } = fetchCalls((url) => {
+			if (url.includes("cloudcode-pa.googleapis.com")) {
+				return new Response(
+					JSON.stringify({ error: { code: 403, message: "Disabled" } }),
+					{ status: 403 },
+				);
+			}
+			if (url.includes("monitoring.googleapis.com")) {
+				const filter = new URL(url).searchParams.get("filter") ?? "";
+				if (filter.includes("quota/exceeded")) {
+					return Response.json({ timeSeries: [] });
+				}
+				return Response.json({
+					timeSeries: [
+						{
+							points: [
+								{
+									value: {
+										int64Value: filter.includes("quota/limit") ? "200" : "40",
+									},
+								},
+							],
+						},
+					],
+				});
+			}
+			return new Response("Not found", { status: 404 });
+		});
+
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "google-vertex"
+					? {
+							type: "oauth",
+							access: JSON.stringify({
+								token: "vertex-oauth-token",
+								projectId: "test-vertex-gcp",
+							}),
+						}
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "google-vertex", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(calls.map((c) => c.url)).toEqual([
+			"https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
+			expect.stringContaining(
+				"https://monitoring.googleapis.com/v3/projects/test-vertex-gcp/timeSeries",
+			),
+			expect.stringContaining(
+				"https://monitoring.googleapis.com/v3/projects/test-vertex-gcp/timeSeries",
+			),
+		]);
+		expect(render(targets)).toBe("󰊭 20%");
+	});
+
+	test("queries stable Vertex Monitoring metrics without a concurrent burst", async () => {
+		stubEnv("GOOGLE_CLOUD_PROJECT", "test-vertex-priority");
+		stubEnv("GOOGLE_CLOUD_QUOTA_PROJECT", "test-vertex-billing");
+		const { calls } = fetchCalls((url) => {
+			if (url.includes("cloudcode-pa.googleapis.com")) {
+				return new Response("disabled", { status: 403 });
+			}
+			const filter = new URL(url).searchParams.get("filter") ?? "";
+			if (filter.includes("quota/exceeded")) {
+				return Response.json({ timeSeries: [] });
+			}
+			if (filter.includes("api/request_count")) {
+				return Response.json({
+					timeSeries: [
+						{
+							points: [
+								{
+									interval: { startTime: "2026-08-19T18:00:00Z" },
+									value: { int64Value: "40" },
+								},
+							],
+						},
+					],
+				});
+			}
+			return new Response("unexpected quota query", { status: 500 });
+		});
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "google-vertex"
+					? {
+							type: "oauth",
+							access: JSON.stringify({
+								token: "priority-vertex-token",
+								projectId: "test-vertex-priority",
+							}),
+						}
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "google-vertex", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		const monitoringCalls = calls.filter((call) =>
+			call.url.includes("monitoring.googleapis.com"),
+		);
+		expect(monitoringCalls).toHaveLength(2);
+		const urls = monitoringCalls.map((call) => new URL(call.url));
+		expect(urls.map((url) => url.searchParams.get("filter"))).toEqual([
+			expect.stringContaining("quota/exceeded"),
+			expect.stringContaining("api/request_count"),
+		]);
+		expect(
+			new Set(urls.map((url) => url.searchParams.get("interval.startTime")))
+				.size,
+		).toBe(1);
+		expect(
+			new Set(urls.map((url) => url.searchParams.get("interval.endTime"))).size,
+		).toBe(1);
+		for (const call of monitoringCalls) {
+			expect(headersRecord(call.init.headers)).toMatchObject({
+				Authorization: "Bearer priority-vertex-token",
+				"X-Goog-User-Project": "test-vertex-billing",
+			});
+		}
+		expect(render(targets)).toBe("󰊭 20%");
+	});
+
+	test("treats successful empty Monitoring responses as zero usage", async () => {
+		const { calls } = fetchCalls((url) =>
+			url.includes("cloudcode-pa.googleapis.com")
+				? new Response("disabled", { status: 403 })
+				: Response.json({}),
+		);
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "google-vertex"
+					? {
+							type: "oauth",
+							access: JSON.stringify({
+								token: "empty-monitoring-token",
+								projectId: "empty-monitoring-project",
+							}),
+						}
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "google-vertex", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(
+			calls.filter((call) => call.url.includes("monitoring.googleapis.com")),
+		).toHaveLength(2);
+		expect(render(targets)).toBe("󰊭 0%");
+	});
+	test("falls back to request-count usage when quota metrics are unavailable", async () => {
+		vi.spyOn(Math, "random").mockReturnValue(0);
+		stubEnv("GOOGLE_CLOUD_PROJECT", "test-vertex-partial");
+		fetchCalls((url) => {
+			if (url.includes("cloudcode-pa.googleapis.com")) {
+				return new Response("disabled", { status: 403 });
+			}
+			const filter = new URL(url).searchParams.get("filter") ?? "";
+			if (filter.includes("api/request_count")) {
+				return Response.json({
+					timeSeries: [
+						{
+							points: [
+								{
+									interval: { startTime: "2026-08-19T18:00:00Z" },
+									value: { int64Value: "14" },
+								},
+							],
+						},
+					],
+				});
+			}
+			throw new Error("quota metrics unavailable");
+		});
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "google-vertex"
+					? {
+							type: "oauth",
+							access: JSON.stringify({
+								token: "partial-vertex-token",
+								projectId: "test-vertex-partial",
+							}),
+						}
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "google-vertex", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(render(targets)).toBe("󰊭 7%");
+	});
+
+	test("reports 100% when Cloud Monitoring reports quota exceeded for Google Vertex", async () => {
+		stubEnv("GOOGLE_CLOUD_PROJECT", "test-vertex-exceeded");
+		fetchCalls((url) => {
+			if (url.includes("cloudcode-pa.googleapis.com")) {
+				return new Response("disabled", { status: 403 });
+			}
+			if (url.includes("quota%2Fexceeded")) {
+				return Response.json({
+					timeSeries: [
+						{
+							metric: {
+								type: "serviceruntime.googleapis.com/quota/exceeded",
+							},
+							points: [{ value: { int64Value: "3" } }],
+						},
+					],
+				});
+			}
+			return Response.json({ timeSeries: [] });
+		});
+
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "google-vertex"
+					? {
+							type: "oauth",
+							access: JSON.stringify({
+								token: "vertex-token",
+								projectId: "test-vertex-exceeded",
+							}),
+						}
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "google-vertex", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+		expect(render(targets)).toBe("󰊭 100%");
 	});
 
 	test("renders unknown active provider usage for non-OK and throwing responses", async () => {

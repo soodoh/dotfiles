@@ -10,6 +10,7 @@
         "@juicesharp/rpiv-web-tools": "2.6.2",
         "@plannotator/pi-extension": "0.27.4",
         "@quintinshaw/pi-dynamic-workflows": "3.6.0",
+        "google-auth-library": "10.9.1",
         "pi-mcp-adapter": "2.26.1",
         "pi-openai-fast": "1.0.1",
         "pi-readseek": "0.9.13",

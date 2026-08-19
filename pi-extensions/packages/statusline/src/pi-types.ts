@@ -26,6 +26,7 @@ export type ProviderAuthLike = {
 	auth?: {
 		apiKey?: string;
 	};
+	env?: Record<string, string>;
 };
 
 export type ModelRegistryLike = {
