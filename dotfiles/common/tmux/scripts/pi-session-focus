@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  exit 0
+fi
+
+socket_path="${1:-}"
+server_pid="${2:-}"
+pane_id="${3:-}"
+
+if [[ -z "$socket_path" ]] || [[ ! "$server_pid" =~ ^[1-9][0-9]*$ ]] ||
+  [[ ! "$pane_id" =~ ^%[0-9]+$ ]]; then
+  exit 64
+fi
+
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+tmux_bin="$(command -v tmux 2>/dev/null || true)"
+if [[ -z "$tmux_bin" ]]; then
+  exit 69
+fi
+
+tmux_command=("$tmux_bin" -S "$socket_path")
+actual_server_pid="$("${tmux_command[@]}" display-message -p '#{pid}' 2>/dev/null || true)"
+if [[ "$actual_server_pid" != "$server_pid" ]]; then
+  exit 0
+fi
+
+pane_status="$("${tmux_command[@]}" display-message -p -t "$pane_id" \
+  '#{pane_id}'$'\t''#{pane_dead}' 2>/dev/null || true)"
+if [[ "$pane_status" != "$pane_id"$'\t''0' ]]; then
+  exit 0
+fi
+
+client_name=""
+client_activity=0
+while IFS=$'\t' read -r activity candidate termname; do
+  if [[ "$termname" == "xterm-ghostty" ]] && [[ "$activity" =~ ^[0-9]+$ ]] &&
+    ((activity >= client_activity)); then
+    client_activity="$activity"
+    client_name="$candidate"
+  fi
+done < <("${tmux_command[@]}" list-clients -F \
+  '#{client_activity}'$'\t''#{client_name}'$'\t''#{client_termname}' \
+  2>/dev/null || true)
+
+if [[ -z "$client_name" ]]; then
+  /usr/bin/open -na Ghostty.app --args -e "$tmux_bin" -S "$socket_path" \
+    attach-session -t "$pane_id"
+  exit 0
+fi
+
+if ! "${tmux_command[@]}" switch-client -c "$client_name" -t "$pane_id" 2>/dev/null; then
+  exit 0
+fi
+
+pane_title="$("${tmux_command[@]}" display-message -p -t "$pane_id" \
+  '#{pane_title}' 2>/dev/null || true)"
+
+if ! /usr/bin/osascript - "$pane_title" >/dev/null 2>&1 <<'APPLESCRIPT'
+on run argv
+  set targetTitle to item 1 of argv
+  tell application "Ghostty"
+    activate
+    repeat 10 times
+      set matches to every terminal whose name is targetTitle
+      if (count of matches) > 0 then
+        focus item 1 of matches
+        return
+      end if
+      delay 0.1
+    end repeat
+  end tell
+end run
+APPLESCRIPT
+then
+  /usr/bin/open -a Ghostty.app
+fi

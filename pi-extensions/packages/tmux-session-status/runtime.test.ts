@@ -87,6 +87,8 @@ describe("tmux session runtime", () => {
 	test("starts one timer, writes transitions, and cleans up on shutdown", async () => {
 		const writes: HeartbeatRecord[] = [];
 		const removals: Array<{ filePath: string; instanceId: string }> = [];
+		const notifyReady = vi.fn(async () => {});
+		const removeNotification = vi.fn(async () => {});
 		let activePaneIds = new Set<string>();
 		const runtime = new TmuxSessionRuntime(
 			processIdentity,
@@ -101,6 +103,8 @@ describe("tmux session runtime", () => {
 				remove: async (filePath, instanceId) => {
 					removals.push({ filePath, instanceId });
 				},
+				notifyReady,
+				removeNotification,
 				setInterval,
 				clearInterval,
 			},
@@ -131,12 +135,16 @@ describe("tmux session runtime", () => {
 		});
 		await runtime.settle();
 		expect(runtime.state.status).toBe("WAITING");
+		expect(notifyReady).toHaveBeenCalledOnce();
+		expect(notifyReady).toHaveBeenCalledWith(tmuxIdentity, metadata);
 
 		activePaneIds = new Set(["%4"]);
 		vi.setSystemTime(2_000);
 		await vi.advanceTimersByTimeAsync(1_000);
 		await flushPromises();
 		expect(runtime.state.status).toBe("IDLE");
+		expect(removeNotification).toHaveBeenCalledOnce();
+		expect(removeNotification).toHaveBeenCalledWith(tmuxIdentity);
 
 		const writesBeforeShutdown = writes.length;
 		await runtime.shutdown();
@@ -161,6 +169,8 @@ describe("tmux session runtime", () => {
 					writes.push(record);
 				},
 				remove: async () => {},
+				notifyReady: async () => {},
+				removeNotification: async () => {},
 				setInterval,
 				clearInterval,
 			},

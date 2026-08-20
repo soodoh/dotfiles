@@ -4,6 +4,11 @@ import { open } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
+	postReadyNotification,
+	type ReadyNotificationMetadata,
+	removeReadyNotification,
+} from "./notifier";
+import {
 	currentToolName,
 	initialLifecycleState,
 	type LifecycleEvent,
@@ -244,6 +249,11 @@ export type RuntimeDependencies = {
 		record: ReturnType<typeof createHeartbeatRecord>,
 	): Promise<void>;
 	remove(filePath: string, instanceId: string): Promise<void>;
+	notifyReady(
+		identity: TmuxIdentity,
+		metadata: ReadyNotificationMetadata,
+	): Promise<void>;
+	removeNotification(identity: TmuxIdentity): Promise<void>;
 	setInterval(
 		callback: () => void,
 		intervalMs: number,
@@ -256,6 +266,8 @@ const defaultDependencies: RuntimeDependencies = {
 	activePaneIds: queryActivePaneIds,
 	write: writeHeartbeatAtomic,
 	remove: removeOwnedHeartbeat,
+	notifyReady: postReadyNotification,
+	removeNotification: removeReadyNotification,
 	setInterval,
 	clearInterval,
 };
@@ -271,6 +283,7 @@ export class TmuxSessionRuntime {
 	private writeQueue = Promise.resolve();
 	private lastHeartbeatAt = 0;
 	private pollInFlight = false;
+	private notificationPosted = false;
 
 	constructor(
 		private readonly processIdentity: ProcessIdentity,
@@ -303,6 +316,9 @@ export class TmuxSessionRuntime {
 		const previous = this.lifecycle;
 		this.lifecycle = reduceLifecycle(previous, event);
 		if (this.lifecycle !== previous) await this.publish(event.at);
+		if (previous.status === "WAITING" && this.lifecycle.status !== "WAITING") {
+			await this.dismissNotification();
+		}
 	}
 
 	async settle(): Promise<void> {
@@ -310,11 +326,16 @@ export class TmuxSessionRuntime {
 		const focused = (await this.dependencies.activePaneIds()).has(
 			this.tmuxIdentity.paneId,
 		);
+		const wasWaiting = this.lifecycle.status === "WAITING";
 		await this.dispatch({
 			type: "AGENT_SETTLED",
 			paneFocused: focused,
 			at: this.dependencies.now(),
 		});
+		if (!focused && !wasWaiting && this.lifecycle.status === "WAITING") {
+			this.notificationPosted = true;
+			await this.dependencies.notifyReady(this.tmuxIdentity, this.metadata);
+		}
 	}
 
 	async updateSessionName(sessionName: string | undefined): Promise<void> {
@@ -331,6 +352,7 @@ export class TmuxSessionRuntime {
 			this.timer = undefined;
 		}
 		await this.writeQueue;
+		await this.dismissNotification();
 		await this.dependencies
 			.remove(this.filePath, this.instanceId)
 			.catch(() => undefined);
@@ -359,6 +381,14 @@ export class TmuxSessionRuntime {
 		} finally {
 			this.pollInFlight = false;
 		}
+	}
+
+	private async dismissNotification(): Promise<void> {
+		if (!this.notificationPosted) return;
+		this.notificationPosted = false;
+		await this.dependencies
+			.removeNotification(this.tmuxIdentity)
+			.catch(() => undefined);
 	}
 
 	private publish(at: number): Promise<void> {

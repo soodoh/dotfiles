@@ -82,6 +82,7 @@ rust = { version = "1.97.1", postinstall = "rustup component add clippy rustfmt 
 "apt:gnupg" = { version = "latest", os = "linux" }
 "brew:fish" = { version = "latest", os = "macos" }
 "brew:gnupg" = { version = "latest", os = "macos" }
+"brew:terminal-notifier" = { version = "latest", os = "macos" }
 # Required on macOS for Readseek
 "brew:libgit2" = { version = "latest", os = "macos" }
 "brew:lima" = { version = "latest", os = "macos" }
