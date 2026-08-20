@@ -546,7 +546,6 @@ url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.7.2.tgz"
 url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.7.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-arm64"]
-checksum = "blake3:c8ca1f8853af6be97265b4a9ea68a3edc34cf844d4a7485a9420fd574ad3404a"
 url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.7.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-x64"]
@@ -554,6 +553,64 @@ url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.7.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-x64-baseline"]
 url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.7.2.tgz"
+
+[[tools."aqua:docker/compose"]]
+version = "5.5.0"
+backend = "aqua:docker/compose"
+
+[tools."aqua:docker/compose"."platforms.linux-arm64"]
+checksum = "sha256:ff42489f5a9b879d5d117c5ffea6defc27390b3286da8ad52cbc9c6ab5df590e"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869355"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.linux-arm64-musl"]
+checksum = "sha256:ff42489f5a9b879d5d117c5ffea6defc27390b3286da8ad52cbc9c6ab5df590e"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869355"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.linux-x64"]
+checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.linux-x64-baseline"]
+checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.linux-x64-musl"]
+checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.macos-arm64"]
+checksum = "sha256:6777710e5a5db5709e5f4b5985844e74b73cc1a6123e3a6690b6ababf2deaf51"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869368"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.macos-x64"]
+checksum = "sha256:d0f0c867fd740953899a63d6d1a291dc60200b0961de9612a01bcc560e6e29a6"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869340"
+provenance = "cosign"
+
+[tools."aqua:docker/compose"."platforms.macos-x64-baseline"]
+checksum = "sha256:d0f0c867fd740953899a63d6d1a291dc60200b0961de9612a01bcc560e6e29a6"
+url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869340"
+provenance = "cosign"
 
 [[tools."aqua:jdx/usage"]]
 version = "5.1.0"
@@ -1155,79 +1212,6 @@ backend = "cargo:taplo-cli"
 version = "0.26.12"
 backend = "cargo:tree-sitter-cli"
 
-[[tools."github:docker/compose"]]
-version = "5.5.0"
-backend = "github:docker/compose"
-
-[tools."github:docker/compose"."platforms.linux-arm64"]
-checksum = "sha256:ff42489f5a9b879d5d117c5ffea6defc27390b3286da8ad52cbc9c6ab5df590e"
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64"
-url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869355"
-
-[tools."github:docker/compose"."platforms.linux-arm64".provenance.slsa]
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64.provenance.json"
-
-[tools."github:docker/compose"."platforms.linux-arm64-musl"]
-checksum = "sha256:ff42489f5a9b879d5d117c5ffea6defc27390b3286da8ad52cbc9c6ab5df590e"
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64"
-url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869355"
-
-[tools."github:docker/compose"."platforms.linux-arm64-musl".provenance.slsa]
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64.provenance.json"
-
-[tools."github:docker/compose"."platforms.linux-x64"]
-checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
-url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
-
-[tools."github:docker/compose"."platforms.linux-x64".provenance.slsa]
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64.provenance.json"
-
-[tools."github:docker/compose"."platforms.linux-x64-baseline"]
-checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
-url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
-
-[tools."github:docker/compose"."platforms.linux-x64-baseline".provenance.slsa]
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64.provenance.json"
-
-[tools."github:docker/compose"."platforms.linux-x64-musl"]
-checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
-url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
-
-[tools."github:docker/compose"."platforms.linux-x64-musl".provenance.slsa]
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64.provenance.json"
-
-[tools."github:docker/compose"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b"
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64"
-url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869325"
-
-[tools."github:docker/compose"."platforms.linux-x64-musl-baseline".provenance.slsa]
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-x86_64.provenance.json"
-
-[tools."github:docker/compose"."platforms.macos-arm64"]
-checksum = "sha256:6777710e5a5db5709e5f4b5985844e74b73cc1a6123e3a6690b6ababf2deaf51"
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-aarch64"
-url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869368"
-
-[tools."github:docker/compose"."platforms.macos-x64"]
-checksum = "sha256:d0f0c867fd740953899a63d6d1a291dc60200b0961de9612a01bcc560e6e29a6"
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64"
-url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869340"
-
-[tools."github:docker/compose"."platforms.macos-x64".provenance.slsa]
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64.provenance.json"
-
-[tools."github:docker/compose"."platforms.macos-x64-baseline"]
-checksum = "sha256:d0f0c867fd740953899a63d6d1a291dc60200b0961de9612a01bcc560e6e29a6"
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64"
-url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869340"
-
-[tools."github:docker/compose"."platforms.macos-x64-baseline".provenance.slsa]
-url = "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-darwin-x86_64.provenance.json"
-
 [[tools."github:docker/docker-language-server"]]
 version = "0.20.1"
 backend = "github:docker/docker-language-server"
@@ -1477,3 +1461,6 @@ provenance = "github-attestations"
 [[tools.rust]]
 version = "1.97.1"
 backend = "core:rust"
+
+[tools.rust.options]
+components = "clippy,rust-analyzer,rust-src,rustfmt"

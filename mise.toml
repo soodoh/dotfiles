@@ -55,7 +55,7 @@ rust = { version = "1.97.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:JohnnyMorganz/StyLua" = "2.5.2"
 "aqua:tmux/tmux-builds" = "3.7b"
 "aqua:docker/cli" = "29.7.2"
-"github:docker/compose" = "5.5.0"
+"aqua:docker/compose" = "5.5.0"
 "cargo:tree-sitter-cli" = "0.26.12"
 "cargo:kdlfmt" = "0.1.7"
 "cargo:taplo-cli" = "0.10.0"
