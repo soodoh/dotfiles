@@ -3,6 +3,7 @@ strict = false
 
 [env]
 NODE_OPTIONS = "--use-system-ca"
+MISE_BREW_CASK_OPT_APPDIR = "{{ env.HOME }}/Applications"
 REQUESTS_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
 NODE_EXTRA_CA_CERTS = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
 SSL_CERT_FILE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
