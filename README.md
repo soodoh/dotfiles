@@ -95,6 +95,7 @@ Bootstrap deliberately leaves interactive authentication, privacy approvals, and
 - Sign in to Nextcloud and enable **Open on Login**.
 - Sign in to Tailscale, enable **Open on Login**, and select **Show only in menu bar**.
 - Authenticate GitHub and cloud CLIs, Pi providers, and MCP services as needed; their credentials are intentionally not stored in this repository.
+- Authenticate with Bitwarden desktop app & enable SSH agent
 
 Do not add AeroSpace to Login Items. Mise already starts AeroSpace and Borders at login with managed LaunchAgents.
 

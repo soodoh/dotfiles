@@ -17,6 +17,7 @@ locked = true
 EDITOR = "nvim"
 VISUAL = "nvim"
 LG_CONFIG_FILE = "{{ env.HOME }}/.config/lazygit/config.yml"
+SSH_AUTH_SOCK = "{{ env.HOME }}/.bitwarden-ssh-agent.sock"
 _.path = [
   "{{ env.HOME }}/.local/bin",
   "/opt/homebrew/bin",
@@ -223,7 +224,7 @@ description = "Expose the mise-managed Compose binary as a Docker CLI plugin"
 run = '''
 plugin_dir="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins"
 mkdir -p "$plugin_dir"
-ln -sfn "$(mise which docker-compose)" "$plugin_dir/docker-compose"
+ln -sfn "$(mise which docker-cli-plugin-docker-compose)" "$plugin_dir/docker-compose"
 '''
 
 [tasks."configure:google-calendar-webapp"]
