@@ -56,6 +56,14 @@ linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v{{ 
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"
 
+[bootstrap.hooks]
+final = '''
+repo="$(git rev-parse --show-toplevel)"
+personal_gitconfig="$repo/dotfiles/personal/gitconfig"
+git -C "$repo" config --local user.name "$(git config --file "$personal_gitconfig" --get user.name)"
+git -C "$repo" config --local user.email "$(git config --file "$personal_gitconfig" --get user.email)"
+'''
+
 [dotfiles]
 "~/.config/fish/conf.d/10-mise-profile.fish" = "dotfiles/work/mise-profile.fish"
 "~/.gitconfig" = "dotfiles/work/gitconfig"
