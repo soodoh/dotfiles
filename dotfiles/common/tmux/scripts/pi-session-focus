@@ -51,20 +51,27 @@ if [[ -z "$client_name" ]]; then
   exit 0
 fi
 
+ghostty_terminal_id=$(
+  /usr/bin/osascript 2>/dev/null <<'APPLESCRIPT' || true
+tell application "Ghostty"
+  if (count of windows) is 0 then return ""
+  return id of focused terminal of selected tab of front window
+end tell
+APPLESCRIPT
+)
+
 if ! "${tmux_command[@]}" switch-client -c "$client_name" -t "$pane_id" 2>/dev/null; then
   exit 0
 fi
 
-pane_title="$("${tmux_command[@]}" display-message -p -t "$pane_id" \
-  '#{pane_title}' 2>/dev/null || true)"
-
-if ! /usr/bin/osascript - "$pane_title" >/dev/null 2>&1 <<'APPLESCRIPT'
+if [[ -z "$ghostty_terminal_id" ]] ||
+  ! /usr/bin/osascript - "$ghostty_terminal_id" >/dev/null 2>&1 <<'APPLESCRIPT'
 on run argv
-  set targetTitle to item 1 of argv
+  set targetId to item 1 of argv
   tell application "Ghostty"
     activate
     repeat 10 times
-      set matches to every terminal whose name is targetTitle
+      set matches to every terminal whose id is targetId
       if (count of matches) > 0 then
         focus item 1 of matches
         return

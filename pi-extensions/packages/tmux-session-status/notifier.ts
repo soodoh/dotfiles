@@ -2,17 +2,20 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
-import type { TmuxIdentity } from "./store";
+import { sanitizeStateString, type TmuxIdentity } from "./store";
 
 export type ReadyNotificationMetadata = {
 	cwd: string;
 	sessionName?: string;
+	tmuxSessionName?: string;
+	gitBranch?: string;
 };
 
 export type NotificationDependencies = {
 	platform: NodeJS.Platform;
 	home: string;
 	execute(command: string, args: string[]): Promise<void>;
+	query(command: string, args: string[]): Promise<string>;
 };
 
 const execute = (command: string, args: string[]): Promise<void> =>
@@ -23,10 +26,76 @@ const execute = (command: string, args: string[]): Promise<void> =>
 		});
 	});
 
+const query = (command: string, args: string[]): Promise<string> =>
+	new Promise((resolve, reject) => {
+		execFile(
+			command,
+			args,
+			{ encoding: "utf8", timeout: 2_000 },
+			(error, stdout) => {
+				if (error) reject(error);
+				else resolve(stdout);
+			},
+		);
+	});
+
 const defaultDependencies: NotificationDependencies = {
 	platform: process.platform,
 	home: homedir(),
 	execute,
+	query,
+};
+
+const queryDisplayText = async (
+	dependencies: NotificationDependencies,
+	command: string,
+	args: string[],
+): Promise<string | undefined> =>
+	sanitizeStateString(
+		await dependencies.query(command, args).catch(() => ""),
+		160,
+	);
+
+const gitBranchForCwd = async (
+	cwd: string,
+	dependencies: NotificationDependencies,
+): Promise<string | undefined> => {
+	const branch = await queryDisplayText(dependencies, "git", [
+		"-C",
+		cwd,
+		"symbolic-ref",
+		"--quiet",
+		"--short",
+		"HEAD",
+	]);
+	if (branch) return branch;
+	return queryDisplayText(dependencies, "git", [
+		"-C",
+		cwd,
+		"rev-parse",
+		"--short",
+		"HEAD",
+	]);
+};
+
+const resolveNotificationMetadata = async (
+	identity: TmuxIdentity,
+	metadata: ReadyNotificationMetadata,
+	dependencies: NotificationDependencies,
+): Promise<ReadyNotificationMetadata> => {
+	const [tmuxSessionName, gitBranch] = await Promise.all([
+		queryDisplayText(dependencies, "tmux", [
+			"-S",
+			identity.socketPath,
+			"display-message",
+			"-p",
+			"-t",
+			identity.paneId,
+			"#{session_name}",
+		]),
+		gitBranchForCwd(metadata.cwd, dependencies),
+	]);
+	return { ...metadata, tmuxSessionName, gitBranch };
 };
 
 export const shellQuote = (value: string): string =>
@@ -41,10 +110,15 @@ export const notificationGroup = (identity: TmuxIdentity): string =>
 const notificationText = (
 	metadata: ReadyNotificationMetadata,
 ): { subtitle: string; message: string } => {
-	const project = basename(metadata.cwd) || "Pi session";
+	const project =
+		sanitizeStateString(basename(metadata.cwd), 80) ?? "Pi session";
+	const tmuxSessionName =
+		sanitizeStateString(metadata.tmuxSessionName, 80) ?? "tmux session";
+	const gitBranch = sanitizeStateString(metadata.gitBranch, 80);
+	const piSessionName = sanitizeStateString(metadata.sessionName, 160);
 	return {
-		subtitle: metadata.sessionName?.trim() || project,
-		message: `Ready for your next prompt in ${project}`,
+		subtitle: gitBranch ? `${tmuxSessionName} · ${gitBranch}` : tmuxSessionName,
+		message: piSessionName ?? `Ready for your next prompt in ${project}`,
 	};
 };
 
@@ -89,10 +163,15 @@ export const postReadyNotification = async (
 	dependencies: NotificationDependencies = defaultDependencies,
 ): Promise<void> => {
 	if (dependencies.platform !== "darwin") return;
+	const resolvedMetadata = await resolveNotificationMetadata(
+		identity,
+		metadata,
+		dependencies,
+	);
 	await dependencies
 		.execute(
 			"terminal-notifier",
-			readyNotificationArgs(identity, metadata, dependencies.home),
+			readyNotificationArgs(identity, resolvedMetadata, dependencies.home),
 		)
 		.catch(() => undefined);
 };
