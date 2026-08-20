@@ -62,6 +62,7 @@ repo="$(git rev-parse --show-toplevel)"
 personal_gitconfig="$repo/dotfiles/personal/gitconfig"
 git -C "$repo" config --local user.name "$(git config --file "$personal_gitconfig" --get user.name)"
 git -C "$repo" config --local user.email "$(git config --file "$personal_gitconfig" --get user.email)"
+fish "$repo/dotfiles/work/bootstrap-repositories.fish"
 '''
 
 [dotfiles]

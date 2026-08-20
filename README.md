@@ -54,6 +54,8 @@ Three tapped Homebrew packages do not publish the API metadata required by mise'
 
 Docker Compose is mise-managed and exposed at `~/.docker/cli-plugins/docker-compose` so `docker compose` works without relying on Docker Desktop or Homebrew plugin discovery.
 
+The `work-macos` final bootstrap hook also runs the checked-in work repository inventory through `gbclone`. Existing target paths in `~/Projects` are skipped, so repeated bootstraps do not clone them again or modify their worktrees.
+
 Dock ordering and login items are intentionally user-owned. Bootstrap also no longer refreshes running tmux sessions or preflights the work CA file; new processes consume the declared environment naturally.
 
 ## Validation
