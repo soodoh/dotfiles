@@ -91,6 +91,7 @@ rust = { version = "1.97.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "brew:colima" = { version = "latest", os = "macos" }
 "brew:mas" = { version = "latest", os = "macos" }
 "brew:firefoxpwa" = { version = "latest", os = "macos" }
+"brew-cask:bitwarden" = { version = "latest", os = "macos" }
 "brew-cask:ghostty" = { version = "latest", os = "macos" }
 "brew-cask:obsidian" = { version = "latest", os = "macos" }
 "brew-cask:lunar" = { version = "latest", os = "macos" }
