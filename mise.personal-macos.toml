@@ -1,9 +1,6 @@
 [settings.age]
 strict = false
 
-[vars]
-profile = "personal-macos"
-
 [tools]
 "aqua:aws/aws-cli" = "2.36.25"
 

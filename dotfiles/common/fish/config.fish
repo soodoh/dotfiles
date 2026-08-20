@@ -1,5 +1,3 @@
-set -gx EDITOR nvim
-set -gx VISUAL nvim
 set -gx LANG en_US.UTF-8
 set -gx LC_CTYPE en_US.UTF-8
 set -g fish_greeting
@@ -30,9 +28,6 @@ end
 
 if command -q mise
     mise activate fish | source
-end
-if command -q rustc
-    set -gx RUST_SRC_PATH (rustc --print sysroot)/lib/rustlib/src/rust/library
 end
 if command -q starship
     starship init fish | source
