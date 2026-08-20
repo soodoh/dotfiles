@@ -26,19 +26,39 @@ return {
           show_help = "?",
         },
         integrations = {
-          resolve_relative_path_implementation = function(
-            args,
-            get_relative_path
-          )
-            -- By default, the path is resolved from the file/dir yazi was focused on
-            -- when it was opened. Here, we change it to resolve the path from
-            -- Neovim's current working directory (cwd) to the target_file.
+          -- Resolve paths with Neovim itself instead of requiring GNU realpath.
+          -- vim.v.progpath tells yazi.nvim's health check which executable owns
+          -- the custom implementation below.
+          resolve_relative_path_application = vim.v.progpath,
+          resolve_relative_path_implementation = function(args)
             local cwd = vim.fn.getcwd()
-            local path = get_relative_path({
-              selected_file = args.selected_file,
-              source_dir = cwd,
-            })
-            return path
+            local source_dir = vim.uv.fs_realpath(cwd)
+              or vim.fs.normalize(cwd)
+            local selected_file = vim.uv.fs_realpath(args.selected_file)
+              or vim.fs.normalize(args.selected_file)
+            local base_dir = source_dir
+            local prefix = ""
+
+            while base_dir do
+              local relative_path = vim.fs.relpath(base_dir, selected_file)
+              if relative_path then
+                if relative_path == "." and prefix ~= "" then
+                  return prefix:sub(1, -2)
+                end
+
+                return prefix .. relative_path
+              end
+
+              local parent_dir = vim.fs.dirname(base_dir)
+              if not parent_dir or parent_dir == base_dir then
+                break
+              end
+
+              base_dir = parent_dir
+              prefix = prefix .. "../"
+            end
+
+            return selected_file
           end,
         },
       })
