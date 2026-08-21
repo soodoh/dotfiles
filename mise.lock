@@ -1464,3 +1464,7 @@ backend = "core:rust"
 
 [tools.rust.options]
 components = "clippy,rust-analyzer,rust-src,rustfmt"
+
+[[tools.yarn]]
+version = "4.18.0"
+backend = "vfox:mise-plugins/vfox-yarn"
