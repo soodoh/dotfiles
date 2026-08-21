@@ -111,6 +111,7 @@ NSWindowShouldDragOnGesture = true
 AppleICUForce24HourTime = true
 AppleInterfaceStyle = "Dark"
 AppleShowAllExtensions = true
+SLSMenuBarUseBlurredAppearance = true
 _HIHideMenuBar = true
 
 [bootstrap.macos.defaults."com.apple.dock"]
@@ -131,6 +132,18 @@ ShowRemovableMediaOnDesktop = true
 EnableTiledWindowMargins = false
 EnableStandardClickToShowDesktop = false
 StandardHideWidgets = true
+
+[bootstrap.macos.defaults."com.apple.controlcenter"]
+"NSStatusItem VisibleCC Clock" = true
+"NSStatusItem VisibleCC BentoBox-0" = true
+"NSStatusItem VisibleCC Battery" = true
+"NSStatusItem VisibleCC WiFi" = true
+"NSStatusItem VisibleCC Bluetooth" = true
+# Positions increase moving left from the clock.
+"NSStatusItem Preferred Position BentoBox-0" = 90.0
+"NSStatusItem Preferred Position Battery" = 132.0
+"NSStatusItem Preferred Position WiFi" = 174.0
+"NSStatusItem Preferred Position Bluetooth" = 212.0
 
 [bootstrap.macos.defaults."com.apple.menuextra.clock"]
 ShowDate = 2

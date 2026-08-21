@@ -89,7 +89,6 @@ MISE_ENV=work-macos mise bootstrap
 - Open `pi` for the first time:
     - `/login openai-codex`
     - `/login openrouter`
-- Open System Settings, and enable "Show menu bar background" (so that the default Apple menu bar is readable on top of Sketchybar). This is not currently supported by `mise`'s `[bootstrap.macos.defaults.*]`.
 
 ### Manual steps for Work macOS
 
