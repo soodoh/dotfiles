@@ -119,7 +119,7 @@ wvous-br-corner = 0
 
 [bootstrap.macos.defaults."com.apple.finder"]
 AppleShowAllFiles = true
-NewWindowTarget = "PfHm"
+NewWindowTarget = "PfLo"
 FXPreferredViewStyle = "clmv"
 FXRemoveOldTrashItems = true
 ShowExternalHardDrivesOnDesktop = true
@@ -187,6 +187,9 @@ if [ "$(uname -s)" = Darwin ]; then
   # The mas package manager must exist before the main package pass discovers it.
   mise bootstrap packages apply brew:mas --yes
 fi
+'''
+post-defaults = '''
+defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Projects/"
 '''
 
 [dotfiles]
