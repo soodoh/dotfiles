@@ -4,12 +4,12 @@ strict = false
 [env]
 NODE_OPTIONS = "--use-system-ca"
 MISE_BREW_CASK_OPT_APPDIR = "{{ env.HOME }}/Applications"
-REQUESTS_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
-NODE_EXTRA_CA_CERTS = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
-SSL_CERT_FILE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
-AWS_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
-CURL_CA_BUNDLE = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
-HTTPLIB2_CA_CERTS = "/Library/Application Support/DocuSign/zscaler-ca-bundle.pem"
+SSL_CERT_FILE = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBIZmJQUExtM01rZ2htM3ZZbXFDeXF0MitoZ2x2ZjdSUUx0WFE1c2pvVjJjCmFlL08rd1R2MFlMUmNtamxBSElpRjI3SEpWenhTMk5SMFF1KzVWOEl6aU0KLT4gLm4tZ3JlYXNlIDtYbz9cTyBqX3J0UD13IDIKQXNkTEZ0dU9yZFpqSXJDOVdLMzlCRThOV2pxSURiVW9NT3pjaU9jUEZFNjIKLS0tIGlwdy8wNDRZZW5odnJoS3Zyd2p5OWM4SzBZTXd6VS9yZ29kbmJRTDcwd3MKJUMNKC0rBvN8cIDP3u85Hc5c32e9oGSfYEGHPOZpbsY5g4ySGKjQfJKWYcXJsWASWIOhI6z++0tdf6xXyMBQpy7Rvx6l+QlPWWr7AJLAwpRw5hkgDdjdPTKguA" }
+REQUESTS_CA_BUNDLE = "{{ env.SSL_CERT_FILE }}"
+NODE_EXTRA_CA_CERTS = "{{ env.SSL_CERT_FILE }}"
+AWS_CA_BUNDLE = "{{ env.SSL_CERT_FILE }}"
+CURL_CA_BUNDLE = "{{ env.SSL_CERT_FILE }}"
+HTTPLIB2_CA_CERTS = "{{ env.SSL_CERT_FILE }}"
 # This isn't actually needed in the environment, but keeping here for initial Google Vertex -> Pi setup
 # So we can persist these values, without storing in plain text
 GOOGLE_CLOUD_PROJECT = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxeTA2NUFHSXkyaVc0Tlh6M1BtNE5DanAyL1pjM0JOUlRTS1JPS0pzSW1nCkVvVEFmNWR6dW5tZ1pmK3g2WnE0TzIvSU9VMnhRTUlGOXIxckpXWU5BVzgKLT4gVC1ncmVhc2UgJSp9TWggVldNfgpLM2x6RHJnMEpjbkxzazc2RHZrc0R5dnA0RDB5ams4c0Q5RGtub01NRzlpaVRsckk1YU43Ci0tLSBMQlNvNXM0eGpXZ3Bvd2NYQmdCcjdtSFk3cmUrZXZJRFJMN0tuOGIvcnFBCiML2DC0hSn2F1ORDawTvnDTuXdLvKFGbF2dUuUP8zdEIAN8rVvtMxXccuZcyPJef0iX0Yk20omcycm2RQ" }
