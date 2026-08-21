@@ -8,4 +8,4 @@ Lifecycle states are `STARTING`, `THINKING`, `TOOL <name>`, `WAITING`, `IDLE`, a
 
 On macOS, an unfocused pane entering `WAITING` posts a grouped `terminal-notifier` notification. Its subtitle shows the tmux session and current Git branch, while its message shows the Pi session name or the project fallback when unnamed.
 
-Clicking the notification validates the original tmux server and pane, captures the front Ghostty terminal by its stable ID, and switches the most recently active client to that pane before refocusing that exact terminal. If the tmux server has no attached client, the click opens a new Ghostty window attached directly to the pane. Visiting the pane, starting another run, or shutting down Pi removes the notification.
+Clicking the notification validates the original tmux server and pane, focuses the front Ghostty terminal so tmux can identify its client, and explicitly selects the target window and pane before switching that client. If the tmux server has no attached client, the click opens a new Ghostty window attached directly to the pane. Visiting the pane, starting another run, or shutting down Pi removes the notification.

@@ -2,9 +2,73 @@
 
 set -euo pipefail
 
+select_ghostty_client() {
+  local client_name=""
+  local client_activity=-1
+  local client_focused=0
+  local activity candidate termname flags focused
+
+  while IFS=$'\t' read -r activity candidate termname flags; do
+    if [[ "$termname" != "xterm-ghostty" ]] || [[ ! "$activity" =~ ^[0-9]+$ ]]; then
+      continue
+    fi
+
+    focused=0
+    if [[ ",$flags," == *,focused,* ]]; then
+      focused=1
+    fi
+    if ((focused > client_focused)) ||
+      ((focused == client_focused && activity >= client_activity)); then
+      client_name="$candidate"
+      client_activity="$activity"
+      client_focused="$focused"
+    fi
+  done
+
+  printf '%s' "$client_name"
+}
+
+resolve_tmux_bin() {
+  local server_pid="$1"
+  local lsof_bin="${2:-/usr/sbin/lsof}"
+  local line candidate
+
+  if [[ -x "$lsof_bin" ]]; then
+    while IFS= read -r line; do
+      if [[ "$line" != n/* ]]; then
+        continue
+      fi
+      candidate="${line#n}"
+      if [[ "${candidate##*/}" == "tmux" ]] && [[ -x "$candidate" ]]; then
+        printf '%s' "$candidate"
+        return 0
+      fi
+    done < <("$lsof_bin" -a -p "$server_pid" -d txt -Fn 2>/dev/null || true)
+  fi
+
+  command -v tmux 2>/dev/null
+}
+
+focus_tmux_pane() {
+  local client_name="$1"
+  local pane_id="$2"
+
+  "${tmux_command[@]}" select-window -t "$pane_id" \; \
+    select-pane -t "$pane_id" \; \
+    switch-client -c "$client_name" -t "$pane_id"
+}
+
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+  return 0
+fi
+
 if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 0
 fi
+
+# Notification Center launches actions without the terminal's locale. tmux
+# sanitizes control-character format delimiters unless a UTF-8 locale is set.
+export LC_ALL=UTF-8
 
 socket_path="${1:-}"
 server_pid="${2:-}"
@@ -16,7 +80,9 @@ if [[ -z "$socket_path" ]] || [[ ! "$server_pid" =~ ^[1-9][0-9]*$ ]] ||
 fi
 
 export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-tmux_bin="$(command -v tmux 2>/dev/null || true)"
+# Notification actions launch from /, where the mise shim cannot resolve the
+# repository's tmux version. Use the executable backing the validated server PID.
+tmux_bin="$(resolve_tmux_bin "$server_pid" || true)"
 if [[ -z "$tmux_bin" ]]; then
   exit 69
 fi
@@ -33,17 +99,24 @@ if [[ "$pane_status" != "$pane_id"$'\t''0' ]]; then
   exit 0
 fi
 
-client_name=""
-client_activity=0
-while IFS=$'\t' read -r activity candidate termname; do
-  if [[ "$termname" == "xterm-ghostty" ]] && [[ "$activity" =~ ^[0-9]+$ ]] &&
-    ((activity >= client_activity)); then
-    client_activity="$activity"
-    client_name="$candidate"
-  fi
-done < <("${tmux_command[@]}" list-clients -F \
-  '#{client_activity}'$'\t''#{client_name}'$'\t''#{client_termname}' \
-  2>/dev/null || true)
+ghostty_terminal_id=$(
+  /usr/bin/osascript 2>/dev/null <<'APPLESCRIPT' || true
+tell application "Ghostty"
+  if (count of windows) is 0 then return ""
+  set targetTerminal to focused terminal of selected tab of front window
+  focus targetTerminal
+  return id of targetTerminal
+end tell
+APPLESCRIPT
+)
+
+# Let Ghostty's focus event identify the client behind the selected terminal.
+if [[ -n "$ghostty_terminal_id" ]]; then
+  sleep 0.1
+fi
+client_name="$(select_ghostty_client < <("${tmux_command[@]}" list-clients -F \
+  '#{client_activity}'$'\t''#{client_name}'$'\t''#{client_termname}'$'\t''#{client_flags}' \
+  2>/dev/null || true))"
 
 if [[ -z "$client_name" ]]; then
   /usr/bin/open -na Ghostty.app --args -e "$tmux_bin" -S "$socket_path" \
@@ -51,16 +124,7 @@ if [[ -z "$client_name" ]]; then
   exit 0
 fi
 
-ghostty_terminal_id=$(
-  /usr/bin/osascript 2>/dev/null <<'APPLESCRIPT' || true
-tell application "Ghostty"
-  if (count of windows) is 0 then return ""
-  return id of focused terminal of selected tab of front window
-end tell
-APPLESCRIPT
-)
-
-if ! "${tmux_command[@]}" switch-client -c "$client_name" -t "$pane_id" 2>/dev/null; then
+if ! focus_tmux_pane "$client_name" "$pane_id" 2>/dev/null; then
   exit 0
 fi
 

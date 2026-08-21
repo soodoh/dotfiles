@@ -321,6 +321,7 @@ run = [
   "bun ci --cwd pi-extensions",
   "bun run --cwd pi-extensions ci",
   "node dotfiles/common/tmux/scripts/pi-session-lib.test.mjs",
+  "bash dotfiles/common/tmux/scripts/pi-session-focus.test.sh",
   "node dotfiles/work/pi/workflows/saved/review-loop.test.mjs",
   '''
 log=$(mktemp)
