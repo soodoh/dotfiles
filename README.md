@@ -116,8 +116,11 @@ Do not add AeroSpace to Login Items. Mise already starts AeroSpace and Borders a
 - Authenticate gcloud:
 
   ```bash
-  gcloud auth login
-  gcloud config set project PROJECT_ID
+  gcloud auth application-default login
+
+  # Use these values with `/login google-vertex` in Pi
+  echo $GOOGLE_CLOUD_PROJECT
+  echo $GOOGLE_CLOUD_LOCATION
   ```
 
 - The work profile pins the MSF TrueDev toolchain: Azure kubelogin, Helm 3, k9s, kubectl, kubectx, PowerShell, and Skaffold. The shared profile already supplies Docker/Compose through Colima and jq; the work profile already supplies Azure CLI and gcloud.

@@ -1,7 +1,7 @@
 {
   "lastChangelogVersion": "0.84.2",
-  "defaultProvider": "github-copilot",
-  "defaultModel": "gpt-5.6-sol",
+  "defaultProvider": "litellm",
+  "defaultModel": "chatgpt/gpt-5.6-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
   "tuiMode": "fullscreen",
