@@ -20,6 +20,9 @@ pre_packages = base["bootstrap"]["hooks"]["pre-packages"]
 assert "mise bootstrap packages apply brew:mas --yes" in pre_packages
 assert "brew:mas" in base["bootstrap"]["packages"]
 
+homebrew_task = base["tasks"]["bootstrap:homebrew-packages"]
+assert homebrew_task["interactive"] is True
+
 pre_tools = work["bootstrap"]["hooks"]["pre-tools"].splitlines()
 assert pre_tools == [
     "mise install python",

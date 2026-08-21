@@ -237,6 +237,7 @@ description = "Install the FirefoxPWA runtime and Google Calendar web app on mac
 run = "bash dotfiles/macos/firefoxpwa/google-calendar.sh"
 
 [tasks."bootstrap:homebrew-packages"]
+interactive = true
 run = '''
 export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_ANALYTICS=1
