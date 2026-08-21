@@ -22,7 +22,7 @@ FIGMA_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBVQjJRS1VlWE1
 [tools]
 "pipx:azure-cli" = "2.89.1"
 "pipx:snowflake-cli" = "3.24.1"
-gcloud = "580.0.0"
+gcloud = { version = "580.0.0", depends = ["python"] }
 # MSF TrueDev tooling. Docker/Compose and jq come from the shared profile;
 # Azure CLI and gcloud are declared above.
 "aqua:Azure/kubelogin" = "0.2.19"
@@ -57,6 +57,10 @@ linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v{{ 
 login_shell = "/opt/homebrew/bin/fish"
 
 [bootstrap.hooks]
+pre-tools = '''
+mise install python
+CLOUDSDK_PYTHON="$(mise which python3)" mise install gcloud
+'''
 final = '''
 repo="$(git rev-parse --show-toplevel)"
 personal_gitconfig="$repo/dotfiles/personal/gitconfig"

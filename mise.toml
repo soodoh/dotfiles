@@ -181,6 +181,11 @@ case "${MISE_ENV:-}" in
   personal-macos|work-macos) ;;
   *) printf 'error: choose an explicit profile: MISE_ENV=personal-macos mise bootstrap or MISE_ENV=work-macos mise bootstrap\n' >&2; exit 64 ;;
 esac
+
+if [ "$(uname -s)" = Darwin ]; then
+  # The mas package manager must exist before the main package pass discovers it.
+  mise bootstrap packages apply brew:mas --yes
+fi
 '''
 
 [dotfiles]
@@ -275,6 +280,7 @@ run = [
 
 [tasks."validate:config"]
 run = [
+  "python3 mise.bootstrap.test.py",
   "mise --env personal-macos config >/dev/null",
   "mise --env personal-macos tasks validate >/dev/null",
   "mise --env personal-macos bootstrap plan >/dev/null",
