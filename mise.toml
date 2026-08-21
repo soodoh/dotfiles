@@ -84,6 +84,7 @@ rust = { version = "1.98.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "apt:git" = { version = "latest", os = "linux" }
 "apt:gnupg" = { version = "latest", os = "linux" }
 "brew:fish" = { version = "latest", os = "macos" }
+"brew:git" = { version = "latest", os = "macos" }
 "brew:gnupg" = { version = "latest", os = "macos" }
 "brew:terminal-notifier" = { version = "latest", os = "macos" }
 # Required on macOS for Readseek

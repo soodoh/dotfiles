@@ -20,11 +20,34 @@ function gbclone -d "clone a repo into a bare .git dir with a default-branch wor
     return 0
   end
 
-  command git clone --bare "$repo_url" "$repo_name/.git"; or return
-  command git --git-dir="$repo_name/.git" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'; or return
-  command git --git-dir="$repo_name/.git" fetch origin; or return
+  set -l clone_options --bare
+  if command git clone -h 2>&1 | string match -q '*ref-format*'
+    set --append clone_options --ref-format=reftable
+  end
 
-  set -l default_branch (path basename (command git --git-dir="$repo_name/.git" symbolic-ref HEAD)); or return
-  command git --git-dir="$repo_name/.git" branch --set-upstream-to="origin/$default_branch" "$default_branch"; or return
-  command git --git-dir="$repo_name/.git" worktree add "$repo_name/$default_branch" "$default_branch"
+  command git clone $clone_options "$repo_url" "$repo_name/.git"; or begin
+    command rm -rf -- "$repo_name"
+    return 1
+  end
+  command git --git-dir="$repo_name/.git" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'; or begin
+    command rm -rf -- "$repo_name"
+    return 1
+  end
+  command git --git-dir="$repo_name/.git" fetch origin; or begin
+    command rm -rf -- "$repo_name"
+    return 1
+  end
+
+  set -l default_branch (path basename (command git --git-dir="$repo_name/.git" symbolic-ref HEAD)); or begin
+    command rm -rf -- "$repo_name"
+    return 1
+  end
+  command git --git-dir="$repo_name/.git" branch --set-upstream-to="origin/$default_branch" "$default_branch"; or begin
+    command rm -rf -- "$repo_name"
+    return 1
+  end
+  command git --git-dir="$repo_name/.git" worktree add "$repo_name/$default_branch" "$default_branch"; or begin
+    command rm -rf -- "$repo_name"
+    return 1
+  end
 end
