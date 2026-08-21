@@ -149,7 +149,15 @@ mise --env personal-macos run update
 mise --env work-macos run update
 ```
 
-The task updates mise tools, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
+After changing tools in any mise configuration, refresh every committed lockfile from either Mac:
+
+```bash
+mise run lock
+```
+
+This runs both explicit environments sequentially. Mise writes shared tools to `mise.lock` and profile-only tools to `mise.personal-macos.lock` or `mise.work-macos.lock`; running both environments therefore covers all three files. The task uses `--global` because each profile points `MISE_CONFIG_DIR` at this checkout.
+
+The task updates mise tools, refreshes all shared and profile-specific mise lockfiles, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
 
 A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, and the Neovim plugin lock. It validates the resulting checkout and opens or refreshes a single update pull request when tracked files change.
 

@@ -29,7 +29,7 @@ skills_cli_version = "1.5.22"
 
 [tools]
 node = "24.19.0"
-yarn = "4.18.0"
+"aqua:yarnpkg/berry" = "4.18.0"
 python = "3.14.7"
 bun = "1.4.0"
 go = "1.27.0"
@@ -286,6 +286,13 @@ fi
 description = "Report missing or differing declarative profile state"
 run = "mise bootstrap status --missing"
 
+[tasks.lock]
+description = "Refresh shared and profile-specific mise lockfiles"
+run = [
+  "mise --env personal-macos lock --global --platform linux-x64,linux-arm64,macos-x64,macos-arm64",
+  "mise --env work-macos lock --global --platform linux-x64,linux-arm64,macos-x64,macos-arm64",
+]
+
 [tasks.validate]
 description = "Run native configuration checks and colocated tests"
 run = [
@@ -365,7 +372,10 @@ esac''',
 ]
 
 [tasks."update:tools"]
-run = "mise upgrade --bump"
+run = [
+  "mise upgrade --bump",
+  { task = "lock" },
+]
 
 [tasks."update:agents"]
 run = "bun update --cwd pi-extensions"

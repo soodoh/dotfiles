@@ -5,3 +5,9 @@
 	excludesFile = ~/.config/.gitignore_global
 [init]
 	defaultBranch = main
+[credential "https://github.com"]
+	helper = 
+	helper = !/Users/pauldiloreto/.local/share/mise/installs/aqua-cli-cli/2.97.0/gh_2.97.0_macOS_arm64/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/Users/pauldiloreto/.local/share/mise/installs/aqua-cli-cli/2.97.0/gh_2.97.0_macOS_arm64/bin/gh auth git-credential
