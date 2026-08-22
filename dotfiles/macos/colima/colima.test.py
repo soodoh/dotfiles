@@ -21,18 +21,12 @@ with (Path(__file__).parents[3] / "mise.toml").open("rb") as config_file:
 
 colima_agent = mise_config["bootstrap"]["macos"]["launchd"]["agents"]["colima-default"]
 assert colima_agent == {
-    "program": "~/.local/bin/mise",
-    "args": [
-        "exec",
-        "--",
-        "/opt/homebrew/bin/colima",
-        "start",
-        "--foreground",
-        "--profile",
-        "default",
-    ],
+    "program": "/opt/homebrew/bin/colima",
+    "args": ["start", "--foreground", "--profile", "default"],
     "run_at_load": True,
-    "environment": {"MISE_CONFIG_DIR": "~/Projects/dotfiles"},
+    "environment": {
+        "PATH": "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    },
     "stdout_path": "~/Library/Logs/colima-default.log",
     "stderr_path": "~/Library/Logs/colima-default.error.log",
 }
