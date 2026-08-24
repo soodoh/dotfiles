@@ -2,7 +2,7 @@
 strict = false
 
 [tools]
-"aqua:aws/aws-cli" = "2.36.29"
+"aqua:aws/aws-cli" = "2.36.30"
 
 [bootstrap.packages]
 "brew-cask:discord" = "latest"
