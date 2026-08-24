@@ -87,7 +87,7 @@ export {
 	normalizeTty,
 	parseProcessIdentity,
 	parseTmuxIdentity,
-	queryActivePaneIds,
+	queryFocusedPaneIds,
 	TmuxSessionRuntime,
 } from "./runtime";
 export {

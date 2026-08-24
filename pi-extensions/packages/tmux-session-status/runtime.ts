@@ -184,15 +184,28 @@ export const discoverRuntimeIdentity = async (
 	}
 };
 
-export const queryActivePaneIds = async (): Promise<Set<string>> => {
+export const parseFocusedPaneIds = (output: string): Set<string> => {
+	const paneIds = new Set<string>();
+	for (const line of output.split("\n")) {
+		const [paneId, clientFlags] = line.trim().split(FIELD_SEPARATOR);
+		if (
+			paneId?.match(/^%\d+$/) &&
+			clientFlags?.split(",").includes("focused")
+		) {
+			paneIds.add(paneId);
+		}
+	}
+	return paneIds;
+};
+
+export const queryFocusedPaneIds = async (): Promise<Set<string>> => {
 	try {
-		const output = await execText("tmux", ["list-clients", "-F", "#{pane_id}"]);
-		return new Set(
-			output
-				.split("\n")
-				.map((line) => line.trim())
-				.filter((line) => /^%\d+$/.test(line)),
-		);
+		const output = await execText("tmux", [
+			"list-clients",
+			"-F",
+			`#{pane_id}${FIELD_SEPARATOR}#{client_flags}`,
+		]);
+		return parseFocusedPaneIds(output);
 	} catch {
 		return new Set();
 	}
@@ -243,7 +256,7 @@ export const readSessionStartedAt = async (
 
 export type RuntimeDependencies = {
 	now(): number;
-	activePaneIds(): Promise<Set<string>>;
+	focusedPaneIds(): Promise<Set<string>>;
 	write(
 		filePath: string,
 		record: ReturnType<typeof createHeartbeatRecord>,
@@ -263,7 +276,7 @@ export type RuntimeDependencies = {
 
 const defaultDependencies: RuntimeDependencies = {
 	now: Date.now,
-	activePaneIds: queryActivePaneIds,
+	focusedPaneIds: queryFocusedPaneIds,
 	write: writeHeartbeatAtomic,
 	remove: removeOwnedHeartbeat,
 	notifyReady: postReadyNotification,
@@ -323,7 +336,7 @@ export class TmuxSessionRuntime {
 
 	async settle(): Promise<void> {
 		if (!this.active) return;
-		const focused = (await this.dependencies.activePaneIds()).has(
+		const focused = (await this.dependencies.focusedPaneIds()).has(
 			this.tmuxIdentity.paneId,
 		);
 		const wasWaiting = this.lifecycle.status === "WAITING";
@@ -368,7 +381,7 @@ export class TmuxSessionRuntime {
 		try {
 			const now = this.dependencies.now();
 			if (this.lifecycle.status === "WAITING") {
-				const focused = (await this.dependencies.activePaneIds()).has(
+				const focused = (await this.dependencies.focusedPaneIds()).has(
 					this.tmuxIdentity.paneId,
 				);
 				if (focused) {

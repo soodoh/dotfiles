@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
 	normalizeTty,
+	parseFocusedPaneIds,
 	parseProcessIdentity,
 	parseTmuxIdentity,
 	readSessionStartedAt,
@@ -63,6 +64,14 @@ describe("tmux session runtime", () => {
 		expect(parseProcessIdentity("200 100 200 0 ?? bad")).toBeUndefined();
 	});
 
+	test("only treats panes in focused terminal clients as focused", () => {
+		expect(
+			parseFocusedPaneIds(
+				"%4\u001fattached,focused,UTF-8\n%7\u001fattached,UTF-8\n%9\u001fattached,focused,UTF-8\n",
+			),
+		).toEqual(new Set(["%4", "%9"]));
+	});
+
 	test("reads the original Pi session timestamp with a safe fallback", async () => {
 		const directory = await mkdtemp(join(tmpdir(), "pi-session-age-test-"));
 		try {
@@ -89,14 +98,14 @@ describe("tmux session runtime", () => {
 		const removals: Array<{ filePath: string; instanceId: string }> = [];
 		const notifyReady = vi.fn(async () => {});
 		const removeNotification = vi.fn(async () => {});
-		let activePaneIds = new Set<string>();
+		let focusedPaneIds = new Set<string>();
 		const runtime = new TmuxSessionRuntime(
 			processIdentity,
 			tmuxIdentity,
 			metadata,
 			{
 				now: Date.now,
-				activePaneIds: async () => activePaneIds,
+				focusedPaneIds: async () => focusedPaneIds,
 				write: async (_filePath, record) => {
 					writes.push(record);
 				},
@@ -138,7 +147,7 @@ describe("tmux session runtime", () => {
 		expect(notifyReady).toHaveBeenCalledOnce();
 		expect(notifyReady).toHaveBeenCalledWith(tmuxIdentity, metadata);
 
-		activePaneIds = new Set(["%4"]);
+		focusedPaneIds = new Set(["%4"]);
 		vi.setSystemTime(2_000);
 		await vi.advanceTimersByTimeAsync(1_000);
 		await flushPromises();
@@ -164,7 +173,7 @@ describe("tmux session runtime", () => {
 			metadata,
 			{
 				now: Date.now,
-				activePaneIds: async () => new Set(),
+				focusedPaneIds: async () => new Set(),
 				write: async (_filePath, record) => {
 					writes.push(record);
 				},

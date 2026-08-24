@@ -11,6 +11,7 @@ url = "https://awscli.amazonaws.com/awscli-exe-linux-aarch64-2.36.29.zip"
 url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.36.29.zip"
 
 [tools."aqua:aws/aws-cli"."platforms.macos-arm64"]
+checksum = "blake3:18dfdf64e4b13d3f3f7b8e0039a6ca0753020149319f74e7455e0e038cf9a5de"
 url = "https://awscli.amazonaws.com/AWSCLIV2-2.36.29.pkg"
 
 [tools."aqua:aws/aws-cli"."platforms.macos-x64"]
