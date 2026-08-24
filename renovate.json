@@ -13,6 +13,20 @@
   ],
   "packageRules": [
     {
+      "description": "Automerge lock maintenance and non-major updates after checks pass",
+      "matchUpdateTypes": [
+        "lockFileMaintenance",
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": false,
+      "ignoreTests": false
+    },
+    {
       "matchDepTypes": [
         "dependencies",
         "devDependencies"
