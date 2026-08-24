@@ -25,6 +25,15 @@ def assert_tools_locked(config_name: str, lock_name: str) -> dict:
 base = load_toml("mise.toml")
 work = load_toml("mise.work-macos.toml")
 
+certificate_variables = (
+    "REQUESTS_CA_BUNDLE",
+    "NODE_EXTRA_CA_CERTS",
+    "AWS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
+    "HTTPLIB2_CA_CERTS",
+)
+assert all(work["env"][variable] == "${SSL_CERT_FILE:-}" for variable in certificate_variables)
+
 base_lock_tools = assert_tools_locked("mise.toml", "mise.lock")
 assert_tools_locked("mise.personal-macos.toml", "mise.personal-macos.lock")
 assert_tools_locked("mise.work-macos.toml", "mise.work-macos.lock")
