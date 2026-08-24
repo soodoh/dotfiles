@@ -21,6 +21,7 @@ LOCK_FILES = (
     "mise.work-macos.lock",
 )
 PROFILES = ("personal-macos", "work-macos")
+UNSUPPORTED_TOOLS = {"work-macos": ("http:twg",)}
 PLATFORMS = "linux-x64,linux-arm64,macos-x64,macos-arm64"
 LOCKED_CONFIG = "[tool_config]\nlocked = true"
 UNLOCKED_CONFIG = "[tool_config]\nlocked = false"
@@ -106,6 +107,13 @@ def update_tools(root: Path) -> None:
         lock_profiles(root)
 
 
+def update_unsupported_tools(root: Path) -> None:
+    with unlocked_tool_config(root):
+        for profile, tools in UNSUPPORTED_TOOLS.items():
+            run_mise(root, "--env", profile, "upgrade", "--bump", *tools)
+        lock_profiles(root)
+
+
 def check_lockfiles(root: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="mise-lock-check-") as temporary_directory:
         temporary_root = Path(temporary_directory)
@@ -131,12 +139,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Update and verify repository mise lockfiles"
     )
-    parser.add_argument("action", choices=("check", "refresh", "update"))
+    parser.add_argument(
+        "action", choices=("check", "refresh", "update", "update-unsupported")
+    )
     arguments = parser.parse_args()
     if arguments.action == "check":
         check_lockfiles(ROOT)
     elif arguments.action == "refresh":
         refresh_lockfiles(ROOT)
+    elif arguments.action == "update-unsupported":
+        update_unsupported_tools(ROOT)
     else:
         update_tools(ROOT)
 

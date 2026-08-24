@@ -40,8 +40,8 @@ jobs:
           install_args: "aqua:neovim/neovim"
           cache: true
 
-      - name: Update mise tools and lockfiles
-        run: python3 mise.lock.py update
+      - name: Update Renovate-unsupported mise tools
+        run: python3 mise.lock.py update-unsupported
 
       - name: Update profile skills
         shell: bash
@@ -113,5 +113,5 @@ jobs:
               --base "$BASE_BRANCH" \
               --head "$UPDATE_BRANCH" \
               --title "chore(root): refresh repository assets" \
-              --body $'Updates repository-managed assets that Renovate does not maintain:\n\n- mise-managed tools and lockfiles\n- personal and work skill catalogs\n- Neovim plugin lock state\n\nThe repository validation suite passed before this PR was opened.'
+              --body $'Updates repository-managed assets that Renovate does not maintain:\n\n- Renovate-unsupported mise tools and lockfiles\n- personal and work skill catalogs\n- Neovim plugin lock state\n\nThe repository validation suite passed before this PR was opened.'
           fi

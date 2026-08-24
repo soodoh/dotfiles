@@ -1,8 +1,13 @@
+import importlib.util
+import json
 import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from types import ModuleType
 
 import tomllib
 
@@ -12,6 +17,60 @@ ROOT = Path(__file__).resolve().parent
 def load_toml(name: str) -> dict:
     with (ROOT / name).open("rb") as config_file:
         return tomllib.load(config_file)
+
+
+def load_mise_lock_module() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("mise_lock", ROOT / "mise.lock.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def assert_renovate_owns_supported_mise_tools() -> None:
+    renovate = json.loads((ROOT / "renovate.json").read_text())
+    assert ":maintainLockFilesWeekly" in renovate["extends"]
+    assert all(
+        not (
+            rule.get("enabled") is False
+            and "mise" in rule.get("matchManagers", [])
+        )
+        for rule in renovate["packageRules"]
+    )
+
+
+def assert_repository_updates_only_unsupported_tools() -> None:
+    mise_lock = load_mise_lock_module()
+    assert mise_lock.UNSUPPORTED_TOOLS == {"work-macos": ("http:twg",)}
+
+    calls: list[tuple[str, ...]] = []
+
+    @contextmanager
+    def unlocked_tool_config(root: Path) -> Iterator[None]:
+        assert root == ROOT
+        yield
+
+    def run_mise(root: Path, *arguments: str) -> None:
+        assert root == ROOT
+        calls.append(arguments)
+
+    def lock_profiles(root: Path) -> None:
+        assert root == ROOT
+        calls.append(("lock-profiles",))
+
+    mise_lock.unlocked_tool_config = unlocked_tool_config
+    mise_lock.run_mise = run_mise
+    mise_lock.lock_profiles = lock_profiles
+    mise_lock.update_unsupported_tools(ROOT)
+
+    assert calls == [
+        ("--env", "work-macos", "upgrade", "--bump", "http:twg"),
+        ("lock-profiles",),
+    ]
+
+    workflow = (ROOT / ".github/workflows/repository-updates.yml").read_text()
+    assert "run: python3 mise.lock.py update-unsupported" in workflow
+    assert "run: python3 mise.lock.py update\n" not in workflow
 
 
 def assert_work_profile_loads_without_secrets() -> None:
@@ -56,6 +115,8 @@ def assert_tools_locked(config_name: str, lock_name: str) -> dict:
 
 base = load_toml("mise.toml")
 work = load_toml("mise.work-macos.toml")
+assert_renovate_owns_supported_mise_tools()
+assert_repository_updates_only_unsupported_tools()
 
 certificate_variables = (
     "REQUESTS_CA_BUNDLE",
