@@ -613,53 +613,53 @@ url_api = "https://api.github.com/repos/docker/compose/releases/assets/517869340
 provenance = "cosign"
 
 [[tools."aqua:jdx/usage"]]
-version = "6.2.0"
+version = "6.3.0"
 backend = "aqua:jdx/usage"
 
 [tools."aqua:jdx/usage"."platforms.linux-arm64"]
-checksum = "sha256:93502e6ec4c4efe5437a8ef0970b0d87cd88020e341bcdd6b0b78022ce316a4b"
-url = "https://github.com/jdx/usage/releases/download/v6.2.0/usage-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527050809"
+checksum = "sha256:7e4a2ba8ad9c84393dc9921651fc95666e9b4c216c2f21cc89d01b6931e8e91b"
+url = "https://github.com/jdx/usage/releases/download/v6.3.0/usage-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527584062"
 
 [tools."aqua:jdx/usage"."platforms.linux-arm64-musl"]
-checksum = "sha256:86d8273aee09adc471ac34e8e61ef8386fc26b2d06cc43985722b705a52c5a7e"
-url = "https://github.com/jdx/usage/releases/download/v6.2.0/usage-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527051257"
+checksum = "sha256:6b2650f1d481f374e5c58bbebfa9dd2c45281272d8556e089af4624617b64554"
+url = "https://github.com/jdx/usage/releases/download/v6.3.0/usage-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527584046"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64"]
-checksum = "sha256:38df801e9ed2b4d23ea66793a25369f52d92c4aefd55ebacb6e343a2ab84528d"
-url = "https://github.com/jdx/usage/releases/download/v6.2.0/usage-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527050648"
+checksum = "sha256:c128761c9174d31cba827bff5d6504239bbdedfb2d86c603da6cfde8ad0a8ba8"
+url = "https://github.com/jdx/usage/releases/download/v6.3.0/usage-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527583543"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-baseline"]
-checksum = "sha256:38df801e9ed2b4d23ea66793a25369f52d92c4aefd55ebacb6e343a2ab84528d"
-url = "https://github.com/jdx/usage/releases/download/v6.2.0/usage-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527050648"
+checksum = "sha256:c128761c9174d31cba827bff5d6504239bbdedfb2d86c603da6cfde8ad0a8ba8"
+url = "https://github.com/jdx/usage/releases/download/v6.3.0/usage-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527583543"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-musl"]
-checksum = "sha256:ded7d1815254fe064b07a8f33251b8e112ec346c338e476ce0e9ee8d8babc0ed"
-url = "https://github.com/jdx/usage/releases/download/v6.2.0/usage-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527051701"
+checksum = "sha256:2688459eb8da13090052e819b5d54c92652e68d03003d7fb9b5f0facc1ca558b"
+url = "https://github.com/jdx/usage/releases/download/v6.3.0/usage-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527584253"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:ded7d1815254fe064b07a8f33251b8e112ec346c338e476ce0e9ee8d8babc0ed"
-url = "https://github.com/jdx/usage/releases/download/v6.2.0/usage-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527051701"
+checksum = "sha256:2688459eb8da13090052e819b5d54c92652e68d03003d7fb9b5f0facc1ca558b"
+url = "https://github.com/jdx/usage/releases/download/v6.3.0/usage-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527584253"
 
 [tools."aqua:jdx/usage"."platforms.macos-arm64"]
-checksum = "sha256:6c2d37e3cba67d45fdfeb5edaff81962388bfde09667cc9ed35b0734b7c0a8c1"
-url = "https://github.com/jdx/usage/releases/download/v6.2.0/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527053103"
+checksum = "sha256:227b2c1d7f6f5f202af89b61769985c085f99a2bbce6b8a062d3665f4be9d79d"
+url = "https://github.com/jdx/usage/releases/download/v6.3.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527593353"
 
 [tools."aqua:jdx/usage"."platforms.macos-x64"]
-checksum = "sha256:6c2d37e3cba67d45fdfeb5edaff81962388bfde09667cc9ed35b0734b7c0a8c1"
-url = "https://github.com/jdx/usage/releases/download/v6.2.0/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527053103"
+checksum = "sha256:227b2c1d7f6f5f202af89b61769985c085f99a2bbce6b8a062d3665f4be9d79d"
+url = "https://github.com/jdx/usage/releases/download/v6.3.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527593353"
 
 [tools."aqua:jdx/usage"."platforms.macos-x64-baseline"]
-checksum = "sha256:6c2d37e3cba67d45fdfeb5edaff81962388bfde09667cc9ed35b0734b7c0a8c1"
-url = "https://github.com/jdx/usage/releases/download/v6.2.0/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527053103"
+checksum = "sha256:227b2c1d7f6f5f202af89b61769985c085f99a2bbce6b8a062d3665f4be9d79d"
+url = "https://github.com/jdx/usage/releases/download/v6.3.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/527593353"
 
 [[tools."aqua:jesseduffield/lazygit"]]
 version = "0.64.1"
@@ -1382,7 +1382,7 @@ version = "2.5.10"
 backend = "npm:@biomejs/biome"
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
-version = "0.84.2"
+version = "0.84.3"
 backend = "npm:@earendil-works/pi-coding-agent"
 
 [[tools."npm:@playwright/mcp"]]
@@ -1410,7 +1410,7 @@ version = "3.5.0"
 backend = "npm:graphql-language-service-cli"
 
 [[tools."npm:oxlint"]]
-version = "1.79.0"
+version = "1.80.0"
 backend = "npm:oxlint"
 
 [[tools."npm:prettier"]]

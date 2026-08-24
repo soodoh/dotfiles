@@ -25,7 +25,7 @@ FIGMA_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBVQjJRS1VlWE1
 
 [tools]
 "pipx:azure-cli" = "2.89.1"
-"pipx:snowflake-cli" = "3.24.1"
+"pipx:snowflake-cli" = "3.25.0"
 gcloud = { version = "580.0.0", depends = ["python"] }
 # MSF TrueDev tooling. Docker/Compose and jq come from the shared profile;
 # Azure CLI and gcloud are declared above.
