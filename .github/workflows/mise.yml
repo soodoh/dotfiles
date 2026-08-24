@@ -25,7 +25,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential fish
       - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
         with:
-          version: 2026.8.10
+          version: 2026.8.11
           install: true
           cache: true
       - name: Validate configuration and colocated tests
@@ -42,7 +42,7 @@ jobs:
         run: brew install fish libgit2
       - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
         with:
-          version: 2026.8.10
+          version: 2026.8.11
           install: true
           cache: true
       - name: Validate configuration and colocated tests
