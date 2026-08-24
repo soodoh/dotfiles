@@ -288,10 +288,7 @@ run = "mise bootstrap status --missing"
 
 [tasks.lock]
 description = "Refresh shared and profile-specific mise lockfiles"
-run = [
-  "mise --env personal-macos lock --global --platform linux-x64,linux-arm64,macos-x64,macos-arm64",
-  "mise --env work-macos lock --global --platform linux-x64,linux-arm64,macos-x64,macos-arm64",
-]
+run = "python3 mise.lock.py refresh"
 
 [tasks.validate]
 description = "Run native configuration checks and colocated tests"
@@ -314,6 +311,10 @@ run = [
   "mise --env work-macos tasks validate >/dev/null",
   "mise --env work-macos bootstrap plan >/dev/null",
 ]
+
+[tasks."validate:locks"]
+description = "Regenerate mise lockfiles and verify the canonical Linux output"
+run = "python3 mise.lock.py check"
 
 [tasks."validate:dotfiles"]
 run = '''
@@ -372,10 +373,7 @@ esac''',
 ]
 
 [tasks."update:tools"]
-run = [
-  "mise upgrade --bump",
-  { task = "lock" },
-]
+run = "python3 mise.lock.py update"
 
 [tasks."update:agents"]
 run = "bun update --cwd pi-extensions"

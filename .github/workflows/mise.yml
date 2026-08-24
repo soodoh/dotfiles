@@ -26,8 +26,25 @@ jobs:
       - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4
         with:
           version: 2026.8.11
-          install: true
+          install: false
           cache: true
+      - name: Detect mise dependency changes
+        id: mise-changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          if git diff --quiet "$BASE_SHA" HEAD -- 'mise*.toml' 'mise*.lock' mise.lock.py; then
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          fi
+      - name: Verify mise lockfile reproducibility
+        if: steps.mise-changes.outputs.changed == 'true'
+        run: mise run validate:locks
+      - name: Install mise-managed tools
+        run: mise install --locked
       - name: Validate configuration and colocated tests
         run: mise run validate
 

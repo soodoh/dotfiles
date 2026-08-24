@@ -1,3 +1,7 @@
+import os
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 import tomllib
@@ -10,11 +14,39 @@ def load_toml(name: str) -> dict:
         return tomllib.load(config_file)
 
 
+def assert_work_profile_loads_without_secrets() -> None:
+    mise = shutil.which("mise")
+    assert mise is not None, "mise must be available to validate profile loading"
+    with tempfile.TemporaryDirectory() as home:
+        environment = {
+            "CI": "1",
+            "HOME": home,
+            "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
+            "MISE_YES": "1",
+            "PATH": os.defpath,
+        }
+        result = subprocess.run(
+            [mise, "--env", "work-macos", "config"],
+            cwd=ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    assert result.returncode == 0, (
+        "work profile must load without age keys or SSL_CERT_FILE:\n" + result.stderr
+    )
+
+
 def assert_tools_locked(config_name: str, lock_name: str) -> dict:
     config_tools = load_toml(config_name).get("tools", {})
     lock_tools = load_toml(lock_name).get("tools", {})
     for tool, specification in config_tools.items():
-        version = specification if isinstance(specification, str) else specification["version"]
+        version = (
+            specification
+            if isinstance(specification, str)
+            else specification["version"]
+        )
         entries = lock_tools.get(tool, [])
         assert any(entry["version"] == version for entry in entries), (
             f"{config_name}: {tool}@{version} is missing from {lock_name}"
@@ -32,7 +64,10 @@ certificate_variables = (
     "CURL_CA_BUNDLE",
     "HTTPLIB2_CA_CERTS",
 )
-assert all(work["env"][variable] == "${SSL_CERT_FILE:-}" for variable in certificate_variables)
+assert all(
+    work["env"][variable] == "${SSL_CERT_FILE:-}" for variable in certificate_variables
+)
+assert_work_profile_loads_without_secrets()
 
 base_lock_tools = assert_tools_locked("mise.toml", "mise.lock")
 assert_tools_locked("mise.personal-macos.toml", "mise.personal-macos.lock")
@@ -60,14 +95,9 @@ homebrew_task = base["tasks"]["bootstrap:homebrew-packages"]
 assert homebrew_task["interactive"] is True
 
 lock_task = base["tasks"]["lock"]
-assert lock_task["run"] == [
-    "mise --env personal-macos lock --global --platform linux-x64,linux-arm64,macos-x64,macos-arm64",
-    "mise --env work-macos lock --global --platform linux-x64,linux-arm64,macos-x64,macos-arm64",
-]
-assert base["tasks"]["update:tools"]["run"] == [
-    "mise upgrade --bump",
-    {"task": "lock"},
-]
+assert lock_task["run"] == "python3 mise.lock.py refresh"
+assert base["tasks"]["validate:locks"]["run"] == "python3 mise.lock.py check"
+assert base["tasks"]["update:tools"]["run"] == "python3 mise.lock.py update"
 
 pre_tools = work["bootstrap"]["hooks"]["pre-tools"].splitlines()
 assert pre_tools == [

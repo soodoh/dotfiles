@@ -13,6 +13,13 @@
   ],
   "packageRules": [
     {
+      "description": "mise tools and lockfiles are updated by the Repository updates workflow",
+      "matchManagers": [
+        "mise"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Automerge lock maintenance and non-major updates after checks pass",
       "matchUpdateTypes": [
         "lockFileMaintenance",

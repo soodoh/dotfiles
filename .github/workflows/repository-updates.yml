@@ -40,23 +40,8 @@ jobs:
           install_args: "aqua:neovim/neovim"
           cache: true
 
-      - name: Update TWG
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("mise.toml")
-          original = path.read_text()
-          unlocked = original.replace("[tool_config]\nlocked = true", "[tool_config]\nlocked = false", 1)
-          if unlocked == original:
-              raise SystemExit("failed to temporarily disable locked tool configuration")
-          path.write_text(unlocked)
-          PY
-          trap 'git restore --source=HEAD --worktree -- mise.toml' EXIT
-          mise --env work-macos upgrade http:twg --bump
-          git restore --source=HEAD --worktree -- mise.toml
-          trap - EXIT
+      - name: Update mise tools and lockfiles
+        run: python3 mise.lock.py update
 
       - name: Update profile skills
         shell: bash
@@ -80,6 +65,7 @@ jobs:
       - name: Validate repository updates
         run: |
           mise run validate:config
+          mise run validate:locks
           git diff --check
 
       - name: Stage repository updates
@@ -87,6 +73,10 @@ jobs:
         shell: bash
         run: |
           git add \
+            mise.toml \
+            mise.lock \
+            mise.personal-macos.toml \
+            mise.personal-macos.lock \
             mise.work-macos.toml \
             mise.work-macos.lock \
             dotfiles/common/nvim/lazy-lock.json \
@@ -123,5 +113,5 @@ jobs:
               --base "$BASE_BRANCH" \
               --head "$UPDATE_BRANCH" \
               --title "chore(root): refresh repository assets" \
-              --body $'Updates repository-managed assets that Renovate does not maintain:\n\n- TWG release metadata and lock entries\n- personal and work skill catalogs\n- Neovim plugin lock state\n\nThe repository validation suite passed before this PR was opened.'
+              --body $'Updates repository-managed assets that Renovate does not maintain:\n\n- mise-managed tools and lockfiles\n- personal and work skill catalogs\n- Neovim plugin lock state\n\nThe repository validation suite passed before this PR was opened.'
           fi
