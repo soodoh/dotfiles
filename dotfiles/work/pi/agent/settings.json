@@ -52,17 +52,5 @@
     "github-copilot/claude-opus-5",
     "github-copilot/claude-sonnet-5",
     "google-vertex/gemini-3.7-flash"
-  ],
-  "subagents": {
-    "modelScope": {
-      "enforce": true,
-      "allow": [
-        "github-copilot/gpt-5.6-sol",
-        "github-copilot/gpt-5.6-luna",
-        "github-copilot/claude-opus-5",
-        "github-copilot/claude-sonnet-5",
-        "google-vertex/gemini-3.7-flash"
-      ]
-    }
-  }
+  ]
 }
