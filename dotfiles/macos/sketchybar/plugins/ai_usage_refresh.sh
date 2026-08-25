@@ -11,6 +11,12 @@ PI_EXTENSIONS_DIR="${PI_EXTENSIONS_DIR:-$HOME/.pi/agent/pi-extensions}"
 PROVIDER_USAGE_CLI="${PROVIDER_USAGE_CLI:-$PI_EXTENSIONS_DIR/packages/statusline/src/provider-usage-cli.ts}"
 BUN_BIN="${BUN_BIN:-$HOME/.bun/bin/bun}"
 if [[ ! -x "$BUN_BIN" ]]; then
+  MISE_BIN="${MISE_BIN:-$HOME/.local/bin/mise}"
+  if [[ -x "$MISE_BIN" ]]; then
+    BUN_BIN="$("$MISE_BIN" -C "$PI_EXTENSIONS_DIR" which bun 2>/dev/null || true)"
+  fi
+fi
+if [[ ! -x "$BUN_BIN" ]]; then
   BUN_BIN="$(command -v bun || true)"
 fi
 SKETCHYBAR_BIN="${SKETCHYBAR_BIN:-/opt/homebrew/bin/sketchybar}"
