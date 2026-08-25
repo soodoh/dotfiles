@@ -109,18 +109,6 @@ MISE_ENV=work-macos mise bootstrap
     - `/mcp-auth glean`
     - `/mcp-auth mixpanel`
 
-- (Optional) Add litellm env vars to `~/.pi/agent/auth.json`:
-
-  ```json
-  {
-    "litellm": {
-      "type": "api_key",
-      "key": "COPY_FROM_BITWARDEN"
-    },
-    ...
-  }
-  ```
-
 - Install the self-updating internal `msf-cli` if it is not already present, then authenticate it as needed:
 
   ```bash
