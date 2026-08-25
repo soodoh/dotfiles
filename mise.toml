@@ -29,6 +29,7 @@ skills_cli_version = "1.5.22"
 
 [tools]
 node = "24.19.0"
+"aqua:Schniz/fnm" = "1.39.0"
 "aqua:yarnpkg/berry" = "4.18.0"
 python = "3.14.7"
 bun = "1.4.0"

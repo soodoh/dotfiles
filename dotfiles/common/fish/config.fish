@@ -29,6 +29,9 @@ end
 if command -q mise
     mise activate fish | source
 end
+if command -q fnm
+    fnm env --use-on-cd --shell fish | source
+end
 if command -q starship
     starship init fish | source
 end
