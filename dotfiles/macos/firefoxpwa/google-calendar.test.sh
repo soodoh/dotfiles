@@ -42,9 +42,20 @@ assert_profile_configuration() {
 assert_runtime_icon_configuration() {
   local runtime_bundle="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
   local app_icon="$HOME/Applications/Google Calendar.app/Contents/Resources/app.icns"
+  local app_icon_digest="$HOME/Applications/Google Calendar.app/Contents/Resources/app.icns.normalized.sha256"
   local runtime_icon="$runtime_bundle/Contents/Resources/google-calendar.icns"
 
   cmp -s "$app_icon" "$runtime_icon" || fail "runtime did not receive the Google Calendar icon"
+  python3 - "$app_icon" "$app_icon_digest" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+
+icon_path = Path(sys.argv[1])
+digest_path = Path(sys.argv[2])
+if digest_path.read_text(encoding="utf-8").strip() != hashlib.sha256(icon_path.read_bytes()).hexdigest():
+    raise SystemExit(1)
+PY
   python3 - "$runtime_bundle/Contents/Info.plist" <<'PY'
 import plistlib
 import sys
@@ -80,6 +91,19 @@ create_app_fixture() {
   printf 'google calendar icon\n' > "$app_resources/app.icns"
 }
 
+mark_app_icon_normalized_fixture() {
+  local app_resources="$HOME/Applications/Google Calendar.app/Contents/Resources"
+  python3 - "$app_resources/app.icns" "$app_resources/app.icns.normalized.sha256" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+
+icon_path = Path(sys.argv[1])
+digest_path = Path(sys.argv[2])
+digest_path.write_text(f"{hashlib.sha256(icon_path.read_bytes()).hexdigest()}\n", encoding="utf-8")
+PY
+}
+
 configure_runtime_icon_fixture() {
   local runtime_bundle="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
   cp "$HOME/Applications/Google Calendar.app/Contents/Resources/app.icns" \
@@ -108,7 +132,9 @@ setup_case() {
   export FIREFOXPWA_PLATFORM="Darwin"
   export FIREFOXPWA_BIN="$test_root/firefoxpwa"
   export FIREFOXPWA_CODESIGN_BIN="$test_root/codesign"
+  export FIREFOXPWA_ICONUTIL_BIN="$test_root/iconutil"
   export FIREFOXPWA_LSOF_BIN="lsof"
+  export FIREFOXPWA_SIPS_BIN="$test_root/sips"
   mkdir -p "$HOME" "$(dirname "$FIREFOXPWA_TEST_LOG")"
   : > "$FIREFOXPWA_TEST_LOG"
   : > "$FIREFOXPWA_TEST_CODESIGN_LOG"
@@ -124,6 +150,7 @@ setup_current_state() {
 
   create_runtime_fixture
   create_app_fixture
+  mark_app_icon_normalized_fixture
   configure_runtime_icon_fixture
   mkdir -p "$profile_dir"
   install -m 0644 "$profile_template" "$profile_dir/user.js"
@@ -190,13 +217,57 @@ printf '%s\n' "$*" >> "$FIREFOXPWA_TEST_CODESIGN_LOG"
 FAKE
 chmod +x "$test_root/codesign"
 
+cat > "$test_root/sips" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+input=""
+output=""
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --out)
+      output=$2
+      shift 2
+      ;;
+    -s)
+      shift 3
+      ;;
+    -z)
+      shift 3
+      ;;
+    *)
+      [[ -f "$1" ]] && input=$1
+      shift
+      ;;
+  esac
+done
+cp "$input" "$output"
+FAKE
+chmod +x "$test_root/sips"
+
+cat > "$test_root/iconutil" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+output=""
+while [[ "$#" -gt 0 ]]; do
+  if [[ "$1" == "-o" ]]; then
+    output=$2
+    break
+  fi
+  shift
+done
+printf 'normalized google calendar icon\n' > "$output"
+FAKE
+chmod +x "$test_root/iconutil"
+
 setup_case fresh
 bash "$script"
 assert_log "profile list
 runtime install
 profile update $profile_id --name Google Calendar --description $profile_description
 site install $manifest_url --profile $profile_id --document-url $document_url --start-url $document_url --name Google Calendar"
-assert_codesign_log "--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
+assert_codesign_log "--remove-signature $HOME/Applications/Google Calendar.app
+-s - $HOME/Applications/Google Calendar.app
+--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
 -s - $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
 assert_profile_configuration
 assert_runtime_icon_configuration
@@ -218,6 +289,19 @@ assert_codesign_log ""
 assert_profile_configuration
 assert_runtime_icon_configuration
 
+setup_case malformed-icon
+setup_current_state
+printf 'malformed small icon representations\n' > "$HOME/Applications/Google Calendar.app/Contents/Resources/app.icns"
+bash "$script"
+assert_log "profile list
+runtime patch
+profile update $profile_id --name Google Calendar --description $profile_description"
+assert_codesign_log "--remove-signature $HOME/Applications/Google Calendar.app
+-s - $HOME/Applications/Google Calendar.app
+--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
+-s - $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
+assert_profile_configuration
+assert_runtime_icon_configuration
 setup_case icon-drift
 setup_current_state
 rm "$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app/Contents/Resources/google-calendar.icns"
@@ -247,7 +331,9 @@ bash "$script"
 assert_log "profile list
 runtime patch
 profile update $profile_id --name Google Calendar --description $profile_description"
-assert_codesign_log "--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
+assert_codesign_log "--remove-signature $HOME/Applications/Google Calendar.app
+-s - $HOME/Applications/Google Calendar.app
+--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
 -s - $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
 assert_profile_configuration
 assert_runtime_icon_configuration
@@ -266,7 +352,9 @@ assert_log "profile list
 runtime patch
 profile update $profile_id --name Google Calendar --description $profile_description
 site update $site_id"
-assert_codesign_log "--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
+assert_codesign_log "--remove-signature $HOME/Applications/Google Calendar.app
+-s - $HOME/Applications/Google Calendar.app
+--remove-signature $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app
 -s - $HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
 assert_profile_configuration
 assert_runtime_icon_configuration

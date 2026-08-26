@@ -8,8 +8,10 @@ fi
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 firefoxpwa_bin="${FIREFOXPWA_BIN:-firefoxpwa}"
 codesign_bin="${FIREFOXPWA_CODESIGN_BIN:-codesign}"
+iconutil_bin="${FIREFOXPWA_ICONUTIL_BIN:-iconutil}"
 lsof_bin="${FIREFOXPWA_LSOF_BIN:-lsof}"
 python_bin="${FIREFOXPWA_PYTHON_BIN:-python3}"
+sips_bin="${FIREFOXPWA_SIPS_BIN:-sips}"
 userdata_dir="${FFPWA_USERDATA:-$HOME/Library/Application Support/firefoxpwa}"
 applications_dir="${FIREFOXPWA_APPLICATIONS_DIR:-$HOME/Applications}"
 runtime_bundle="$userdata_dir/runtime/Firefox.app"
@@ -18,13 +20,101 @@ runtime_info_plist="$runtime_bundle/Contents/Info.plist"
 runtime_icon="$runtime_bundle/Contents/Resources/google-calendar.icns"
 app_bundle="$applications_dir/Google Calendar.app"
 app_icon="$app_bundle/Contents/Resources/app.icns"
+app_icon_digest="$app_bundle/Contents/Resources/app.icns.normalized.sha256"
 profile_template="$script_dir/profile/user.js"
 default_profile_id="00000000000000000000000000"
 manifest_url="https://calendar.google.com/calendar/manifest.json"
 document_url="https://calendar.google.com/calendar/r"
+icon_work_dir=""
+
+cleanup_icon_work_dir() {
+  [[ -z "$icon_work_dir" ]] || rm -rf "$icon_work_dir"
+}
+trap cleanup_icon_work_dir EXIT
+
+app_icon_is_normalized() {
+  [[ -f "$app_icon" && -f "$app_icon_digest" ]] \
+    && "$python_bin" - "$app_icon" "$app_icon_digest" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+
+icon_path = Path(sys.argv[1])
+digest_path = Path(sys.argv[2])
+expected = digest_path.read_text(encoding="utf-8").strip()
+actual = hashlib.sha256(icon_path.read_bytes()).hexdigest()
+raise SystemExit(expected != actual)
+PY
+}
+
+write_app_icon_digest() {
+  "$python_bin" - "$app_icon" "$app_icon_digest" <<'PY'
+import hashlib
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+icon_path = Path(sys.argv[1])
+digest_path = Path(sys.argv[2])
+digest = hashlib.sha256(icon_path.read_bytes()).hexdigest()
+
+with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=digest_path.parent, delete=False) as target:
+    target.write(f"{digest}\n")
+    temporary_path = target.name
+os.replace(temporary_path, digest_path)
+PY
+}
+
+normalize_app_icon() {
+  local work_dir
+  local source_png
+  local iconset_dir
+  local normalized_icon
+  local icon_spec
+  local icon_size
+  local icon_name
+
+  work_dir=$(mktemp -d "${TMPDIR:-/tmp}/google-calendar-icon.XXXXXX")
+  icon_work_dir="$work_dir"
+  source_png="$work_dir/source.png"
+  iconset_dir="$work_dir/Google Calendar.iconset"
+  normalized_icon="$work_dir/Google Calendar.icns"
+  mkdir -p "$iconset_dir"
+
+  # FirefoxPWA's ICNS can contain corrupt legacy-size entries, so rebuild every
+  # representation from the valid largest image selected by sips.
+  "$sips_bin" -s format png "$app_icon" --out "$source_png" >/dev/null
+  for icon_spec in \
+    "16 icon_16x16.png" \
+    "32 icon_16x16@2x.png" \
+    "32 icon_32x32.png" \
+    "64 icon_32x32@2x.png" \
+    "128 icon_128x128.png" \
+    "256 icon_128x128@2x.png" \
+    "256 icon_256x256.png" \
+    "512 icon_256x256@2x.png" \
+    "512 icon_512x512.png" \
+    "1024 icon_512x512@2x.png"; do
+    read -r icon_size icon_name <<< "$icon_spec"
+    "$sips_bin" -z "$icon_size" "$icon_size" "$source_png" \
+      --out "$iconset_dir/$icon_name" >/dev/null
+  done
+  "$iconutil_bin" -c icns "$iconset_dir" -o "$normalized_icon"
+  install -m 0644 "$normalized_icon" "$app_icon"
+  write_app_icon_digest
+  rm -rf "$work_dir"
+  icon_work_dir=""
+
+  # Replacing resources invalidates the FirefoxPWA launcher signature.
+  "$codesign_bin" --remove-signature "$app_bundle"
+  "$codesign_bin" -s - "$app_bundle"
+  touch "$app_bundle"
+}
 
 runtime_icon_is_configured() {
-  [[ -f "$app_icon" && -f "$runtime_icon" && -f "$runtime_info_plist" ]] \
+  app_icon_is_normalized \
+    && [[ -f "$runtime_icon" && -f "$runtime_info_plist" ]] \
     && cmp -s "$app_icon" "$runtime_icon" \
     && "$python_bin" - "$runtime_info_plist" <<'PY'
 import plistlib
@@ -136,6 +226,10 @@ fi
 if [[ ! -f "$app_icon" ]]; then
   printf 'error: Google Calendar app icon was not created at %s\n' "$app_icon" >&2
   exit 1
+fi
+
+if ! app_icon_is_normalized; then
+  normalize_app_icon
 fi
 
 install -m 0644 "$app_icon" "$runtime_icon"
