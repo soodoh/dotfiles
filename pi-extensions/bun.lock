@@ -14,7 +14,7 @@
         "pi-mcp-adapter": "2.29.0",
         "pi-openai-fast": "1.0.1",
         "pi-readseek": "0.9.15",
-        "pi-subagents": "0.57.0",
+        "pi-subagents": "0.58.0",
         "pi-vim": "0.14.1",
         "proper-lockfile": "4.1.2",
         "typebox": "1.3.19",
@@ -764,7 +764,7 @@
 
     "pi-readseek": ["pi-readseek@0.9.15", "", { "dependencies": { "@jarkkojs/readseek": "^0.9.15", "@jarkkojs/readseek-api": "^0.9.15", "diff": "^9.0.0", "xxhash-wasm": "^1.1.0" }, "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "@sinclair/typebox": "*" } }, "sha512-/E+L2mHynNgNDsWoIEysMuPEDTx7bInD45HCDEZWnQfF2Tg3PjcWMQhQN5NA+JJK4w6AcA42EawJsnaRDkddgA=="],
 
-    "pi-subagents": ["pi-subagents@0.57.0", "", { "dependencies": { "acorn": "8.18.0", "jiti": "2.7.0", "typebox": "1.1.38", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=0.80.0", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-CvsOBp61dZU+HV3kHdfFc+iBuO9DOI5nvTiGrSaFVpH7XK5/22QbBAdjcrhOjcSzA5Ev3l0Qr/JC1I8VLES9Bw=="],
+    "pi-subagents": ["pi-subagents@0.58.0", "", { "dependencies": { "acorn": "8.18.0", "jiti": "2.7.0", "typebox": "1.1.38", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=0.80.0", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-o0rm91Vo+N1QrLN+nWdnzM9M96IuUUpo43eo9PhefR9iHX1bFgwaW9ttdg2VGtF+Q0nwgexf2/+sApYdWNGJyw=="],
 
     "pi-vim": ["pi-vim@0.14.1", "", { "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": ">=0.74.0" } }, "sha512-m8/j84pGlu01b6aucqgDQQQcS4kU+B0ws6/LIKB/HMWb43xVFXLqdZN06Op5OhBm+9aDDUkzFfFp3ErrtwLNRQ=="],
 
