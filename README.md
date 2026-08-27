@@ -75,7 +75,10 @@ MISE_ENV=work-macos mise bootstrap
     - Borders
     - Lunar
 - Sign in to Nextcloud and enable **Open on Login**.
-- Sign in to Tailscale, enable **Open on Login**, and select **Show only in menu bar**.
+- Configure the Homebrew-managed Tailscale CLI:
+    - Register and start its root launch daemon with `sudo brew services start tailscale`; launchd will start it automatically on future boots.
+    - Authenticate once with `tailscale up` (add `--login-server=https://headscale.example.com` when using Headscale).
+    - Enable Tailscale SSH with `tailscale set --ssh`.
 - Open Amphetamine:
     - Launch Amphetamine at Login
     - Hide Amphetamine in the Dock

@@ -94,6 +94,7 @@ rust = { version = "1.98.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "brew:libgit2" = { version = "latest", os = "macos" }
 "brew:lima" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
+"brew:tailscale" = { version = "latest", os = "macos" }
 "brew:mas" = { version = "latest", os = "macos" }
 "brew:firefoxpwa" = { version = "latest", os = "macos" }
 "brew-cask:bitwarden" = { version = "latest", os = "macos" }
@@ -104,7 +105,6 @@ rust = { version = "1.98.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "brew-cask:wispr-flow" = { version = "latest", os = "macos" }
 "brew-cask:zen" = { version = "latest", os = "macos" }
 "brew-cask:font-fira-code-nerd-font" = { version = "latest", os = "macos" }
-"mas:1475387142" = { version = "latest", os = "macos" }
 
 [bootstrap.macos.dock]
 show_recents = false
