@@ -197,6 +197,10 @@ backend = "npm:@azure-devops/mcp"
 version = "3.0.0-beta.38"
 backend = "npm:@azure/mcp"
 
+[[tools."npm:@googleworkspace/cli"]]
+version = "0.22.5"
+backend = "npm:@googleworkspace/cli"
+
 [[tools."npm:figma-developer-mcp"]]
 version = "0.13.2"
 backend = "npm:figma-developer-mcp"
