@@ -38,7 +38,7 @@ gcloud = { version = "580.0.0", depends = ["python"] }
 "aqua:derailed/k9s" = "0.51.0"
 "aqua:helm/helm" = "4.2.4"
 "aqua:kubernetes/kubernetes/kubectl" = "1.37.0"
-"npm:@azure/mcp" = "3.0.0-beta.38"
+"npm:@azure/mcp" = "3.0.0-beta.39"
 "npm:@azure-devops/mcp" = "2.9.0"
 "npm:figma-developer-mcp" = "0.13.2"
 "npm:@googleworkspace/cli" = "0.22.5"
