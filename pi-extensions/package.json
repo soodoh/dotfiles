@@ -51,7 +51,7 @@
 		"@juicesharp/rpiv-todo": "2.7.1",
 		"@juicesharp/rpiv-web-tools": "2.7.1",
 		"@plannotator/pi-extension": "0.27.8",
-		"@quintinshaw/pi-dynamic-workflows": "3.8.0",
+		"@quintinshaw/pi-dynamic-workflows": "3.9.0",
 		"google-auth-library": "11.0.2",
 		"pi-mcp-adapter": "2.29.0",
 		"pi-openai-fast": "1.0.1",
