@@ -65,13 +65,13 @@ rust = { version = "1.98.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "cargo:taplo-cli" = "0.10.0"
 "go:golang.org/x/tools/gopls" = "0.23.0"
 "pipx:yamllint" = "1.38.0"
-"npm:@earendil-works/pi-coding-agent" = "0.84.3"
+"npm:@earendil-works/pi-coding-agent" = "0.84.4"
 "npm:@playwright/mcp" = "0.0.79"
 "npm:awk-language-server" = "0.10.6"
-"npm:bash-language-server" = "5.6.0"
+"npm:bash-language-server" = { version = "5.6.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:@biomejs/biome" = "2.5.11"
 "npm:eslint_d" = "15.0.3"
-"npm:graphql-language-service-cli" = "3.5.0"
+"npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:oxlint" = "1.80.0"
 "npm:prettier" = "3.9.6"
 "npm:@prisma/language-server" = "31.12.0"
