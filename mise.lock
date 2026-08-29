@@ -1507,7 +1507,7 @@ version = "2.5.11"
 backend = "npm:@biomejs/biome"
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
-version = "0.84.3"
+version = "0.84.4"
 backend = "npm:@earendil-works/pi-coding-agent"
 
 [[tools."npm:@playwright/mcp"]]
