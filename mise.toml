@@ -213,7 +213,6 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 "~/.config/fish/config.fish" = "dotfiles/common/fish/config.fish"
 "~/.config/fish/custom" = "dotfiles/common/fish/custom"
 "~/.config/fish/plugins/abbreviation-tips" = "dotfiles/common/fish/plugins/abbreviation-tips"
-"~/.config/fish/plugins/git" = "dotfiles/common/fish/plugins/git"
 "~/.config/ghostty" = "dotfiles/common/ghostty"
 "~/.config/lazygit" = "dotfiles/common/lazygit"
 "~/.config/nvim" = "dotfiles/common/nvim"
