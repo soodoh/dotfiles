@@ -2,6 +2,7 @@ set -gx LANG en_US.UTF-8
 set -gx LC_CTYPE en_US.UTF-8
 set -g fish_greeting
 fish_add_path --path "$HOME/.local/bin"
+fish_hybrid_key_bindings
 
 if status is-interactive
     set -gx GPG_TTY (tty)
@@ -45,7 +46,6 @@ if command -q fzf
     fzf --fish | source
 end
 
-fish_vi_key_bindings
 if functions -q __abbr_tips_init
     __abbr_tips_init
 end
