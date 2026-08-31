@@ -13,7 +13,7 @@
         "google-auth-library": "11.0.2",
         "pi-mcp-adapter": "2.31.0",
         "pi-openai-fast": "1.0.1",
-        "pi-readseek": "0.9.15",
+        "pi-readseek": "0.9.16",
         "pi-subagents": "0.61.0",
         "pi-vim": "0.14.1",
         "proper-lockfile": "4.1.2",
@@ -138,17 +138,15 @@
 
     "@hono/node-server": ["@hono/node-server@2.1.1", "", { "peerDependencies": { "hono": "^4" } }, "sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg=="],
 
-    "@jarkkojs/readseek": ["@jarkkojs/readseek@0.9.15", "", { "optionalDependencies": { "@jarkkojs/readseek-darwin-arm64": "0.9.15", "@jarkkojs/readseek-linux-arm64": "0.9.15", "@jarkkojs/readseek-linux-x64": "0.9.15", "@jarkkojs/readseek-win32-x64": "0.9.15" }, "bin": { "readseek": "bin/readseek.js" } }, "sha512-ax6dDIJmoc5vsZyYBkyf9SsSOLl/1yB9HhVu59KscuqPygRFylqdjc6AXVuUJxES4oqV+WJ/7buA+aaNlvVgyw=="],
+    "@jarkkojs/readseek-api": ["@jarkkojs/readseek-api@0.9.16", "", { "optionalDependencies": { "@jarkkojs/readseek-darwin-arm64": "0.9.16", "@jarkkojs/readseek-linux-arm64": "0.9.16", "@jarkkojs/readseek-linux-x64": "0.9.16", "@jarkkojs/readseek-win32-x64": "0.9.16" }, "bin": { "readseek": "bin/readseek.cjs" } }, "sha512-u6oqc15umj4SrC62p3MxyI6giLebglC/coeIb7SUWhDthcV8WxKQeQaTFe8d4BAOiq+4iVYyiaYp+XD76Mwgxw=="],
 
-    "@jarkkojs/readseek-api": ["@jarkkojs/readseek-api@0.9.15", "", { "dependencies": { "@jarkkojs/readseek": "^0.9.15" } }, "sha512-O7ZP0+fG5CSDzT1HcbJy6V/jQusqTBl5/oXt53d7jKS60v5nIKBIlaWzagUaXhAv09uQGzoQCg4gIGPqO+OJNg=="],
+    "@jarkkojs/readseek-darwin-arm64": ["@jarkkojs/readseek-darwin-arm64@0.9.16", "", { "os": "darwin", "cpu": "arm64", "bin": { "readseek": "bin/readseek" } }, "sha512-fA3NdmtlIjmSxkbXed7IVXZEV6R78OCk4SPSXMhQ1lW6s/W3LJo0KioMDT8mPUvE7I9bnj0w2YbnkfpW/kz+6g=="],
 
-    "@jarkkojs/readseek-darwin-arm64": ["@jarkkojs/readseek-darwin-arm64@0.9.15", "", { "os": "darwin", "cpu": "arm64", "bin": { "readseek": "bin/readseek" } }, "sha512-nT5prCEt/vwCasg4JVTwduhjlXPmt+Bs9nomo+xtommvpK4pOftX/QxzXvZCpk9QCHNS3WpEJEgY+DCjanUxLQ=="],
+    "@jarkkojs/readseek-linux-arm64": ["@jarkkojs/readseek-linux-arm64@0.9.16", "", { "os": "linux", "cpu": "arm64", "bin": { "readseek": "bin/readseek" } }, "sha512-ePLqRs0uJ/8nhdg/s/i3khCcEsmmm1RkSNRPOWXn9QIPpLbMKK6CPGHuVsmXjD5FaF/U2iHJkdzxt5uQSZ9tQQ=="],
 
-    "@jarkkojs/readseek-linux-arm64": ["@jarkkojs/readseek-linux-arm64@0.9.15", "", { "os": "linux", "cpu": "arm64", "bin": { "readseek": "bin/readseek" } }, "sha512-HSM6o1Uj1KkmTXRIExQ5lh/dKsblC5h9wH9jRq2sKdq2fR+QV7lBcTznhXzqN9NUn+uG44XMd47u9CRlLPwQoQ=="],
+    "@jarkkojs/readseek-linux-x64": ["@jarkkojs/readseek-linux-x64@0.9.16", "", { "os": "linux", "cpu": "x64", "bin": { "readseek": "bin/readseek" } }, "sha512-G35ZN/5GCi7Q2sOHMkS976AuM1aJYizDKKvZeq+YfinbQC4vQIEvPZ226IEWZA4sx6LA/YZB1uMh6SDKDZODwA=="],
 
-    "@jarkkojs/readseek-linux-x64": ["@jarkkojs/readseek-linux-x64@0.9.15", "", { "os": "linux", "cpu": "x64", "bin": { "readseek": "bin/readseek" } }, "sha512-2mSDoYi+CE5P1HZ64hovyqT0M9ny9ECApk8wvRmo51b0hsUgiboOb6DaVRt2H+kATTc57B3+PgBPT+gtnkvqxQ=="],
-
-    "@jarkkojs/readseek-win32-x64": ["@jarkkojs/readseek-win32-x64@0.9.15", "", { "os": "win32", "cpu": "x64", "bin": { "readseek": "bin/readseek.exe" } }, "sha512-OuP5NLaDjKe8H0VmphoRoWJzfWzQmdqsenOCG7HnFmoywdSDTY3M+9CqSMT7gFQ0rQFEzRZMcj6zVrJHBM1wAA=="],
+    "@jarkkojs/readseek-win32-x64": ["@jarkkojs/readseek-win32-x64@0.9.16", "", { "os": "win32", "cpu": "x64", "bin": { "readseek": "bin/readseek.exe" } }, "sha512-LeA4QWW59vUX0w2QzLu1UtqKk+PkXOCNkNqH49oBLLAkARC+2BQaVuMnUHLdwy7fv37vouoQQCiorx6YQjKcGA=="],
 
     "@joplin/turndown-plugin-gfm": ["@joplin/turndown-plugin-gfm@1.0.67", "", {}, "sha512-FZfW5EZfidhzd1IaY1uxHnIZPTVOxAdleMZ4/1U6Nt5b7+Qj5JThDnaIomuJtetnUBzuRNbe9FWMuqD4B3dlWA=="],
 
@@ -762,7 +760,7 @@
 
     "pi-openai-fast": ["pi-openai-fast@1.0.1", "", { "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*" } }, "sha512-e9lgqhAVPRrUEkCshovfQiZtM97QswcnLZP1tnolbve6Yb/j4nvZviAuH8EyV20KB9CbC2iSGImjxMGDKNWdRQ=="],
 
-    "pi-readseek": ["pi-readseek@0.9.15", "", { "dependencies": { "@jarkkojs/readseek": "^0.9.15", "@jarkkojs/readseek-api": "^0.9.15", "diff": "^9.0.0", "xxhash-wasm": "^1.1.0" }, "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "@sinclair/typebox": "*" } }, "sha512-/E+L2mHynNgNDsWoIEysMuPEDTx7bInD45HCDEZWnQfF2Tg3PjcWMQhQN5NA+JJK4w6AcA42EawJsnaRDkddgA=="],
+    "pi-readseek": ["pi-readseek@0.9.16", "", { "dependencies": { "@jarkkojs/readseek-api": "^0.9.16", "diff": "^9.0.0", "xxhash-wasm": "^1.1.0" }, "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "@sinclair/typebox": "*" } }, "sha512-NqYrw0XdpEH5CpxBRBJpSgUPTj0vIBuxmvReEqjs0L1LUg2IuxEdF/K0Hj6bAOOxjHWZELl2wz4EwFRx0XvqbA=="],
 
     "pi-subagents": ["pi-subagents@0.61.0", "", { "dependencies": { "acorn": "8.18.0", "jiti": "2.7.0", "typebox": "1.1.38", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=0.80.0", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-ed8XbIZtOainz2cvjF9WHAwbGsDY0JH2YLs6ErbGmc09JHRA17U43QiL8jA5DjI+1lVgzXLJhmNW7Ft1XL5lNA=="],
 
