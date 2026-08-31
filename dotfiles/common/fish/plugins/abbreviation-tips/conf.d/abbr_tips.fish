@@ -6,6 +6,19 @@ end
 
 set -g __abbr_tips_used 0
 
+# The original plugin only set these defaults during its install event. This
+# vendored copy is sourced directly, so initialize missing values per shell.
+if not set -q ABBR_TIPS_REGEXES
+    set -g ABBR_TIPS_REGEXES \
+        '(^(\w+\s+)+(-{1,2})\w+)(\s\S+)' \
+        '(^(\s?(\w-?)+){3}).*' \
+        '(^(\s?(\w-?)+){2}).*' \
+        '(^(\s?(\w-?)+){1}).*'
+end
+if not set -q ABBR_TIPS_PROMPT
+    set -g ABBR_TIPS_PROMPT "\n💡 \e[1m{{ .abbr }}\e[0m => {{ .cmd }}"
+end
+
 # Trim simple/double quotes from args
 function trim_value
     echo "$argv" | string trim --left --right --chars '"\'' | string join ' '
@@ -44,60 +57,17 @@ function __abbr_tips --on-event fish_postexec -d "Abbreviation reminder for the 
             set -e __ABBR_TIPS_KEYS[$abb]
             set -e __ABBR_TIPS_VALUES[$abb]
         end
-    else if test "$command[1]" = alias
-        # Update abbreviations list when adding aliases
-        set -l alias_key
-        set -l alias_value
-
-        # Parse args as `alias` options
-        argparse --name alias --ignore-unknown s/save -- $command
-
-        if string match -q '*=*' -- "$argv[2]"
-            set command_split (string split '=' -- $argv[2])
-            set alias_key "a__$command_split[1]"
-            set alias_value $command_split[2..-1]
-        else
-            set alias_key "a__$argv[2]"
-            set alias_value $argv[3..-1]
-        end
-
-        set alias_value (trim_value "$alias_value")
-
-        if set -l abb (contains -i -- "$argv[3..-1]" $__ABBR_TIPS_KEYS)
-            set __ABBR_TIPS_KEYS[$abb] $alias_key
-            set __ABBR_TIPS_VALUES[$abb] $alias_value
-        else
-            set -a __ABBR_TIPS_KEYS $alias_key
-            set -a __ABBR_TIPS_VALUES $alias_value
-        end
-    else if test "$command[1]" = functions
-        # Parse args as `functions` options
-        argparse --name functions e/erase -- $command
-
-        # Update abbreviations list when removing aliases
-        if set -q _flag_e
-            and set -l abb (contains -i -- a__{$argv[2]} $__ABBR_TIPS_KEYS)
-            set -e __ABBR_TIPS_KEYS[$abb]
-            set -e __ABBR_TIPS_VALUES[$abb]
-        end
     end
 
-    # Exit in the following cases :
-    #  - abbreviation has been used
-    #  - command is already an abbreviation
-    #  - command not found
-    #  - or it's a function (alias)
+    # Exit when the abbreviation was used, the command is already abbreviated,
+    # the command does not exist, or the command is a function.
     if test $__abbr_tips_used = 1
         set -g __abbr_tips_used 0
         return
     else if abbr -q "$cmd"
         or not type -q "$command[1]"
         return
-    else if string match -q -- "alias $cmd *" (alias)
-        return
     else if test (type -t "$command[1]") = function
-        and count $ABBR_TIPS_ALIAS_WHITELIST >/dev/null
-        and not contains "$command[1]" $ABBR_TIPS_ALIAS_WHITELIST
         return
     end
 
@@ -111,19 +81,8 @@ function __abbr_tips --on-event fish_postexec -d "Abbreviation reminder for the 
     end
 
     if test -n "$abb"
-        if string match -q "a__*" -- "$__ABBR_TIPS_KEYS[$abb]"
-            set -l alias (string sub -s 4 -- "$__ABBR_TIPS_KEYS[$abb]")
-            if functions -q "$alias"
-                echo -e (string replace -a '{{ .cmd }}' -- "$__ABBR_TIPS_VALUES[$abb]" \
-                        (string replace -a '{{ .abbr }}' -- "$alias" "$ABBR_TIPS_PROMPT"))
-            else
-                set -e __ABBR_TIPS_KEYS[$abb]
-                set -e __ABBR_TIPS_VALUES[$abb]
-            end
-        else
-            echo -e (string replace -a '{{ .cmd }}' -- "$__ABBR_TIPS_VALUES[$abb]" \
-                    (string replace -a '{{ .abbr }}' -- "$__ABBR_TIPS_KEYS[$abb]" "$ABBR_TIPS_PROMPT"))
-        end
+        echo -e (string replace -a '{{ .cmd }}' -- "$__ABBR_TIPS_VALUES[$abb]" \
+                (string replace -a '{{ .abbr }}' -- "$__ABBR_TIPS_KEYS[$abb]" "$ABBR_TIPS_PROMPT"))
     end
 
     return

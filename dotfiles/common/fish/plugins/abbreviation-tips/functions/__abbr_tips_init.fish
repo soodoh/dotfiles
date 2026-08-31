@@ -1,24 +1,16 @@
 function __abbr_tips_init -d "Initialize abbreviations variables for fish-abbr-tips"
-    set -e __ABBR_TIPS_KEYS
-    set -e __ABBR_TIPS_VALUES
-    set -Ux __ABBR_TIPS_KEYS
-    set -Ux __ABBR_TIPS_VALUES
+    # These lists are rebuilt for every shell, so keep them process-local. Appending
+    # to universal variables persisted and broadcast every entry individually.
+    set -eU __ABBR_TIPS_KEYS __ABBR_TIPS_VALUES
+    set -l keys
+    set -l values
 
-    set -l i 1
-    set -l abb (string replace -r '.*-- ' '' -- (abbr -s))
-    while test $i -le (count $abb)
-        set -l current_abb (string split -m1 -- ' ' "$abb[$i]")
-        set -a __ABBR_TIPS_KEYS "$current_abb[1]"
-        set -a __ABBR_TIPS_VALUES (string trim -c '\'' -- "$current_abb[2]")
-        set i (math $i + 1)
+    for definition in (string replace -r '.*-- ' '' -- (abbr --show))
+        set -l fields (string split -m1 -- ' ' "$definition")
+        set -a keys "$fields[1]"
+        set -a values (string trim -c '\'' -- "$fields[2]")
     end
 
-    set -l i 1
-    set -l abb (string replace -r '.*-- ' '' -- (alias -s))
-    while test $i -le (count $abb)
-        set -l current_abb (string split -m2 -- ' ' "$abb[$i]")
-        set -a __ABBR_TIPS_KEYS "a__$current_abb[2]"
-        set -a __ABBR_TIPS_VALUES (string trim -c '\'' -- "$current_abb[3]")
-        set i (math $i + 1)
-    end
+    set -gu __ABBR_TIPS_KEYS $keys
+    set -gu __ABBR_TIPS_VALUES $values
 end

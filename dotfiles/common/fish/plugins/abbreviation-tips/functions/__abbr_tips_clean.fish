@@ -8,7 +8,6 @@ function __abbr_tips_clean -d "Clean plugin variables and functions"
     set --erase __ABBR_TIPS_KEYS
     set --erase ABBR_TIPS_PROMPT
     set --erase ABBR_TIPS_AUTO_UPDATE
-    set --erase ABBR_TIPS_ALIAS_WHITELIST
     set --erase ABBR_TIPS_REGEXES
     functions --erase __abbr_tips_bind_newline
     functions --erase __abbr_tips_bind_space
