@@ -79,7 +79,7 @@ Model references support:
 
 Invalid `titleModel` values fall back to `["session-default"]`. If configured models cannot be resolved or initial generation fails, the extension uses the deterministic initial-request fallback title.
 
-Use a small, fast, non-reasoning task model for low latency and cost. The extension still explicitly requests reasoning-disabled generation and enforces its internal request bounds.
+Use a small, fast task model for low latency and cost. Reasoning effort is always selected internally at the model's lowest supported level—off when available, otherwise minimal, low, or the next supported level—and is not configurable.
 
 ## Development
 
