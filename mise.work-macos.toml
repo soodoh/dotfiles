@@ -48,9 +48,6 @@ macos-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v{{
 linux-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v{{ version }}" }
 linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v{{ version }}" }
 
-[bootstrap.packages]
-"mas:937984704" = "latest"
-
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"
 
