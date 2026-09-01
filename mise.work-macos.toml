@@ -26,7 +26,7 @@ FIGMA_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBVQjJRS1VlWE1
 LITELLM_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxQ2VMTkZxempodFo2a0VUT1BWUzE4cVZMdE9RQk83ZGVYN1JKb3NyZFNnCnROK2xNUzlWK24ycEJyYlJ2aHh6MUxyUVh5Q0JTaXp1WWNMYTNTUXY0cnMKLT4gXmoqaUUtZ3JlYXNlIHR4NnssIXwgW0tgKjktd2kgJSAmc31mewoxVVhqRnNENWhzMld4WDhTcDJRTGRHUStEZlNEVEpuN0NSVlpwcGdzNGV1TTZhY2djOG5CWHcKLS0tIFNkbjlQY0tjVk9SRDhDcjIxYmtTWCt2TVhRNTBEUks1RVg1T2tTQ3lJb3cKjJ+FVNrvB7/IPJZiZYCr4g7Hbizw2hmD+lMQwGQBoQ8nxTv0U9Qe87Du5cU/2hjtU+uqVqFQId2+wviUFNzHkrRvOmxG7hXjtdsomhWUP9o8zGeEnqmC5V582M+DMd9j2cAp" }
 
 [tools]
-"pipx:azure-cli" = "2.89.1"
+"pipx:azure-cli" = "2.90.0"
 "pipx:snowflake-cli" = "3.26.0"
 gcloud = { version = "580.0.0", depends = ["python"] }
 # MSF TrueDev tooling. Docker/Compose and jq come from the shared profile;
