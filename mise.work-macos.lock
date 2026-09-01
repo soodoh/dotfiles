@@ -156,22 +156,6 @@ url = "https://dl.k8s.io/v1.37.0/bin/darwin/arm64/kubectl"
 checksum = "sha256:d5276c0f4fde77fc446070290f345944a7f1fda153df6b960e5fde93b7a9bccd"
 url = "https://dl.k8s.io/v1.37.0/bin/darwin/amd64/kubectl"
 
-[[tools.gcloud]]
-version = "580.0.0"
-backend = "vfox:mise-plugins/vfox-gcloud"
-
-[tools.gcloud."platforms.linux-arm64"]
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-linux-arm.tar.gz"
-
-[tools.gcloud."platforms.linux-x64"]
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-linux-x86_64.tar.gz"
-
-[tools.gcloud."platforms.macos-arm64"]
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-darwin-arm.tar.gz"
-
-[tools.gcloud."platforms.macos-x64"]
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-darwin-x86_64.tar.gz"
-
 [[tools."http:twg"]]
 version = "1.2.5"
 backend = "http:twg"
@@ -199,10 +183,6 @@ backend = "npm:@azure-devops/mcp"
 [[tools."npm:@azure/mcp"]]
 version = "3.0.0-beta.39"
 backend = "npm:@azure/mcp"
-
-[[tools."npm:@googleworkspace/cli"]]
-version = "0.22.5"
-backend = "npm:@googleworkspace/cli"
 
 [[tools."npm:figma-developer-mcp"]]
 version = "0.13.2"

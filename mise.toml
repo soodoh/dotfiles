@@ -18,6 +18,12 @@ EDITOR = "nvim"
 VISUAL = "nvim"
 LG_CONFIG_FILE = "{{ env.HOME }}/.config/lazygit/config.yml"
 SSH_AUTH_SOCK = "{{ env.HOME }}/.bitwarden-ssh-agent.sock"
+# Persist Google Cloud and Workspace CLI configuration without storing it in plain text.
+GOOGLE_CLOUD_PROJECT = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxeTA2NUFHSXkyaVc0Tlh6M1BtNE5DanAyL1pjM0JOUlRTS1JPS0pzSW1nCkVvVEFmNWR6dW5tZ1pmK3g2WnE0TzIvSU9VMnhRTUlGOXIxckpXWU5BVzgKLT4gVC1ncmVhc2UgJSp9TWggVldNfgpLM2x6RHJnMEpjbkxzazc2RHZrc0R5dnA0RDB5ams4c0Q5RGtub01NRzlpaVRsckk1YU43Ci0tLSBMQlNvNXM0eGpXZ3Bvd2NYQmdCcjdtSFk3cmUrZXZJRFJMN0tuOGIvcnFBCiML2DC0hSn2F1ORDawTvnDTuXdLvKFGbF2dUuUP8zdEIAN8rVvtMxXccuZcyPJef0iX0Yk20omcycm2RQ" }
+GOOGLE_CLOUD_LOCATION = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA4YkJ0TlJuUm9SOFhEUE1vczZycWt0Q0pjTXJ2N3hBUVpvdDczU0x2R25vCmdRZHBnOFYzckNLdjd2NEhzcFBBYkJZelNxN1laSG5sejQyditka2JDR00KLT4ga2ZNKSIwYlotZ3JlYXNlIHdhJwpoN1dZOWcKLS0tIFNNV2JYSUtadkM4djN1RE1ONUxwVWgyMitjaFZVOUpwMllWeExMSWR3NU0Kk8WKym8lzWGDyzGrqbHrNrHo0fcJUpYGf2eC30OE46KaKg" }
+GOOGLE_WORKSPACE_CLI_CLIENT_ID = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBEN0hnb2gvcithRDFnMnBwOU45V09yMHQrYzhlK2tDSnkyNi9lL1gxbVRzClMvdlNVYjJtOTh4cWlMOHo0TmNzZjF3ZmVXeUJQVWhTbUNiRlNTWXhRN3MKLT4gIS1ncmVhc2UgXS8teU1XOQoxK3J1MHp3MkhYUXpSMGROTmFwSTF0ZGhJQQotLS0gY2NKZmFSeTJFSGFZVzdoRE1aU2VpVzVNa3ZNNXZaRGR2N0NBMnBiS2RlYwpwh815IZPu1r1fa0qEl2ny9xiaAVb9PNqlnu2JkIYJBxhpUt2v9sb32qV9KgXPYiZQaIwFzYIIPmwPV5o1PPA2OwgvV5WHyril0DnrVFDt7EtiHF2VUFLb9fIOwFPQtYoXCgw+uWhV/g" }
+GOOGLE_WORKSPACE_CLI_CLIENT_SECRET = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA2YS8rYyt4bm8rVkQrNk9WbG9jbkdQZ2pkTEtUQlJRMWczOXpWSlFxSVVRCkN0NWZsOVVuYTRYMGVpUDBCQmd3RzVDcGQ5NEZlZktPSmVFMVBWbjBwSDQKLT4gb1xULWdyZWFzZSB7Pz1gdgpMK1VpQXM0YlJ4c24wRWtRcUR1UnVqV1JIVi80Qy8wQTZ5bVA4bmtjUk1RU3FyeDZwYm5LSHo2K1U5ZzZNa2lFCndRY0JPWGw1dEEKLS0tIEdVZUNlRVR0dXNPU3VPZXltV0hFcXVGb2VMSGxDL2Vvd0s5L1R6UUVva1UKtj9Easg533Ektwl2rcWPRV8lKiKNWEuZ4j0y7wfLGLz7G201VRAJZBnmeRaTuaB4ZzKbHN6RCj6n/ZsP4863op1Mwg" }
+GOOGLE_WORKSPACE_PROJECT_ID = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAvSTMrVmo2WVc4TU9lc1M4YjZhK3ZaVVpqUjNVV3RBdnlicnRjUWtMK0hBCjB5WHp2SkxvN2tESWVSUzFRS1B0cVVENnJYOFA3NlR1RDNZVzV1c0JYUFkKLT4gLWgqLWdyZWFzZSBGUEd+en5wCm9aMzNkVDY3bWIwaHNyT0l6UWJORWgrZklHc25xb1B6a0tFNWZhWnNjcStoTFdhcWRjMUlpa3JEb0NXdVJQWGsKR1M0MDdneXF5MUhsWFE5TjNDcnZQQjlvME81b1Vvb2h2QnFMNlJFbFBHRlcKLS0tIGVXZStaek80T2JJVlhkK2RZcytQaVNqUmZ6VXVnRFdjSytCb1FSU2JIaWsKdqs94EuqYNpL9ld6ESrvt0HjvfE1vhI9+oAZC0iVV3SKozUiESkoa15k8pKxZEM//g" }
 _.path = [
   "{{ env.HOME }}/.local/bin",
   "/opt/homebrew/bin",
@@ -32,6 +38,7 @@ node = "24.20.0"
 "aqua:Schniz/fnm" = "1.39.0"
 "aqua:yarnpkg/berry" = "4.18.0"
 python = "3.14.7"
+gcloud = { version = "580.0.0", depends = ["python"] }
 bun = "1.4.0"
 go = "1.27.0"
 rust = { version = "1.98.0", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
@@ -67,6 +74,7 @@ rust = { version = "1.98.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "pipx:yamllint" = "1.38.0"
 "npm:@earendil-works/pi-coding-agent" = "0.84.4"
 "npm:@playwright/mcp" = "0.0.79"
+"npm:@googleworkspace/cli" = "0.22.5"
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.6.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:@biomejs/biome" = "2.5.11"
@@ -192,6 +200,10 @@ stdout_path = "~/Library/Logs/colima-default.log"
 stderr_path = "~/Library/Logs/colima-default.error.log"
 
 [bootstrap.hooks]
+pre-tools = '''
+mise install python
+CLOUDSDK_PYTHON="$(mise which python3)" mise install gcloud
+'''
 pre-packages = '''
 case "${MISE_ENV:-}" in
   personal-macos|work-macos) ;;

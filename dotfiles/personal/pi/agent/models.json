@@ -1,17 +1,27 @@
 {
-	"providers": {
-		"openai-codex": {
-			"modelOverrides": {
-				"gpt-5.6-sol": {
-					"contextWindow": 372000
-				},
-				"gpt-5.6-terra": {
-					"contextWindow": 372000
-				},
-				"gpt-5.6-luna": {
-					"contextWindow": 372000
-				}
-			}
-		}
-	}
+  "providers": {
+    "google-vertex": {
+      "modelOverrides": {
+        "gemini-3.7-flash": {
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null
+          }
+        }
+      }
+    },
+    "openai-codex": {
+      "modelOverrides": {
+        "gpt-5.6-sol": {
+          "contextWindow": 372000
+        },
+        "gpt-5.6-terra": {
+          "contextWindow": 372000
+        },
+        "gpt-5.6-luna": {
+          "contextWindow": 372000
+        }
+      }
+    }
+  }
 }

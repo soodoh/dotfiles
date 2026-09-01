@@ -1369,6 +1369,37 @@ backend = "cargo:taplo-cli"
 version = "0.27.0"
 backend = "cargo:tree-sitter-cli"
 
+[[tools.gcloud]]
+version = "580.0.0"
+backend = "vfox:mise-plugins/vfox-gcloud"
+
+[tools.gcloud."platforms.linux-arm64"]
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-linux-arm.tar.gz"
+
+[tools.gcloud."platforms.linux-arm64-musl"]
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-linux-arm.tar.gz"
+
+[tools.gcloud."platforms.linux-x64"]
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-linux-x86_64.tar.gz"
+
+[tools.gcloud."platforms.linux-x64-baseline"]
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-linux-x86_64.tar.gz"
+
+[tools.gcloud."platforms.linux-x64-musl"]
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-linux-x86_64.tar.gz"
+
+[tools.gcloud."platforms.linux-x64-musl-baseline"]
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-linux-x86_64.tar.gz"
+
+[tools.gcloud."platforms.macos-arm64"]
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-darwin-arm.tar.gz"
+
+[tools.gcloud."platforms.macos-x64"]
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-darwin-x86_64.tar.gz"
+
+[tools.gcloud."platforms.macos-x64-baseline"]
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-580.0.0-darwin-x86_64.tar.gz"
+
 [[tools."github:docker/docker-language-server"]]
 version = "0.20.1"
 backend = "github:docker/docker-language-server"
@@ -1509,6 +1540,10 @@ backend = "npm:@biomejs/biome"
 [[tools."npm:@earendil-works/pi-coding-agent"]]
 version = "0.84.4"
 backend = "npm:@earendil-works/pi-coding-agent"
+
+[[tools."npm:@googleworkspace/cli"]]
+version = "0.22.5"
+backend = "npm:@googleworkspace/cli"
 
 [[tools."npm:@playwright/mcp"]]
 version = "0.0.79"

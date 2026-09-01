@@ -160,13 +160,24 @@ assert lock_task["run"] == "python3 mise.lock.py refresh"
 assert base["tasks"]["validate:locks"]["run"] == "python3 mise.lock.py check"
 assert base["tasks"]["update:tools"]["run"] == "python3 mise.lock.py update"
 
-pre_tools = work["bootstrap"]["hooks"]["pre-tools"].splitlines()
+pre_tools = base["bootstrap"]["hooks"]["pre-tools"].splitlines()
 assert pre_tools == [
     "mise install python",
     'CLOUDSDK_PYTHON="$(mise which python3)" mise install gcloud',
 ]
 
-gcloud = work["tools"]["gcloud"]
+gcloud = base["tools"]["gcloud"]
 assert gcloud["depends"] == ["python"]
+assert base["tools"]["npm:@googleworkspace/cli"] == "0.22.5"
+
+google_env = {
+    "GOOGLE_CLOUD_PROJECT",
+    "GOOGLE_CLOUD_LOCATION",
+    "GOOGLE_WORKSPACE_CLI_CLIENT_ID",
+    "GOOGLE_WORKSPACE_CLI_CLIENT_SECRET",
+    "GOOGLE_WORKSPACE_PROJECT_ID",
+}
+assert google_env <= base["env"].keys()
+assert google_env.isdisjoint(work["env"].keys())
 
 print(f"bootstrap prerequisites: ok (python {python_version})")

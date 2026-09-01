@@ -40,17 +40,13 @@
   "steeringMode": "all",
   "autoSessionName": {
     "titleModel": [
-      "openai-codex/gpt-5.6-luna"
+      "google-vertex/gemini-3.7-flash"
     ]
   },
-  "subagents": {
-    "modelScope": {
-      "enforce": true,
-      "allow": [
-        "openai-codex/gpt-5.6-sol",
-        "openai-codex/gpt-5.6-terra",
-        "openai-codex/gpt-5.6-luna"
-      ]
-    }
-  }
+  "enabledModels": [
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-5.6-luna",
+    "google-vertex/gemini-3.7-flash"
+  ]
 }
