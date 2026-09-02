@@ -2,7 +2,7 @@
 strict = false
 
 [tools]
-"aqua:aws/aws-cli" = "2.36.35"
+"aqua:aws/aws-cli" = "2.36.36"
 
 [bootstrap.packages]
 "brew-cask:discord" = "latest"
@@ -13,8 +13,6 @@ strict = false
 "brew-cask:zoom" = "latest"
 "brew-cask:prusaslicer" = "latest"
 "brew-cask:rar" = "latest"
-"mas:937984704" = "latest"
-"mas:1474276998" = "latest"
 
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"

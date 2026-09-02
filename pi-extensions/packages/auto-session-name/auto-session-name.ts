@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Message, Model, UserMessage } from "@earendil-works/pi-ai";
+import {
+	clampThinkingLevel,
+	type Message,
+	type Model,
+	type UserMessage,
+} from "@earendil-works/pi-ai";
 import { complete, completeSimple } from "@earendil-works/pi-ai/compat";
 import {
 	type AgentSettledEvent,
@@ -462,16 +467,20 @@ const generateTitle = async (
 		maxRetries: TITLE_PROVIDER_RETRIES,
 		signal,
 	};
+	const reasoningLevel = clampThinkingLevel(model, "off");
 	const response =
 		model.api === "openai-codex-responses"
 			? await complete(model, prompt, {
 					...baseOptions,
-					reasoningEffort: "none",
+					reasoningEffort: reasoningLevel === "off" ? "none" : reasoningLevel,
 				})
-			: await completeSimple(model, prompt, {
-					...baseOptions,
-					reasoning: undefined,
-				});
+			: await completeSimple(
+					model,
+					prompt,
+					reasoningLevel === "off"
+						? baseOptions
+						: { ...baseOptions, reasoning: reasoningLevel },
+				);
 	if (response.stopReason === "error" || response.stopReason === "aborted") {
 		throw new Error(response.errorMessage ?? "Title generation failed");
 	}

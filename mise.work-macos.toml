@@ -10,27 +10,19 @@ NODE_EXTRA_CA_CERTS = "${SSL_CERT_FILE:-}"
 AWS_CA_BUNDLE = "${SSL_CERT_FILE:-}"
 CURL_CA_BUNDLE = "${SSL_CERT_FILE:-}"
 HTTPLIB2_CA_CERTS = "${SSL_CERT_FILE:-}"
-# This isn't actually needed in the environment, but keeping here for initial Google Vertex -> Pi setup
-# So we can persist these values, without storing in plain text
-GOOGLE_CLOUD_PROJECT = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxeTA2NUFHSXkyaVc0Tlh6M1BtNE5DanAyL1pjM0JOUlRTS1JPS0pzSW1nCkVvVEFmNWR6dW5tZ1pmK3g2WnE0TzIvSU9VMnhRTUlGOXIxckpXWU5BVzgKLT4gVC1ncmVhc2UgJSp9TWggVldNfgpLM2x6RHJnMEpjbkxzazc2RHZrc0R5dnA0RDB5ams4c0Q5RGtub01NRzlpaVRsckk1YU43Ci0tLSBMQlNvNXM0eGpXZ3Bvd2NYQmdCcjdtSFk3cmUrZXZJRFJMN0tuOGIvcnFBCiML2DC0hSn2F1ORDawTvnDTuXdLvKFGbF2dUuUP8zdEIAN8rVvtMxXccuZcyPJef0iX0Yk20omcycm2RQ" }
-GOOGLE_CLOUD_LOCATION = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA4YkJ0TlJuUm9SOFhEUE1vczZycWt0Q0pjTXJ2N3hBUVpvdDczU0x2R25vCmdRZHBnOFYzckNLdjd2NEhzcFBBYkJZelNxN1laSG5sejQyditka2JDR00KLT4ga2ZNKSIwYlotZ3JlYXNlIHdhJwpoN1dZOWcKLS0tIFNNV2JYSUtadkM4djN1RE1ONUxwVWgyMitjaFZVOUpwMllWeExMSWR3NU0Kk8WKym8lzWGDyzGrqbHrNrHo0fcJUpYGf2eC30OE46KaKg" }
 GH_HOST = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBkc3NBVS91azRMRXZSK0FUdkZ3NXhpUW9IeHdlUmNjWFZ2dEtFUzZpc1U4Cjh5YndzT2RSMlpFTHIzZldPS1pKQnhOaDFYS3Z0MGhlUytSL1FOMmNwQW8KLT4gc0ZOe0J3W3ctZ3JlYXNlCktRZU1qd1UzQ3lxNDEyT1poajdUbHFiekhGNFRoTks2VUZzSVpOcTFOMU13aTNaMXJaZ0I4SldKaWNQbE5XQi8KbUpqbXdyZFBqNmx4NWp5b2J1RHZ4Y3d0MkVySTlZWWl0WStLVlVnUkx4cU1YN0JvQlFPTWZqKy9tVTIzczkzZwpwUQotLS0gaTgrNkY5YlJNMjZpMjJBcndXTUJuMTNwSmlkNUF3aWttMkovK3NNV2xsRQq6kC+amBxGxzfj0ZiLt4KXgPyuFGJYpauISsOaX71gf0aVM2SROChOnrfW6cE+DIy8jusmeA" }
 GH_ENTERPRISE_TOKEN = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAzUjM1dnZPVENhZU9kSkpHWWtNNVJjVzQ0clBaT0Jsd2V5dmoxeUVGOXhJCmtrM3dmYWYrUENpTFg3RVdqU3hFZEhINGd5ODhQdDJqVDlxVHg5cWFNNzAKLT4gLyRLIzUtZ3JlYXNlICt+fHVuTiAzKyVXICZNClBHTQotLS0gVkZSQjByNFE1MEppTmgzd0drek15U1RFTFRENzlpRTlnQmJOemg4VGFxawr6upWbDTT+jsbeEPv84q9BWoB/xTgNroM901qeudvYpUdTvehHUvT9diBA6Fsn+A6F+V8a7e1ROBCMLjwpHuun7vgegZ8zpVM" }
 ADO_MCP_AUTH_TOKEN = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB2bTZOSzlzVk1IY1RCU1Fwcy9rMEdWWEpzeG9WZDlRb2xEdUIxdXF0Y2xJCmM2dVVYeWtWSUdWbzc4V3l0Tk1GWjdVckdmWXhNOVJFdWpwVitVbkNoREkKLT4gUi8pLWdyZWFzZQpKRGp3ME1nd1N2dUN4VCt6R0Y1QjZpUUo4aWRPZHM0azczbDhyaVhqanM5QjNHWHV3d0o4V1FNVDkwbGk1dmpICkNhSnlwY0lUZk4zTk1LdjAxZ2JDNS9RbEZuNkcKLS0tIG0yV05Kays1cjNaTWdVRXJSSkE3aW5wd25qdE5nNkpMVFJjc0JCOWQyNzQKBgkdKpcXYp2HugQ02SZ9337YnM4H6L6j7qPWFf+TiHqQEhi3W87DwwgpsRsqtuVOa+UXID14x06ILIMfxtG8JxBy/RJn8/SAdB/zO2Y44sBvz1mDbbcc1J5M07a7U4bLzsP61jAUZYSvP2xg8ekF5cwKfWk" }
-GOOGLE_WORKSPACE_CLI_CLIENT_ID = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBEN0hnb2gvcithRDFnMnBwOU45V09yMHQrYzhlK2tDSnkyNi9lL1gxbVRzClMvdlNVYjJtOTh4cWlMOHo0TmNzZjF3ZmVXeUJQVWhTbUNiRlNTWXhRN3MKLT4gIS1ncmVhc2UgXS8teU1XOQoxK3J1MHp3MkhYUXpSMGROTmFwSTF0ZGhJQQotLS0gY2NKZmFSeTJFSGFZVzdoRE1aU2VpVzVNa3ZNNXZaRGR2N0NBMnBiS2RlYwpwh815IZPu1r1fa0qEl2ny9xiaAVb9PNqlnu2JkIYJBxhpUt2v9sb32qV9KgXPYiZQaIwFzYIIPmwPV5o1PPA2OwgvV5WHyril0DnrVFDt7EtiHF2VUFLb9fIOwFPQtYoXCgw+uWhV/g" }
-GOOGLE_WORKSPACE_CLI_CLIENT_SECRET = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA2YS8rYyt4bm8rVkQrNk9WbG9jbkdQZ2pkTEtUQlJRMWczOXpWSlFxSVVRCkN0NWZsOVVuYTRYMGVpUDBCQmd3RzVDcGQ5NEZlZktPSmVFMVBWbjBwSDQKLT4gb1xULWdyZWFzZSB7Pz1gdgpMK1VpQXM0YlJ4c24wRWtRcUR1UnVqV1JIVi80Qy8wQTZ5bVA4bmtjUk1RU3FyeDZwYm5LSHo2K1U5ZzZNa2lFCndRY0JPWGw1dEEKLS0tIEdVZUNlRVR0dXNPU3VPZXltV0hFcXVGb2VMSGxDL2Vvd0s5L1R6UUVva1UKtj9Easg533Ektwl2rcWPRV8lKiKNWEuZ4j0y7wfLGLz7G201VRAJZBnmeRaTuaB4ZzKbHN6RCj6n/ZsP4863op1Mwg" }
-GOOGLE_WORKSPACE_PROJECT_ID = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAvSTMrVmo2WVc4TU9lc1M4YjZhK3ZaVVpqUjNVV3RBdnlicnRjUWtMK0hBCjB5WHp2SkxvN2tESWVSUzFRS1B0cVVENnJYOFA3NlR1RDNZVzV1c0JYUFkKLT4gLWgqLWdyZWFzZSBGUEd+en5wCm9aMzNkVDY3bWIwaHNyT0l6UWJORWgrZklHc25xb1B6a0tFNWZhWnNjcStoTFdhcWRjMUlpa3JEb0NXdVJQWGsKR1M0MDdneXF5MUhsWFE5TjNDcnZQQjlvME81b1Vvb2h2QnFMNlJFbFBHRlcKLS0tIGVXZStaek80T2JJVlhkK2RZcytQaVNqUmZ6VXVnRFdjSytCb1FSU2JIaWsKdqs94EuqYNpL9ld6ESrvt0HjvfE1vhI9+oAZC0iVV3SKozUiESkoa15k8pKxZEM//g" }
 CONTEXT7_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBpSk5CalhFUzBnSVFNMG1tSndnRXRwK2dET21ucUxoMjU0elRJYUV0VUhBCkhvbXBjSi9UUnZXZFRONTZiekRkLyt2M2RhNU1od05ISGdjUFA2a0E5MVkKLT4gVkNdJCYtZ3JlYXNlIF9Qbwp6VjBnME1hRDFTQTZ1ODhTWGhBCi0tLSBxdjd0WHZQeThSc1o3eUd4aFBOdGg3cjhSenkvSUpKL0hKM2xoU2l6ZWw4Cqfwt41L00JdwvAspvjYHZz0m5b3FlXxMEfst3A3VZpqG9A3dHXmkjMK8kHW3vIyQ2q5jc5f2ElXSwLWOLgPew1W2Pt+jjMLVbOwNg" }
 BRAVE_SEARCH_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBYWlJDbWh5NWd2QnlxUk9CUEpqdWlJaFZJRWNzOW1RcDNQSFo4b2VoUDE4Cm9PaDk4ck4ySHk0WGloblpwbXNaMXFpcnRmMVRMU1NtSG55U2xqV3ZVNlUKLT4gWDlgNmJqLWdyZWFzZQp3c1IwVTdVeG9hcUQvN1NPQ213SAotLS0geUpBSmt4ejI0RTV2N3N5Y1hTeDZEcW9JQ3B2SURiSTV6UVlWYzRwNXZYZwremVeunLw8x3bTVp2tBTIbVTbnWgVaJ0TvDAhT2tilLfxpZxLj9DnxyS83HHEa30U3DjPIJmpR5U5QTtYULtI" }
 FIGMA_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBVQjJRS1VlWE1Jb0RZUTl4M2ZrWjBJVWxMVDkwaDVXNzE3WThQNS9VTENrCk8wZUp5cFF1TlEvWVBXQUhCbkNhWXZLTDZYRXJxbUNnbHQ4cW4xUHFEODQKLT4gJEQwci16TVktZ3JlYXNlIH4gSVVDRCBPfSU/CjJobHJMZGJQS2ozeXkxTlcKLS0tIG44YlQ2byt6Y1p6S2lyU3pWbmpqdkZDN2Zyd0FocU1oMS9yQmtFYmJrYzQKTj4ZnSSxJ6UW231KEjwJ96vgJ6MavhsAemHX7uwjSsBRnqs90qrwMPEmGb/oEaqKs4+IxtFmRSCSREAK32fHDN1jug4qVNwTfUp2viQ" }
 LITELLM_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxQ2VMTkZxempodFo2a0VUT1BWUzE4cVZMdE9RQk83ZGVYN1JKb3NyZFNnCnROK2xNUzlWK24ycEJyYlJ2aHh6MUxyUVh5Q0JTaXp1WWNMYTNTUXY0cnMKLT4gXmoqaUUtZ3JlYXNlIHR4NnssIXwgW0tgKjktd2kgJSAmc31mewoxVVhqRnNENWhzMld4WDhTcDJRTGRHUStEZlNEVEpuN0NSVlpwcGdzNGV1TTZhY2djOG5CWHcKLS0tIFNkbjlQY0tjVk9SRDhDcjIxYmtTWCt2TVhRNTBEUks1RVg1T2tTQ3lJb3cKjJ+FVNrvB7/IPJZiZYCr4g7Hbizw2hmD+lMQwGQBoQ8nxTv0U9Qe87Du5cU/2hjtU+uqVqFQId2+wviUFNzHkrRvOmxG7hXjtdsomhWUP9o8zGeEnqmC5V582M+DMd9j2cAp" }
 
 [tools]
-"pipx:azure-cli" = "2.89.1"
+"pipx:azure-cli" = "2.90.0"
 "pipx:snowflake-cli" = "3.26.0"
-gcloud = { version = "580.0.0", depends = ["python"] }
 # MSF TrueDev tooling. Docker/Compose and jq come from the shared profile;
-# Azure CLI and gcloud are declared above.
+# Azure CLI is declared above; gcloud is shared.
 "aqua:Azure/kubelogin" = "0.2.19"
 "aqua:GoogleContainerTools/skaffold" = "2.24.0"
 "aqua:PowerShell/PowerShell" = "7.6.5"
@@ -41,7 +33,6 @@ gcloud = { version = "580.0.0", depends = ["python"] }
 "npm:@azure/mcp" = "3.0.0-beta.39"
 "npm:@azure-devops/mcp" = "2.9.0"
 "npm:figma-developer-mcp" = "0.13.2"
-"npm:@googleworkspace/cli" = "0.22.5"
 "npm:kusto-mcp" = "1.14.0"
 
 [tools."http:twg"]
@@ -52,17 +43,10 @@ version_json_path = ".version"
 checksum_url = "https://teamwork-graph.atlassian.com/cli/SHA256SUMS-v{{ version }}"
 platforms= { macos-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v{{ version }}" }, macos-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v{{ version }}" }, linux-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v{{ version }}" }, linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v{{ version }}" } }
 
-[bootstrap.packages]
-"mas:937984704" = "latest"
-
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"
 
 [bootstrap.hooks]
-pre-tools = '''
-mise install python
-CLOUDSDK_PYTHON="$(mise which python3)" mise install gcloud
-'''
 final = '''
 repo="$(git rev-parse --show-toplevel)"
 personal_gitconfig="$repo/dotfiles/personal/gitconfig"

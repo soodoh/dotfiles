@@ -92,6 +92,7 @@ MISE_ENV=work-macos mise bootstrap
 - Open `pi` for the first time:
     - `/login openai-codex`
     - `/login openrouter`
+- Authenticate `gws` CLI: `gws auth login`
 
 ### Manual steps for Work macOS
 

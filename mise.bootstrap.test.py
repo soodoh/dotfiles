@@ -113,10 +113,49 @@ def assert_tools_locked(config_name: str, lock_name: str) -> dict:
     return lock_tools
 
 
+def assert_gws_skills_shared_by_profiles() -> None:
+    shared_skills = {
+        "gws-calendar",
+        "gws-docs",
+        "gws-drive",
+        "gws-gmail",
+        "gws-shared",
+        "gws-sheets",
+    }
+    profile_roots = [
+        ROOT / "dotfiles" / profile / "agents"
+        for profile in ("personal", "work")
+    ]
+    locks = [
+        json.loads((profile_root / ".skill-lock.json").read_text())
+        for profile_root in profile_roots
+    ]
+
+    for skill in shared_skills:
+        skill_files = [
+            profile_root / "skills" / skill / "SKILL.md"
+            for profile_root in profile_roots
+        ]
+        assert all(skill_file.is_file() for skill_file in skill_files), (
+            f"{skill} must be available in both profile skill catalogs"
+        )
+        assert len({skill_file.read_bytes() for skill_file in skill_files}) == 1, (
+            f"{skill} must stay synchronized across profile skill catalogs"
+        )
+
+        entries = [lock["skills"].get(skill) for lock in locks]
+        assert all(entry is not None for entry in entries), (
+            f"{skill} must be tracked in both profile skill locks"
+        )
+        assert all(entry["source"] == "googleworkspace/cli" for entry in entries)
+        assert len({entry["skillFolderHash"] for entry in entries}) == 1
+
+
 base = load_toml("mise.toml")
 work = load_toml("mise.work-macos.toml")
 assert_renovate_owns_supported_mise_tools()
 assert_repository_updates_only_unsupported_tools()
+assert_gws_skills_shared_by_profiles()
 
 certificate_variables = (
     "REQUESTS_CA_BUNDLE",
@@ -160,13 +199,24 @@ assert lock_task["run"] == "python3 mise.lock.py refresh"
 assert base["tasks"]["validate:locks"]["run"] == "python3 mise.lock.py check"
 assert base["tasks"]["update:tools"]["run"] == "python3 mise.lock.py update"
 
-pre_tools = work["bootstrap"]["hooks"]["pre-tools"].splitlines()
+pre_tools = base["bootstrap"]["hooks"]["pre-tools"].splitlines()
 assert pre_tools == [
     "mise install python",
     'CLOUDSDK_PYTHON="$(mise which python3)" mise install gcloud',
 ]
 
-gcloud = work["tools"]["gcloud"]
+gcloud = base["tools"]["gcloud"]
 assert gcloud["depends"] == ["python"]
+assert base["tools"]["npm:@googleworkspace/cli"] == "0.22.5"
+
+google_env = {
+    "GOOGLE_CLOUD_PROJECT",
+    "GOOGLE_CLOUD_LOCATION",
+    "GOOGLE_WORKSPACE_CLI_CLIENT_ID",
+    "GOOGLE_WORKSPACE_CLI_CLIENT_SECRET",
+    "GOOGLE_WORKSPACE_PROJECT_ID",
+}
+assert google_env <= base["env"].keys()
+assert google_env.isdisjoint(work["env"].keys())
 
 print(f"bootstrap prerequisites: ok (python {python_version})")

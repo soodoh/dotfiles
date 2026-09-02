@@ -525,12 +525,14 @@ describe("bounded model generation", () => {
 			env: { TEST_PROVIDER_ENV: "value" },
 			maxTokens: 32,
 			maxRetries: 0,
-			reasoning: undefined,
 			temperature: 0,
 			timeoutMs: 8_000,
 		});
 		expect(mocks.completeSimple.mock.calls[0]?.[2].signal).toBeInstanceOf(
 			AbortSignal,
+		);
+		expect(mocks.completeSimple.mock.calls[0]?.[2]).not.toHaveProperty(
+			"reasoning",
 		);
 	});
 
@@ -572,6 +574,24 @@ describe("bounded model generation", () => {
 			reasoningEffort: "none",
 			temperature: 0,
 			timeoutMs: 8_000,
+		});
+	});
+
+	test("uses the lowest supported OpenAI Codex reasoning effort", async () => {
+		const codexModel = {
+			...makeTestModel("codex-model", "openai-codex-responses"),
+			reasoning: true,
+			thinkingLevelMap: { off: null, minimal: null },
+		};
+		mocks.complete.mockResolvedValue({ content: "Low Reasoning Title" });
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+
+		await harness.agentSettled(createContext(branch, [codexModel], codexModel));
+		await vi.waitFor(() => expect(mocks.complete).toHaveBeenCalled());
+
+		expect(mocks.complete.mock.calls[0]?.[2]).toMatchObject({
+			reasoningEffort: "low",
 		});
 	});
 
@@ -1071,6 +1091,46 @@ describe("fallbacks, settings, and no backfill", () => {
 		} finally {
 			tempHome.restore();
 		}
+	});
+
+	test("uses minimal when the selected model does not support reasoning off", async () => {
+		const minimalModel = {
+			...makeTestModel("minimal-model"),
+			reasoning: true,
+			thinkingLevelMap: { off: null },
+		};
+		mocks.completeSimple.mockResolvedValue({
+			content: "Minimal Reasoning Title",
+		});
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		await harness.agentSettled(
+			createContext(branch, [minimalModel], minimalModel),
+		);
+		await waitForName(harness, "Minimal Reasoning Title");
+
+		expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(minimalModel);
+		expect(mocks.completeSimple.mock.calls[0]?.[2]).toMatchObject({
+			reasoning: "minimal",
+		});
+	});
+
+	test("uses low when the selected model supports neither off nor minimal", async () => {
+		const lowModel = {
+			...makeTestModel("low-model"),
+			reasoning: true,
+			thinkingLevelMap: { off: null, minimal: null },
+		};
+		mocks.completeSimple.mockResolvedValue({ content: "Low Reasoning Title" });
+		const branch = [userMessageEntry(plainPrompt)];
+		const harness = createHarness(branch);
+		await harness.agentSettled(createContext(branch, [lowModel], lowModel));
+		await waitForName(harness, "Low Reasoning Title");
+
+		expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(lowModel);
+		expect(mocks.completeSimple.mock.calls[0]?.[2]).toMatchObject({
+			reasoning: "low",
+		});
 	});
 
 	test("invalid titleModel falls back to session-default", async () => {
