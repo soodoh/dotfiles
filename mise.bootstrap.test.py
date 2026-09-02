@@ -113,10 +113,49 @@ def assert_tools_locked(config_name: str, lock_name: str) -> dict:
     return lock_tools
 
 
+def assert_gws_skills_shared_by_profiles() -> None:
+    shared_skills = {
+        "gws-calendar",
+        "gws-docs",
+        "gws-drive",
+        "gws-gmail",
+        "gws-shared",
+        "gws-sheets",
+    }
+    profile_roots = [
+        ROOT / "dotfiles" / profile / "agents"
+        for profile in ("personal", "work")
+    ]
+    locks = [
+        json.loads((profile_root / ".skill-lock.json").read_text())
+        for profile_root in profile_roots
+    ]
+
+    for skill in shared_skills:
+        skill_files = [
+            profile_root / "skills" / skill / "SKILL.md"
+            for profile_root in profile_roots
+        ]
+        assert all(skill_file.is_file() for skill_file in skill_files), (
+            f"{skill} must be available in both profile skill catalogs"
+        )
+        assert len({skill_file.read_bytes() for skill_file in skill_files}) == 1, (
+            f"{skill} must stay synchronized across profile skill catalogs"
+        )
+
+        entries = [lock["skills"].get(skill) for lock in locks]
+        assert all(entry is not None for entry in entries), (
+            f"{skill} must be tracked in both profile skill locks"
+        )
+        assert all(entry["source"] == "googleworkspace/cli" for entry in entries)
+        assert len({entry["skillFolderHash"] for entry in entries}) == 1
+
+
 base = load_toml("mise.toml")
 work = load_toml("mise.work-macos.toml")
 assert_renovate_owns_supported_mise_tools()
 assert_repository_updates_only_unsupported_tools()
+assert_gws_skills_shared_by_profiles()
 
 certificate_variables = (
     "REQUESTS_CA_BUNDLE",
