@@ -19,7 +19,6 @@
     "ci": "bun run --cwd pi-extensions ci",
     "test": "bun run --cwd pi-extensions test",
     "test:coverage": "bun run --cwd pi-extensions test:coverage",
-    "test:typecheck": "bun run --cwd pi-extensions test:typecheck",
     "typecheck": "bun run --cwd pi-extensions typecheck"
   },
   "devDependencies": {

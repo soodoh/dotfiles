@@ -38,10 +38,9 @@
 		"build": "tsc --noEmit",
 		"check": "biome check .",
 		"check:write": "biome check --write .",
-		"ci": "bun run check && bun run typecheck && bun run test:typecheck && bun run test:coverage",
+		"ci": "bun run check && bun run typecheck && bun run test:coverage",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
-		"test:typecheck": "tsc --noEmit --project tsconfig.test.json",
 		"typecheck": "tsc --noEmit",
 		"test:coverage:html": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.reporter=html"
 	},

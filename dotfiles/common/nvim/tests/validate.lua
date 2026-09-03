@@ -35,12 +35,11 @@ for _, module in ipairs(modules) do
   end
 end
 
-local parsers = {
-  "bash", "c", "css", "diff", "dockerfile", "git_config", "git_rebase", "gitignore", "go",
-  "gomod", "gosum", "graphql", "html", "javascript", "jsdoc", "json", "kdl", "lua", "luadoc",
-  "markdown", "markdown_inline", "nix", "prisma", "python", "regex", "rust", "toml", "tsx",
-  "typescript", "vim", "vimdoc", "yaml",
-}
+if vim.treesitter.language.get_lang("jsonc") ~= "json" then
+  error("jsonc is not registered to use the JSON Tree-sitter parser")
+end
+
+local parsers = require("treesitter-parsers")
 for _, parser in ipairs(parsers) do
   local ok = vim.treesitter.language.add(parser)
   if not ok then

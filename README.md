@@ -132,6 +132,8 @@ mise run validate
 
 The suite parses and plans both profiles, checks shell syntax, runs the Pi package suite, exercises tmux and work workflow tests, verifies the expected work security failure, runs Neovim in an isolated environment, and executes colocated macOS configuration tests. CI never runs a workstation bootstrap.
 
+The work LiteLLM cleartext HTTP endpoint remains an intentional, exact expected failure. A follow-up must explicitly choose either HTTPS or a narrowly scoped private-network allowlist and update `AGENTS.md` with that policy; this validation change does neither.
+
 ## Updates
 
 Updates remain explicit and grouped:
@@ -147,7 +149,7 @@ After changing tools in any mise configuration, refresh every committed lockfile
 mise run lock
 ```
 
-This runs both explicit environments sequentially. Mise writes shared tools to `mise.lock` and profile-only tools to `mise.personal-macos.lock` or `mise.work-macos.lock`; running both environments therefore covers all three files. The task uses `--global` because each profile points `MISE_CONFIG_DIR` at this checkout.
+This generates both explicit environments in isolated temporary roots, verifies that they produce the same shared `mise.lock`, and only then atomically publishes changed lockfiles. Mise writes profile-only tools to `mise.personal-macos.lock` or `mise.work-macos.lock`, so both environments cover all three committed locks without mutating the tracked configuration during generation.
 
 The task updates mise tools, refreshes all shared and profile-specific mise lockfiles, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
 

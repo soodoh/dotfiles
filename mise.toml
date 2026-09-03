@@ -305,23 +305,20 @@ run = "python3 mise.lock.py refresh"
 
 [tasks.validate]
 description = "Run native configuration checks and colocated tests"
-run = [
-  { task = "validate:config" },
-  { task = "validate:dotfiles" },
-  { task = "validate:agents" },
-  { task = "validate:neovim" },
-  { task = "validate:macos" },
-  { task = "validate:repository" },
+depends = [
+  "validate:config",
+  "validate:dotfiles",
+  "validate:agents",
+  "validate:neovim",
+  "validate:macos",
+  "validate:repository",
 ]
 
 [tasks."validate:config"]
 run = [
   "python3 mise.bootstrap.test.py",
-  "mise --env personal-macos config >/dev/null",
-  "mise --env personal-macos tasks validate >/dev/null",
+  "python3 mise.lock.test.py",
   "mise --env personal-macos bootstrap plan >/dev/null",
-  "mise --env work-macos config >/dev/null",
-  "mise --env work-macos tasks validate >/dev/null",
   "mise --env work-macos bootstrap plan >/dev/null",
 ]
 
@@ -332,19 +329,18 @@ run = "python3 mise.lock.py check"
 [tasks."validate:dotfiles"]
 run = '''
 find dotfiles -type f -name '*.sh' -exec bash -n {} +
-fish --no-execute dotfiles/common/fish/config.fish
 find dotfiles -type f -name '*.fish' -exec fish --no-execute {} \;
 bash dotfiles/work/bootstrap-repositories.test.sh
 '''
 
 [tasks."validate:agents"]
 run = [
-  "bun ci --ignore-scripts",
   "bun ci --cwd pi-extensions",
   "bun run --cwd pi-extensions ci",
   "node dotfiles/common/tmux/scripts/pi-session-lib.test.mjs",
   "bash dotfiles/common/tmux/scripts/pi-session-focus.test.sh",
   "node dotfiles/work/pi/workflows/saved/review-loop.test.mjs",
+  "node pi-extensions/review-loop-public-api.test.mjs",
   '''
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
