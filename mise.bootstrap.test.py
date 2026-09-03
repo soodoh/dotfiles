@@ -105,7 +105,7 @@ class MiseConfigurationTests(unittest.TestCase):
         cls.personal = load_toml("mise.personal-macos.toml")
         cls.work = load_toml("mise.work-macos.toml")
 
-    def test_work_profile_loads_without_age_keys_or_certificate_file(self) -> None:
+    def test_shared_and_work_configs_load_without_age_keys_or_certificate_file(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise, "mise must be available to validate profile loading")
         with tempfile.TemporaryDirectory() as home:
@@ -116,20 +116,26 @@ class MiseConfigurationTests(unittest.TestCase):
                 "MISE_YES": "1",
                 "PATH": os.defpath,
             }
-            result = subprocess.run(
-                [mise, "--env", "work-macos", "config"],
-                cwd=ROOT,
-                env=environment,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-        self.assertEqual(
-            result.returncode,
-            0,
-            "work profile must load without age keys or SSL_CERT_FILE:\n"
-            + result.stderr,
-        )
+            for arguments in (
+                ("config",),
+                ("ls",),
+                ("--env", "work-macos", "config"),
+            ):
+                with self.subTest(arguments=arguments):
+                    result = subprocess.run(
+                        [mise, *arguments],
+                        cwd=ROOT,
+                        env=environment,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(
+                        result.returncode,
+                        0,
+                        "mise must load without age keys or SSL_CERT_FILE:\n"
+                        + result.stderr,
+                    )
 
     def test_certificate_variables_are_safe_without_ssl_cert_file(self) -> None:
         certificate_variables = (

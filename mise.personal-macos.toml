@@ -1,6 +1,3 @@
-[settings.age]
-strict = false
-
 [tools]
 "aqua:aws/aws-cli" = "2.36.36"
 
