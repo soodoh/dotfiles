@@ -29,7 +29,6 @@
         "node_modules/@plannotator/pi-extension/",
         "node_modules/pi-mcp-adapter/index.ts",
         "node_modules/@juicesharp/rpiv-web-tools/index.ts",
-        "node_modules/@juicesharp/rpiv-todo/index.ts",
         "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
         "node_modules/pi-readseek/dist/index.ts",
         "node_modules/pi-subagents/index.ts",
