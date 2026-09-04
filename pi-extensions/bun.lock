@@ -13,7 +13,7 @@
         "pi-mcp-adapter": "2.32.1",
         "pi-openai-fast": "1.0.1",
         "pi-readseek": "0.9.16",
-        "pi-subagents": "0.64.0",
+        "pi-subagents": "0.65.0",
         "pi-vim": "0.14.1",
         "proper-lockfile": "4.1.2",
         "typebox": "1.3.25",
@@ -737,7 +737,7 @@
 
     "pi-readseek": ["pi-readseek@0.9.16", "", { "dependencies": { "@jarkkojs/readseek-api": "^0.9.16", "diff": "^9.0.0", "xxhash-wasm": "^1.1.0" }, "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "@sinclair/typebox": "*" } }, "sha512-NqYrw0XdpEH5CpxBRBJpSgUPTj0vIBuxmvReEqjs0L1LUg2IuxEdF/K0Hj6bAOOxjHWZELl2wz4EwFRx0XvqbA=="],
 
-    "pi-subagents": ["pi-subagents@0.64.0", "", { "dependencies": { "acorn": "8.18.0", "jiti": "2.7.0", "typebox": "1.1.38", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=0.80.0", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-7C5z2Uv0V1DBxqPBoIFdzaXVLnz+4ZxZgTrYa7vCEa8ItlL3fNNqm/qVwVn77+fLAd4VMjUkWoKCUCOqTQRNqQ=="],
+    "pi-subagents": ["pi-subagents@0.65.0", "", { "dependencies": { "acorn": "8.18.0", "jiti": "2.7.0", "typebox": "1.1.38", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=0.80.0", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-OJ2dn3OsDMKj9mxSFWIzcDyg2PS0VupXw9uMmcU0qWcjtXxo3ZW1RDzp75bwmKWrde8qHZkGfeM8YxGlta0Dcg=="],
 
     "pi-vim": ["pi-vim@0.14.1", "", { "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": ">=0.74.0" } }, "sha512-m8/j84pGlu01b6aucqgDQQQcS4kU+B0ws6/LIKB/HMWb43xVFXLqdZN06Op5OhBm+9aDDUkzFfFp3ErrtwLNRQ=="],
 
