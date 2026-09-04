@@ -74,7 +74,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "go:golang.org/x/tools/gopls" = "0.23.0"
 "pipx:yamllint" = "1.38.0"
 "npm:@earendil-works/pi-coding-agent" = "0.84.4"
-"npm:@playwright/mcp" = "0.0.80"
+"npm:@playwright/mcp" = { version = "0.0.80", trust_policy_excludes = ["@playwright/mcp@0.0.80", "playwright@1.63.0-alpha-2026-08-31", "playwright-core@1.63.0-alpha-2026-08-31"] }
 "npm:@googleworkspace/cli" = "0.22.5"
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.6.0", trust_policy_excludes = ["fastq@1.20.2"] }

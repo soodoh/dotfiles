@@ -1549,6 +1549,9 @@ backend = "npm:@googleworkspace/cli"
 version = "0.0.80"
 backend = "npm:@playwright/mcp"
 
+[tools."npm:@playwright/mcp".options]
+trust_policy_excludes = '["@playwright/mcp@0.0.80", "playwright-core@1.63.0-alpha-2026-08-31", "playwright@1.63.0-alpha-2026-08-31"]'
+
 [[tools."npm:@prisma/language-server"]]
 version = "31.12.2"
 backend = "npm:@prisma/language-server"
