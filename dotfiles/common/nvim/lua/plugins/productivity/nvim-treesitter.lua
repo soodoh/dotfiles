@@ -1,37 +1,4 @@
-local parsers = {
-  "bash",
-  "c",
-  "css",
-  "diff",
-  "dockerfile",
-  "git_config",
-  "git_rebase",
-  "gitignore",
-  "go",
-  "gomod",
-  "gosum",
-  "graphql",
-  "html",
-  "javascript",
-  "jsdoc",
-  "json",
-  "kdl",
-  "lua",
-  "luadoc",
-  "markdown",
-  "markdown_inline",
-  "nix",
-  "prisma",
-  "python",
-  "regex",
-  "rust",
-  "toml",
-  "tsx",
-  "typescript",
-  "vim",
-  "vimdoc",
-  "yaml",
-}
+local parsers = require("treesitter-parsers")
 
 return {
   {

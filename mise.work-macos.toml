@@ -1,6 +1,3 @@
-[settings.age]
-strict = false
-
 [env]
 NODE_OPTIONS = "--use-system-ca"
 MISE_BREW_CASK_OPT_APPDIR = "{{ env.HOME }}/Applications"

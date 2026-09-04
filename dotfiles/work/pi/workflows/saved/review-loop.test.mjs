@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -122,8 +123,6 @@ const baseHandlers = (extra = []) => [
   ['synthesis', 'report text'],
 ]
 
-const tests = []
-const test = (name, fn) => tests.push([name, fn])
 
 // Public contract and parser behavior.
 test('PARAM-001: parameter schema exposes exactly optional target', async () => {
@@ -1234,16 +1233,3 @@ test('C0-COVERAGE-PHANTOM: unproven feature paths cannot converge clean', async 
   const res = await runWorkflow({ agent, args: { target: 'feature phantom coverage' } })
   assert.notEqual(res.verdict, 'CONVERGED CLEAN')
 })
-
-let failed = 0
-for (const [name, fn] of tests) {
-  try {
-    await fn()
-    console.log('PASS ' + name)
-  } catch (error) {
-    failed++
-    console.error('FAIL ' + name + '\n  ' + (error && error.stack ? error.stack : error))
-  }
-}
-console.log('\n' + (tests.length - failed) + '/' + tests.length + ' passed')
-process.exit(failed ? 1 : 0)

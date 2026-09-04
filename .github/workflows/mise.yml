@@ -28,6 +28,11 @@ jobs:
           version: 2026.8.16
           install: false
           cache: true
+      - name: Cache Neovim validation data
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.cache/dotfiles-nvim-validation
+          key: nvim-validation-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock', 'dotfiles/common/nvim/lazy-lock.json', 'dotfiles/common/nvim/lua/treesitter-parsers.lua') }}
       - name: Detect mise dependency changes
         id: mise-changes
         env:
@@ -62,5 +67,10 @@ jobs:
           version: 2026.8.16
           install: true
           cache: true
+      - name: Cache Neovim validation data
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.cache/dotfiles-nvim-validation
+          key: nvim-validation-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock', 'dotfiles/common/nvim/lazy-lock.json', 'dotfiles/common/nvim/lua/treesitter-parsers.lua') }}
       - name: Validate configuration and colocated tests
         run: mise run validate
