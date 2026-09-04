@@ -4,7 +4,6 @@ min_version = "2026.8.6"
 experimental = true
 lockfile = true
 age.key_file = "~/.config/mise/age.txt"
-age.strict = false
 dotfiles.default_mode = "symlink"
 task.run_auto_install = false
 

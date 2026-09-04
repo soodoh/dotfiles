@@ -105,13 +105,23 @@ class MiseConfigurationTests(unittest.TestCase):
         cls.personal = load_toml("mise.personal-macos.toml")
         cls.work = load_toml("mise.work-macos.toml")
 
-    def test_shared_and_work_configs_load_without_age_keys_or_certificate_file(self) -> None:
+    def test_age_decryption_remains_strict_by_default(self) -> None:
+        self.assertNotIn("strict", self.base["settings"]["age"])
+
+    def test_ci_workflows_explicitly_allow_missing_age_keys(self) -> None:
+        for workflow_name in ("mise.yml", "repository-updates.yml"):
+            with self.subTest(workflow=workflow_name):
+                workflow = (ROOT / ".github/workflows" / workflow_name).read_text()
+                self.assertIn('  MISE_AGE_STRICT: "false"', workflow)
+
+    def test_ci_can_load_configs_without_age_keys_or_certificate_file(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise, "mise must be available to validate profile loading")
         with tempfile.TemporaryDirectory() as home:
             environment = {
                 "CI": "1",
                 "HOME": home,
+                "MISE_AGE_STRICT": "false",
                 "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
                 "MISE_YES": "1",
                 "PATH": os.defpath,
@@ -133,8 +143,8 @@ class MiseConfigurationTests(unittest.TestCase):
                     self.assertEqual(
                         result.returncode,
                         0,
-                        "mise must load without age keys or SSL_CERT_FILE:\n"
-                        + result.stderr,
+                        "CI must explicitly allow config loading without age keys or "
+                        "SSL_CERT_FILE:\n" + result.stderr,
                     )
 
     def test_certificate_variables_are_safe_without_ssl_cert_file(self) -> None:
