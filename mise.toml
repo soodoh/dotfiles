@@ -34,11 +34,11 @@ _.path = [
 skills_cli_version = "1.5.22"
 
 [tools]
-node = "24.20.0"
+node = "26.8.1"
 "aqua:Schniz/fnm" = "1.39.0"
 "aqua:yarnpkg/berry" = "4.18.0"
 python = "3.14.7"
-gcloud = { version = "580.0.0", depends = ["python"] }
+gcloud = { version = "583.0.0", depends = ["python"] }
 bun = "1.4.0"
 go = "1.27.1"
 rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
@@ -82,7 +82,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:oxlint" = "1.81.0"
 "npm:prettier" = "3.9.6"
-"npm:@prisma/language-server" = "31.12.2"
+"npm:@prisma/language-server" = "31.12.5"
 "npm:pyright" = "1.1.413"
 "npm:typescript-language-server" = "6.0.0"
 "npm:vim-language-server" = "2.3.1"
