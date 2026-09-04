@@ -48,8 +48,8 @@ for _, parser in ipairs(parsers) do
 end
 local commands = {
   "awk-language-server", "bash-language-server", "biome", "docker-language-server", "gopls",
-  "graphql-lsp", "lua-language-server", "marksman", "oxlint", "prisma-language-server",
-  "pyright-langserver", "ruff", "rust-analyzer", "taplo", "typescript-language-server",
+  "graphql-lsp", "lua-language-server", "marksman", "oxlint", "pyright-langserver", "ruff",
+  "rust-analyzer", "taplo", "typescript-language-server",
   "vim-language-server", "vscode-css-language-server", "vscode-html-language-server",
   "vscode-json-language-server", "vscode-eslint-language-server", "yaml-language-server", "eslint_d",
   "kdlfmt", "prettier", "shellcheck", "shfmt", "stylua", "yamllint", "rg", "git", "yazi", "tmux",
