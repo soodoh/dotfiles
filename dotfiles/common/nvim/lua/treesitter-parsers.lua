@@ -20,8 +20,6 @@ return {
   "luadoc",
   "markdown",
   "markdown_inline",
-  "nix",
-  "prisma",
   "python",
   "regex",
   "rust",
