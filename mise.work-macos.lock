@@ -181,7 +181,7 @@ version = "2.9.0"
 backend = "npm:@azure-devops/mcp"
 
 [[tools."npm:@azure/mcp"]]
-version = "3.0.0-beta.39"
+version = "3.0.0-beta.41"
 backend = "npm:@azure/mcp"
 
 [[tools."npm:figma-developer-mcp"]]
