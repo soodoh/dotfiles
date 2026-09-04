@@ -33,17 +33,12 @@ LITELLM_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxQ2VMTkZxe
 "npm:kusto-mcp" = "1.14.0"
 
 [tools."http:twg"]
-version = "1.2.5"
+version = "1.2.7"
 bin = "twg"
 version_list_url = "https://teamwork-graph.atlassian.com/cli/manifest.json"
 version_json_path = ".version"
 checksum_url = "https://teamwork-graph.atlassian.com/cli/SHA256SUMS-v{{ version }}"
-
-[tools."http:twg".platforms]
-macos-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v{{ version }}" }
-macos-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v{{ version }}" }
-linux-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v{{ version }}" }
-linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v{{ version }}" }
+platforms= { macos-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v{{ version }}" }, macos-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v{{ version }}" }, linux-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v{{ version }}" }, linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v{{ version }}" } }
 
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"

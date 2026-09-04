@@ -157,24 +157,24 @@ checksum = "sha256:d5276c0f4fde77fc446070290f345944a7f1fda153df6b960e5fde93b7a9b
 url = "https://dl.k8s.io/v1.37.0/bin/darwin/amd64/kubectl"
 
 [[tools."http:twg"]]
-version = "1.2.5"
+version = "1.2.7"
 backend = "http:twg"
 
 [tools."http:twg"."platforms.linux-arm64"]
-checksum = "sha256:7aa79b501ef2b8d4c1c0c668e6fba77164c66b7f0c77839f3265b4ea2d425c99"
-url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v1.2.5"
+checksum = "sha256:0dc52105a66f8c3b0a0e52c8cc196eb33d24b4776cc57a69cf78b2b4740052ec"
+url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v1.2.7"
 
 [tools."http:twg"."platforms.linux-x64"]
-checksum = "sha256:be73582744d8549538ac6652fd900ebb8d8a7db14d865e39c61defd57352e784"
-url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.2.5"
+checksum = "sha256:40d2d11e6a805449e5d230df31d42442b67506d8b0882524385a4e1b1ee33de8"
+url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.2.7"
 
 [tools."http:twg"."platforms.macos-arm64"]
-checksum = "sha256:bc17b9c058da19ae5725ae5d8aa9b26dd539b6982bdf864dff5424d112a9b6f6"
-url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v1.2.5"
+checksum = "sha256:5cf4144c00a680571155e080987960a28a6a44d9227ed533a8ad52d8531715a3"
+url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v1.2.7"
 
 [tools."http:twg"."platforms.macos-x64"]
-checksum = "sha256:d696728925e7abd2f97c170ffdfc16b9d677592028583f8780b3e59de04d9e5d"
-url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.2.5"
+checksum = "sha256:3614508ef332146026086775bbac42bec0668f66d5af2cd77bc7966be10ed615"
+url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.2.7"
 
 [[tools."npm:@azure-devops/mcp"]]
 version = "2.9.0"
