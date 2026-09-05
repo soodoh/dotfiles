@@ -9,9 +9,10 @@ import {
 } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { resolvePiHost } from "./test-support/host-runtime.mjs";
 
 const extensionRoot = fileURLToPath(
 	new URL("./node_modules/pi-subagents/", import.meta.url),
@@ -32,33 +33,52 @@ const { HOST_PEER_ALIASES, resolveHostPeerAliases } = await jiti.import(
 );
 const piName = "@earendil-works/pi-coding-agent";
 
-// Deliberately pins the reviewed rollback contract. Requalify when upgrading.
-test("the installed package matches the temporary native-session rollback", () => {
-	assert.equal(declared.dependencies["pi-subagents"], "0.65.0");
-	assert.equal(manifest.version, "0.65.0");
-	assert.equal(HOST_PEER_ALIASES.length, 10);
-	const factory = readFileSync(
-		join(extensionRoot, "src/runs/shared/child-session.ts"),
-		"utf8",
+// Versions belong in declarations/locks, not compatibility assertions. This
+// covers imports and required APIs, not successful native background execution.
+const requiredSpecifiers = HOST_PEER_ALIASES.map(({ specifier }) => specifier);
+
+function assertAliasResolution(result, missing = []) {
+	assert.deepEqual([...result.missing].sort(), [...missing].sort());
+	for (const specifier of requiredSpecifiers) {
+		assert.equal(
+			Object.hasOwn(result.aliases, specifier),
+			!missing.includes(specifier),
+			`${specifier}: required aliases must resolve, missing ones must not have fallback targets`,
+		);
+	}
+}
+
+test("installed subagents matches its declared pin and requires the native Pi host", () => {
+	assert.equal(manifest.version, declared.dependencies["pi-subagents"]);
+	assert.ok(
+		requiredSpecifiers.includes(piName),
+		"Native Pi host alias is required",
 	);
-	assert.match(factory, /pi\.createAgentSession\(/);
+	assert.equal(
+		new Set(requiredSpecifiers).size,
+		requiredSpecifiers.length,
+		"Required aliases must be unique",
+	);
 });
 
-test("isolated Pi 0.85.1 needs no supplemental server/client; missing targets fail closed", async (t) => {
+test("historical isolated Pi layout: import-only exports resolve and missing dependencies fail closed", async (t) => {
 	const temporary = mkdtempSync(join(tmpdir(), "pi-subagents-aliases-"));
 	t.after(() => rmSync(temporary, { recursive: true, force: true }));
+	// Historical fixture metadata, not a restriction on the actual host version.
 	const modules = join(temporary, "node_modules/.mise/pi@0.85.1/node_modules");
 	const host = join(modules, piName);
+	const expectedAliases = {};
 	for (const pkg of new Set(HOST_PEER_ALIASES.map((entry) => entry.pkg))) {
 		const directory = join(modules, pkg);
 		mkdirSync(directory, { recursive: true });
 		const exports = {};
-		for (const { subpath } of HOST_PEER_ALIASES.filter(
+		for (const { specifier, subpath } of HOST_PEER_ALIASES.filter(
 			(entry) => entry.pkg === pkg,
 		)) {
 			const target = `./${subpath.replaceAll(/[./]/g, "_")}.mjs`;
 			exports[subpath] = { types: "./absent.d.ts", import: target };
 			writeFileSync(join(directory, target), "export const marker = true;\n");
+			expectedAliases[specifier] = join(directory, target);
 		}
 		writeFileSync(
 			join(directory, "package.json"),
@@ -66,8 +86,8 @@ test("isolated Pi 0.85.1 needs no supplemental server/client; missing targets fa
 		);
 	}
 	const result = resolveHostPeerAliases(host);
-	assert.deepEqual(result.missing, []);
-	assert.equal(Object.keys(result.aliases).length, 10);
+	assertAliasResolution(result);
+	assert.deepEqual(result.aliases, expectedAliases);
 	for (const target of Object.values(result.aliases)) {
 		assert.ok(
 			target.startsWith(`${modules}/`),
@@ -80,8 +100,42 @@ test("isolated Pi 0.85.1 needs no supplemental server/client; missing targets fa
 		() => createRequire(join(host, "package.json")).resolve(piName),
 		{ code: "ERR_PACKAGE_PATH_NOT_EXPORTED" },
 	);
-	rmSync(result.aliases[piName]);
-	assert.deepEqual(resolveHostPeerAliases(host).missing, [piName]);
+	// Several specifiers can share one target (e.g. pi-ai and pi-ai/compat).
+	for (const target of new Set(Object.values(expectedAliases))) {
+		const missing = Object.keys(expectedAliases).filter(
+			(key) => expectedAliases[key] === target,
+		);
+		await t.test(`missing file: ${missing.join(", ")}`, () => {
+			const source = readFileSync(target);
+			rmSync(target);
+			try {
+				assertAliasResolution(resolveHostPeerAliases(host), missing);
+			} finally {
+				writeFileSync(target, source);
+			}
+		});
+	}
+	for (const pkg of new Set(HOST_PEER_ALIASES.map((entry) => entry.pkg))) {
+		const packagePath = join(modules, pkg, "package.json");
+		const source = readFileSync(packagePath, "utf8");
+		const pkgManifest = JSON.parse(source);
+		for (const subpath of Object.keys(pkgManifest.exports)) {
+			const missing = HOST_PEER_ALIASES.filter(
+				(entry) => entry.pkg === pkg && entry.subpath === subpath,
+			).map((entry) => entry.specifier);
+			await t.test(`missing export: ${missing.join(", ")}`, () => {
+				const modified = JSON.parse(source);
+				delete modified.exports[subpath];
+				writeFileSync(packagePath, JSON.stringify(modified));
+				try {
+					assertAliasResolution(resolveHostPeerAliases(host), missing);
+				} finally {
+					writeFileSync(packagePath, source);
+				}
+			});
+		}
+	}
+	assertAliasResolution(resolveHostPeerAliases(host));
 });
 
 // Optional actual-host integration: node subagents-host.test.mjs "$(mise which pi)"
@@ -91,35 +145,11 @@ test("actual mise launcher: all required host aliases import as native ESM", {
 	skip: !launcher,
 	timeout: 30000,
 }, async (t) => {
-	let entry = realpathSync(launcher);
-	const wrapperTarget = readFileSync(entry, "utf8").match(
-		/^# aube-bin-shim v2 target=(.+)$/m,
-	)?.[1];
-	if (wrapperTarget)
-		entry = realpathSync(resolve(dirname(entry), wrapperTarget));
-	let root = dirname(entry);
-	for (;;) {
-		let pkg;
-		try {
-			pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-		} catch {
-			/* Not a package root. */
-		}
-		if (pkg?.name === piName) break;
-		assert.notEqual(
-			dirname(root),
-			root,
-			"unrecognized Pi launcher; refusing development-package fallback",
-		);
-		root = dirname(root);
-	}
-	assert.equal(
-		JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version,
-		"0.85.1",
-	);
+	const { root, version, modules } = resolvePiHost(launcher);
+	const hostModules = realpathSync(modules);
+	t.diagnostic(`Pi ${version}; pi-subagents ${manifest.version}`);
 	const result = resolveHostPeerAliases(root);
-	assert.deepEqual(result.missing, []);
-	assert.equal(Object.keys(result.aliases).length, 10);
+	assertAliasResolution(result);
 	assert.equal(
 		realpathSync(result.aliases[piName]),
 		realpathSync(join(root, "dist/index.js")),
@@ -129,6 +159,10 @@ test("actual mise launcher: all required host aliases import as native ESM", {
 	);
 	for (const [specifier, target] of Object.entries(result.aliases)) {
 		assert.ok(
+			realpathSync(target).startsWith(`${hostModules}/`),
+			`${specifier}: must resolve inside the actual host installation`,
+		);
+		assert.ok(
 			!realpathSync(target).startsWith(`${developmentRoot}/`),
 			"must use the actual host, not development dependencies",
 		);
@@ -137,6 +171,6 @@ test("actual mise launcher: all required host aliases import as native ESM", {
 	}
 	const pi = await import(pathToFileURL(result.aliases[piName]).href);
 	assert.equal(typeof pi.createAgentSession, "function");
-	assert.equal(typeof pi.ModelRuntime.create, "function");
+	assert.equal(typeof pi.ModelRuntime?.create, "function");
 	t.diagnostic(`Node ${process.version}: ${process.execPath}; host: ${root}`);
 });

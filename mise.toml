@@ -36,7 +36,7 @@ _.path = [
 skills_cli_version = "1.5.22"
 
 [tools]
-node = "26.8.1"
+node = "24.20.0" # LTS; keep aligned with .nvmrc
 "aqua:Schniz/fnm" = "1.39.0"
 "aqua:yarnpkg/berry" = "4.18.0"
 python = "3.14.7"
@@ -338,6 +338,8 @@ bash dotfiles/work/bootstrap-repositories.test.sh
 run = [
   "bun ci --cwd pi-extensions",
   "bun run --cwd pi-extensions ci",
+  'node pi-extensions/extensions-host.test.mjs "$(mise which pi)"',
+  'node pi-extensions/subagents-host.test.mjs "$(mise which pi)"',
   "node dotfiles/common/tmux/scripts/pi-session-lib.test.mjs",
   "bash dotfiles/common/tmux/scripts/pi-session-focus.test.sh",
   "node dotfiles/work/pi/workflows/saved/review-loop.test.mjs",

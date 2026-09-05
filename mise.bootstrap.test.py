@@ -105,6 +105,13 @@ class MiseConfigurationTests(unittest.TestCase):
         cls.personal = load_toml("mise.personal-macos.toml")
         cls.work = load_toml("mise.work-macos.toml")
 
+    def test_node_version_matches_nvmrc(self) -> None:
+        self.assertEqual(
+            tool_version(self.base["tools"]["node"]),
+            (ROOT / ".nvmrc").read_text().strip(),
+            "Keep mise and fnm on the same Node LTS version",
+        )
+
     def test_age_decryption_allows_credential_free_automation(self) -> None:
         self.assertIs(self.base["settings"]["age"]["strict"], False)
 

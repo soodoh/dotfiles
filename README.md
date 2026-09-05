@@ -132,6 +132,8 @@ mise run validate
 
 The suite parses and plans both profiles, checks shell syntax, runs the Pi package suite, exercises tmux and work workflow tests, verifies the expected work security failure, runs Neovim in an isolated environment, and executes colocated macOS configuration tests. CI never runs a workstation bootstrap.
 
+`mise run validate:agents` also validates resources declared in `pi-extensions/package.json` and loads each extension, then the combined manifest, through the actual mise-managed Pi loader. These checks use mise's Node LTS in temporary, credential-free processes with subprocesses, native addons, and external writes denied; no extension exception list is maintained. Network access is not blocked: `PI_OFFLINE` is best-effort, and the checks do not start sessions, invoke tools, or prompt models. They cover imports, factory registration, resource diagnostics, and registration conflicts—not session lifecycle, tool execution, or native background completion, which still needs a manual smoke test after relevant upgrades.
+
 The work LiteLLM cleartext HTTP endpoint remains an intentional, exact expected failure. A follow-up must explicitly choose either HTTPS or a narrowly scoped private-network allowlist and update `AGENTS.md` with that policy; this validation change does neither.
 
 ## Updates
