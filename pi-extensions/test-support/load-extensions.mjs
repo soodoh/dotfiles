@@ -3,8 +3,11 @@
 // Node permissions (no subprocesses, workers, addons, or external writes).
 // Network is not blocked on LTS; PI_OFFLINE is best-effort, not network isolation.
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { hideDeniedExistenceChecks } from "./exists-sync.mjs";
 
 const [hostRoot, pathsJSON] = process.argv.slice(2);
 assert.ok(
@@ -18,6 +21,10 @@ for (const scope of ["child", "worker", "addons"]) {
 		`Unexpected permission: ${scope}`,
 	);
 }
+// Node throws for denied existsSync probes, including Linux platform detection.
+// Hide inaccessible paths without granting access or bypassing real I/O denials.
+fs.existsSync = hideDeniedExistenceChecks(fs.existsSync);
+syncBuiltinESMExports();
 const pi = await import(pathToFileURL(join(hostRoot, "dist/index.js")).href);
 const loader = new pi.DefaultResourceLoader({
 	cwd: process.cwd(),

@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { hideDeniedExistenceChecks } from "./test-support/exists-sync.mjs";
 import {
 	resolvePiHost,
 	runExtensionProbe,
@@ -105,6 +106,18 @@ await test("resource discovery follows manifest edits and rejects missing resour
 	assert.throws(() => manifestResources(root), /no usable resources/);
 });
 
+await test("existence checks hide only permission denials", () => {
+	for (const error of [new Error("unexpected"), { code: "EIO" }]) {
+		const existsSync = hideDeniedExistenceChecks(() => {
+			throw error;
+		});
+		assert.throws(
+			() => existsSync("fixture"),
+			(caught) => caught === error,
+		);
+	}
+});
+
 await test("actual host: alias identity and permission/credential isolation", (t) => {
 	const root = fixture(t);
 	const extensions = join(root, "extensions");
@@ -116,13 +129,19 @@ await test("actual host: alias identity and permission/credential isolation", (t
 		path,
 		`
 		import assert from "node:assert/strict";
-		import { readFileSync, writeFileSync } from "node:fs";
+		import fs, { existsSync, readFileSync, writeFileSync } from "node:fs";
 		import { spawnSync } from "node:child_process";
 		import { Worker } from "node:worker_threads";
 		import { getPackageDir } from "@earendil-works/pi-coding-agent";
 		export default function () {
 			assert.equal(getPackageDir(), ${JSON.stringify(host.root)});
 			assert.equal(process.env.PI_SMOKE_TEST_SECRET, undefined);
+			for (const exists of [existsSync, fs.existsSync]) {
+				assert.equal(exists(${JSON.stringify(path)}), true);
+				assert.equal(exists(${JSON.stringify(join(extensions, "absent"))}), false);
+				assert.equal(exists(${JSON.stringify(privateFile)}), false);
+			}
+			assert.throws(() => process.dlopen({}, ${JSON.stringify(privateFile)}), { code: "ERR_DLOPEN_DISABLED" });
 			assert.throws(() => readFileSync(${JSON.stringify(privateFile)}), { code: "ERR_ACCESS_DENIED" });
 			assert.throws(() => writeFileSync(${JSON.stringify(privateFile)}, "changed"), { code: "ERR_ACCESS_DENIED" });
 			assert.throws(() => spawnSync(process.execPath, ["-e", "process.exit(0)"]), { code: "ERR_ACCESS_DENIED" });
