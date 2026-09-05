@@ -17,6 +17,7 @@ locked = true
 
 [env]
 EDITOR = "nvim"
+CI_CACHE_IRRELEVANT_PROBE = "environment-only; removed before merge"
 VISUAL = "nvim"
 LG_CONFIG_FILE = "{{ env.HOME }}/.config/lazygit/config.yml"
 SSH_AUTH_SOCK = "{{ env.HOME }}/.bitwarden-ssh-agent.sock"
@@ -46,7 +47,7 @@ go = "1.27.1"
 rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
 "aqua:astral-sh/uv" = "0.12.10"
 "aqua:cli/cli" = "2.100.0"
-"aqua:jqlang/jq" = "1.8.1"
+"aqua:jqlang/jq" = "1.8.2"
 "aqua:FiloSottile/age" = "1.3.2"
 "aqua:getsops/sops" = "3.13.3"
 "aqua:BurntSushi/ripgrep" = "15.2.0"
