@@ -266,6 +266,60 @@ describe("provider usage", () => {
 		expect(render(targets)).toBe(formatProviderUsage(targets));
 	});
 
+	test("refreshes legacy OpenAI cache entries for reset details", async () => {
+		const token = jwtWithPayload({
+			"https://api.openai.com/auth": { chatgpt_account_id: "account-123" },
+		});
+		const targetKey = "openai-codex:oauth";
+		const fingerprint = createHash("sha256")
+			.update(`${targetKey}\0${token}`)
+			.digest("hex")
+			.slice(0, 16);
+		writeFileSync(
+			sharedTestCachePath,
+			JSON.stringify({
+				version: 9,
+				entries: {
+					[`${targetKey}:${fingerprint}`]: {
+						providerId: "openai-codex",
+						authKind: "oauth",
+						state: "ready",
+						scope: { weeklyPercentUsed: 94 },
+						lastAttemptAt: Date.now(),
+					},
+				},
+			}),
+		);
+		const resetAt = new Date(2030, 8, 6).getTime();
+		const { fetchMock } = fetchCalls((url) =>
+			url.endsWith("/rate-limit-reset-credits")
+				? Response.json({ available_count: 3 })
+				: Response.json({
+						rate_limit: {
+							primary_window: {
+								used_percent: 95,
+								limit_window_seconds: 7 * 24 * 60 * 60,
+								reset_at: resetAt / 1000,
+							},
+						},
+					}),
+		);
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "openai-codex"
+					? { type: "oauth", access: token }
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "openai-codex", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(render(targets)).toContain(`${OPENAI_LOGO} 95% (9/6 · ↻3)`);
+	});
+
 	test("does not reuse cached usage across different credentials", async () => {
 		let percentUsed = 10;
 		const { fetchMock } = fetchCalls(() =>
@@ -753,6 +807,58 @@ describe("provider usage", () => {
 		await refreshAndWait(ctx, targets);
 
 		expect(render(targets)).toContain(`${OPENAI_LOGO} S12%/W48%`);
+	});
+
+	test("formats an OpenAI reset date and available reset credits", async () => {
+		const token = jwtWithPayload({
+			"https://api.openai.com/auth": { chatgpt_account_id: "account-123" },
+		});
+		const sessionResetAt = new Date(2030, 8, 6, 15).getTime();
+		let availableResets = 3;
+		const { calls } = fetchCalls((url) =>
+			url.endsWith("/rate-limit-reset-credits")
+				? Response.json({ available_count: availableResets })
+				: Response.json({
+						rate_limit: {
+							primary_window: {
+								used_percent: 93,
+								limit_window_seconds: 5 * 60 * 60,
+								reset_at: sessionResetAt / 1000,
+							},
+						},
+					}),
+		);
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "openai-codex"
+					? { type: "oauth", access: token }
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "openai-codex", authKind: "oauth", active: true },
+		];
+
+		await refreshAndWait(ctx, targets);
+
+		expect(calls.map(({ url }) => url)).toEqual([
+			"https://chatgpt.com/backend-api/wham/usage",
+			"https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
+		]);
+		expect(headersRecord(calls[1].init.headers)).toMatchObject({
+			Authorization: `Bearer ${token}`,
+			"chatgpt-account-id": "account-123",
+			"OpenAI-Beta": "codex-1",
+			originator: "Codex Desktop",
+		});
+		expect(render(targets)).toContain(`${OPENAI_LOGO} 93% (9/6 · ↻3)`);
+
+		availableResets = 0;
+		invalidateProviderUsageCache();
+		await refreshAndWait(ctx, targets);
+
+		expect(render(targets)).toContain(`${OPENAI_LOGO} 93% (9/6)`);
+		expect(render(targets)).not.toContain("↻");
+		expect(render(targets)).not.toContain(" · ");
 	});
 
 	test("parses Google stored OAuth JSON token and quota buckets", async () => {
