@@ -91,6 +91,11 @@ jobs:
         run: |
           python3 .github/workflows/mise-cache-key.py --mode reconcile
           mise install --locked
+          # Temporary dependency reconciliation probe; removed before final review.
+          jq_path="$(mise which jq)"
+          printf 'Probe executable: %s\n' "$jq_path"
+          "$jq_path" --version
+          test "$("$jq_path" --version)" = jq-1.8.1
       - name: Compute Neovim validation cache key
         id: nvim-cache-key
         shell: bash
@@ -193,6 +198,11 @@ jobs:
         run: |
           python3 .github/workflows/mise-cache-key.py --mode reconcile
           mise install --locked
+          # Temporary dependency reconciliation probe; removed before final review.
+          jq_path="$(mise which jq)"
+          printf 'Probe executable: %s\n' "$jq_path"
+          "$jq_path" --version
+          test "$("$jq_path" --version)" = jq-1.8.1
       - name: Compute Neovim validation cache key
         id: nvim-cache-key
         shell: bash
