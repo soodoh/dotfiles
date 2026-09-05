@@ -17,7 +17,6 @@ locked = true
 
 [env]
 EDITOR = "nvim"
-CI_CACHE_IRRELEVANT_PROBE = "environment-only; removed before merge"
 VISUAL = "nvim"
 LG_CONFIG_FILE = "{{ env.HOME }}/.config/lazygit/config.yml"
 SSH_AUTH_SOCK = "{{ env.HOME }}/.bitwarden-ssh-agent.sock"

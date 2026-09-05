@@ -119,10 +119,7 @@ jobs:
           path: ${{ steps.nvim-cache-key.outputs.path }}
           key: ${{ steps.nvim-cache-key.outputs.primary-key }}
       - name: Record mise cache inputs
-        run: |
-          python3 .github/workflows/mise-cache-key.py --mode record
-          du -sk "$HOME/.local/share/mise" "$CARGO_HOME/bin" "$RUSTUP_HOME/toolchains"
-          mise ls --installed
+        run: python3 .github/workflows/mise-cache-key.py --mode record
       - name: Save mise tool cache
         if: success() && steps.mise-cache.outputs.cache-hit != 'true'
         continue-on-error: true
@@ -221,10 +218,7 @@ jobs:
           path: ${{ steps.nvim-cache-key.outputs.path }}
           key: ${{ steps.nvim-cache-key.outputs.primary-key }}
       - name: Record mise cache inputs
-        run: |
-          python3 .github/workflows/mise-cache-key.py --mode record
-          du -sk "$HOME/.local/share/mise" "$CARGO_HOME/bin" "$RUSTUP_HOME/toolchains"
-          mise ls --installed
+        run: python3 .github/workflows/mise-cache-key.py --mode record
       - name: Save mise tool cache
         if: success() && steps.mise-cache.outputs.cache-hit != 'true'
         continue-on-error: true
