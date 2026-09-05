@@ -21,7 +21,7 @@ import type {
 
 const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
 const PROVIDER_USAGE_FAILURE_TTL_MS = 60 * 1000;
-const PROVIDER_USAGE_CACHE_VERSION = 9;
+const PROVIDER_USAGE_CACHE_VERSION = 10;
 const PROVIDER_USAGE_MIN_CACHE_VERSION = 5;
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
 const PROVIDER_USAGE_REFRESH_LOCK_STALE_MS = 20 * 1000;
@@ -47,9 +47,12 @@ type ProviderUsageState = "ready" | "unknown" | "error" | "unsupported";
 
 export type ProviderUsageScope = {
 	sessionPercentUsed?: number;
+	sessionResetAt?: number;
 	weeklyPercentUsed?: number;
+	weeklyResetAt?: number;
 	monthlyPercentUsed?: number;
 	percentUsed?: number;
+	availableResets?: number;
 	balanceUsd?: number;
 	creditsUsd?: number;
 	spendUsd?: number;
@@ -155,16 +158,26 @@ function parseCachedScope(value: unknown): ProviderUsageScope | undefined {
 			typeof value.sessionPercentUsed === "number"
 				? value.sessionPercentUsed
 				: undefined,
+		sessionResetAt:
+			typeof value.sessionResetAt === "number"
+				? value.sessionResetAt
+				: undefined,
 		weeklyPercentUsed:
 			typeof value.weeklyPercentUsed === "number"
 				? value.weeklyPercentUsed
 				: undefined,
+		weeklyResetAt:
+			typeof value.weeklyResetAt === "number" ? value.weeklyResetAt : undefined,
 		monthlyPercentUsed:
 			typeof value.monthlyPercentUsed === "number"
 				? value.monthlyPercentUsed
 				: undefined,
 		percentUsed:
 			typeof value.percentUsed === "number" ? value.percentUsed : undefined,
+		availableResets:
+			typeof value.availableResets === "number"
+				? value.availableResets
+				: undefined,
 		balanceUsd:
 			typeof value.balanceUsd === "number" ? value.balanceUsd : undefined,
 		creditsUsd:
@@ -211,7 +224,15 @@ function readSharedCache(): Map<string, ProviderUsageCacheEntry> {
 		if (!isRecord(parsed.entries)) return entries;
 		for (const [key, value] of Object.entries(parsed.entries)) {
 			const entry = parseCacheEntry(value);
-			if (entry) entries.set(key, entry);
+			if (!entry) continue;
+			if (
+				parsed.version < PROVIDER_USAGE_CACHE_VERSION &&
+				providerFamily(entry.providerId) === OPENAI_USAGE_FAMILY
+			) {
+				// Refresh legacy OpenAI entries so newly added reset details appear immediately.
+				entry.lastAttemptAt = undefined;
+			}
+			entries.set(key, entry);
 		}
 	} catch {
 		// A missing or malformed cache is equivalent to an empty cache.
@@ -1154,6 +1175,18 @@ function numericField(value: unknown): number | undefined {
 	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function timestampMillis(value: unknown): number | undefined {
+	const numeric = numericField(value);
+	if (numeric !== undefined) {
+		const timestamp =
+			Math.abs(numeric) < 1_000_000_000_000 ? numeric * 1000 : numeric;
+		return timestamp > 0 ? timestamp : undefined;
+	}
+	if (typeof value !== "string") return undefined;
+	const timestamp = Date.parse(value);
+	return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
+}
+
 function nestedRecord(
 	value: Record<string, unknown>,
 	key: string,
@@ -1392,6 +1425,14 @@ function openAiWindowPercent(
 		: undefined;
 }
 
+function openAiWindowResetAt(
+	window: Record<string, unknown> | undefined,
+): number | undefined {
+	return window
+		? timestampMillis(window.reset_at ?? window.resets_at ?? window.resetAt)
+		: undefined;
+}
+
 function openAiWindowKind(
 	window: Record<string, unknown> | undefined,
 	fallback: OpenAiUsageWindowKind,
@@ -1417,17 +1458,27 @@ function parseOpenAiUsageBody(body: unknown): ProviderUsageScope | undefined {
 		: undefined;
 	const credits = nestedRecord(body, "credits");
 	let sessionPercentUsed: number | undefined;
+	let sessionResetAt: number | undefined;
 	let weeklyPercentUsed: number | undefined;
+	let weeklyResetAt: number | undefined;
 	for (const [window, fallbackKind] of [
 		[primary, "session"],
 		[secondary, "weekly"],
 	] satisfies [Record<string, unknown> | undefined, OpenAiUsageWindowKind][]) {
 		const percentUsed = openAiWindowPercent(window);
 		if (percentUsed === undefined) continue;
+		const resetAt = openAiWindowResetAt(window);
 		if (openAiWindowKind(window, fallbackKind) === "weekly") {
-			weeklyPercentUsed = Math.max(weeklyPercentUsed ?? 0, percentUsed);
-		} else {
-			sessionPercentUsed = Math.max(sessionPercentUsed ?? 0, percentUsed);
+			if (weeklyPercentUsed === undefined || percentUsed >= weeklyPercentUsed) {
+				weeklyPercentUsed = percentUsed;
+				weeklyResetAt = resetAt;
+			}
+		} else if (
+			sessionPercentUsed === undefined ||
+			percentUsed >= sessionPercentUsed
+		) {
+			sessionPercentUsed = percentUsed;
+			sessionResetAt = resetAt;
 		}
 	}
 	const balanceUsd =
@@ -1440,8 +1491,26 @@ function parseOpenAiUsageBody(body: unknown): ProviderUsageScope | undefined {
 	return sessionPercentUsed !== undefined ||
 		weeklyPercentUsed !== undefined ||
 		balanceUsd !== undefined
-		? { sessionPercentUsed, weeklyPercentUsed, balanceUsd }
+		? {
+				sessionPercentUsed,
+				sessionResetAt,
+				weeklyPercentUsed,
+				weeklyResetAt,
+				balanceUsd,
+			}
 		: undefined;
+}
+
+function parseOpenAiResetCreditsBody(
+	body: unknown,
+): ProviderUsageScope | undefined {
+	if (!isRecord(body)) return undefined;
+	const availableCount = numericField(
+		body.available_count ?? body.availableCount,
+	);
+	return availableCount === undefined
+		? undefined
+		: { availableResets: Math.max(0, Math.floor(availableCount)) };
 }
 
 async function fetchOpenAiCodexUsage(
@@ -1455,10 +1524,23 @@ async function fetchOpenAiCodexUsage(
 	};
 	if (accountId) headers["chatgpt-account-id"] = accountId;
 
-	const body = await fetchJson("https://chatgpt.com/backend-api/wham/usage", {
-		headers,
-	});
-	return parseOpenAiUsageBody(body);
+	const [usageBody, resetCreditsBody] = await Promise.all([
+		fetchJson("https://chatgpt.com/backend-api/wham/usage", {
+			headers,
+		}).catch(() => undefined),
+		fetchJson("https://chatgpt.com/backend-api/wham/rate-limit-reset-credits", {
+			headers: {
+				...headers,
+				"OpenAI-Beta": "codex-1",
+				originator: "Codex Desktop",
+			},
+		}).catch(() => undefined),
+	]);
+	const usageScope = parseOpenAiUsageBody(usageBody);
+	const resetCreditsScope = parseOpenAiResetCreditsBody(resetCreditsBody);
+	return usageScope || resetCreditsScope
+		? { ...usageScope, ...resetCreditsScope }
+		: undefined;
 }
 
 function quotaSnapshotPercentUsed(value: unknown): number | undefined {
@@ -2072,33 +2154,70 @@ function formatLabeledPercent(label: string, percent: number): string {
 	return `${label}${formatPercent(percent)}`;
 }
 
+function formatResetDate(timestamp: number): string {
+	const resetAt = new Date(timestamp);
+	return `${resetAt.getMonth() + 1}/${resetAt.getDate()}`;
+}
+
 function formatProviderScope(
 	scope: ProviderUsageScope | undefined,
 ): string | undefined {
 	if (!scope) return undefined;
-	const percentages = [
-		{ label: "S", value: scope.sessionPercentUsed },
-		{ label: "W", value: scope.weeklyPercentUsed },
+	const percentageCandidates: {
+		label?: string;
+		value: number | undefined;
+		resetAt?: number;
+	}[] = [
+		{
+			label: "S",
+			value: scope.sessionPercentUsed,
+			resetAt: scope.sessionResetAt,
+		},
+		{
+			label: "W",
+			value: scope.weeklyPercentUsed,
+			resetAt: scope.weeklyResetAt,
+		},
 		{ label: "M", value: scope.monthlyPercentUsed },
 		{ value: scope.percentUsed },
-	].filter(
-		(entry): entry is { label?: string; value: number } =>
+	];
+	const percentages = percentageCandidates.filter(
+		(entry): entry is { label?: string; value: number; resetAt?: number } =>
 			entry.value !== undefined,
 	);
+	const resets =
+		scope.availableResets !== undefined && scope.availableResets > 0
+			? `↻${Math.floor(scope.availableResets)}`
+			: undefined;
+	let scopeText: string | undefined;
 	if (percentages.length > 0) {
 		const showScopeLabels = percentages.length > 1;
-		return percentages
-			.map(({ label, value }) =>
-				showScopeLabels && label
-					? formatLabeledPercent(label, value)
-					: formatPercent(value),
-			)
+		scopeText = percentages
+			.map(({ label, value, resetAt }, index) => {
+				const percentage =
+					showScopeLabels && label
+						? formatLabeledPercent(label, value)
+						: formatPercent(value);
+				const details: string[] = [];
+				if (resetAt !== undefined) details.push(formatResetDate(resetAt));
+				if (index === percentages.length - 1 && resets) details.push(resets);
+				return details.length > 0
+					? `${percentage} (${details.join(" · ")})`
+					: percentage;
+			})
 			.join("/");
+	} else if (scope.balanceUsd !== undefined) {
+		scopeText = formatMoney(scope.balanceUsd);
+	} else if (scope.creditsUsd !== undefined) {
+		scopeText = formatMoney(scope.creditsUsd);
+	} else if (scope.spendUsd !== undefined) {
+		scopeText = formatMoney(scope.spendUsd);
 	}
-	if (scope.balanceUsd !== undefined) return formatMoney(scope.balanceUsd);
-	if (scope.creditsUsd !== undefined) return formatMoney(scope.creditsUsd);
-	if (scope.spendUsd !== undefined) return formatMoney(scope.spendUsd);
-	return undefined;
+
+	if (resets && percentages.length === 0) {
+		return scopeText ? `${scopeText} (${resets})` : `(${resets})`;
+	}
+	return scopeText;
 }
 
 function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {

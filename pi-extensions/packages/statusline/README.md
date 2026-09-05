@@ -58,7 +58,7 @@ The rendered line is width-aware: narrow terminals use active-only provider deta
 | Model          | Current Pi model name, with a shorter display for Claude names and an active-only `pi-openai-fast` bolt.            |
 | Thinking       | Current Pi thinking level (`off` through `max`), using Pi's matching level color.                                   |
 | Git            | Branch name, staged `+n`, and unstaged `*n` markers. Untracked files still make the branch appear dirty.           |
-| Provider usage | Usage or balance information for all authenticated configured providers, with the selected model's provider highlighted. |
+| Provider usage | Usage or balance information for all authenticated configured providers, with OpenAI window reset dates and reset-credit counts and the selected model's provider highlighted. |
 | Context        | Current context percentage and context window, colored normally below 70%, warning above 70%, and error above 90%. |
 
 ## Configuration
@@ -123,7 +123,7 @@ Or to put git on a separate line from the model:
 - Provider requests make at most three attempts, retrying only network failures, throttling, and transient HTTP responses with capped exponential backoff and full jitter. `Retry-After` is honored up to the backoff cap; authentication and other non-transient failures fail immediately. Successful and unsupported results use a five-minute TTL, while failed or inconclusive refreshes retry after one minute.
 - Provider results are shared across processes in `${XDG_CACHE_HOME:-~/.cache}/pi/provider-usage.json` (override with `PI_PROVIDER_USAGE_CACHE_PATH`). Cache entries are scoped by a one-way credential fingerprint, contain usage results only, never credentials or endpoints, and use provider-specific refresh leases so concurrent Pi and Sketchybar processes join the first refresh instead of making duplicate requests. LLM Hub fingerprints include both the normalized Pi base URL and resolved Pi API key.
 - External renderers such as Sketchybar consume the exact same discovery, fetching, formatting, and cache implementation with `bun packages/statusline/src/provider-usage-cli.ts`. The CLI constructs Pi's `ModelRuntime`, loads `models.json`, and resolves credentials from Pi's normal `auth.json`; it does not depend on Claude settings or inherited Anthropic/LLM Hub environment variables. Sketchybar records standalone refresh diagnostics in `${XDG_CACHE_HOME:-~/.cache}/sketchybar/ai-usage.log` (override with `AI_USAGE_LOG_PATH`). The command keeps the `{ "text": "..." }` JSON contract used by the Pi statusline and Sketchybar plugin.
-- Percentage badges stay unprefixed when a provider reports one value. When multiple values need disambiguation, compact scope prefixes identify `S` session, `W` weekly, and `M` monthly usage. Ambiguous percentages and dollar balances stay unprefixed for compactness.
+- Percentage badges stay unprefixed when a provider reports one value. When multiple values need disambiguation, compact scope prefixes identify `S` session, `W` weekly, and `M` monthly usage. Ambiguous percentages and dollar balances stay unprefixed for compactness. OpenAI window reset timestamps render as local numeric dates, and available banked reset credits share the parenthetical detail with a reset icon (for example, `93% (9/6 · ↻3)`).
 - The package intentionally does not persist presets or expose UI controls.
 
 ## Development
