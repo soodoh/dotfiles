@@ -319,6 +319,7 @@ depends = [
 run = [
   "python3 mise.bootstrap.test.py",
   "python3 mise.lock.test.py",
+  "python3 .github/workflows/mise-cache-key.test.py",
   "mise --env personal-macos bootstrap plan >/dev/null",
   "mise --env work-macos bootstrap plan >/dev/null",
 ]

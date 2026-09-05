@@ -11,6 +11,7 @@ permissions:
 env:
   MISE_LOCKED_VERIFY_PROVENANCE: "1"
   MISE_AGE_STRICT: "false"
+  MISE_VERSION: "2026.9.1"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,18 +23,55 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Compute mise tool cache key
+        id: mise-cache-key
+        shell: bash
+        run: |
+          # Keep Rust symlink targets inside the same archive, away from image tools.
+          printf 'CARGO_HOME=%s\nRUSTUP_HOME=%s\n' \
+            "$HOME/.cache/dotfiles-ci-cargo" "$HOME/.local/share/mise/ci-rustup" >>"$GITHUB_ENV"
+          python3 .github/workflows/mise-cache-key.py \
+            --os "$RUNNER_OS" \
+            --arch "$RUNNER_ARCH" \
+            --image "${ImageOS:?runner image is required for cache compatibility}" \
+            --mise-version "$MISE_VERSION"
+      - name: Restore mise tool cache
+        id: mise-cache
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # Include CI-owned Rust proxies/toolchains, not build registries.
+          path: |
+            ~/.local/share/mise
+            ~/.cache/dotfiles-ci-cargo/bin
+          key: ${{ steps.mise-cache-key.outputs.primary-key }}
+          restore-keys: |
+            ${{ steps.mise-cache-key.outputs.restore-key }}
+      - name: Report mise tool cache outcome
+        env:
+          EXACT_HIT: ${{ steps.mise-cache.outputs.cache-hit }}
+          MATCHED_KEY: ${{ steps.mise-cache.outputs.cache-matched-key }}
+          PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
+        shell: bash
+        run: |
+          if [[ $EXACT_HIT == true ]]; then
+            outcome=exact
+          elif [[ -n $MATCHED_KEY ]]; then
+            outcome=fallback
+          else
+            outcome=miss
+          fi
+          printf 'mise cache outcome=%s\nprimary=%s\nrestored=%s\n' \
+            "$outcome" "$PRIMARY_KEY" "${MATCHED_KEY:-none}"
+          printf 'mise-cache-outcome=%s\n' "$outcome" >>"$GITHUB_STEP_SUMMARY"
       - name: Install native test dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential fish
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+      - name: Set up mise
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
-          version: 2026.9.1
+          version: ${{ env.MISE_VERSION }}
           install: false
-          cache: true
-      - name: Cache Neovim validation data
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/dotfiles-nvim-validation
-          key: nvim-validation-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock', 'dotfiles/common/nvim/lazy-lock.json', 'dotfiles/common/nvim/lua/treesitter-parsers.lua') }}
+          cache: false
       - name: Detect mise dependency changes
         id: mise-changes
         env:
@@ -50,28 +88,143 @@ jobs:
         if: steps.mise-changes.outputs.changed == 'true'
         run: mise run validate:locks
       - name: Install mise-managed tools
-        run: mise install --locked
+        run: |
+          python3 .github/workflows/mise-cache-key.py --mode reconcile
+          mise install --locked
+      - name: Compute Neovim validation cache key
+        id: nvim-cache-key
+        shell: bash
+        run: |
+          namespace="$(dotfiles/common/nvim/tests/validate.sh --print-cache-namespace)"
+          image="$(printf '%s' "${ImageOS:?runner image is required for cache compatibility}" | tr -c 'A-Za-z0-9_.-' '-')"
+          key="nvim-validation-v2-${RUNNER_OS}-${RUNNER_ARCH}-${image}-${namespace}"
+          printf 'primary-key=%s\npath=%s\n' \
+            "$key" "$HOME/.cache/dotfiles-nvim-validation/$namespace" | tee -a "$GITHUB_OUTPUT"
+          version_output="$(nvim --version)"
+          printf '%s\n' "${version_output%%$'\n'*}"
+      - name: Restore Neovim validation cache
+        id: nvim-cache
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.nvim-cache-key.outputs.path }}
+          key: ${{ steps.nvim-cache-key.outputs.primary-key }}
       - name: Validate configuration and colocated tests
         run: mise run validate
+      - name: Save Neovim validation cache
+        if: success() && steps.nvim-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.nvim-cache-key.outputs.path }}
+          key: ${{ steps.nvim-cache-key.outputs.primary-key }}
+      - name: Record mise cache inputs
+        run: python3 .github/workflows/mise-cache-key.py --mode record
+      - name: Save mise tool cache
+        if: success() && steps.mise-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.local/share/mise
+            ~/.cache/dotfiles-ci-cargo/bin
+          key: ${{ steps.mise-cache-key.outputs.primary-key }}
 
   macos:
     runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Compute mise tool cache key
+        id: mise-cache-key
+        shell: bash
+        run: |
+          # Keep Rust symlink targets inside the same archive, away from image tools.
+          printf 'CARGO_HOME=%s\nRUSTUP_HOME=%s\n' \
+            "$HOME/.cache/dotfiles-ci-cargo" "$HOME/.local/share/mise/ci-rustup" >>"$GITHUB_ENV"
+          python3 .github/workflows/mise-cache-key.py \
+            --os "$RUNNER_OS" \
+            --arch "$RUNNER_ARCH" \
+            --image "${ImageOS:?runner image is required for cache compatibility}" \
+            --mise-version "$MISE_VERSION"
+      - name: Restore mise tool cache
+        id: mise-cache
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # Include CI-owned Rust proxies/toolchains, not build registries.
+          path: |
+            ~/.local/share/mise
+            ~/.cache/dotfiles-ci-cargo/bin
+          key: ${{ steps.mise-cache-key.outputs.primary-key }}
+          restore-keys: |
+            ${{ steps.mise-cache-key.outputs.restore-key }}
+      - name: Report mise tool cache outcome
+        env:
+          EXACT_HIT: ${{ steps.mise-cache.outputs.cache-hit }}
+          MATCHED_KEY: ${{ steps.mise-cache.outputs.cache-matched-key }}
+          PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
+        shell: bash
+        run: |
+          if [[ $EXACT_HIT == true ]]; then
+            outcome=exact
+          elif [[ -n $MATCHED_KEY ]]; then
+            outcome=fallback
+          else
+            outcome=miss
+          fi
+          printf 'mise cache outcome=%s\nprimary=%s\nrestored=%s\n' \
+            "$outcome" "$PRIMARY_KEY" "${MATCHED_KEY:-none}"
+          printf 'mise-cache-outcome=%s\n' "$outcome" >>"$GITHUB_STEP_SUMMARY"
       - name: Install native test dependencies
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: brew install fish libgit2
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+      - name: Set up mise
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
-          version: 2026.9.1
-          install: true
-          cache: true
-      - name: Cache Neovim validation data
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          version: ${{ env.MISE_VERSION }}
+          install: false
+          cache: false
+      - name: Install mise-managed tools
+        run: |
+          python3 .github/workflows/mise-cache-key.py --mode reconcile
+          mise install --locked
+      - name: Compute Neovim validation cache key
+        id: nvim-cache-key
+        shell: bash
+        run: |
+          namespace="$(dotfiles/common/nvim/tests/validate.sh --print-cache-namespace)"
+          image="$(printf '%s' "${ImageOS:?runner image is required for cache compatibility}" | tr -c 'A-Za-z0-9_.-' '-')"
+          key="nvim-validation-v2-${RUNNER_OS}-${RUNNER_ARCH}-${image}-${namespace}"
+          printf 'primary-key=%s\npath=%s\n' \
+            "$key" "$HOME/.cache/dotfiles-nvim-validation/$namespace" | tee -a "$GITHUB_OUTPUT"
+          version_output="$(nvim --version)"
+          printf '%s\n' "${version_output%%$'\n'*}"
+      - name: Restore Neovim validation cache
+        id: nvim-cache
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.cache/dotfiles-nvim-validation
-          key: nvim-validation-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', 'mise.lock', 'dotfiles/common/nvim/lazy-lock.json', 'dotfiles/common/nvim/lua/treesitter-parsers.lua') }}
+          path: ${{ steps.nvim-cache-key.outputs.path }}
+          key: ${{ steps.nvim-cache-key.outputs.primary-key }}
       - name: Validate configuration and colocated tests
         run: mise run validate
+      - name: Save Neovim validation cache
+        if: success() && steps.nvim-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.nvim-cache-key.outputs.path }}
+          key: ${{ steps.nvim-cache-key.outputs.primary-key }}
+      - name: Record mise cache inputs
+        run: python3 .github/workflows/mise-cache-key.py --mode record
+      - name: Save mise tool cache
+        if: success() && steps.mise-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.local/share/mise
+            ~/.cache/dotfiles-ci-cargo/bin
+          key: ${{ steps.mise-cache-key.outputs.primary-key }}
