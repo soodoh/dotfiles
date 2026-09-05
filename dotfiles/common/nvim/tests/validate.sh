@@ -32,6 +32,10 @@ cache_key=$(
     "$(hash_file "$config_source/lazy-lock.json")" \
     "$(hash_file "$parser_source")" | hash_input
 )
+if [[ ${1:-} == --print-cache-namespace ]]; then
+  printf '%s\n' "$cache_key"
+  exit 0
+fi
 data_home="$cache_root/$cache_key"
 lock_dir="${TMPDIR:-/tmp}/dotfiles-nvim-validation-$cache_key.lock"
 
