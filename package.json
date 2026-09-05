@@ -3,7 +3,7 @@
   "author": "Paul DiLoreto <soodohh@pm.me>",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "bun@1.4.0",
+  "packageManager": "bun@1.4.2",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/soodoh/dotfiles/issues"
