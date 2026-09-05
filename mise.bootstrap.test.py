@@ -105,8 +105,86 @@ class MiseConfigurationTests(unittest.TestCase):
         cls.personal = load_toml("mise.personal-macos.toml")
         cls.work = load_toml("mise.work-macos.toml")
 
-    def test_age_decryption_remains_strict_by_default(self) -> None:
-        self.assertNotIn("strict", self.base["settings"]["age"])
+    def test_age_decryption_allows_credential_free_automation(self) -> None:
+        self.assertIs(self.base["settings"]["age"]["strict"], False)
+
+    def test_renovate_can_generate_locks_without_age_keys_or_overrides(self) -> None:
+        mise = shutil.which("mise")
+        self.assertIsNotNone(mise)
+        tool = "npm:@earendil-works/pi-coding-agent"
+        # An exactly pinned npm tool exercises real lock generation without downloads.
+        # Test both Renovate execution modes and every dependency configuration.
+        for profile in (None, "personal-macos", "work-macos"):
+            for safe in (False, True):
+                with self.subTest(profile=profile, safe=safe):
+                    with tempfile.TemporaryDirectory() as directory:
+                        stage = Path(directory)
+                        home = stage / "home"
+                        home.mkdir()
+                        for name in load_mise_lock_module().CONFIG_FILES:
+                            shutil.copy2(ROOT / name, stage / name)
+                        environment = {
+                            "HOME": str(home),
+                            "PATH": os.defpath,
+                            "MISE_TRUSTED_CONFIG_PATHS": str(stage),
+                            "MISE_YES": "1",
+                        }
+                        if safe:
+                            environment["MISE_SAFE"] = "1"
+                        arguments = [mise]
+                        if profile:
+                            arguments.extend(["--env", profile])
+                        result = subprocess.run(
+                            [*arguments, "lock", tool],
+                            cwd=stage,
+                            env=environment,
+                            capture_output=True,
+                            text=True,
+                            timeout=60,
+                            check=False,
+                        )
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        with (stage / "mise.lock").open("rb") as lock_file:
+                            locked = tomllib.load(lock_file)
+                        self.assertEqual(
+                            locked["tools"][tool][0]["version"],
+                            tool_version(self.base["tools"][tool]),
+                        )
+
+    def test_workstation_profiles_require_age_keys(self) -> None:
+        fish = shutil.which("fish")
+        mise = shutil.which("mise")
+        self.assertIsNotNone(fish)
+        self.assertIsNotNone(mise)
+        for profile in ("personal", "work"):
+            with self.subTest(profile=profile):
+                with tempfile.TemporaryDirectory() as home:
+                    result = subprocess.run(
+                        [
+                            fish,
+                            "--no-config",
+                            "-c",
+                            'source "$argv[1]"; "$argv[2]" env --json',
+                            str(ROOT / "dotfiles" / profile / "mise-profile.fish"),
+                            mise,
+                        ],
+                        cwd=ROOT,
+                        env={
+                            "HOME": home,
+                            "PATH": os.defpath,
+                            # The profile must override even an inherited CI setting.
+                            "MISE_AGE_STRICT": "false",
+                            "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
+                            "MISE_YES": "1",
+                        },
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                        check=False,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("Failed to decrypt", result.stderr)
+                    self.assertIn("No age identities found", result.stderr)
 
     def test_ci_workflows_explicitly_allow_missing_age_keys(self) -> None:
         for workflow_name in ("mise.yml", "repository-updates.yml"):

@@ -1290,32 +1290,32 @@ version = "4.18.0"
 backend = "aqua:yarnpkg/berry"
 
 [tools."aqua:yarnpkg/berry"."platforms.linux-arm64"]
-url = ""
+url = "https://repo.yarnpkg.com/4.18.0/packages/yarnpkg-cli/bin/yarn.js"
 
 [tools."aqua:yarnpkg/berry"."platforms.linux-arm64-musl"]
-url = ""
+url = "https://repo.yarnpkg.com/4.18.0/packages/yarnpkg-cli/bin/yarn.js"
 
 [tools."aqua:yarnpkg/berry"."platforms.linux-x64"]
-url = ""
+url = "https://repo.yarnpkg.com/4.18.0/packages/yarnpkg-cli/bin/yarn.js"
 
 [tools."aqua:yarnpkg/berry"."platforms.linux-x64-baseline"]
-url = ""
+url = "https://repo.yarnpkg.com/4.18.0/packages/yarnpkg-cli/bin/yarn.js"
 
 [tools."aqua:yarnpkg/berry"."platforms.linux-x64-musl"]
-url = ""
+url = "https://repo.yarnpkg.com/4.18.0/packages/yarnpkg-cli/bin/yarn.js"
 
 [tools."aqua:yarnpkg/berry"."platforms.linux-x64-musl-baseline"]
-url = ""
+url = "https://repo.yarnpkg.com/4.18.0/packages/yarnpkg-cli/bin/yarn.js"
 
 [tools."aqua:yarnpkg/berry"."platforms.macos-arm64"]
 checksum = "blake3:6b5fe0bc6105452f663d5a15ee03574caab7ac642f0400266273d0b9562c9dc4"
 url = "https://repo.yarnpkg.com/4.18.0/packages/yarnpkg-cli/bin/yarn.js"
 
 [tools."aqua:yarnpkg/berry"."platforms.macos-x64"]
-url = ""
+url = "https://repo.yarnpkg.com/4.18.0/packages/yarnpkg-cli/bin/yarn.js"
 
 [tools."aqua:yarnpkg/berry"."platforms.macos-x64-baseline"]
-url = ""
+url = "https://repo.yarnpkg.com/4.18.0/packages/yarnpkg-cli/bin/yarn.js"
 
 [[tools.bun]]
 version = "1.4.2"
