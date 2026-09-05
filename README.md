@@ -143,7 +143,7 @@ mise --env personal-macos run update
 mise --env work-macos run update
 ```
 
-After changing tools in any mise configuration, refresh every committed lockfile from either Mac:
+After changing tools in any mise configuration, refresh every committed lockfile on Linux, the canonical CI platform:
 
 ```bash
 mise run lock
@@ -158,6 +158,8 @@ A weekly GitHub Actions workflow refreshes the repository-managed assets that Re
 ## Changing encrypted environment variables
 
 Ensure `~/.config/mise/age.txt` was setup, per the fresh install instructions.
+
+The shared configuration sets `age.strict = false` so credential-free automation, including Renovate's lockfile generation outside GitHub Actions, skips undecryptable values. Both workstation Fish profiles export `MISE_AGE_STRICT=true`, preserving fail-fast decryption in configured shells. Open a new Fish shell after updating to load this policy. Outside those shells, use `MISE_AGE_STRICT=true mise …` when secrets must be available; without that override, missing or invalid identities do not stop mise. The age identity remains local and is never needed by CI or Renovate.
 
 Example command:
 
