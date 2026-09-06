@@ -21,6 +21,8 @@ EDITOR = "nvim"
 VISUAL = "nvim"
 LG_CONFIG_FILE = "{{ env.HOME }}/.config/lazygit/config.yml"
 SSH_AUTH_SOCK = "{{ env.HOME }}/.bitwarden-ssh-agent.sock"
+CONTEXT7_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB0NlhFYTRGOFE4cHZIRDFERC9XQzN5QkxyNm1rNkUyTHQ2dUczbUdiNHdJCjl2My9WWEthVW9hOFIrazBKemtnWkRGV2M4eUxCdVBhWTl1NllnREtxcE0KLT4gJTdnSFMtZ3JlYXNlIFNOTCAlbHxCK3ljIFk+fUE/Cjh5bWhveW9EbjJuMzJ0NXZMYm9wLzFBZHhveURwNUx5amUzRW5ZL1dMaVpLdXlzU1F6Wkh1L2hPYzNJUE9HSzQKUDNNVFBHY0VYUGhLSlR4VFN3Ci0tLSBXU3k4RlFNR2RseHYxQ3ZUTHlEYkVSRk1nc21hUG9WMCt2djlKMFFjeHMwCgLdme3GEdREgXsKCQw0eLIuq8RpVCUd/36sS4VQQ/s+X5sp+XR7sDLSXs698RLRS0PedQD3E1u4eVxOsJ53OlAu550bxHsb/CqiFA" }
+BRAVE_SEARCH_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAzY3Rxa0VuV1NEZ1Y1MlZRTE84WFVFTFNFYTk1bFlxZmVHS25wbEhNTmpNCnZobmxlSm5sMFVucFJVT2NzTUo0SmZpVisvRjdUYlY4N1pocVFGYisvM0UKLT4gVS1ncmVhc2UgTFk9biAkLjR4Y09dCjdRCi0tLSBLbVFYSXl6WEZCNC8rdjkzTjdWS0tmeGMrRmdRMzBhRXprdWVUU05COE9JCjHv6m3RFqbVyvpXw0/txHp4qYJtEzH+05zXgrkbV8U6P07pzwMeoti/N8iema1KXL9d4S0zKEPawr2Q+ebDuQ" }
 # Persist Google Cloud and Workspace CLI configuration without storing it in plain text.
 GOOGLE_CLOUD_PROJECT = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxeTA2NUFHSXkyaVc0Tlh6M1BtNE5DanAyL1pjM0JOUlRTS1JPS0pzSW1nCkVvVEFmNWR6dW5tZ1pmK3g2WnE0TzIvSU9VMnhRTUlGOXIxckpXWU5BVzgKLT4gVC1ncmVhc2UgJSp9TWggVldNfgpLM2x6RHJnMEpjbkxzazc2RHZrc0R5dnA0RDB5ams4c0Q5RGtub01NRzlpaVRsckk1YU43Ci0tLSBMQlNvNXM0eGpXZ3Bvd2NYQmdCcjdtSFk3cmUrZXZJRFJMN0tuOGIvcnFBCiML2DC0hSn2F1ORDawTvnDTuXdLvKFGbF2dUuUP8zdEIAN8rVvtMxXccuZcyPJef0iX0Yk20omcycm2RQ" }
 GOOGLE_CLOUD_LOCATION = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA4YkJ0TlJuUm9SOFhEUE1vczZycWt0Q0pjTXJ2N3hBUVpvdDczU0x2R25vCmdRZHBnOFYzckNLdjd2NEhzcFBBYkJZelNxN1laSG5sejQyditka2JDR00KLT4ga2ZNKSIwYlotZ3JlYXNlIHdhJwpoN1dZOWcKLS0tIFNNV2JYSUtadkM4djN1RE1ONUxwVWgyMitjaFZVOUpwMllWeExMSWR3NU0Kk8WKym8lzWGDyzGrqbHrNrHo0fcJUpYGf2eC30OE46KaKg" }
@@ -202,6 +204,17 @@ run_at_load = true
 working_directory = "~/Projects/dotfiles"
 stdout_path = "~/Library/Logs/colima-default.log"
 stderr_path = "~/Library/Logs/colima-default.error.log"
+
+# Homebrew owns the binary; mise owns the user service and supplies its tool PATH.
+# Use the shared tool configuration, as with Colima; no profile-specific tools needed.
+[bootstrap.macos.launchd.agents.moshi-hook]
+program = "~/.local/bin/mise"
+args = ["exec", "--", "/opt/homebrew/opt/moshi-hook/bin/moshi-hook", "serve"]
+run_at_load = true
+keep_alive = true
+working_directory = "~/Projects/dotfiles"
+stdout_path = "~/Library/Logs/moshi-hook.log"
+stderr_path = "~/Library/Logs/moshi-hook.error.log"
 
 [bootstrap.hooks]
 pre-tools = '''

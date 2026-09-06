@@ -105,6 +105,69 @@ class MiseConfigurationTests(unittest.TestCase):
         cls.personal = load_toml("mise.personal-macos.toml")
         cls.work = load_toml("mise.work-macos.toml")
 
+    def test_moshi_uses_one_shared_macos_launch_agent(self) -> None:
+        agent = self.base["bootstrap"]["macos"]["launchd"]["agents"]["moshi-hook"]
+        self.assertEqual(agent["program"], "~/.local/bin/mise")
+        self.assertEqual(
+            agent["args"],
+            ["exec", "--", "/opt/homebrew/opt/moshi-hook/bin/moshi-hook", "serve"],
+        )
+        self.assertEqual(agent["working_directory"], "~/Projects/dotfiles")
+        self.assertTrue(agent["run_at_load"])
+        self.assertTrue(agent["keep_alive"])
+        self.assertNotIn("PATH", agent.get("environment", {}))
+        for config in (self.base, self.personal, self.work):
+            self.assertFalse(any("moshi-hook.env" in key for key in config["dotfiles"]))
+        for profile in (self.personal, self.work):
+            agents = (
+                profile.get("bootstrap", {})
+                .get("macos", {})
+                .get("launchd", {})
+                .get("agents", {})
+            )
+            self.assertNotIn("moshi-hook", agents)
+
+    def test_moshi_launch_command_gets_mise_path_without_shell_activation(self) -> None:
+        mise = shutil.which("mise")
+        self.assertIsNotNone(mise)
+        agent = self.base["bootstrap"]["macos"]["launchd"]["agents"]["moshi-hook"]
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            tools = home / "tools"
+            tools.mkdir()
+            herdr = tools / "herdr"
+            herdr.write_text("#!/bin/sh\nexit 0\n")
+            herdr.chmod(0o755)
+            moshi = home / "moshi-hook"
+            moshi.write_text(
+                '#!/bin/sh\n[ "$1" = serve ] || exit 64\ncommand -v herdr\n'
+            )
+            moshi.chmod(0o755)
+            (home / "mise.toml").write_text(
+                f"[env]\n_.path = [{json.dumps(str(tools))}]\n"
+            )
+            environment = {
+                "HOME": str(home),
+                "PATH": os.defpath,  # launchd-like environment, no interactive activation.
+                "MISE_TRUSTED_CONFIG_PATHS": str(home),
+            }
+            self.assertIsNone(shutil.which("herdr", path=environment["PATH"]))
+            # Replace only the daemon with a probe; run the declared mise exec arguments.
+            arguments = [
+                str(moshi) if arg.endswith("/moshi-hook") else arg
+                for arg in agent["args"]
+            ]
+            result = subprocess.run(
+                [mise, *arguments],
+                cwd=home,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), str(herdr))
+
     def test_node_version_matches_nvmrc(self) -> None:
         self.assertEqual(
             tool_version(self.base["tools"]["node"]),

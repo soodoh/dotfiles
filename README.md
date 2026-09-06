@@ -93,15 +93,18 @@ MISE_ENV=work-macos mise bootstrap
     - `/login openai-codex`
     - `/login openrouter`
 - Authenticate `gws` CLI: `gws auth login`
-- Pair the Homebrew-managed [Moshi hooks](https://getmoshi.app/docs/hooks) once per Mac:
+- Pair [Moshi hooks](https://getmoshi.app/docs/hooks) once per Mac:
+    - Homebrew installs the binary; the shared `mise.toml` LaunchAgent runs it through `mise exec`, supplying mise's tool PATH without shell activation. Bootstrap registers and starts `dev.mise.moshi-hook`; do not also start the Homebrew service.
     - Copy the pairing token from **Settings > Hooks** in the Moshi app, then run the following locally (not over SSH):
 
       ```bash
       moshi-hook pair --token "$(pbpaste)"
       moshi-hook install
-      brew services start moshi-hook
       moshi-hook status
       ```
+
+    - If the running daemon does not pick up the new pairing, restart it with `launchctl kickstart -k "gui/$(id -u)/dev.mise.moshi-hook"`, then check `moshi-hook status` again. This is a troubleshooting restart, not a required service-start step after bootstrap.
+
 ### Manual steps for Work macOS
 
 - Authenticate TWG: `twg login`
@@ -194,7 +197,7 @@ This generates both explicit environments in isolated temporary roots, verifies 
 
 The task updates mise tools, refreshes all shared and profile-specific mise lockfiles, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, tapped Homebrew packages, and applies committed Herdr plugin pins. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
 
-After updating Moshi, run `brew services restart moshi-hook` on paired Macs. Pairing and installed hooks survive upgrades; no need to pair or install hooks again.
+After updating Moshi or mise-managed tools used by the daemon, run `launchctl kickstart -k "gui/$(id -u)/dev.mise.moshi-hook"` on paired Macs. Bootstrap skips already-loaded agents whose plist is unchanged; updating a binary or tool version does not change this agent's declaration. Restarting refreshes the running binary and mise environment; no need to pair or install hooks again.
 
 A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, the Neovim plugin lock, and Herdr plugin commit pins. It runs configuration/lock validation and opens or refreshes a single update pull request when tracked files change. Herdr pin refresh resolves upstream main without building or executing plugin code; merging the PR does not upgrade workstations until they pull and run the explicit update task.
 
