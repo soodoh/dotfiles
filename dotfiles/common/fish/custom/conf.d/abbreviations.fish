@@ -58,7 +58,6 @@ abbr -a gclean!!   'git reset --hard; and git clean -dfx'
 abbr -a gpristine  'git reset --hard; and git clean --force -dfx'
 abbr -a gwipe      'git reset --hard; and git clean --force -df'
 # Clone
-abbr -a gbc        gbclone # Custom bare repositories clone script
 abbr -a gcl        git clone
 # Commit
 abbr -a gc         git commit -v
