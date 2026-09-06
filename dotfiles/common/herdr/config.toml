@@ -77,3 +77,20 @@ navigate_pane_left = "h"
 navigate_pane_down = "j"
 navigate_pane_up = "k"
 navigate_pane_right = "l"
+
+# Tool popups
+[[keys.command]]
+key = "prefix+f"
+type = "popup"
+command = "yazi"
+description = "Open Yazi"
+width = "90%"
+height = "90%"
+
+[[keys.command]]
+key = "prefix+g"
+type = "popup"
+command = "lazygit"
+description = "Open LazyGit"
+width = "90%"
+height = "90%"

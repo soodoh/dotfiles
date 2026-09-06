@@ -16,18 +16,8 @@ return {
         ":bd<CR>",
         desc = "Close buffer & window",
       },
-      {
-        "<leader>gg",
-        function()
-          Snacks.lazygit()
-        end,
-        desc = "LazyGit",
-      },
     },
     opts = {
-      lazygit = {
-        enabled = true,
-      },
       image = {
         enabled = true,
       },
