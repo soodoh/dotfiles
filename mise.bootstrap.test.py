@@ -105,6 +105,28 @@ class MiseConfigurationTests(unittest.TestCase):
         cls.personal = load_toml("mise.personal-macos.toml")
         cls.work = load_toml("mise.work-macos.toml")
 
+    def test_pi_web_search_is_shared_brave_without_curator_or_stored_credentials(self) -> None:
+        target = "~/.pi/agent/web-search.json"
+        source = self.base["dotfiles"][target]
+        self.assertEqual(source, "dotfiles/common/pi/agent/web-search.json")
+        self.assertEqual(
+            json.loads((ROOT / source).read_text()),
+            {"provider": "brave", "workflow": "none"},
+        )
+        for profile, config in (("personal", self.personal), ("work", self.work)):
+            with self.subTest(profile=profile):
+                self.assertNotIn(target, config["dotfiles"])
+                settings = json.loads(
+                    (ROOT / "dotfiles" / profile / "pi/agent/settings.json").read_text()
+                )
+                package = next(
+                    p for p in settings["packages"] if p["source"] == "./pi-extensions"
+                )
+                self.assertIn("node_modules/pi-web-access/index.ts", package["extensions"])
+                self.assertFalse(
+                    any("rpiv-web-tools" in path for path in package["extensions"])
+                )
+
     def test_moshi_uses_one_shared_macos_launch_agent(self) -> None:
         agent = self.base["bootstrap"]["macos"]["launchd"]["agents"]["moshi-hook"]
         self.assertEqual(agent["program"], "~/.local/bin/mise")

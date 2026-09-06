@@ -272,6 +272,21 @@ await test("manifest resources load with the actual mise Pi", async (t) => {
 				),
 				expected,
 			);
+			// Regression: importing a web extension is not enough; the builtin
+			// researcher requires these exact registered tools in background runs.
+			const tools = report.extensions.flatMap((extension) => extension.tools);
+			for (const name of [
+				"web_search",
+				"fetch_content",
+				"get_search_content",
+				"source_check",
+			]) {
+				assert.equal(
+					tools.filter((tool) => tool === name).length,
+					1,
+					`researcher requires exactly one registration of ${name}`,
+				);
+			}
 		},
 	);
 	t.diagnostic(
