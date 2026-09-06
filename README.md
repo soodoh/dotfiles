@@ -161,6 +161,16 @@ The task updates mise tools, refreshes all shared and profile-specific mise lock
 
 A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, and the Neovim plugin lock. It validates the resulting checkout and opens or refreshes a single update pull request when tracked files change.
 
+### Matt Pocock skills
+
+Both `dotfiles/personal/agents/` and `dotfiles/work/agents/` include the 25 published engineering and productivity skills from [mattpocock/skills](https://github.com/mattpocock/skills), with their reference files, templates, and `.skill-lock.json` entries. The initial full-set import matches upstream commit `3cca18b368ae95cdbdebbff572ccafa662551015`; `in-progress/` and `misc/` skills are excluded. Keep the vendored files unchanged so normal skill updates remain straightforward.
+
+In a new Pi session, invoke `/skill:ask-matt` for workflow selection or `/skill:wayfinder` for multi-session planning. Upstream's `/name` commands are `/skill:name` in Pi. When upstream says to "Call the Skill tool", instruct Pi to read and follow the named skill's `SKILL.md` using its available file-reading tool; Pi does not expose that native tool. Follow Pi's existing delegation rules for subagent work. This is prompt-level compatibility guidance, not an installed runtime adapter.
+
+Installing the catalog does not configure a project's issue tracker or create project docs. Run `/skill:setup-matt-pocock-skills` separately in a target repository when needed; notably, unmodified `code-review` expects `docs/agents/issue-tracker.md`. Review each workflow before invoking it: `to-spec` publishes to the configured tracker and `implement` ends by committing.
+
+The existing update tasks refresh installed skills, not newly published or renamed ones. Reconcile those explicitly with the pinned `vars.skills_cli_version`, selecting only the intended skills. For repository-only installs, use temporary homes whose `.agents` links point to each profile catalog; never repoint the workstation's live `~/.agents` link. Preserve unrelated skills and lock metadata, and review both profile diffs.
+
 ## Changing encrypted environment variables
 
 Ensure `~/.config/mise/age.txt` was setup, per the fresh install instructions.
