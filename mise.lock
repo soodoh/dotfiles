@@ -738,53 +738,53 @@ url_api = "https://api.github.com/repos/getsops/sops/releases/assets/486808228"
 url = "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.intoto.jsonl"
 
 [[tools."aqua:jdx/usage"]]
-version = "6.6.1"
+version = "6.8.0"
 backend = "aqua:jdx/usage"
 
 [tools."aqua:jdx/usage"."platforms.linux-arm64"]
-checksum = "sha256:1828f1b23b8c0b0e587bf01e1c4204c3b2481571c0c14fcc82ce6dd761aba85f"
-url = "https://github.com/jdx/usage/releases/download/v6.6.1/usage-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/539822349"
+checksum = "sha256:5ac012d6a7a1aaa5049e22afb77c3ec76768c2203d323d6d26a7b494ddccc780"
+url = "https://github.com/jdx/usage/releases/download/v6.8.0/usage-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/547479496"
 
 [tools."aqua:jdx/usage"."platforms.linux-arm64-musl"]
-checksum = "sha256:f04a1986e92d4d5043673a0c4b888a098cff84cc7ddcbd86fc4d06382cf0d224"
-url = "https://github.com/jdx/usage/releases/download/v6.6.1/usage-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/539822773"
+checksum = "sha256:a9b15be628824117d03d1ca2b7e1a42b5acfd5b8d1a6bfeffaa8256f2616a66e"
+url = "https://github.com/jdx/usage/releases/download/v6.8.0/usage-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/547479495"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64"]
-checksum = "sha256:f159816540a3b813d51458ff25344a888e772d9e03d13006140ec5b42023a06e"
-url = "https://github.com/jdx/usage/releases/download/v6.6.1/usage-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/539822350"
+checksum = "sha256:468c27b16302250cf74f2bddb0d0539b958ae3a391d226acc73bdd714c2a18cb"
+url = "https://github.com/jdx/usage/releases/download/v6.8.0/usage-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/547479229"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-baseline"]
-checksum = "sha256:f159816540a3b813d51458ff25344a888e772d9e03d13006140ec5b42023a06e"
-url = "https://github.com/jdx/usage/releases/download/v6.6.1/usage-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/539822350"
+checksum = "sha256:468c27b16302250cf74f2bddb0d0539b958ae3a391d226acc73bdd714c2a18cb"
+url = "https://github.com/jdx/usage/releases/download/v6.8.0/usage-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/547479229"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-musl"]
-checksum = "sha256:6a40c132fdc33a3ac738f5f488ace9945f387e945e2a9dc423006e7288d46dab"
-url = "https://github.com/jdx/usage/releases/download/v6.6.1/usage-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/539823684"
+checksum = "sha256:62b44e6d10e636e4ff1e5f56366d84475d8282990a5882499cae658e95b99f32"
+url = "https://github.com/jdx/usage/releases/download/v6.8.0/usage-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/547479563"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:6a40c132fdc33a3ac738f5f488ace9945f387e945e2a9dc423006e7288d46dab"
-url = "https://github.com/jdx/usage/releases/download/v6.6.1/usage-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/539823684"
+checksum = "sha256:62b44e6d10e636e4ff1e5f56366d84475d8282990a5882499cae658e95b99f32"
+url = "https://github.com/jdx/usage/releases/download/v6.8.0/usage-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/547479563"
 
 [tools."aqua:jdx/usage"."platforms.macos-arm64"]
-checksum = "sha256:2cd11077e8b62c65687c84eab29dae429985acfdea3847b3775a99677f5d6408"
-url = "https://github.com/jdx/usage/releases/download/v6.6.1/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/539847849"
+checksum = "sha256:f6bfe2e5353e02769d3f6902d06db1cb201f84124df08465fd4826f9ce7ba632"
+url = "https://github.com/jdx/usage/releases/download/v6.8.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/547480261"
 
 [tools."aqua:jdx/usage"."platforms.macos-x64"]
-checksum = "sha256:2cd11077e8b62c65687c84eab29dae429985acfdea3847b3775a99677f5d6408"
-url = "https://github.com/jdx/usage/releases/download/v6.6.1/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/539847849"
+checksum = "sha256:f6bfe2e5353e02769d3f6902d06db1cb201f84124df08465fd4826f9ce7ba632"
+url = "https://github.com/jdx/usage/releases/download/v6.8.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/547480261"
 
 [tools."aqua:jdx/usage"."platforms.macos-x64-baseline"]
-checksum = "sha256:2cd11077e8b62c65687c84eab29dae429985acfdea3847b3775a99677f5d6408"
-url = "https://github.com/jdx/usage/releases/download/v6.6.1/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/539847849"
+checksum = "sha256:f6bfe2e5353e02769d3f6902d06db1cb201f84124df08465fd4826f9ce7ba632"
+url = "https://github.com/jdx/usage/releases/download/v6.8.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/547480261"
 
 [[tools."aqua:jesseduffield/lazygit"]]
 version = "0.65.0"
@@ -1041,53 +1041,53 @@ url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellche
 url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056930"
 
 [[tools."aqua:mvdan/sh"]]
-version = "3.14.0"
+version = "3.14.1"
 backend = "aqua:mvdan/sh"
 
 [tools."aqua:mvdan/sh"."platforms.linux-arm64"]
-checksum = "sha256:8029959a945b5c6f2bc92ce53fca5cf0384c811cc0884b25b196a093a005657a"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_linux_arm64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/534119958"
+checksum = "sha256:5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489"
+url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_arm64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320869"
 
 [tools."aqua:mvdan/sh"."platforms.linux-arm64-musl"]
-checksum = "sha256:8029959a945b5c6f2bc92ce53fca5cf0384c811cc0884b25b196a093a005657a"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_linux_arm64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/534119958"
+checksum = "sha256:5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489"
+url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_arm64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320869"
 
 [tools."aqua:mvdan/sh"."platforms.linux-x64"]
-checksum = "sha256:fe42021c7272ef2d67ea36cbc3031683c625d0badec733ef3a57b567246a0b66"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_linux_amd64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/534119985"
+checksum = "sha256:76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf"
+url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_amd64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320883"
 
 [tools."aqua:mvdan/sh"."platforms.linux-x64-baseline"]
-checksum = "sha256:fe42021c7272ef2d67ea36cbc3031683c625d0badec733ef3a57b567246a0b66"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_linux_amd64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/534119985"
+checksum = "sha256:76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf"
+url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_amd64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320883"
 
 [tools."aqua:mvdan/sh"."platforms.linux-x64-musl"]
-checksum = "sha256:fe42021c7272ef2d67ea36cbc3031683c625d0badec733ef3a57b567246a0b66"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_linux_amd64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/534119985"
+checksum = "sha256:76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf"
+url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_amd64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320883"
 
 [tools."aqua:mvdan/sh"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:fe42021c7272ef2d67ea36cbc3031683c625d0badec733ef3a57b567246a0b66"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_linux_amd64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/534119985"
+checksum = "sha256:76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf"
+url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_amd64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320883"
 
 [tools."aqua:mvdan/sh"."platforms.macos-arm64"]
-checksum = "sha256:4710ba8074a74334069719d5b82f8cb97532e5623bfe43ef7cdb3442101b9cb2"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_darwin_arm64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/534120008"
+checksum = "sha256:b7c872db63553ccffc7253aba3ed7d4885a27d83f1ba567b1138c6315a5847e5"
+url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_darwin_arm64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320930"
 
 [tools."aqua:mvdan/sh"."platforms.macos-x64"]
-checksum = "sha256:74255a8087d74a79f5c1307db807e7efa8f062c429e3a05c075550392e0dcfa1"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_darwin_amd64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/534120026"
+checksum = "sha256:d33eee0da0f92835b3562e9767a05cee7e4eaeef47daa03bfd09da17b4b590a6"
+url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_darwin_amd64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320946"
 
 [tools."aqua:mvdan/sh"."platforms.macos-x64-baseline"]
-checksum = "sha256:74255a8087d74a79f5c1307db807e7efa8f062c429e3a05c075550392e0dcfa1"
-url = "https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_darwin_amd64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/534120026"
+checksum = "sha256:d33eee0da0f92835b3562e9767a05cee7e4eaeef47daa03bfd09da17b4b590a6"
+url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_darwin_amd64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320946"
 
 [[tools."aqua:neovim/neovim"]]
 version = "0.12.5"
