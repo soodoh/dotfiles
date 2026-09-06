@@ -363,6 +363,7 @@ find dotfiles -type f -name '*.sh' -exec bash -n {} +
 find dotfiles -type f -name '*.fish' -exec fish --no-execute {} \;
 bash dotfiles/work/bootstrap-repositories.test.sh
 python3 dotfiles/common/fish/config.test.py
+python3 dotfiles/common/yazi/copy-relative-path.test.py
 HERDR_CONFIG_PATH="$PWD/dotfiles/common/herdr/config.toml" herdr config check
 '''
 

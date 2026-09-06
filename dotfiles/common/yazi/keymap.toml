@@ -9,3 +9,8 @@ on = "s"
 for = "linux"
 run = "shell --orphan -- xdg-open %s1"
 desc = "Open selected file with default app"
+
+[[mgr.prepend_keymap]]
+on = "<C-y>"
+run = "plugin copy-relative-path"
+desc = "Copy paths relative to Git root (or launch directory)"
