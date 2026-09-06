@@ -1,13 +1,19 @@
 onboarding = false
 
 [theme]
-name = "tokyo-night"
+name = "terminal"
 
 [terminal]
 new_cwd = "follow"
 
 [ui]
 prompt_new_tab_name = false
+pane_borders = true
+pane_outer_borders = false
+pane_gaps = false
+show_agent_labels_on_pane_borders = true
+hide_tab_bar_when_single_tab = false
+status_indicators = "symbols"
 
 [keys]
 # General
@@ -26,7 +32,7 @@ remote_image_paste = "ctrl+v"
 copy_mode = ["prefix+enter", "prefix+["]
 resize_mode = "prefix+r"
 workspace_picker = ["alt+w", "prefix+w"]
-edit_scrollback = "prefix+e"
+edit_scrollback = "prefix+shift+e"
 
 # Tabs
 previous_tab = ["alt+h"]
@@ -80,7 +86,7 @@ navigate_pane_right = "l"
 
 # Tool popups
 [[keys.command]]
-key = "prefix+f"
+key = "prefix+e"
 type = "popup"
 command = "yazi"
 description = "Open Yazi"
