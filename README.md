@@ -93,7 +93,15 @@ MISE_ENV=work-macos mise bootstrap
     - `/login openai-codex`
     - `/login openrouter`
 - Authenticate `gws` CLI: `gws auth login`
+- Pair the Homebrew-managed [Moshi hooks](https://getmoshi.app/docs/hooks) once per Mac:
+    - Copy the pairing token from **Settings > Hooks** in the Moshi app, then run the following locally (not over SSH):
 
+      ```bash
+      moshi-hook pair --token "$(pbpaste)"
+      moshi-hook install
+      brew services start moshi-hook
+      moshi-hook status
+      ```
 ### Manual steps for Work macOS
 
 - Authenticate TWG: `twg login`
@@ -158,6 +166,8 @@ mise run lock
 This generates both explicit environments in isolated temporary roots, verifies that they produce the same shared `mise.lock`, and only then atomically publishes changed lockfiles. Mise writes profile-only tools to `mise.personal-macos.lock` or `mise.work-macos.lock`, so both environments cover all three committed locks without mutating the tracked configuration during generation.
 
 The task updates mise tools, refreshes all shared and profile-specific mise lockfiles, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
+
+After updating Moshi, run `brew services restart moshi-hook` on paired Macs. Pairing and installed hooks survive upgrades; no need to pair or install hooks again.
 
 A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, and the Neovim plugin lock. It validates the resulting checkout and opens or refreshes a single update pull request when tracked files change.
 

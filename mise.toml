@@ -270,6 +270,7 @@ run = "bash dotfiles/macos/firefoxpwa/google-calendar.sh"
 [tasks."bootstrap:homebrew-packages"]
 interactive = true
 run = '''
+[ "$(uname -s)" = Darwin ] || exit 0
 export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_ANALYTICS=1
 export HOMEBREW_NO_ENV_HINTS=1
@@ -293,6 +294,7 @@ fi
 "$brew_bin" list --cask aerospace >/dev/null 2>&1 || "$brew_bin" install --cask nikitabobko/tap/aerospace
 "$brew_bin" list sketchybar >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/sketchybar
 "$brew_bin" list borders >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/borders
+"$brew_bin" list moshi-hook >/dev/null 2>&1 || "$brew_bin" install rjyo/moshi/moshi-hook
 '''
 
 [tasks.status]
@@ -399,6 +401,7 @@ run = "mise bootstrap packages upgrade"
 
 [tasks."update:homebrew-packages"]
 run = '''
+[ "$(uname -s)" = Darwin ] || exit 0
 brew upgrade --cask nikitabobko/tap/aerospace
-brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders
+brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders rjyo/moshi/moshi-hook
 '''
