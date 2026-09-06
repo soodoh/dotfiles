@@ -21,7 +21,6 @@ login_shell = "/opt/homebrew/bin/fish"
 "~/.pi/agent/mcp.json" = "dotfiles/personal/pi/agent/mcp.json"
 "~/.pi/agent/models.json" = "dotfiles/personal/pi/agent/models.json"
 "~/.pi/agent/extensions/pi-openai-fast.json" = "dotfiles/personal/pi/agent/extensions/pi-openai-fast.json"
-"~/.pi/workflows/model-tiers.json" = "dotfiles/personal/pi/workflows/model-tiers.json"
 "~/.agents" = "dotfiles/personal/agents"
 
 [env]

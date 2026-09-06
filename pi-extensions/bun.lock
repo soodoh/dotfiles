@@ -8,7 +8,6 @@
         "@juicesharp/rpiv-ask-user-question": "2.9.0",
         "@juicesharp/rpiv-web-tools": "2.9.0",
         "@plannotator/pi-extension": "0.27.12",
-        "@quintinshaw/pi-dynamic-workflows": "3.10.1",
         "google-auth-library": "11.0.2",
         "pi-mcp-adapter": "2.32.1",
         "pi-openai-fast": "1.0.1",
@@ -300,8 +299,6 @@
     "@protobufjs/pool": ["@protobufjs/pool@1.1.0", "", {}, "sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw=="],
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.2", "", {}, "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug=="],
-
-    "@quintinshaw/pi-dynamic-workflows": ["@quintinshaw/pi-dynamic-workflows@3.10.1", "", { "dependencies": { "acorn": "^8.16.0" }, "peerDependencies": { "@earendil-works/pi-coding-agent": ">=0.80.8", "@earendil-works/pi-tui": ">=0.80.6", "typebox": "*" } }, "sha512-w42qKOGRJgO5g9mlKp4JmOoaywEqL+bJzG/iklSokfh6CbcBLicougGFLalrfyahesKxM6ecpdfyKCVXzo+gTw=="],
 
     "@rolldown/binding-android-arm-eabi": ["@rolldown/binding-android-arm-eabi@1.2.6", "", { "os": "android", "cpu": "arm" }, "sha512-b+jTcARdTiFLI6jB4a5XjTm0RWd6KcRfQj/I2356fxUZemiho9zQLxo0RtCuMDAyKcLo6cEltkgbQp6d1+sjjQ=="],
 

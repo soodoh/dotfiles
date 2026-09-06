@@ -21,14 +21,11 @@
 			"node_modules/@juicesharp/rpiv-web-tools/index.ts",
 			"node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
 			"node_modules/pi-readseek/dist/index.ts",
-			"node_modules/pi-subagents/index.ts",
-			"node_modules/@quintinshaw/pi-dynamic-workflows/extensions/workflow.ts"
+			"node_modules/pi-subagents/index.ts"
 		],
 		"skills": [
 			"node_modules/pi-mcp-adapter/skills",
-			"node_modules/pi-subagents/skills",
-			"node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-authoring",
-			"node_modules/@quintinshaw/pi-dynamic-workflows/skills/workflow-patterns"
+			"node_modules/pi-subagents/skills"
 		],
 		"prompts": [
 			"node_modules/pi-subagents/prompts"
@@ -48,7 +45,6 @@
 		"@juicesharp/rpiv-ask-user-question": "2.9.0",
 		"@juicesharp/rpiv-web-tools": "2.9.0",
 		"@plannotator/pi-extension": "0.27.12",
-		"@quintinshaw/pi-dynamic-workflows": "3.10.1",
 		"google-auth-library": "11.0.2",
 		"pi-mcp-adapter": "2.32.1",
 		"pi-openai-fast": "1.0.1",
@@ -84,7 +80,6 @@
 		"@juicesharp/rpiv-web-tools",
 		"@juicesharp/rpiv-ask-user-question",
 		"pi-readseek",
-		"pi-subagents",
-		"@quintinshaw/pi-dynamic-workflows"
+		"pi-subagents"
 	]
 }

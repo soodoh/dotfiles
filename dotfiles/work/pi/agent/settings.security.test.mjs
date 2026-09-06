@@ -1,4 +1,4 @@
-// SEC-R3-001: the default agent provider must not route conversations over a
+// SEC-R3-001: default and enabled model providers must not route conversations over a
 // cleartext HTTP endpoint. Prompts, source snippets, tool output and any
 // accidentally-exposed credentials would otherwise be readable on the wire.
 //
@@ -24,17 +24,11 @@ const endpointOf = (name) => {
 const isCleartext = (baseUrl) =>
   typeof baseUrl === 'string' && baseUrl.startsWith('http://')
 
-// Review workflows also carry prompts, repository snippets, and tool output.
-// Check every provider selected by their model tiers, not only Pi's default.
-const tiersPath = join(here, '..', '..', 'pi', 'workflows', 'model-tiers.json')
-const modelTiers = JSON.parse(readFileSync(tiersPath, 'utf8'))
-const tierProviders = new Map()
-for (const [tier, ref] of Object.entries(modelTiers.tiers || {})) {
-  if (typeof ref !== 'string') continue
-  const provider = ref.split('/')[0]
-  if (!tierProviders.has(provider)) tierProviders.set(provider, [])
-  tierProviders.get(provider).push(tier)
-}
+// Enabled models also carry prompts, repository snippets, and tool output.
+// Check their providers, not only Pi's default.
+const enabledProviders = new Set(
+  (settings.enabledModels || []).map((ref) => ref.split('/')[0]),
+)
 
 let failed = 0
 const test = (name, fn) => {
@@ -51,16 +45,16 @@ test('default provider does not use a cleartext HTTP endpoint', () => {
   )
 })
 
-for (const [tierProvider, tiers] of tierProviders) {
-  test(`workflow tier provider "${tierProvider}" does not use a cleartext HTTP endpoint`, () => {
-    const baseUrl = endpointOf(tierProvider)
+for (const enabledProvider of enabledProviders) {
+  test(`enabled model provider "${enabledProvider}" does not use a cleartext HTTP endpoint`, () => {
+    const baseUrl = endpointOf(enabledProvider)
     assert.ok(
       !isCleartext(baseUrl),
-      `model-tiers.json tier(s) [${tiers.join(', ')}] use provider "${tierProvider}" over cleartext HTTP (${baseUrl}); use an https:// endpoint`,
+      `settings.json enabledModels use provider "${enabledProvider}" over cleartext HTTP (${baseUrl}); use an https:// endpoint`,
     )
   })
 }
 
-const total = 1 + tierProviders.size
+const total = 1 + enabledProviders.size
 console.log(`\n${failed ? total - failed : total}/${total} passed`)
 process.exit(failed ? 1 : 0)

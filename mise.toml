@@ -242,8 +242,6 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 "~/.pi/agent/keybindings.json" = "dotfiles/common/pi/agent/keybindings.json"
 "~/.pi/agent/extensions/subagent/config.json" = "dotfiles/common/pi/agent/extensions/subagent/config.json"
 "~/.pi/agent/pi-extensions" = "pi-extensions"
-"~/.pi/workflows/.gitignore" = "dotfiles/common/pi/workflows/.gitignore"
-"~/.pi/workflows/settings.json" = "dotfiles/common/pi/workflows/settings.json"
 
 [tasks.bootstrap]
 description = "Install repository dependencies and configure managed integrations"
@@ -351,7 +349,7 @@ if node dotfiles/work/pi/agent/settings.security.test.mjs >"$log" 2>&1; then
   printf 'error: expected work HTTP security test to fail\n' >&2
   exit 1
 fi
-grep -F 'FAIL workflow tier provider "litellm" does not use a cleartext HTTP endpoint' "$log" >/dev/null
+grep -F 'FAIL enabled model provider "litellm" does not use a cleartext HTTP endpoint' "$log" >/dev/null
 ''',
 ]
 

@@ -41,7 +41,7 @@ Fish configuration and vendored plugins are symlinked from `dotfiles/common`. Ke
 
 ## Pi and agents
 
-Pi settings, workflows, and profile-specific complete skill catalogs point directly into the checkout. Runtime Pi changes may dirty tracked files; review or revert them with Git. Preserve local Bun locks, explicit bundled resource paths, and the documented work HTTP expected-failure test.
+Pi settings and profile-specific complete skill catalogs point directly into the checkout. Runtime Pi changes may dirty tracked files; review or revert them with Git. Preserve local Bun locks, explicit bundled resource paths, and the documented work HTTP expected-failure test.
 
 ## Commit standards
 
