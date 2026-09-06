@@ -6,6 +6,9 @@ name = "tokyo-night"
 [terminal]
 new_cwd = "follow"
 
+[ui]
+prompt_new_tab_name = false
+
 [keys]
 # General
 prefix = "ctrl+space"
@@ -41,24 +44,24 @@ cycle_pane_previous = ["alt+k"]
 split_vertical = ["alt+v"]
 split_horizontal = ["alt+s"]
 close_pane = ["alt+x"]
-focus_pane_left = "prefix+h"
-focus_pane_down = "prefix+j"
-focus_pane_up = "prefix+k"
-focus_pane_right = "prefix+l"
+focus_pane_left = ""
+focus_pane_down = ""
+focus_pane_up = ""
+focus_pane_right = ""
 swap_pane_left = "prefix+shift+h"
 swap_pane_down = "prefix+shift+j"
 swap_pane_up = "prefix+shift+k"
 swap_pane_right = "prefix+shift+l"
 rename_pane = "prefix+shift+p"
 # Workspaces
-previous_workspace = ["alt+down"]
-next_workspace = ["alt+up"]
+previous_workspace = ["alt+shift+h"]
+next_workspace = ["alt+shift+l"]
 rename_workspace = "prefix+shift+w"
 close_workspace = "prefix+shift+d"
 switch_workspace = ""
 # Agents
-previous_agent = ["alt+left"]
-next_agent = ["alt+right"]
+previous_agent = ["alt+shift+j"]
+next_agent = ["alt+shift+k"]
 new_workspace = ["alt+n", "prefix+n"]
 focus_agent = ""
 
