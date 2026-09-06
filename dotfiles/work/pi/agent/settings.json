@@ -4,7 +4,6 @@
   "defaultModel": "gpt-5.6-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
-  "tuiMode": "fullscreen",
   "compaction": {
     "enabled": true,
     "reserveTokens": 16384,
@@ -14,17 +13,19 @@
   "quietStartup": true,
   "enableSkillCommands": true,
   "extensions": [
-    "extensions/*.ts"
+    "extensions/*.ts",
+    "-extensions/herdr-agent-state.ts"
   ],
   "packages": [
     {
       "source": "./pi-extensions",
       "extensions": [
         "packages/auto-session-name/index.ts",
+        "packages/herdr-agent-state/index.ts",
+        "packages/herdr-ui-prompts/index.ts",
         "packages/shared-prompt-history/index.ts",
         "packages/statusline/index.ts",
         "packages/aidev-track/index.ts",
-        "packages/tmux-session-status/index.ts",
         "node_modules/pi-vim/index.ts",
         "node_modules/pi-openai-fast/index.ts",
         "node_modules/@plannotator/pi-extension/",

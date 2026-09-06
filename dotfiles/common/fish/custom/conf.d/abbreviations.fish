@@ -235,13 +235,6 @@ abbr -a gwtrm      git worktree remove
 abbr -a gwtulo     git worktree unlock
 ####### END Git abbreviations
 
-# Tmux (replaces OMZ tmux plugin aliases)
-abbr -a ta         tmux attach
-abbr -a ts         tmux new-session -s
-abbr -a tl         tmux list-sessions
-abbr -a tksv       tmux kill-server
-abbr -a tkss       tmux kill-session -t
-
 # Docker
 abbr -a dbl        docker build
 abbr -a dcin       docker container inspect

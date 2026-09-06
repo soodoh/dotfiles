@@ -84,7 +84,7 @@ export function runExtensionProbe(
 			{
 				cwd: join(temporary, "work"),
 				// Intentionally no inherited credentials, NODE_OPTIONS/NODE_PATH, proxy,
-				// tmux, provider, or extension configuration. Network is not blocked on LTS.
+				// multiplexer, provider, or extension configuration. Network is not blocked on LTS.
 				env: {
 					HOME: join(temporary, "home"),
 					TMPDIR: temporary,

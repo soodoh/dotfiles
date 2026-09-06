@@ -358,6 +358,51 @@ class MiseConfigurationTests(unittest.TestCase):
             r"(?m)^\s*mise\s+bootstrap\s+packages\s+apply\s+brew:mas\s+--yes\s*$",
         )
 
+    def test_alerter_bootstrap_is_macos_only_and_install_only(self) -> None:
+        task = self.base["tasks"]["bootstrap:homebrew-packages"]["run"]
+        with tempfile.TemporaryDirectory(prefix="brew-bootstrap-test-") as directory:
+            home = Path(directory)
+            log = home / "brew.log"
+            marker = home / "alerter-installed"
+            (home / "uname").write_text('#!/bin/sh\nprintf "%s\\n" "$TEST_OS"\n')
+            (home / "brew").write_text('''#!/bin/sh
+set -eu
+printf '%s\\n' "$*" >> "$BREW_LOG"
+case "$*" in
+  'list --formula alerter') [ -f "$ALERTER_MARKER" ] ;;
+  'install vjeantet/tap/alerter')
+    [ "$HOMEBREW_NO_AUTO_UPDATE" = 1 ]
+    [ "$HOMEBREW_NO_ANALYTICS" = 1 ]
+    : > "$ALERTER_MARKER" ;;
+  list*) exit 0 ;;
+  *) exit 91 ;;
+esac
+''')
+            for executable in ("uname", "brew"):
+                (home / executable).chmod(0o755)
+            env = {
+                "HOME": directory,
+                "PATH": directory,  # No real package manager or installer reachable.
+                "BREW_LOG": str(log),
+                "ALERTER_MARKER": str(marker),
+            }
+            for platform in ("Linux", "Darwin", "Darwin"):
+                result = subprocess.run(
+                    ["/bin/sh", "-eu", "-c", task],
+                    cwd=home,
+                    env={**env, "TEST_OS": platform},
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                if platform == "Linux":
+                    self.assertFalse(log.exists())
+            calls = log.read_text().splitlines()
+            self.assertEqual(calls.count("install vjeantet/tap/alerter"), 1)
+            self.assertEqual(calls.count("list --formula alerter"), 2)
+            self.assertTrue(marker.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

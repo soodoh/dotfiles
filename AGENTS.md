@@ -11,7 +11,7 @@ The common tool and dotfile layer must remain Linux-compatible. macOS packages, 
 ## Layout
 
 - `mise.toml`, `mise.*-macos.toml`, `mise*.lock` — tools, profiles, bootstrap, tasks, and locks
-- `dotfiles/common/` — portable Fish, Neovim, tmux, Pi, and CLI configuration
+- `dotfiles/common/` — portable Fish, Neovim, Herdr, Pi, and CLI configuration
 - `dotfiles/macos/` — AeroSpace, SketchyBar, and Colima configuration
 - `dotfiles/personal/`, `dotfiles/work/` — profile identity, Pi settings, complete agent catalogs, and work-only apps
 - `pi-extensions/` — local Pi package and Bun lock

@@ -10,10 +10,11 @@
 	"pi": {
 		"extensions": [
 			"./packages/auto-session-name/index.ts",
+			"./packages/herdr-agent-state/index.ts",
+			"./packages/herdr-ui-prompts/index.ts",
 			"./packages/shared-prompt-history/index.ts",
 			"./packages/statusline/index.ts",
 			"./packages/aidev-track/index.ts",
-			"./packages/tmux-session-status/index.ts",
 			"node_modules/pi-vim/index.ts",
 			"node_modules/pi-openai-fast/index.ts",
 			"node_modules/@plannotator/pi-extension/",

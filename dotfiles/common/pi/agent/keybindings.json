@@ -1,6 +1,1 @@
-{
-  "tui.altScreen.halfPageUp": "alt+u",
-  "tui.altScreen.halfPageDown": "alt+d",
-  "tui.altScreen.top": ["home", "alt+g"],
-  "tui.altScreen.bottom": ["end", "alt+shift+g"]
-}
+{}

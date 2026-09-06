@@ -1,0 +1,35 @@
+onboarding = false
+# Herdr 0.8.2. Deploy only this file, never the runtime directory.
+[theme]
+name = "tokyo-night"
+
+# Native defaults: follow the source pane cwd; restore layouts and supported
+# agent conversations. Optional screen-history persistence stays disabled.
+[terminal]
+new_cwd = "follow"
+
+[keys]
+prefix = "ctrl+space"
+previous_tab = ["alt+h"]
+next_tab = ["alt+l"]
+cycle_pane_next = ["alt+j"]
+cycle_pane_previous = ["alt+k"]
+focus_pane_left = ["alt+left"]
+focus_pane_down = ["alt+down"]
+focus_pane_up = ["alt+up"]
+focus_pane_right = ["alt+right"]
+split_vertical = ["alt+v"]
+split_horizontal = ["alt+s"]
+new_tab = ["alt+t"]
+close_pane = ["alt+x"]
+move_tab_previous = ["alt+i"]
+move_tab_next = ["alt+o"]
+# Global pane history, including within the same workspace; not project MRU.
+last_pane = ["alt+tab", "prefix+tab"]
+workspace_picker = ["alt+w", "prefix+w"]
+goto = ["alt+e"]
+copy_mode = ["prefix+enter", "prefix+["]
+resize_mode = "prefix+r"
+zoom = "prefix+z"
+detach = ["prefix+d", "prefix+q"]
+help = "prefix+?"

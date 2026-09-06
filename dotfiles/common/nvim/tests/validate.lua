@@ -52,7 +52,7 @@ local commands = {
   "rust-analyzer", "taplo", "typescript-language-server",
   "vim-language-server", "vscode-css-language-server", "vscode-html-language-server",
   "vscode-json-language-server", "vscode-eslint-language-server", "yaml-language-server", "eslint_d",
-  "kdlfmt", "prettier", "shellcheck", "shfmt", "stylua", "yamllint", "rg", "git", "yazi", "tmux",
+  "kdlfmt", "prettier", "shellcheck", "shfmt", "stylua", "yamllint", "rg", "git", "yazi",
 }
 local missing = {}
 for _, command in ipairs(commands) do

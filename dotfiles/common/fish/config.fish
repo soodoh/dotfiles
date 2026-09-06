@@ -45,13 +45,11 @@ if status is-interactive
         __abbr_tips_init
     end
 
-    if command -q tmux; and not set -q TMUX; and not set -q VSCODE_RESOLVING_ENVIRONMENT
+    # HERDR_ENV covers panes AND popup terminals; TMUX allows safe coexistence.
+    # Command-style startup means detach returns here without a restart loop.
+    if command -q herdr; and not set -q HERDR_ENV; and not set -q HERDR_PANE_ID; and not set -q TMUX; and not set -q VSCODE_RESOLVING_ENVIRONMENT
         if test "$TERM_PROGRAM" != vscode; and test "$TERM_PROGRAM" != zed
-            if command tmux has-session 2>/dev/null
-                command tmux attach
-            else
-                command tmux new-session -s main
-            end
+            command herdr
         end
     end
 end

@@ -57,7 +57,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:jesseduffield/lazygit" = "0.65.0"
 "aqua:starship/starship" = "1.26.0"
 "aqua:ajeetdsouza/zoxide" = "0.10.0"
-"aqua:joshmedeski/sesh" = "2.29.0"
+"aqua:herdrdev/herdr" = "0.8.2"
 "aqua:sxyazi/yazi" = "26.9.1"
 "aqua:neovim/neovim" = "0.12.5"
 "github:docker/docker-language-server" = "0.20.1"
@@ -67,7 +67,6 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:JohnnyMorganz/StyLua" = "2.5.2"
-"aqua:tmux/tmux-builds" = "3.7b"
 "aqua:docker/cli" = "29.8.0"
 "aqua:docker/compose" = "5.5.1"
 "cargo:tree-sitter-cli" = "0.27.0"
@@ -99,7 +98,6 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "brew:fish" = { version = "latest", os = "macos" }
 "brew:git" = { version = "latest", os = "macos" }
 "brew:gnupg" = { version = "latest", os = "macos" }
-"brew:terminal-notifier" = { version = "latest", os = "macos" }
 # Required on macOS for Readseek
 "brew:libgit2" = { version = "latest", os = "macos" }
 "brew:lima" = { version = "latest", os = "macos" }
@@ -232,9 +230,8 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 "~/.config/ghostty" = "dotfiles/common/ghostty"
 "~/.config/lazygit" = "dotfiles/common/lazygit"
 "~/.config/nvim" = "dotfiles/common/nvim"
-"~/.config/sesh" = "dotfiles/common/sesh"
+"~/.config/herdr/config.toml" = "dotfiles/common/herdr/config.toml"
 "~/.config/starship.toml" = "dotfiles/common/starship.toml"
-"~/.config/tmux" = "dotfiles/common/tmux"
 "~/.config/yazi" = "dotfiles/common/yazi"
 "~/.config/aerospace" = "dotfiles/macos/aerospace"
 "~/.config/sketchybar" = "dotfiles/macos/sketchybar"
@@ -295,6 +292,7 @@ fi
 "$brew_bin" list sketchybar >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/sketchybar
 "$brew_bin" list borders >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/borders
 "$brew_bin" list moshi-hook >/dev/null 2>&1 || "$brew_bin" install rjyo/moshi/moshi-hook
+"$brew_bin" list --formula alerter >/dev/null 2>&1 || "$brew_bin" install vjeantet/tap/alerter
 '''
 
 [tasks.status]
@@ -334,6 +332,8 @@ run = '''
 find dotfiles -type f -name '*.sh' -exec bash -n {} +
 find dotfiles -type f -name '*.fish' -exec fish --no-execute {} \;
 bash dotfiles/work/bootstrap-repositories.test.sh
+python3 dotfiles/common/fish/config.test.py
+HERDR_CONFIG_PATH="$PWD/dotfiles/common/herdr/config.toml" herdr config check
 '''
 
 [tasks."validate:agents"]
@@ -342,8 +342,7 @@ run = [
   "bun run --cwd pi-extensions ci",
   'node pi-extensions/extensions-host.test.mjs "$(mise which pi)"',
   'node pi-extensions/subagents-host.test.mjs "$(mise which pi)"',
-  "node dotfiles/common/tmux/scripts/pi-session-lib.test.mjs",
-  "bash dotfiles/common/tmux/scripts/pi-session-focus.test.sh",
+  'python3 pi-extensions/packages/herdr-agent-state/integration.test.py "$(mise which pi)"',
   '''
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
@@ -403,5 +402,5 @@ run = "mise bootstrap packages upgrade"
 run = '''
 [ "$(uname -s)" = Darwin ] || exit 0
 brew upgrade --cask nikitabobko/tap/aerospace
-brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders rjyo/moshi/moshi-hook
+brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders rjyo/moshi/moshi-hook vjeantet/tap/alerter
 '''

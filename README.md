@@ -138,7 +138,7 @@ Run the non-destructive native checks and colocated tests:
 mise run validate
 ```
 
-The suite parses and plans both profiles, checks shell syntax, runs the Pi package suite, exercises tmux tests, verifies the expected work security failure, runs Neovim in an isolated environment, and executes colocated macOS configuration tests. CI never runs a workstation bootstrap.
+The suite parses and plans both profiles, checks shell syntax, runs the Pi package suite, exercises isolated Fish autostart and Herdr integration tests, validates the Herdr config natively, verifies the expected work security failure, runs Neovim in an isolated environment, and executes colocated macOS configuration tests. CI never runs a workstation bootstrap.
 
 CI restores tools explicitly and always runs `mise install --locked` and the full validation suite, including on exact cache hits. Successful PR and main jobs save misses and compatible fallback generations. `.github/workflows/mise-cache-key.py` keys the shared CI tool declarations, task tools, install options, and current-platform lock state—not profile-only tools, task descriptions, or ordinary environment values. OS, architecture, runner image family, mise version, and installation policy bound fallback reuse; new options invalidate the whole boundary. A cached fingerprint manifest forces reinstallation of new or replaced lock artifacts, including same-version changes, while retaining unchanged installs. Review the projection and bump its schema when changing installation/provenance policy or introducing environment-dependent tool inputs. Neither the manifest nor locked installation is an integrity scan of cached executable contents.
 
@@ -147,6 +147,31 @@ The tool archive retains mise's data directory and CI-owned Cargo proxies. Rustu
 `mise run validate:agents` also validates resources declared in `pi-extensions/package.json` and loads each extension, then the combined manifest, through the actual mise-managed Pi loader. These checks use mise's Node LTS in temporary, credential-free processes with subprocesses, native addons, and external writes denied; no extension exception list is maintained. Network access is not blocked: `PI_OFFLINE` is best-effort, and the checks do not start sessions, invoke tools, or prompt models. They cover imports, factory registration, resource diagnostics, and registration conflicts—not session lifecycle, tool execution, or native background completion, which still needs a manual smoke test after relevant upgrades.
 
 The work LiteLLM cleartext HTTP endpoint remains an intentional, exact expected failure, checked against enabled Pi model providers. A follow-up must explicitly choose either HTTPS or a narrowly scoped private-network allowlist and update `AGENTS.md` with that policy; this validation change does neither.
+
+## Herdr terminal workspaces
+
+Both profiles use Herdr 0.8.2 in interactive Fish shells, with Tokyo Night and
+native workspace/agent navigation. Only `~/.config/herdr/config.toml` is linked
+into Git; session snapshots, sockets, plugins, and history remain local.
+`ha` launches/attaches Herdr; prefix **Ctrl+Space**, then **d**, detaches back to
+Fish. Existing tmux panes and editor terminals are excluded from autostart.
+
+The unchanged official Pi integration is vendored in
+`pi-extensions/packages/herdr-agent-state` and enabled by both profile filters.
+The existing mise Pi-package symlink deploys it; no separate Herdr installer task
+is needed. An explicit exclusion prevents a legacy standalone copy from loading
+twice without deleting it. See the package README for provenance and updates.
+The `herdr-ui-prompts` companion translates native Pi dialog events into blocked
+state, without changing the official reporter or clearing subagent attention.
+Pi now uses its regular rendering default. `pi --tui-mode fullscreen` remains a
+per-launch fallback, not a reason to restore the retired custom integration.
+
+See [Herdr migration and acceptance](dotfiles/common/herdr/README.md) for the
+keymap, accepted differences, outstanding GUI/SSH checks, and safe rollback.
+Alerter is included in the macOS-only `bootstrap:homebrew-packages` task (and its
+explicit update counterpart). The notification plugin itself is not provisioned;
+see [mise plugin management](dotfiles/common/herdr/plugin-management-research.md)
+for the recommended small guarded bootstrap task rather than a tool-install hook.
 
 ## Updates
 

@@ -737,6 +737,30 @@ url_api = "https://api.github.com/repos/getsops/sops/releases/assets/486808228"
 [tools."aqua:getsops/sops"."platforms.macos-x64-baseline".provenance.slsa]
 url = "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.intoto.jsonl"
 
+[[tools."aqua:herdrdev/herdr"]]
+version = "0.8.2"
+backend = "aqua:herdrdev/herdr"
+
+[tools."aqua:herdrdev/herdr"."platforms.linux-arm64"]
+checksum = "sha256:f55610658e1c2e0d2aaef730b4b2ab885f7f8ba00285ab372bfb14f2e3d5b40d"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.8.2/herdr-linux-aarch64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/521169113"
+
+[tools."aqua:herdrdev/herdr"."platforms.linux-x64"]
+checksum = "sha256:976150a14d490c94b243ea2e1a7eb2dfb67f12e36b182db90936f6728e6aecf4"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.8.2/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/521169107"
+
+[tools."aqua:herdrdev/herdr"."platforms.macos-arm64"]
+checksum = "sha256:a5d4f4d504d8b309c91f811050559300faba31258425f53c50852fc96f6ae574"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.8.2/herdr-macos-aarch64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/521169108"
+
+[tools."aqua:herdrdev/herdr"."platforms.macos-x64"]
+checksum = "sha256:ab50262c8190cd7aa9056d249d255c08c328c3e8716de9cfa29db4f131b8e2c1"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.8.2/herdr-macos-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/521169110"
+
 [[tools."aqua:jdx/usage"]]
 version = "6.8.0"
 backend = "aqua:jdx/usage"
@@ -834,55 +858,6 @@ url_api = "https://api.github.com/repos/jesseduffield/lazygit/releases/assets/54
 checksum = "sha256:3848033450205f975aa6a587e76f01c9796bff3a3cc0e32060ac77b9423264e3"
 url = "https://github.com/jesseduffield/lazygit/releases/download/v0.65.0/lazygit_0.65.0_darwin_x86_64.tar.gz"
 url_api = "https://api.github.com/repos/jesseduffield/lazygit/releases/assets/545957191"
-
-[[tools."aqua:joshmedeski/sesh"]]
-version = "2.29.0"
-backend = "aqua:joshmedeski/sesh"
-
-[tools."aqua:joshmedeski/sesh"."platforms.linux-arm64"]
-checksum = "sha256:003e3ed81a95f991b9b38c1d3246371a539844775c96e6324ac76dfbd1f90494"
-url = "https://github.com/joshmedeski/sesh/releases/download/v2.29.0/sesh_Linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/541315371"
-
-[tools."aqua:joshmedeski/sesh"."platforms.linux-arm64-musl"]
-checksum = "sha256:003e3ed81a95f991b9b38c1d3246371a539844775c96e6324ac76dfbd1f90494"
-url = "https://github.com/joshmedeski/sesh/releases/download/v2.29.0/sesh_Linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/541315371"
-
-[tools."aqua:joshmedeski/sesh"."platforms.linux-x64"]
-checksum = "sha256:ff503505c9f6ed890a6af30c952ae24a4722c7d4e10a2f98648b416ad71d09c6"
-url = "https://github.com/joshmedeski/sesh/releases/download/v2.29.0/sesh_Linux_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/541315360"
-
-[tools."aqua:joshmedeski/sesh"."platforms.linux-x64-baseline"]
-checksum = "sha256:ff503505c9f6ed890a6af30c952ae24a4722c7d4e10a2f98648b416ad71d09c6"
-url = "https://github.com/joshmedeski/sesh/releases/download/v2.29.0/sesh_Linux_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/541315360"
-
-[tools."aqua:joshmedeski/sesh"."platforms.linux-x64-musl"]
-checksum = "sha256:ff503505c9f6ed890a6af30c952ae24a4722c7d4e10a2f98648b416ad71d09c6"
-url = "https://github.com/joshmedeski/sesh/releases/download/v2.29.0/sesh_Linux_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/541315360"
-
-[tools."aqua:joshmedeski/sesh"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:ff503505c9f6ed890a6af30c952ae24a4722c7d4e10a2f98648b416ad71d09c6"
-url = "https://github.com/joshmedeski/sesh/releases/download/v2.29.0/sesh_Linux_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/541315360"
-
-[tools."aqua:joshmedeski/sesh"."platforms.macos-arm64"]
-checksum = "sha256:c3062184a9a423a123294b03ac27065d144e0052db11ddd500f88680f22ca123"
-url = "https://github.com/joshmedeski/sesh/releases/download/v2.29.0/sesh_Darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/541315358"
-
-[tools."aqua:joshmedeski/sesh"."platforms.macos-x64"]
-checksum = "sha256:f407876d03f4f50ba9c436a89c6b5a8faf6f0f7c68791c5264501d69193aaa97"
-url = "https://github.com/joshmedeski/sesh/releases/download/v2.29.0/sesh_Darwin_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/541315362"
-
-[tools."aqua:joshmedeski/sesh"."platforms.macos-x64-baseline"]
-checksum = "sha256:f407876d03f4f50ba9c436a89c6b5a8faf6f0f7c68791c5264501d69193aaa97"
-url = "https://github.com/joshmedeski/sesh/releases/download/v2.29.0/sesh_Darwin_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/joshmedeski/sesh/releases/assets/541315362"
 
 [[tools."aqua:jqlang/jq"]]
 version = "1.8.2"
@@ -1235,55 +1210,6 @@ url_api = "https://api.github.com/repos/sxyazi/yazi/releases/assets/539261413"
 checksum = "sha256:36e09036fcc446488d876d139a5e303f2443b82cfb6ac7dfcb43892d6fe6fa20"
 url = "https://github.com/sxyazi/yazi/releases/download/v26.9.1/yazi-x86_64-apple-darwin.zip"
 url_api = "https://api.github.com/repos/sxyazi/yazi/releases/assets/539261413"
-
-[[tools."aqua:tmux/tmux-builds"]]
-version = "3.7b"
-backend = "aqua:tmux/tmux-builds"
-
-[tools."aqua:tmux/tmux-builds"."platforms.linux-arm64"]
-checksum = "sha256:b2955782695283fbc3682a2f77d65616f53b986ee3cf3d80618d3b1cb95b91a6"
-url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072868"
-
-[tools."aqua:tmux/tmux-builds"."platforms.linux-arm64-musl"]
-checksum = "sha256:b2955782695283fbc3682a2f77d65616f53b986ee3cf3d80618d3b1cb95b91a6"
-url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072868"
-
-[tools."aqua:tmux/tmux-builds"."platforms.linux-x64"]
-checksum = "sha256:f85e6c1c412750a774eb3f370f33bad05fc726fb8b6a0b174ad6f0b6d954df58"
-url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072866"
-
-[tools."aqua:tmux/tmux-builds"."platforms.linux-x64-baseline"]
-checksum = "sha256:f85e6c1c412750a774eb3f370f33bad05fc726fb8b6a0b174ad6f0b6d954df58"
-url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072866"
-
-[tools."aqua:tmux/tmux-builds"."platforms.linux-x64-musl"]
-checksum = "sha256:f85e6c1c412750a774eb3f370f33bad05fc726fb8b6a0b174ad6f0b6d954df58"
-url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072866"
-
-[tools."aqua:tmux/tmux-builds"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:f85e6c1c412750a774eb3f370f33bad05fc726fb8b6a0b174ad6f0b6d954df58"
-url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072866"
-
-[tools."aqua:tmux/tmux-builds"."platforms.macos-arm64"]
-checksum = "sha256:ee66dbcd49613eb41dc6b2f3abc5cd39d9135d67b7dfef1fdb180a3dbdc01f1e"
-url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-macos-arm64.tar.gz"
-url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072864"
-
-[tools."aqua:tmux/tmux-builds"."platforms.macos-x64"]
-checksum = "sha256:ea90f0d8e8998cf5a3a5921e985685844a13a7c3b5779f36870bd98b7f147fe6"
-url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-macos-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072865"
-
-[tools."aqua:tmux/tmux-builds"."platforms.macos-x64-baseline"]
-checksum = "sha256:ea90f0d8e8998cf5a3a5921e985685844a13a7c3b5779f36870bd98b7f147fe6"
-url = "https://github.com/tmux/tmux-builds/releases/download/v3.7b/tmux-3.7b-macos-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/tmux/tmux-builds/releases/assets/465072865"
 
 [[tools."aqua:yarnpkg/berry"]]
 version = "4.18.0"
