@@ -63,6 +63,9 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/dotfiles/common/nvim" "$HOME/.config/nvim"
           mise run update:neovim
 
+      - name: Refresh Herdr plugin pin (no plugin installation)
+        run: mise run update:herdr-plugin-pin
+
       - name: Validate repository updates
         run: |
           mise run validate:config
@@ -114,5 +117,5 @@ jobs:
               --base "$BASE_BRANCH" \
               --head "$UPDATE_BRANCH" \
               --title "chore(root): refresh repository assets" \
-              --body $'Updates repository-managed assets that Renovate does not maintain:\n\n- Renovate-unsupported mise tools and lockfiles\n- personal and work skill catalogs\n- Neovim plugin lock state\n\nThe repository validation suite passed before this PR was opened.'
+              --body $'Updates repository-managed assets that Renovate does not maintain:\n\n- Renovate-unsupported mise tools and lockfiles\n- personal and work skill catalogs\n- Neovim plugin lock state\n- Herdr plugin commit pins (source resolution only; no plugin code built or executed)\n\nConfiguration and lock validation passed before this PR was opened. Review upstream plugin changes before merging; apply merged pins locally with mise --env <profile> run update:herdr-plugins.'
           fi

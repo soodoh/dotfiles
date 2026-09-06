@@ -49,11 +49,43 @@ installer for deployment. `herdr integration status` only checks the standalone
 path, not the package; its markers do not prove byte integrity or runtime delivery.
 Update the vendored reporter deliberately with the Herdr pin, not via Bun updates.
 
-Alerter is included in the macOS-only Homebrew bootstrap/update tasks. The
-notification plugin remains uninstalled and unconfigured. See the
-[notification audit](notification-research.md) for routing limitations and
-[mise plugin-management research](plugin-management-research.md) for why one
-small guarded bootstrap task is preferable to tool hooks or a new mise adapter.
+## Notification plugin provisioning
+
+Both macOS profiles now provision `yankewei/herdr-focus-notify` through
+`bootstrap:herdr-plugins`, after the existing Homebrew task supplies alerter.
+The desired full SHA is `vars.herdr_focus_notify_ref` in `mise.toml`.
+
+- Bootstrap installs only when absent, using Herdr's own `plugin install --ref
+  <SHA> --yes`. Matching healthy installations are no-ops, with no network/build.
+- `mise --env personal-macos run update:herdr-plugins` (or `work-macos`) applies
+  a changed committed pin. The grouped `update` includes it after Homebrew updates.
+- Both commands are Linux no-ops and require an explicit profile on macOS.
+  Disabled, linked/foreign, dirty, orphaned or broken installations fail with a
+  diagnostic even during update. They are never silently repaired or re-enabled.
+- `mise run update:herdr-plugin-pin` only resolves upstream `refs/heads/main` to
+  a full SHA. The weekly repository-updates workflow runs it and proposes the
+  change in its existing PR; it does not build/install/execute this plugin.
+  Review the linked upstream comparison before merging, then pull and run update.
+
+`plugin.py` reads the registry strictly (Herdr's offline list can mask corruption),
+checks ownership, paths, Git HEAD/cleanliness, manifest ID and executable presence,
+and delegates all installation/registration to Herdr. It does not write registry,
+plugin config or learned state itself. Its seven colocated behavioral tests use
+local disposable Git repositories and mocked installation, not upstream code.
+Git, Cargo, alerter and Xcode Command Line Tools must be available for installation.
+Do not run this concurrently with manual plugin mutations. Checks are not binary
+integrity verification; ignored Cargo outputs are allowed, and upstream's build
+command still lacks `--locked`. `--yes` approves executing the pinned build code.
+
+This implementation did not install a workstation plugin or configure macOS
+notification permissions. Start with a supervised single-window trial: clicks
+activate an app and focus a Herdr pane, not necessarily the originating Ghostty
+window/client. To avoid duplicate native desktop notifications, choose
+`[ui.toast] delivery = "herdr"` (internal-only) or `"off"` when enabling the plugin;
+the shared config's existing delivery policy is left unchanged. See the
+[notification audit](notification-research.md) and
+[mise plugin-management research](plugin-management-research.md) for provenance,
+installer semantics and routing limitations.
 
 The local authorized setup installed Herdr, created the config-file link, and
 installed the official extension after confirming those destinations were absent.
@@ -132,8 +164,8 @@ ignores child runtimes, and uses a generic label rather than exposing prompt tex
 A pending custom loader/inspector is also a UI span; arbitrary shell/browser input
 and uninstrumented built-in UI are not covered. Screen fallback remains suppressed
 while the official reporter is authoritative.
-There is no replacement for the old terminal-notifier/Ghostty AppleScript bridge.
-Native done/idle attention and focus behavior need not match that bridge exactly.
+The macOS notification plugin supplies app activation and Herdr-pane focus, not
+exact parity with the old terminal-notifier/Ghostty-window AppleScript bridge.
 
 A `ctx.mode === "tui"` gate keeps fresh RPC/JSON/print instances harmless even
 when they inherit Herdr variables (RPC's `hasUI=true` alone is not a safe guard).

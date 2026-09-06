@@ -168,10 +168,12 @@ per-launch fallback, not a reason to restore the retired custom integration.
 
 See [Herdr migration and acceptance](dotfiles/common/herdr/README.md) for the
 keymap, accepted differences, outstanding GUI/SSH checks, and safe rollback.
-Alerter is included in the macOS-only `bootstrap:homebrew-packages` task (and its
-explicit update counterpart). The notification plugin itself is not provisioned;
-see [mise plugin management](dotfiles/common/herdr/plugin-management-research.md)
-for the recommended small guarded bootstrap task rather than a tool-install hook.
+Alerter is included in the macOS-only Homebrew bootstrap/update tasks.
+`bootstrap:herdr-plugins` installs the pinned `herdr-focus-notify` only when absent;
+`update:herdr-plugins` applies changed committed pins. Both preserve disabled or
+modified installations rather than replacing/re-enabling them. See
+[plugin provisioning](dotfiles/common/herdr/README.md#notification-plugin-provisioning)
+for prerequisites, notification-delivery policy and routing limitations.
 
 ## Updates
 
@@ -190,11 +192,11 @@ mise run lock
 
 This generates both explicit environments in isolated temporary roots, verifies that they produce the same shared `mise.lock`, and only then atomically publishes changed lockfiles. Mise writes profile-only tools to `mise.personal-macos.lock` or `mise.work-macos.lock`, so both environments cover all three committed locks without mutating the tracked configuration during generation.
 
-The task updates mise tools, refreshes all shared and profile-specific mise lockfiles, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, and tapped Homebrew packages. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
+The task updates mise tools, refreshes all shared and profile-specific mise lockfiles, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, tapped Homebrew packages, and applies committed Herdr plugin pins. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
 
 After updating Moshi, run `brew services restart moshi-hook` on paired Macs. Pairing and installed hooks survive upgrades; no need to pair or install hooks again.
 
-A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, and the Neovim plugin lock. It validates the resulting checkout and opens or refreshes a single update pull request when tracked files change.
+A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, the Neovim plugin lock, and Herdr plugin commit pins. It runs configuration/lock validation and opens or refreshes a single update pull request when tracked files change. Herdr pin refresh resolves upstream main without building or executing plugin code; merging the PR does not upgrade workstations until they pull and run the explicit update task.
 
 ### Matt Pocock skills
 

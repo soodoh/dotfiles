@@ -35,6 +35,8 @@ _.path = [
 
 [vars]
 skills_cli_version = "1.5.22"
+# Refreshed from upstream main by the repository-updates PR workflow.
+herdr_focus_notify_ref = "f931db5090ded54086e365dfb8db896c3a3e1a05"
 
 [tools]
 node = "24.20.0" # LTS; keep aligned with .nvmrc
@@ -245,12 +247,25 @@ description = "Install repository dependencies and configure managed integration
 run = [
   { task = "bootstrap:pi" },
   { task = "bootstrap:homebrew-packages" },
+  { task = "bootstrap:herdr-plugins" },
   { task = "configure:google-calendar-webapp" },
   { task = "configure:docker-compose-plugin" },
 ]
 
 [tasks."bootstrap:pi"]
 run = "bun ci --cwd pi-extensions"
+
+[tasks."bootstrap:herdr-plugins"]
+description = "Install the pinned macOS notifier only when absent; never upgrade or re-enable"
+run = "python3 dotfiles/common/herdr/plugin.py bootstrap"
+
+[tasks."update:herdr-plugins"]
+description = "Apply the committed notifier pin to a healthy managed macOS installation"
+run = "python3 dotfiles/common/herdr/plugin.py update"
+
+[tasks."update:herdr-plugin-pin"]
+description = "Refresh the desired notifier SHA from upstream main without installing it"
+run = "python3 dotfiles/common/herdr/plugin.py refresh-pin"
 
 [tasks."configure:docker-compose-plugin"]
 description = "Expose the mise-managed Compose binary as a Docker CLI plugin"
@@ -319,6 +334,7 @@ run = [
   "python3 mise.bootstrap.test.py",
   "python3 mise.lock.test.py",
   "python3 .github/workflows/mise-cache-key.test.py",
+  "python3 dotfiles/common/herdr/plugin.test.py",
   "mise --env personal-macos bootstrap plan >/dev/null",
   "mise --env work-macos bootstrap plan >/dev/null",
 ]
@@ -381,6 +397,7 @@ esac''',
   { task = "update:neovim" },
   { task = "update:packages" },
   { task = "update:homebrew-packages" },
+  { task = "update:herdr-plugins" },
 ]
 
 [tasks."update:tools"]
