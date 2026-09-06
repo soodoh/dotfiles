@@ -1,35 +1,76 @@
 onboarding = false
-# Herdr 0.8.2. Deploy only this file, never the runtime directory.
+
 [theme]
 name = "tokyo-night"
 
-# Native defaults: follow the source pane cwd; restore layouts and supported
-# agent conversations. Optional screen-history persistence stays disabled.
 [terminal]
 new_cwd = "follow"
 
 [keys]
+# General
 prefix = "ctrl+space"
-previous_tab = ["alt+h"]
-next_tab = ["alt+l"]
-cycle_pane_next = ["alt+j"]
-cycle_pane_previous = ["alt+k"]
-focus_pane_left = ["alt+left"]
-focus_pane_down = ["alt+down"]
-focus_pane_up = ["alt+up"]
-focus_pane_right = ["alt+right"]
-split_vertical = ["alt+v"]
-split_horizontal = ["alt+s"]
-new_tab = ["alt+t"]
-close_pane = ["alt+x"]
-move_tab_previous = ["alt+i"]
-move_tab_next = ["alt+o"]
-# Global pane history, including within the same workspace; not project MRU.
-last_pane = ["alt+tab", "prefix+tab"]
-workspace_picker = ["alt+w", "prefix+w"]
+toggle_sidebar = "prefix+space"
 goto = ["alt+e"]
-copy_mode = ["prefix+enter", "prefix+["]
-resize_mode = "prefix+r"
 zoom = "prefix+z"
 detach = ["prefix+d", "prefix+q"]
+settings = "prefix+s"
+reload_config = "prefix+shift+r"
 help = "prefix+?"
+open_notification_target = "prefix+o"
+remote_image_paste = "ctrl+v"
+
+# Modes
+copy_mode = ["prefix+enter", "prefix+["]
+resize_mode = "prefix+r"
+workspace_picker = ["alt+w", "prefix+w"]
+edit_scrollback = "prefix+e"
+
+# Tabs
+previous_tab = ["alt+h"]
+next_tab = ["alt+l"]
+new_tab = ["alt+t"]
+move_tab_previous = ["alt+i"]
+move_tab_next = ["alt+o"]
+rename_tab = "prefix+shift+t"
+switch_tab = "prefix+1..9"
+close_tab = "prefix+shift+x"
+# Panes
+last_pane = ["alt+tab", "prefix+tab"]
+cycle_pane_next = ["alt+j"]
+cycle_pane_previous = ["alt+k"]
+split_vertical = ["alt+v"]
+split_horizontal = ["alt+s"]
+close_pane = ["alt+x"]
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+swap_pane_left = "prefix+shift+h"
+swap_pane_down = "prefix+shift+j"
+swap_pane_up = "prefix+shift+k"
+swap_pane_right = "prefix+shift+l"
+rename_pane = "prefix+shift+p"
+# Workspaces
+previous_workspace = ["alt+down"]
+next_workspace = ["alt+up"]
+rename_workspace = "prefix+shift+w"
+close_workspace = "prefix+shift+d"
+switch_workspace = ""
+# Agents
+previous_agent = ["alt+left"]
+next_agent = ["alt+right"]
+new_workspace = ["alt+n", "prefix+n"]
+focus_agent = ""
+
+# Worktrees
+new_worktree = ""
+open_worktree = ""
+remove_worktree = ""
+
+# Navigate-mode (alt+w)
+navigate_workspace_up = "up"
+navigate_workspace_down = "down"
+navigate_pane_left = "h"
+navigate_pane_down = "j"
+navigate_pane_up = "k"
+navigate_pane_right = "l"
