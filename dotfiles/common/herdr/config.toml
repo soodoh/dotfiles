@@ -14,6 +14,7 @@ pane_gaps = false
 show_agent_labels_on_pane_borders = true
 hide_tab_bar_when_single_tab = false
 status_indicators = "symbols"
+confirm_close = true
 
 [keys]
 # General
@@ -72,8 +73,8 @@ new_workspace = ["alt+n", "prefix+n"]
 focus_agent = ""
 
 # Worktrees
-new_worktree = ""
-open_worktree = ""
+new_worktree = "prefix+shift+g"
+open_worktree = "prefix+t"
 remove_worktree = ""
 
 # Navigate-mode (alt+w)
