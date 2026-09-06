@@ -3,6 +3,7 @@ min_version = "2026.8.6"
 [settings]
 experimental = true
 lockfile = true
+locked = true
 age.key_file = "~/.config/mise/age.txt"
 # Renovate has no age identity; workstation Fish profiles explicitly enable strict mode.
 age.strict = false
