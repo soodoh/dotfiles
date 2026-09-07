@@ -62,7 +62,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:jesseduffield/lazygit" = "0.65.0"
 "aqua:starship/starship" = "1.26.0"
 "aqua:ajeetdsouza/zoxide" = "0.10.0"
-"aqua:herdrdev/herdr" = "0.8.2"
+"aqua:herdrdev/herdr" = "0.9.0"
 "aqua:sxyazi/yazi" = "26.9.1"
 "aqua:neovim/neovim" = "0.12.5"
 "github:docker/docker-language-server" = "0.20.1"
@@ -89,7 +89,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:@biomejs/biome" = "2.5.12"
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
-"npm:oxlint" = "1.81.0"
+"npm:oxlint" = "1.82.0"
 "npm:prettier" = "3.9.6"
 "npm:pyright" = "1.1.413"
 "npm:typescript-language-server" = "6.0.0"
