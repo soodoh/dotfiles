@@ -165,19 +165,22 @@ Visual acceptance is **not** a gate for this decision. Rendering-only fallback:
 pi --tui-mode fullscreen
 ```
 
-The official extension enables only with `HERDR_ENV=1`, a socket, and a pane ID.
-It reports session identity (absolute session path preferred, otherwise UUID),
-working on agent start, and idle only on `agent_settled` when Pi is truly idle.
-The unchanged reporter consumes `herdr:blocked`. Both profiles now also load
-[`herdr-ui-prompts`](../../../pi-extensions/packages/herdr-ui-prompts/README.md),
-which bridges Pi 0.85.1's native `ui_prompt_start/end` into one counted blocked
-contribution. It handles instrumented extension dialogs, including the question
-tool's `ui.custom`, and releases on completion/cancel/error or session shutdown.
-Closing a prompt does not clear independent subagent attention. It is TUI/pane-only,
-ignores child runtimes, and uses a generic label rather than exposing prompt text.
-A pending custom loader/inspector is also a UI span; arbitrary shell/browser input
-and uninstrumented built-in UI are not covered. Screen fallback remains suppressed
-while the official reporter is authoritative.
+The locally maintained [`herdr-agent-state`](../../../pi-extensions/packages/herdr-agent-state/README.md)
+extension enables only with `HERDR_ENV=1`, a socket, and a pane ID. It reports
+session identity (absolute session path preferred, otherwise UUID) and combines
+parent activity, core continuations, counted `herdr:busy` contributions, native
+`ui_prompt_start/end` spans, and independent counted `herdr:blocked` contributions.
+Blockers take precedence over working; idle is published only when neither remains.
+The former `herdr-ui-prompts` companion is consolidated into this single writer.
+Reload restoration waits for all session-start handlers before announcing idle;
+teardown cancels pending writes rather than manufacturing a completion.
+
+Native spans include the question tool's `ui.custom` and pending custom
+loaders/inspectors. Arbitrary shell/browser input and uninstrumented built-in UI
+are not covered. Prompt titles and sibling labels are not sent to Herdr. Legacy
+subagent blocker events lack source/reason information, so inactivity warnings
+can still surface as blocked; human-only classification needs a richer signal.
+The notification plugin's explicit `blocked`/`done` filter is unchanged.
 The macOS notification plugin supplies app activation and Herdr-pane focus, not
 exact parity with the old terminal-notifier/Ghostty-window AppleScript bridge.
 
@@ -189,7 +192,7 @@ dependency. This corrects the handoff's JSON description. The plugin, its mappin
 and lazy lock remain unchanged. Auto-session-name, statusline, all independent
 packages, and work-only aidev-track remain.
 
-## Validation evidence (2026-09-06)
+## Migration baseline evidence (2026-09-06, before reporter consolidation)
 
 | Check | Result |
 | --- | --- |
@@ -202,6 +205,12 @@ packages, and work-only aidev-track remain.
 | Native Pi loader/runner/UI wrappers + captured socket fixture | Reporter and companion loaded once; mode guards, prompt answer/cancel/error, overlapping spans, independent attention, identity and simulated shutdown/start cleanup passed |
 | Pi extension package CI | 146 tests passed, including 9 prompt-bridge unit cases; Bun frozen install passed without changing its lock |
 | `git diff --check`; scoped reference/lock audit | Passed; no runtime state or unrelated lock/config changes |
+
+Current custom-reporter coverage replaces bundled-byte equality with full report
+sequence assertions. The host suite checks four profile/legacy loading cases,
+seven execution modes, real native prompt wrappers, the pi-subagents Herdr bridge,
+and fresh runtime reloads with busy restoration on either side of reporter startup.
+The consolidated extension also participates in the normal lint/type/coverage suite.
 
 The host fixtures use the **installed** Pi loader, event runner and prompt wrappers.
 Agent/session hooks, dialog outcomes and transport are fixture-driven; a full

@@ -9,13 +9,7 @@
 		"enabled": true
 	},
 	"files": {
-		"includes": [
-			"**",
-			"!**/coverage",
-			"!**/dist",
-			"!**/node_modules",
-			"!packages/herdr-agent-state/index.ts"
-		]
+		"includes": ["**", "!**/coverage", "!**/dist", "!**/node_modules"]
 	},
 	"formatter": {
 		"enabled": true

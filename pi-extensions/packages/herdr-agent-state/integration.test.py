@@ -1,4 +1,4 @@
-"""Verify bundled source, package loading and lifecycle behavior in disposable homes."""
+"""Verify custom reporter loading and lifecycle behavior in disposable homes."""
 
 import shutil
 import subprocess
@@ -9,7 +9,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = Path(__file__).resolve().parent
-HERDR = shutil.which("herdr")
 NODE = shutil.which("node")
 PI = str(Path(sys.argv.pop(1)).resolve()) if len(sys.argv) > 1 else None
 
@@ -50,23 +49,6 @@ class IntegrationTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
 
-    def test_matches_bundled_asset(self):
-        self.assertIsNotNone(HERDR, "install the declared Herdr with mise")
-        # Extract upstream bytes only in a temporary HOME, never the workstation.
-        subprocess.run(
-            [HERDR, "integration", "install", "pi"],
-            env=self.env,
-            cwd=self.home,
-            capture_output=True,
-            text=True,
-            timeout=20,
-            check=True,
-        )
-        self.assertEqual(
-            (self.agent / "extensions/herdr-agent-state.ts").read_bytes(),
-            (PACKAGE / "index.ts").read_bytes(),
-        )
-
     def test_profiles_load_package_once_with_or_without_legacy_copy(self):
         legacy_copy = self.agent / "extensions/herdr-agent-state.ts"
         sentinel = 'throw new Error("legacy Herdr integration must not load");\n'
@@ -81,7 +63,7 @@ class IntegrationTests(unittest.TestCase):
 
     def test_lifecycle_and_prompt_behavior(self):
         # Profile and legacy-copy coverage belongs to loading, not every event case.
-        for mode in ("outside", "popup", "rpc", "json", "print", "tui"):
+        for mode in ("outside", "popup", "rpc", "json", "print", "child", "tui"):
             with self.subTest(mode=mode):
                 self.run_host(mode)
 

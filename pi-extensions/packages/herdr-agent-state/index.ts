@@ -1,257 +1,177 @@
-// installed by herdr
-// managed by herdr; reinstalling or updating the integration overwrites this file.
-// add custom hooks/plugins beside this file instead of editing it.
-// HERDR_INTEGRATION_ID=pi
-// HERDR_INTEGRATION_VERSION=8
-// @ts-nocheck
+// Locally maintained; derived from Herdr's Apache-2.0 Pi integration.
+// See README.md for provenance, the sibling event contract, and lifecycle guarantees.
+import { isAbsolute } from "node:path";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
+import { createReporter } from "./transport";
 
-import net from "node:net";
+type State = "working" | "blocked" | "idle";
 
-const HERDR_ENV = process.env.HERDR_ENV;
-const socketPath = process.env.HERDR_SOCKET_PATH;
-const socketEndpoint =
-  process.platform === "win32" && socketPath ? `\\\\.\\pipe\\${socketPath}` : socketPath;
-const paneId = process.env.HERDR_PANE_ID;
-const source = "herdr:pi";
-
-function enabled() {
-  return HERDR_ENV === "1" && !!socketPath && !!paneId;
+function sessionRef(ctx: ExtensionContext): Record<string, unknown> {
+	try {
+		const file = ctx.sessionManager.getSessionFile();
+		if (file && isAbsolute(file)) return { agent_session_path: file };
+	} catch {
+		// Ephemeral/unavailable transcript: try the stable session id instead.
+	}
+	try {
+		const id = ctx.sessionManager.getSessionId();
+		if (id) return { agent_session_id: id };
+	} catch {
+		// State reporting still works without session association.
+	}
+	return {};
 }
 
-function sendRequestAttempt(request: unknown, timeoutMs: number): Promise<boolean> {
-  if (!enabled()) {
-    return Promise.resolve(true);
-  }
+/** The only Pi lifecycle writer for this Herdr pane. */
+export default function herdrAgentState(pi: ExtensionAPI) {
+	const { HERDR_ENV, HERDR_SOCKET_PATH, HERDR_PANE_ID, PI_SUBAGENT_CHILD } =
+		process.env;
+	if (
+		HERDR_ENV !== "1" ||
+		!HERDR_SOCKET_PATH ||
+		!HERDR_PANE_ID ||
+		PI_SUBAGENT_CHILD === "1"
+	)
+		return;
+	const endpoint =
+		process.platform === "win32"
+			? `\\\\.\\pipe\\${HERDR_SOCKET_PATH}`
+			: HERDR_SOCKET_PATH;
+	let context: ExtensionContext | undefined;
+	let reporter: ReturnType<typeof createReporter> | undefined;
+	let closed = false;
+	let ready = false;
+	let parentActive = false;
+	let nativePrompt = false;
+	let busyCount = 0;
+	let blockedCount = 0;
+	let lastState: State | undefined;
+	let scheduled: ReturnType<typeof setImmediate> | undefined;
 
-  return new Promise((resolve) => {
-    let done = false;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    const finish = (delivered: boolean) => {
-      if (done) return;
-      done = true;
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      socket.destroy();
-      resolve(delivered);
-    };
+	function desiredState(): State {
+		if (nativePrompt || blockedCount > 0) return "blocked";
+		// Re-read live core state: completion delivery can queue a continuation before
+		// agent_start fires. Background producers must hold busy until that delivery.
+		if (
+			parentActive ||
+			busyCount > 0 ||
+			context?.isIdle() === false ||
+			context?.hasPendingMessages()
+		)
+			return "working";
+		return "idle";
+	}
 
-    const socket = net.createConnection(socketEndpoint!);
-    socket.on("error", () => finish(false));
-    socket.on("connect", () => socket.write(`${JSON.stringify(request)}\n`));
-    socket.on("data", () => finish(true));
-    socket.on("end", () => finish(false));
-    timeout = setTimeout(() => finish(false), timeoutMs);
-    timeout.unref?.();
-  });
-}
+	function publish() {
+		scheduled = undefined;
+		if (closed || !context || !reporter) return;
+		const state = desiredState();
+		// resources_discover follows ALL session_start handlers, including producers
+		// restoring runs asynchronously. Never announce idle halfway through restore.
+		// Actual prompts and work may be reported immediately during startup.
+		if (state === "idle" && !ready) return;
+		if (state === lastState) return;
+		lastState = state;
+		reporter.report("pane.report_agent", {
+			...sessionRef(context),
+			state,
+			// Never send prompt titles, task text, or untrusted sibling labels.
+			...(state === "blocked"
+				? { message: "Waiting for input or attention" }
+				: {}),
+		});
+	}
 
-async function sendRequest(request: unknown): Promise<void> {
-  if (await sendRequestAttempt(request, 500)) {
-    return;
-  }
-  await sendRequestAttempt(request, 1500);
-}
+	function schedule() {
+		if (closed || !context || scheduled) return;
+		// Coalesce synchronous release/acquire label updates and their microtasks.
+		// This is an event-loop boundary, not a guessed notification cooldown.
+		scheduled = setImmediate(publish);
+	}
 
-type AgentState = "working" | "blocked" | "idle";
+	function contribution(data: unknown): boolean | undefined {
+		if (!data || typeof data !== "object" || !("active" in data))
+			return undefined;
+		return typeof data.active === "boolean" ? data.active : undefined;
+	}
 
-type QueuedState = {
-  state: AgentState;
-  message?: string;
-  seq: number;
-};
+	// Listen before session_start: sibling restoration may run before this handler.
+	// Keep native prompts independent from counted external blocker contributions.
+	const unsubscribes = [
+		pi.events.on("herdr:busy", (data) => {
+			if (closed) return;
+			const active = contribution(data);
+			if (active === undefined) return;
+			busyCount = Math.max(0, busyCount + (active ? 1 : -1));
+			schedule();
+		}),
+		pi.events.on("herdr:blocked", (data) => {
+			if (closed) return;
+			const active = contribution(data);
+			if (active === undefined) return;
+			// Legacy events have no source/reason. Do not guess human-vs-supervisor
+			// intent from their label or accidentally drop real blockers.
+			blockedCount = Math.max(0, blockedCount + (active ? 1 : -1));
+			schedule();
+		}),
+	];
 
-let reportSeq = Date.now() * 1000;
-let currentAgentSessionId: string | undefined;
-let currentAgentSessionPath: string | undefined;
+	function reportSession(ctx: ExtensionContext, reason?: string) {
+		const ref = sessionRef(ctx);
+		if (Object.keys(ref).length === 0) return;
+		reporter?.report("pane.report_agent_session", {
+			...ref,
+			...(reason ? { session_start_source: reason } : {}),
+		});
+	}
 
-function nextReportSeq(): number {
-  reportSeq += 1;
-  return reportSeq;
-}
-
-function updateSessionRef(ctx: any): void {
-  try {
-    const file = ctx?.sessionManager?.getSessionFile?.();
-    currentAgentSessionPath =
-      typeof file === "string" && file.startsWith("/") ? file : undefined;
-  } catch {
-    currentAgentSessionPath = undefined;
-  }
-
-  try {
-    const id = ctx?.sessionManager?.getSessionId?.();
-    currentAgentSessionId = typeof id === "string" && id.length > 0 ? id : undefined;
-  } catch {
-    currentAgentSessionId = undefined;
-  }
-}
-
-function withSessionRef(params: Record<string, unknown>): Record<string, unknown> {
-  if (currentAgentSessionPath) {
-    return { ...params, agent_session_path: currentAgentSessionPath };
-  }
-  if (currentAgentSessionId) {
-    return { ...params, agent_session_id: currentAgentSessionId };
-  }
-  return params;
-}
-
-function currentSessionRef(): Record<string, unknown> | undefined {
-  if (currentAgentSessionPath) {
-    return { agent_session_path: currentAgentSessionPath };
-  }
-  if (currentAgentSessionId) {
-    return { agent_session_id: currentAgentSessionId };
-  }
-  return undefined;
-}
-
-function reportSession(sessionStartSource?: string): Promise<void> {
-  const sessionRef = currentSessionRef();
-  if (!sessionRef) {
-    return Promise.resolve();
-  }
-
-  return sendRequest({
-    id: `${source}:session:${Date.now()}:${Math.random().toString(36).slice(2)}`,
-    method: "pane.report_agent_session",
-    params: {
-      pane_id: paneId,
-      source,
-      agent: "pi",
-      seq: nextReportSeq(),
-      session_start_source: sessionStartSource,
-      ...sessionRef,
-    },
-  });
-}
-
-function sendState(state: AgentState, message?: string, seq = nextReportSeq()): Promise<void> {
-  return sendRequest({
-    id: `${source}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
-    method: "pane.report_agent",
-    params: withSessionRef({
-      pane_id: paneId,
-      source,
-      agent: "pi",
-      state,
-      message,
-      seq,
-    }),
-  });
-}
-
-let sendInFlight = false;
-let queuedState: QueuedState | undefined;
-
-function queueState(state: AgentState, message?: string): void {
-  queuedState = { state, message, seq: nextReportSeq() };
-  if (!sendInFlight) {
-    void drainStateQueue();
-  }
-}
-
-async function drainStateQueue(): Promise<void> {
-  if (sendInFlight) {
-    return;
-  }
-
-  sendInFlight = true;
-  try {
-    while (queuedState) {
-      const next = queuedState;
-      queuedState = undefined;
-      await sendState(next.state, next.message, next.seq);
-    }
-  } finally {
-    sendInFlight = false;
-    if (queuedState) {
-      void drainStateQueue();
-    }
-  }
-}
-
-export default function (pi) {
-  if (!enabled()) {
-    return;
-  }
-
-  let agentActive = false;
-  let blockedCount = 0;
-  let blockedMessage: string | undefined;
-  let lastState: AgentState | undefined;
-  let lastMessage: string | undefined;
-  let rootSession = false;
-
-  function desiredState() {
-    if (blockedCount > 0) {
-      return { state: "blocked" as const, message: blockedMessage };
-    }
-    if (agentActive) {
-      return { state: "working" as const, message: undefined };
-    }
-    return { state: "idle" as const, message: undefined };
-  }
-
-  function publishState(force = false) {
-    const next = desiredState();
-    if (!force && next.state === lastState && next.message === lastMessage) {
-      return;
-    }
-    lastState = next.state;
-    lastMessage = next.message;
-    queueState(next.state, next.message);
-  }
-
-  pi.events.on("herdr:blocked", (data) => {
-    if (!rootSession) {
-      return;
-    }
-    if (!data?.active) {
-      blockedCount = Math.max(0, blockedCount - 1);
-      if (blockedCount === 0) {
-        blockedMessage = undefined;
-      }
-      publishState();
-      return;
-    }
-
-    blockedCount += 1;
-    blockedMessage = data.label;
-    publishState();
-  });
-
-  pi.on("session_start", async (event, ctx) => {
-    // TUI only: RPC/JSON/print modes are headless (no PTY herdr can display),
-    // and RPC still reports hasUI=true, so mode is the reliable gate.
-    if (ctx?.mode !== "tui") {
-      return;
-    }
-    rootSession = true;
-    updateSessionRef(ctx);
-    await reportSession(event?.reason);
-    // A reload can replace this extension mid-run without emitting another agent_start.
-    agentActive = ctx?.isIdle?.() === false;
-    publishState(true);
-  });
-
-  pi.on("agent_start", (_event, ctx) => {
-    if (!rootSession) {
-      return;
-    }
-    updateSessionRef(ctx);
-    void reportSession();
-    agentActive = true;
-    publishState();
-  });
-
-  pi.on("agent_settled", (_event, ctx) => {
-    if (!rootSession || ctx?.isIdle?.() !== true) {
-      return;
-    }
-
-    agentActive = false;
-    publishState();
-  });
+	pi.on("session_start", (event, ctx) => {
+		// RPC also has hasUI=true. Only the owning TUI may write this pane's state.
+		if (closed || ctx.mode !== "tui") return;
+		context = ctx;
+		reporter = createReporter(endpoint, HERDR_PANE_ID);
+		parentActive = !ctx.isIdle();
+		reportSession(ctx, event.reason);
+		schedule();
+	});
+	pi.on("resources_discover", () => {
+		ready = true;
+		schedule();
+	});
+	pi.on("agent_start", (_event, ctx) => {
+		if (closed || !context || ctx.mode !== "tui") return;
+		context = ctx;
+		parentActive = true;
+		reportSession(ctx);
+		schedule();
+	});
+	pi.on("agent_settled", (_event, ctx) => {
+		if (closed || !context || ctx.mode !== "tui" || !ctx.isIdle()) return;
+		parentActive = false;
+		schedule();
+	});
+	pi.on("ui_prompt_start", (_event, ctx) => {
+		if (closed || !context || ctx.mode !== "tui") return;
+		// Pi coalesces overlapping dialogs into one native waiting span.
+		nativePrompt = true;
+		schedule();
+	});
+	pi.on("ui_prompt_end", (_event, ctx) => {
+		if (closed || !context || ctx.mode !== "tui") return;
+		nativePrompt = false;
+		schedule();
+	});
+	pi.on("session_shutdown", () => {
+		// Pi creates a fresh extension instance after reload/new/resume/fork.
+		// Do not turn teardown releases into a false completion notification.
+		closed = true;
+		context = undefined;
+		if (scheduled) clearImmediate(scheduled);
+		scheduled = undefined;
+		for (const unsubscribe of unsubscribes) unsubscribe();
+		reporter?.close();
+	});
 }

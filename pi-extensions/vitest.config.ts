@@ -12,8 +12,6 @@ export default defineConfig({
 				"coverage/**",
 				"packages/auto-session-name/index.ts",
 				"packages/statusline/index.ts",
-				// Unmodified upstream integration, covered by the isolated Pi-host suite.
-				"packages/herdr-agent-state/index.ts",
 			],
 			include: ["packages/**/*.{ts,tsx}"],
 			provider: "v8",

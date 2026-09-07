@@ -159,15 +159,17 @@ into Git; session snapshots, sockets, plugins, and history remain local.
 `ha` launches/attaches Herdr; prefix **Ctrl+Space**, then **d**, detaches back to
 Fish. Existing tmux panes and editor terminals are excluded from autostart.
 
-The unchanged official Pi integration is vendored in
-`pi-extensions/packages/herdr-agent-state` and enabled by both profile filters.
-The existing mise Pi-package symlink deploys it; no separate Herdr installer task
-is needed. An explicit exclusion prevents a legacy standalone copy from loading
-twice without deleting it. See the package README for provenance and updates.
-The `herdr-ui-prompts` companion translates native Pi dialog events into blocked
-state, without changing the official reporter or clearing subagent attention.
+The locally maintained Pi integration in
+`pi-extensions/packages/herdr-agent-state` is enabled by both profile filters.
+It combines parent lifecycle, native prompts, and background busy/blocker signals
+into one authoritative reporter. Parent settlement stays working while subagents
+or a queued continuation remain. The existing mise Pi-package symlink deploys it;
+no separate Herdr installer task is needed. An explicit exclusion prevents a
+legacy standalone reporter from loading twice without deleting it. See the
+package README for upstream attribution, regression tests, and the remaining
+limitation around untyped subagent attention signals.
 Pi now uses its regular rendering default. `pi --tui-mode fullscreen` remains a
-per-launch fallback, not a reason to restore the retired custom integration.
+per-launch rendering fallback; the state reporter does not alter Pi rendering.
 
 See [Herdr migration and acceptance](dotfiles/common/herdr/README.md) for the
 keymap, accepted differences, outstanding GUI/SSH checks, and safe rollback.
