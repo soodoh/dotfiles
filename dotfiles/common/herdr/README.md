@@ -38,7 +38,7 @@ a workstation bootstrap or upstream integration installer for this change.
 
 `bootstrap:herdr-plugins` manages both `fullerzz/herdr-plugin-sesh` (Linux/macOS)
 and `yankewei/herdr-focus-notify` (macOS only). Both macOS profiles run it after
-the existing Homebrew task supplies alerter. Desired full SHAs are
+the native mise package phase supplies the declared alerter formula. Desired full SHAs are
 `vars.herdr_sesh_ref` and `vars.herdr_focus_notify_ref` in `mise.toml`.
 
 - Bootstrap reconciles to the exact committed SHA, using Herdr's own
@@ -47,7 +47,7 @@ the existing Homebrew task supplies alerter. Desired full SHAs are
   with no network/build. Reconciliation never resolves the latest upstream version.
 - `mise --env personal-macos run update:herdr-plugins` (or `work-macos`) remains
   a plugin-only entry point with the same reconciliation behavior. The grouped
-  `update` includes it after Homebrew updates.
+  `update` includes it after native package updates.
 - An explicit profile is required on macOS. Linux manages only Sesh; no notifier
   dependency checks or installation run there.
 - Disabled, linked/foreign, dirty, orphaned or broken installations fail even

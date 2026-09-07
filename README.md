@@ -75,7 +75,8 @@ MISE_ENV=work-macos mise bootstrap
     - Borders
     - Lunar
 - Sign in to Nextcloud and enable **Open on Login**.
-- Configure the Homebrew-managed Tailscale CLI:
+- Configure the Homebrew-formula Tailscale CLI:
+    - Install the [Homebrew CLI](https://brew.sh) separately if absent; mise package bootstrap no longer installs it.
     - Register and start its root launch daemon with `sudo brew services start tailscale`; launchd will start it automatically on future boots.
     - Authenticate once with `tailscale up` (add `--login-server=https://headscale.example.com` when using Headscale).
     - Enable Tailscale SSH with `tailscale set --ssh`.
@@ -94,7 +95,7 @@ MISE_ENV=work-macos mise bootstrap
     - `/login openrouter`
 - Authenticate `gws` CLI: `gws auth login`
 - Pair [Moshi hooks](https://getmoshi.app/docs/hooks) once per Mac:
-    - Homebrew installs the binary; the shared `mise.toml` LaunchAgent runs it through `mise exec`, supplying mise's tool PATH without shell activation. Bootstrap registers and starts `dev.mise.moshi-hook`; do not also start the Homebrew service.
+    - mise installs the Homebrew formula; the shared `mise.toml` LaunchAgent runs it through `mise exec`, supplying mise's tool PATH without shell activation. Bootstrap registers and starts `dev.mise.moshi-hook`; do not also start the Homebrew service.
     - Copy the pairing token from **Settings > Hooks** in the Moshi app, then run the following locally (not over SSH):
 
       ```bash
@@ -175,7 +176,7 @@ per-launch rendering fallback; the state reporter does not alter Pi rendering.
 
 See [Herdr migration and acceptance](dotfiles/common/herdr/README.md) for the
 keymap, accepted differences, outstanding GUI/SSH checks, and safe rollback.
-Alerter is included in the macOS-only Homebrew bootstrap/update tasks.
+Alerter is declared in the shared, macOS-only `[bootstrap.packages]` entries.
 `bootstrap:herdr-plugins` reconciles Sesh (Linux/macOS) and
 `herdr-focus-notify` (macOS only) to their exact committed pins, installing missing
 plugins and applying changed pins to healthy managed installations.
@@ -203,7 +204,11 @@ mise run lock
 
 This generates both explicit environments in isolated temporary roots, verifies that they produce the same shared `mise.lock`, and only then atomically publishes changed lockfiles. Mise writes profile-only tools to `mise.personal-macos.lock` or `mise.work-macos.lock`, so both environments cover all three committed locks without mutating the tracked configuration during generation.
 
-The task updates mise tools, refreshes all shared and profile-specific mise lockfiles, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages, tapped Homebrew packages, and applies committed Herdr plugin pins. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
+The task updates mise tools, refreshes all shared and profile-specific mise lockfiles, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages (including third-party Homebrew taps), and applies committed Herdr plugin pins. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
+
+SketchyBar, Borders, Moshi and alerter are declared in `mise.toml` under `[bootstrap.packages]` for both macOS profiles. The minimum supported mise release resolves their ordinary tap Ruby definitions without the Homebrew CLI. Bootstrap installs missing packages without broadly upgrading or pruning; `update:packages` explicitly upgrades declared installed packages. Source formulae need Xcode Command Line Tools. Package declarations do not change the tool lockfiles or enable Homebrew services.
+
+AeroSpace temporarily remains Homebrew-owned and is installed when missing by the single `bootstrap:homebrew-aerospace` task. mise 2026.9.5 cannot extract the cask's structured flight steps when its tap lacks API metadata; upstream support landed in [jdx/mise#13060](https://github.com/jdx/mise/pull/13060) after that release. Once mise 2026.9.6 is released, replace the custom task with a declarative `brew-cask:nikitabobko/tap/aerospace` package. Until then, Homebrew remains responsible for AeroSpace upgrades, and `mise bootstrap packages prune --manager brew-cask` deliberately skips it.
 
 After updating Moshi or mise-managed tools used by the daemon, run `launchctl kickstart -k "gui/$(id -u)/dev.mise.moshi-hook"` on paired Macs. Bootstrap skips already-loaded agents whose plist is unchanged; updating a binary or tool version does not change this agent's declaration. Restarting refreshes the running binary and mise environment; no need to pair or install hooks again.
 

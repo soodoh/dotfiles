@@ -47,6 +47,8 @@ node = "24.21.0" # LTS; keep aligned with .nvmrc
 "aqua:Schniz/fnm" = "1.39.0"
 "aqua:yarnpkg/berry" = "4.18.0"
 python = "3.14.7"
+# Read-only third-party tap evaluation needs Ruby >= 3 (macOS ships Ruby 2.6).
+ruby = "4.0.6"
 gcloud = { version = "583.0.0", depends = ["python"] }
 bun = "1.4.2"
 go = "1.27.1"
@@ -112,6 +114,13 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "mas:937984704" = { version = "latest", os = "macos" }
 "mas:1474276998" = { version = "latest", os = "macos" }
 "brew:firefoxpwa" = { version = "latest", os = "macos" }
+# Ordinary third-party taps are resolved natively by the minimum mise version.
+"brew:FelixKratz/formulae/sketchybar" = { version = "latest", os = "macos" }
+"brew:FelixKratz/formulae/borders" = { version = "latest", os = "macos" }
+"brew:rjyo/moshi/moshi-hook" = { version = "latest", os = "macos" }
+"brew:vjeantet/tap/alerter" = { version = "latest", os = "macos" }
+# TODO: Declare brew-cask:nikitabobko/tap/aerospace here after mise 2026.9.6
+# ships third-party tap cask flight-step extraction (jdx/mise#13060).
 "brew-cask:bitwarden" = { version = "latest", os = "macos" }
 "brew-cask:ghostty" = { version = "latest", os = "macos" }
 "brew-cask:obsidian" = { version = "latest", os = "macos" }
@@ -206,7 +215,7 @@ working_directory = "~/Projects/dotfiles"
 stdout_path = "~/Library/Logs/colima-default.log"
 stderr_path = "~/Library/Logs/colima-default.error.log"
 
-# Homebrew owns the binary; mise owns the user service and supplies its tool PATH.
+# mise installs the Homebrew formula and owns the user service and its tool PATH.
 # Use the shared tool configuration, as with Colima; no profile-specific tools needed.
 [bootstrap.macos.launchd.agents.moshi-hook]
 program = "~/.local/bin/mise"
@@ -261,7 +270,7 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 description = "Install repository dependencies and configure managed integrations"
 run = [
   { task = "bootstrap:pi" },
-  { task = "bootstrap:homebrew-packages" },
+  { task = "bootstrap:homebrew-aerospace" },
   { task = "bootstrap:herdr-plugins" },
   { task = "configure:google-calendar-webapp" },
   { task = "configure:docker-compose-plugin" },
@@ -269,6 +278,26 @@ run = [
 
 [tasks."bootstrap:pi"]
 run = "bun ci --cwd pi-extensions"
+
+[tasks."bootstrap:homebrew-aerospace"]
+description = "Install AeroSpace through Homebrew until mise can manage its tapped cask"
+interactive = true
+run = '''
+[ "$(uname -s)" = Darwin ] || exit 0
+
+brew_bin=$(command -v brew 2>/dev/null || true)
+if [ -z "$brew_bin" ]; then
+  printf 'error: Homebrew CLI is required to install AeroSpace\n' >&2
+  exit 69
+fi
+
+export HOMEBREW_NO_AUTO_UPDATE=1
+export HOMEBREW_NO_ANALYTICS=1
+export HOMEBREW_NO_ENV_HINTS=1
+
+"$brew_bin" list --cask aerospace >/dev/null 2>&1 ||
+  "$brew_bin" install --cask nikitabobko/tap/aerospace
+'''
 
 [tasks."bootstrap:herdr-plugins"]
 description = "Reconcile Herdr plugins to committed pins; preserve unsafe or disabled state"
@@ -293,37 +322,6 @@ ln -sfn "$(mise which docker-cli-plugin-docker-compose)" "$plugin_dir/docker-com
 [tasks."configure:google-calendar-webapp"]
 description = "Install the FirefoxPWA runtime and Google Calendar web app on macOS"
 run = "bash dotfiles/macos/firefoxpwa/google-calendar.sh"
-
-[tasks."bootstrap:homebrew-packages"]
-interactive = true
-run = '''
-[ "$(uname -s)" = Darwin ] || exit 0
-export HOMEBREW_NO_AUTO_UPDATE=1
-export HOMEBREW_NO_ANALYTICS=1
-export HOMEBREW_NO_ENV_HINTS=1
-
-brew_bin=$(command -v brew 2>/dev/null || true)
-if [ -z "$brew_bin" ]; then
-  printf 'Homebrew CLI is required for taps without mise-compatible API metadata; installing it now.\n' >&2
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  for candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
-    if [ -x "$candidate" ]; then
-      brew_bin=$candidate
-      break
-    fi
-  done
-fi
-if [ -z "$brew_bin" ] || [ ! -x "$brew_bin" ]; then
-  printf 'error: Homebrew CLI installation did not provide brew\n' >&2
-  exit 69
-fi
-
-"$brew_bin" list --cask aerospace >/dev/null 2>&1 || "$brew_bin" install --cask nikitabobko/tap/aerospace
-"$brew_bin" list sketchybar >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/sketchybar
-"$brew_bin" list borders >/dev/null 2>&1 || "$brew_bin" install FelixKratz/formulae/borders
-"$brew_bin" list moshi-hook >/dev/null 2>&1 || "$brew_bin" install rjyo/moshi/moshi-hook
-"$brew_bin" list --formula alerter >/dev/null 2>&1 || "$brew_bin" install vjeantet/tap/alerter
-'''
 
 [tasks.status]
 description = "Report missing or differing declarative profile state"
@@ -412,7 +410,6 @@ esac''',
   { task = "update:skills" },
   { task = "update:neovim" },
   { task = "update:packages" },
-  { task = "update:homebrew-packages" },
   { task = "update:herdr-plugins" },
 ]
 
@@ -430,10 +427,3 @@ run = "nvim --headless '+Lazy! sync' +qa"
 
 [tasks."update:packages"]
 run = "mise bootstrap packages upgrade"
-
-[tasks."update:homebrew-packages"]
-run = '''
-[ "$(uname -s)" = Darwin ] || exit 0
-brew upgrade --cask nikitabobko/tap/aerospace
-brew upgrade FelixKratz/formulae/sketchybar FelixKratz/formulae/borders rjyo/moshi/moshi-hook vjeantet/tap/alerter
-'''

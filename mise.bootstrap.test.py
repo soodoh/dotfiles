@@ -459,23 +459,49 @@ class MiseConfigurationTests(unittest.TestCase):
             r"(?m)^\s*mise\s+bootstrap\s+packages\s+apply\s+brew:mas\s+--yes\s*$",
         )
 
-    def test_alerter_bootstrap_is_macos_only_and_install_only(self) -> None:
-        task = self.base["tasks"]["bootstrap:homebrew-packages"]["run"]
-        with tempfile.TemporaryDirectory(prefix="brew-bootstrap-test-") as directory:
+    def test_supported_third_party_homebrew_packages_are_declarative(self) -> None:
+        packages = self.base["bootstrap"]["packages"]
+        tapped = {
+            "brew:FelixKratz/formulae/sketchybar",
+            "brew:FelixKratz/formulae/borders",
+            "brew:rjyo/moshi/moshi-hook",
+            "brew:vjeantet/tap/alerter",
+        }
+        for package in tapped:
+            with self.subTest(package=package):
+                self.assertEqual(packages[package], {"version": "latest", "os": "macos"})
+                for profile in (self.personal, self.work):
+                    self.assertNotIn(package, profile.get("bootstrap", {}).get("packages", {}))
+        self.assertNotIn("brew-cask:nikitabobko/tap/aerospace", packages)
+        config = (ROOT / "mise.toml").read_text()
+        self.assertIn("mise 2026.9.6", config)
+        self.assertIn("jdx/mise#13060", config)
+
+    def test_aerospace_homebrew_fallback_is_macos_only_and_install_only(self) -> None:
+        tasks = self.base["tasks"]
+        task_name = "bootstrap:homebrew-aerospace"
+        task = tasks[task_name]["run"]
+        self.assertIn(task_name, [step["task"] for step in tasks["bootstrap"]["run"]])
+        self.assertNotIn("bootstrap:homebrew-packages", tasks)
+        self.assertNotIn("update:homebrew-packages", tasks)
+        self.assertNotIn("update:homebrew-aerospace", tasks)
+        self.assertEqual(tasks["update:packages"]["run"], "mise bootstrap packages upgrade")
+
+        with tempfile.TemporaryDirectory(prefix="aerospace-bootstrap-test-") as directory:
             home = Path(directory)
             log = home / "brew.log"
-            marker = home / "alerter-installed"
+            marker = home / "aerospace-installed"
             (home / "uname").write_text('#!/bin/sh\nprintf "%s\\n" "$TEST_OS"\n')
             (home / "brew").write_text('''#!/bin/sh
 set -eu
-printf '%s\\n' "$*" >> "$BREW_LOG"
+printf '%s\n' "$*" >> "$BREW_LOG"
 case "$*" in
-  'list --formula alerter') [ -f "$ALERTER_MARKER" ] ;;
-  'install vjeantet/tap/alerter')
+  'list --cask aerospace') [ -f "$AEROSPACE_MARKER" ] ;;
+  'install --cask nikitabobko/tap/aerospace')
     [ "$HOMEBREW_NO_AUTO_UPDATE" = 1 ]
     [ "$HOMEBREW_NO_ANALYTICS" = 1 ]
-    : > "$ALERTER_MARKER" ;;
-  list*) exit 0 ;;
+    [ "$HOMEBREW_NO_ENV_HINTS" = 1 ]
+    : > "$AEROSPACE_MARKER" ;;
   *) exit 91 ;;
 esac
 ''')
@@ -483,9 +509,9 @@ esac
                 (home / executable).chmod(0o755)
             env = {
                 "HOME": directory,
-                "PATH": directory,  # No real package manager or installer reachable.
+                "PATH": directory,
                 "BREW_LOG": str(log),
-                "ALERTER_MARKER": str(marker),
+                "AEROSPACE_MARKER": str(marker),
             }
             for platform in ("Linux", "Darwin", "Darwin"):
                 result = subprocess.run(
@@ -500,8 +526,10 @@ esac
                 if platform == "Linux":
                     self.assertFalse(log.exists())
             calls = log.read_text().splitlines()
-            self.assertEqual(calls.count("install vjeantet/tap/alerter"), 1)
-            self.assertEqual(calls.count("list --formula alerter"), 2)
+            self.assertEqual(calls.count("list --cask aerospace"), 2)
+            self.assertEqual(
+                calls.count("install --cask nikitabobko/tap/aerospace"), 1
+            )
             self.assertTrue(marker.exists())
 
 
