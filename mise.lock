@@ -1283,6 +1283,10 @@ url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-darwin-x6
 checksum = "sha256:bad5bbd6cf14d0980d115f5954c9ff904df619d5e994d2da1ffccd3f316300b0"
 url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-darwin-x64-baseline.zip"
 
+[[tools."cargo:eza"]]
+version = "0.23.5"
+backend = "cargo:eza"
+
 [[tools."cargo:kdlfmt"]]
 version = "0.1.7"
 backend = "cargo:kdlfmt"

@@ -172,9 +172,11 @@ per-launch fallback, not a reason to restore the retired custom integration.
 See [Herdr migration and acceptance](dotfiles/common/herdr/README.md) for the
 keymap, accepted differences, outstanding GUI/SSH checks, and safe rollback.
 Alerter is included in the macOS-only Homebrew bootstrap/update tasks.
-`bootstrap:herdr-plugins` installs the pinned `herdr-focus-notify` only when absent;
-`update:herdr-plugins` applies changed committed pins. Both preserve disabled or
-modified installations rather than replacing/re-enabling them. See
+`bootstrap:herdr-plugins` installs pinned Sesh (Linux/macOS) and
+`herdr-focus-notify` (macOS only) when absent; `update:herdr-plugins` applies changed
+committed pins. Both preserve disabled or modified installations rather than
+replacing/re-enabling them. **Alt+E** opens Sesh; mise also supplies its `eza`
+preview dependency alongside the existing zoxide and fzf. See
 [plugin provisioning](dotfiles/common/herdr/README.md#notification-plugin-provisioning)
 for prerequisites, notification-delivery policy and routing limitations.
 

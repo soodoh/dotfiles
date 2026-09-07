@@ -20,7 +20,7 @@ confirm_close = true
 # General
 prefix = "ctrl+space"
 toggle_sidebar = "prefix+space"
-goto = ["alt+e"]
+goto = ""
 zoom = "prefix+z"
 detach = ["prefix+d", "prefix+q"]
 settings = "prefix+s"
@@ -84,6 +84,13 @@ navigate_pane_left = "h"
 navigate_pane_down = "j"
 navigate_pane_up = "k"
 navigate_pane_right = "l"
+
+# Sesh workspace/session picker
+[[keys.command]]
+key = "alt+e"
+type = "plugin_action"
+command = "fullerzz.sesh.open-picker"
+description = "Open Sesh picker"
 
 # Tool popups
 [[keys.command]]

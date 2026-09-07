@@ -1,21 +1,5 @@
 # Herdr migration and acceptance
 
-## Decision record
-
-Both `personal-macos` and `work-macos` use the shared Herdr configuration.
-This implements the fresh-session handoff: native navigation and **`last_pane`**,
-Ctrl+Space prefix, command-style Fish autostart, and Pi's **regular** default now.
-No custom workspace-MRU, sesh directory launcher, or Pi dashboard is retained.
-Earlier custom-MRU and trial-gated-rendering proposals are superseded.
-`herdr-migration-research.md` was not present in this checkout (including untracked
-planning files); no missing research content was invented or deleted.
-
-Implementation baseline: clean `main` at
-`f98e49857d72938e1254f7331873d21472a54bed`, macOS arm64,
-explicit `MISE_ENV=personal-macos`, Pi 0.85.1, mise 2026.9.1.
-Baseline `mise run validate` passed; no pre-existing failures were found.
-The intentional work HTTP security expected-failure remains unchanged.
-
 ## Installation and ownership
 
 ```sh
@@ -51,31 +35,38 @@ Update the vendored reporter deliberately with the Herdr pin, not via Bun update
 
 ## Notification plugin provisioning
 
-Both macOS profiles now provision `yankewei/herdr-focus-notify` through
-`bootstrap:herdr-plugins`, after the existing Homebrew task supplies alerter.
-The desired full SHA is `vars.herdr_focus_notify_ref` in `mise.toml`.
+`bootstrap:herdr-plugins` manages both `fullerzz/herdr-plugin-sesh` (Linux/macOS)
+and `yankewei/herdr-focus-notify` (macOS only). Both macOS profiles run it after
+the existing Homebrew task supplies alerter. Desired full SHAs are
+`vars.herdr_sesh_ref` and `vars.herdr_focus_notify_ref` in `mise.toml`.
 
-- Bootstrap installs only when absent, using Herdr's own `plugin install --ref
-  <SHA> --yes`. Matching healthy installations are no-ops, with no network/build.
+- Bootstrap installs only when absent, using Herdr's own `plugin install --ref`
+  `<SHA> --yes`. Matching healthy installations are no-ops, with no network/build.
 - `mise --env personal-macos run update:herdr-plugins` (or `work-macos`) applies
-  a changed committed pin. The grouped `update` includes it after Homebrew updates.
-- Both commands are Linux no-ops and require an explicit profile on macOS.
-  Disabled, linked/foreign, dirty, orphaned or broken installations fail with a
-  diagnostic even during update. They are never silently repaired or re-enabled.
-- `mise run update:herdr-plugin-pin` only resolves upstream `refs/heads/main` to
-  a full SHA. The weekly repository-updates workflow runs it and proposes the
-  change in its existing PR; it does not build/install/execute this plugin.
-  Review the linked upstream comparison before merging, then pull and run update.
+  changed committed pins. The grouped `update` includes it after Homebrew updates.
+- An explicit profile is required on macOS. Linux manages only Sesh; no notifier
+  dependency checks or installation run there.
+- Disabled, linked/foreign, dirty, orphaned or broken installations fail even
+  during update. They are never silently repaired or re-enabled.
+- Healthy manual release installs can be adopted without rebuilding: Git HEAD
+  and registry commit must equal the desired SHA, and the requested release must
+  match the manifest version. Herdr does not retain local tag refs.
+- `mise run update:herdr-plugin-pin` resolves both upstream `refs/heads/main`
+  branches to full SHAs. The weekly repository-updates workflow proposes changes
+  in its existing PR; it does not build/install/execute either plugin. This tracks
+  reviewed main commits, not just releases. Review the upstream comparisons before
+  merging, then pull and run update.
 
 `plugin.py` reads the registry strictly (Herdr's offline list can mask corruption),
 checks ownership, paths, Git HEAD/cleanliness, manifest ID and executable presence,
 and delegates all installation/registration to Herdr. It does not write registry,
-plugin config or learned state itself. Its seven colocated behavioral tests use
-local disposable Git repositories and mocked installation, not upstream code.
-Git, Cargo, alerter and Xcode Command Line Tools must be available for installation.
-Do not run this concurrently with manual plugin mutations. Checks are not binary
-integrity verification; ignored Cargo outputs are allowed, and upstream's build
-command still lacks `--locked`. `--yes` approves executing the pinned build code.
+plugin config or learned state itself. Colocated behavioral tests cover both
+plugins using disposable Git repositories and mocked installation, not upstream code.
+The notifier requires Git, Cargo, alerter and Xcode Command Line Tools; Sesh requires
+Git and Go >=1.26.4 (the shared mise pin satisfies this).
+Do not run these tasks concurrently with manual plugin mutations. Checks are not
+binary integrity verification; ignored build outputs are allowed. The notifier's
+upstream build still lacks `--locked`. `--yes` approves executing pinned build code.
 
 This implementation did not install a workstation plugin or configure macOS
 notification permissions. Start with a supervised single-window trial: clicks
@@ -93,6 +84,29 @@ Both profile settings were unchanged by installer execution. Fish/Pi checkout
 links make repository edits visible to **new** shells/sessions; existing tmux/Pi
 processes were not stopped or reloaded.
 
+## Sesh workspace picker
+
+Alt+E opens `fullerzz/herdr-plugin-sesh` through the native
+`fullerzz.sesh.open-picker` plugin action. Native `goto` is unbound.
+The initial managed pin is the commit behind v0.11.0. Provision on macOS through
+mise (substitute `work-macos` as appropriate):
+
+```sh
+mise install cargo:eza
+mise --env personal-macos run bootstrap:herdr-plugins
+```
+
+On Linux, `mise run bootstrap:herdr-plugins` installs only Sesh. Normal workstation
+bootstrap includes this task; no separate manual Herdr installation is needed.
+`eza` is pinned via Cargo because upstream does not publish macOS binaries; mise
+already owns Rust, Go, zoxide and fzf. If a stale local `cargo-binstall` shim prevents
+installation, use `MISE_CARGO_BINSTALL=false mise install cargo:eza` to build from source.
+
+No plugin config is needed: running workspaces and zoxide history populate the
+picker; `eza` supplies the default directory preview. fzf is optional for the
+experimental picker, not required for the default native overlay.
+Plugin checkouts/config/history stay in Herdr's runtime directory, not this repo.
+After changing the binding, reload Herdr with Ctrl+Space, then Shift+R.
 ## Keymap
 
 **P** means press and release **Ctrl+Space**. Alt letters below are unshifted.
@@ -109,7 +123,7 @@ Arrays in `config.toml` are alternative shortcuts, not action sequences.
 | Alt+I / O | P i / o | Reorder tab backward / forward |
 | Alt+Tab | P Tab | Native last focused pane, including within the same workspace |
 | Alt+W | P w | Native workspace navigation |
-| Alt+E / P | P g | Searchable goto navigator (aliases, not separate pickers) |
+| Alt+E | — | Sesh workspace/session picker |
 | — | P Enter / [ | Copy mode |
 | — | P r / z | Resize mode / zoom |
 | — | P d | Detach to outer Fish |

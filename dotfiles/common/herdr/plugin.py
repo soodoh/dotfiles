@@ -4,23 +4,58 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import platform
 import re
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
+from pathlib import Path
+
 import tomllib
 
 CONFIG = Path(__file__).resolve().parents[3] / "mise.toml"
-PLUGIN = "herdr-focus-notify"
-REPO = f"yankewei/{PLUGIN}"
-URL = f"https://github.com/{REPO}.git"
 BRANCH = "refs/heads/main"
-PIN_KEY = "herdr_focus_notify_ref"
 SHA = re.compile(r"[0-9a-f]{40}")
-# Herdr 0.8.2: readable plugin ID plus the first six SHA-256 bytes.
-CHECKOUT = f"{PLUGIN}-{hashlib.sha256(PLUGIN.encode()).hexdigest()[:12]}"
+RELEASE = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+")
+
+
+@dataclass(frozen=True)
+class Plugin:
+    id: str
+    repo: str
+    pin_key: str
+    binary: str
+    prerequisites: tuple[str, ...]
+    systems: tuple[str, ...]
+
+    @property
+    def checkout(self):
+        # Herdr 0.8.2: readable plugin ID plus the first six SHA-256 bytes.
+        return f"{self.id}-{hashlib.sha256(self.id.encode()).hexdigest()[:12]}"
+
+    @property
+    def url(self):
+        return f"https://github.com/{self.repo}.git"
+
+
+NOTIFIER = Plugin(
+    "herdr-focus-notify",
+    "yankewei/herdr-focus-notify",
+    "herdr_focus_notify_ref",
+    "target/release/herdr-focus-notify",
+    ("cargo", "alerter", "xcrun"),
+    ("Darwin",),
+)
+SESH = Plugin(
+    "fullerzz.sesh",
+    "fullerzz/herdr-plugin-sesh",
+    "herdr_sesh_ref",
+    "bin/herdr-sesh",
+    ("go",),
+    ("Darwin", "Linux"),
+)
+PLUGINS = (SESH, NOTIFIER)
 
 
 def require(condition, message):
@@ -34,10 +69,10 @@ def git(*args):
     ).stdout.strip()
 
 
-def installed_pin(config_dir):
+def installed_pin(config_dir, spec):
     """Return a healthy, owned pin or None; ambiguity is never permission to replace."""
     registry = config_dir / "plugins.json"
-    checkout = config_dir / "plugins/github" / CHECKOUT
+    checkout = config_dir / "plugins/github" / spec.checkout
     # CLI plugin.list treats corrupt registries as empty; read strictly instead.
     entries = json.loads(registry.read_text()) if registry.exists() else []
     require(not registry.is_symlink(), f"symlinked registry: {registry}")
@@ -50,7 +85,7 @@ def installed_pin(config_dir):
     )
     ids = [e["plugin_id"] for e in entries]
     require(len(ids) == len(set(ids)), f"duplicate plugin IDs: {registry}")
-    matches = [e for e in entries if e["plugin_id"] == PLUGIN]
+    matches = [e for e in entries if e["plugin_id"] == spec.id]
     if not matches:
         require(
             not checkout.exists() and not checkout.is_symlink(),
@@ -63,8 +98,8 @@ def installed_pin(config_dir):
     require(
         isinstance(source, dict)
         and source.get("kind") == "github"
-        and source.get("owner") == "yankewei"
-        and source.get("repo") == PLUGIN
+        and source.get("owner") == spec.repo.split("/")[0]
+        and source.get("repo") == spec.repo.split("/")[1]
         and source.get("subdir") in (None, ""),
         "linked or foreign plugin; refusing replacement",
     )
@@ -74,11 +109,13 @@ def installed_pin(config_dir):
     require(
         not entry.get("warnings"), "plugin registry reports warnings; inspect manually"
     )
-    pin = source.get("requested_ref", "")
+    requested = source.get("requested_ref", "")
+    pin = source.get("resolved_commit", "")
     require(
         isinstance(pin, str)
         and SHA.fullmatch(pin)
-        and source.get("resolved_commit") == pin,
+        and isinstance(requested, str)
+        and (requested == pin or RELEASE.fullmatch(requested)),
         "plugin is not pinned consistently; inspect manually",
     )
     for value, expected in (
@@ -111,8 +148,15 @@ def installed_pin(config_dir):
         "dirty plugin checkout; preserve local changes and inspect manually",
     )
     manifest = tomllib.loads((checkout / "herdr-plugin.toml").read_text())
-    require(manifest.get("id") == PLUGIN, "unexpected plugin manifest ID")
-    binary = checkout / "target/release" / PLUGIN
+    require(manifest.get("id") == spec.id, "unexpected plugin manifest ID")
+    if requested != pin:
+        # Herdr fetches a detached commit without retaining local tag refs.
+        # Adoption still requires HEAD == registry commit == desired SHA in reconcile.
+        require(
+            requested == f"v{manifest.get('version')}",
+            "requested release differs from manifest version",
+        )
+    binary = checkout / spec.binary
     require(
         binary.is_file() and not binary.is_symlink() and os.access(binary, os.X_OK),
         "missing/unusable plugin executable; repair manually",
@@ -120,24 +164,25 @@ def installed_pin(config_dir):
     return pin
 
 
-def install(pin):
-    for command in ("herdr", "git", "cargo", "alerter", "xcrun"):
+def install(pin, spec):
+    for command in ("herdr", "git", *spec.prerequisites):
         require(
             shutil.which(command),
-            f"missing {command}; provision declared tools/macOS dependencies first",
+            f"missing {command}; provision declared tools/platform dependencies first",
         )
     subprocess.run(
-        ["herdr", "plugin", "install", REPO, "--ref", pin, "--yes"], check=True
+        ["herdr", "plugin", "install", spec.repo, "--ref", pin, "--yes"], check=True
     )
 
 
-def reconcile(action, pin):
-    if platform.system() != "Darwin":
+def reconcile(action, pin, spec):
+    if platform.system() not in spec.systems:
         return
-    require(
-        os.environ.get("MISE_ENV") in ("personal-macos", "work-macos"),
-        "choose --env personal-macos or --env work-macos",
-    )
+    if platform.system() == "Darwin":
+        require(
+            os.environ.get("MISE_ENV") in ("personal-macos", "work-macos"),
+            "choose --env personal-macos or --env work-macos",
+        )
     require(
         isinstance(pin, str) and SHA.fullmatch(pin),
         "desired plugin pin must be a full commit SHA",
@@ -145,54 +190,56 @@ def reconcile(action, pin):
     config_dir = (
         Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "herdr"
     ).resolve()
-    current = installed_pin(config_dir)
+    current = installed_pin(config_dir, spec)
     if current == pin:
-        print(f"{PLUGIN}: already at {pin}")
+        print(f"{spec.id}: already at {pin}")
         return
     require(
         current is None or action == "update",
         "plugin pin changed; run mise --env <profile> run update:herdr-plugins explicitly",
     )
-    install(pin)
+    install(pin, spec)
     require(
-        installed_pin(config_dir) == pin,
+        installed_pin(config_dir, spec) == pin,
         "installer did not produce the desired healthy plugin state",
     )
 
 
-def refresh_pin(config=CONFIG):
+def refresh_pin(config, spec):
     """Resolve main to a SHA; edit only the pin, without checkout/build/installation."""
     text = config.read_text()
-    old = tomllib.loads(text)["vars"][PIN_KEY]
+    old = tomllib.loads(text)["vars"][spec.pin_key]
     require(
         isinstance(old, str) and SHA.fullmatch(old),
         "existing plugin pin must be a full commit SHA",
     )
-    fields = git("ls-remote", "--exit-code", URL, BRANCH).split()
+    fields = git("ls-remote", "--exit-code", spec.url, BRANCH).split()
     require(
         len(fields) == 2 and SHA.fullmatch(fields[0]) and fields[1] == BRANCH,
         "expected exactly one full commit SHA for the tracked upstream branch",
     )
     new = fields[0]
     if old == new:
-        print(f"{PLUGIN}: pin unchanged")
+        print(f"{spec.id}: pin unchanged")
         return
     updated, count = re.subn(
-        rf'(?m)^({PIN_KEY}\s*=\s*)"{old}"', lambda m: f'{m[1]}"{new}"', text
+        rf'(?m)^({spec.pin_key}\s*=\s*)"{old}"', lambda m: f'{m[1]}"{new}"', text
     )
     require(count == 1, "expected exactly one plugin pin declaration")
     config.write_text(updated)
-    print(f"{PLUGIN}: https://github.com/{REPO}/compare/{old}...{new}")
+    print(f"{spec.id}: https://github.com/{spec.repo}/compare/{old}...{new}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("bootstrap", "update", "refresh-pin"))
     args = parser.parse_args()
-    if args.action == "refresh-pin":
-        refresh_pin()
-    else:
-        reconcile(args.action, tomllib.loads(CONFIG.read_text())["vars"][PIN_KEY])
+    pins = tomllib.loads(CONFIG.read_text())["vars"]
+    for spec in PLUGINS:
+        if args.action == "refresh-pin":
+            refresh_pin(CONFIG, spec)
+        else:
+            reconcile(args.action, pins[spec.pin_key], spec)
 
 
 if __name__ == "__main__":
