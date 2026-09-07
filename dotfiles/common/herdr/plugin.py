@@ -176,6 +176,8 @@ def install(pin, spec):
 
 
 def reconcile(action, pin, spec):
+    """Bootstrap and update both apply the committed pin to healthy owned state."""
+    require(action in ("bootstrap", "update"), "unsupported reconciliation action")
     if platform.system() not in spec.systems:
         return
     if platform.system() == "Darwin":
@@ -194,10 +196,7 @@ def reconcile(action, pin, spec):
     if current == pin:
         print(f"{spec.id}: already at {pin}")
         return
-    require(
-        current is None or action == "update",
-        "plugin pin changed; run mise --env <profile> run update:herdr-plugins explicitly",
-    )
+    print(f"{spec.id}: applying committed pin {current or 'absent'} -> {pin}", flush=True)
     install(pin, spec)
     require(
         installed_pin(config_dir, spec) == pin,

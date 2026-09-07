@@ -117,5 +117,5 @@ jobs:
               --base "$BASE_BRANCH" \
               --head "$UPDATE_BRANCH" \
               --title "chore(root): refresh repository assets" \
-              --body $'Updates repository-managed assets that Renovate does not maintain:\n\n- Renovate-unsupported mise tools and lockfiles\n- personal and work skill catalogs\n- Neovim plugin lock state\n- Herdr plugin commit pins (source resolution only; no plugin code built or executed)\n\nConfiguration and lock validation passed before this PR was opened. Review upstream plugin changes before merging; apply merged pins locally with mise --env <profile> run update:herdr-plugins.'
+              --body $'Updates repository-managed assets that Renovate does not maintain:\n\n- Renovate-unsupported mise tools and lockfiles\n- personal and work skill catalogs\n- Neovim plugin lock state\n- Herdr plugin commit pins (source resolution only; no plugin code built or executed)\n\nConfiguration and lock validation passed before this PR was opened. Review upstream plugin changes before merging. After pulling, apply committed pins with MISE_ENV=<profile> mise bootstrap, or mise --env <profile> run update:herdr-plugins for plugins only. Changed pins execute upstream build code and may upgrade or roll back plugins; reconciliation never resolves newer upstream versions.'
           fi

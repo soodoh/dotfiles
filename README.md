@@ -176,10 +176,12 @@ per-launch rendering fallback; the state reporter does not alter Pi rendering.
 See [Herdr migration and acceptance](dotfiles/common/herdr/README.md) for the
 keymap, accepted differences, outstanding GUI/SSH checks, and safe rollback.
 Alerter is included in the macOS-only Homebrew bootstrap/update tasks.
-`bootstrap:herdr-plugins` installs pinned Sesh (Linux/macOS) and
-`herdr-focus-notify` (macOS only) when absent; `update:herdr-plugins` applies changed
-committed pins. Both preserve disabled or modified installations rather than
-replacing/re-enabling them. **Alt+E** opens Sesh; mise also supplies its `eza`
+`bootstrap:herdr-plugins` reconciles Sesh (Linux/macOS) and
+`herdr-focus-notify` (macOS only) to their exact committed pins, installing missing
+plugins and applying changed pins to healthy managed installations.
+`update:herdr-plugins` has the same behavior. Both refuse to replace/re-enable
+disabled or modified installations. Applying a changed pin executes upstream build
+code and can upgrade or roll back a plugin; matching pins are no-ops. **Alt+E** opens Sesh; mise also supplies its `eza`
 preview dependency alongside the existing zoxide and fzf. See
 [plugin provisioning](dotfiles/common/herdr/README.md#notification-plugin-provisioning)
 for prerequisites, notification-delivery policy and routing limitations.
@@ -205,7 +207,7 @@ The task updates mise tools, refreshes all shared and profile-specific mise lock
 
 After updating Moshi or mise-managed tools used by the daemon, run `launchctl kickstart -k "gui/$(id -u)/dev.mise.moshi-hook"` on paired Macs. Bootstrap skips already-loaded agents whose plist is unchanged; updating a binary or tool version does not change this agent's declaration. Restarting refreshes the running binary and mise environment; no need to pair or install hooks again.
 
-A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, the Neovim plugin lock, and Herdr plugin commit pins. It runs configuration/lock validation and opens or refreshes a single update pull request when tracked files change. Herdr pin refresh resolves upstream main without building or executing plugin code; merging the PR does not upgrade workstations until they pull and run the explicit update task.
+A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, the Neovim plugin lock, and Herdr plugin commit pins. It runs configuration/lock validation and opens or refreshes a single update pull request when tracked files change. Herdr pin refresh resolves upstream main without building or executing plugin code. Review the upstream changes before merging; after pulling, run `MISE_ENV=<profile> mise bootstrap` to apply the committed pins, or use `mise --env <profile> run update:herdr-plugins` for plugins only. Neither plugin reconciliation task resolves newer upstream versions.
 
 ### Matt Pocock skills
 

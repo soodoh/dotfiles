@@ -99,14 +99,28 @@ class PluginTests(unittest.TestCase):
                 os.environ["MISE_ENV"] = profile
                 plugin.reconcile("bootstrap", self.old, self.spec)
         self.installer.assert_called_once_with(self.old, self.spec)
-        before = self.registry.read_bytes()
-        with self.assertRaisesRegex(ValueError, "update:herdr-plugins"):
-            plugin.reconcile("bootstrap", self.new, self.spec)
-        self.assertEqual(self.registry.read_bytes(), before)
         plugin.reconcile("update", self.new, self.spec)
         plugin.reconcile("update", self.new, self.spec)
         self.assertEqual(self.installer.call_count, 2)
         self.assertEqual(plugin.installed_pin(self.config_dir, self.spec), self.new)
+
+    def test_both_actions_apply_changed_committed_pins_including_rollbacks(self):
+        for action in ("bootstrap", "update"):
+            with self.subTest(action=action):
+                self.seed_install(self.old)
+                self.installer.reset_mock()
+                for desired in (self.new, self.old):
+                    plugin.reconcile(action, desired, self.spec)
+                    self.installer.assert_called_with(desired, self.spec)
+                    self.assertEqual(
+                        plugin.installed_pin(self.config_dir, self.spec), desired
+                    )
+                    before = self.registry.read_bytes()
+                    calls = self.installer.call_count
+                    plugin.reconcile(action, desired, self.spec)
+                    self.assertEqual(self.installer.call_count, calls)
+                    self.assertEqual(self.registry.read_bytes(), before)
+                self.assertEqual(self.installer.call_count, 2)
 
     def test_platform_scoping_and_explicit_macos_profile(self):
         os.environ.pop("MISE_ENV")

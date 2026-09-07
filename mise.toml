@@ -270,11 +270,11 @@ run = [
 run = "bun ci --cwd pi-extensions"
 
 [tasks."bootstrap:herdr-plugins"]
-description = "Install pinned Herdr plugins only when absent; never upgrade or re-enable"
+description = "Reconcile Herdr plugins to committed pins; preserve unsafe or disabled state"
 run = "python3 dotfiles/common/herdr/plugin.py bootstrap"
 
 [tasks."update:herdr-plugins"]
-description = "Apply committed Herdr plugin pins to healthy managed installations"
+description = "Reconcile committed Herdr plugin pins (same behavior as bootstrap)"
 run = "python3 dotfiles/common/herdr/plugin.py update"
 
 [tasks."update:herdr-plugin-pin"]

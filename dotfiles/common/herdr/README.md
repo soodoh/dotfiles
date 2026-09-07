@@ -41,10 +41,13 @@ and `yankewei/herdr-focus-notify` (macOS only). Both macOS profiles run it after
 the existing Homebrew task supplies alerter. Desired full SHAs are
 `vars.herdr_sesh_ref` and `vars.herdr_focus_notify_ref` in `mise.toml`.
 
-- Bootstrap installs only when absent, using Herdr's own `plugin install --ref`
-  `<SHA> --yes`. Matching healthy installations are no-ops, with no network/build.
-- `mise --env personal-macos run update:herdr-plugins` (or `work-macos`) applies
-  changed committed pins. The grouped `update` includes it after Homebrew updates.
+- Bootstrap reconciles to the exact committed SHA, using Herdr's own
+  `plugin install --ref <SHA> --yes` for absent plugins or healthy managed
+  installations at a different pin. Matching healthy installations are no-ops,
+  with no network/build. Reconciliation never resolves the latest upstream version.
+- `mise --env personal-macos run update:herdr-plugins` (or `work-macos`) remains
+  a plugin-only entry point with the same reconciliation behavior. The grouped
+  `update` includes it after Homebrew updates.
 - An explicit profile is required on macOS. Linux manages only Sesh; no notifier
   dependency checks or installation run there.
 - Disabled, linked/foreign, dirty, orphaned or broken installations fail even
@@ -56,7 +59,8 @@ the existing Homebrew task supplies alerter. Desired full SHAs are
   branches to full SHAs. The weekly repository-updates workflow proposes changes
   in its existing PR; it does not build/install/execute either plugin. This tracks
   reviewed main commits, not just releases. Review the upstream comparisons before
-  merging, then pull and run update.
+  merging, then pull and run `MISE_ENV=<profile> mise bootstrap` (or the plugin-only
+  `mise --env <profile> run update:herdr-plugins`).
 
 `plugin.py` reads the registry strictly (Herdr's offline list can mask corruption),
 checks ownership, paths, Git HEAD/cleanliness, manifest ID and executable presence,
@@ -68,6 +72,8 @@ Git and Go >=1.26.4 (the shared mise pin satisfies this).
 Do not run these tasks concurrently with manual plugin mutations. Checks are not
 binary integrity verification; ignored build outputs are allowed. The notifier's
 upstream build still lacks `--locked`. `--yes` approves executing pinned build code.
+Applying a changed pin during bootstrap or update therefore runs upstream build
+code and can upgrade or roll back the plugin, including after reverting a pin.
 
 This implementation did not install a workstation plugin or configure macOS
 notification permissions. Start with a supervised single-window trial: clicks
