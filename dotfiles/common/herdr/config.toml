@@ -67,8 +67,8 @@ rename_workspace = "prefix+shift+w"
 close_workspace = "prefix+shift+d"
 switch_workspace = ""
 # Agents
-previous_agent = ["alt+shift+j"]
-next_agent = ["alt+shift+k"]
+previous_agent = ["alt+shift+k"]
+next_agent = ["alt+shift+j"]
 new_workspace = ["alt+n", "prefix+n"]
 focus_agent = ""
 
