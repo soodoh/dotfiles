@@ -1,6 +1,6 @@
-// Called in a disposable, credential-free HOME. Real Pi loader, event runner,
-// native UI wrappers, and pi-subagents Herdr bridge; captured socket/CLI transport.
-// No model, child process, rendered TUI, or live Herdr server.
+// Disposable credential-free HOME. Real Pi loader/native UI wrappers and installed
+// pi-subagents bridges + completion notifier; captured socket/CLI transports.
+// Core activity, run records and dialogs are fixtures, not actual model/child runs.
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { mkdirSync, readFileSync, realpathSync } from "node:fs";
@@ -19,7 +19,7 @@ const settings = JSON.parse(
 		"utf8",
 	),
 );
-const entry = "packages/herdr-agent-state/index.ts";
+const entry = "packages/agent-state/index.ts";
 const configuredPackage = settings.packages.find(
 	(p) => p.source === "./pi-extensions",
 );
@@ -29,6 +29,10 @@ assert.ok(agentDir.startsWith(process.env.HOME));
 mkdirSync(join(process.cwd(), ".git"), { recursive: true });
 const requests = [];
 const endpoint = join(process.env.HOME, "fake.sock");
+const moshiRequests = [];
+const moshiEndpoint = join(process.env.HOME, "moshi.sock");
+process.env.MOSHI_SOCKET_PATH = moshiEndpoint;
+const rootTui = ["tui", "outside", "popup"].includes(mode);
 if (mode !== "outside") {
 	process.env.HERDR_ENV = "1";
 	process.env.HERDR_SOCKET_PATH = endpoint;
@@ -36,11 +40,12 @@ if (mode !== "outside") {
 }
 if (mode === "child") process.env.PI_SUBAGENT_CHILD = "1";
 net.createConnection = (path) => {
-	assert.equal(path, endpoint);
+	assert.ok([endpoint, moshiEndpoint].includes(path));
 	const socket = new EventEmitter();
 	socket.destroy = () => {};
+	socket.end = () => {};
 	socket.write = (line) => {
-		requests.push(JSON.parse(line));
+		(path === endpoint ? requests : moshiRequests).push(JSON.parse(line));
 		queueMicrotask(() => socket.emit("data", Buffer.from('{"ok":true}\n')));
 	};
 	queueMicrotask(() => socket.emit("connect"));
@@ -56,6 +61,16 @@ const { createJiti } = await import(
 	pathToFileURL(requireSubagents.resolve("jiti")).href
 );
 const jiti = createJiti(import.meta.url, { fsCache: false });
+const subagentSource = join(
+	root,
+	"pi-extensions/node_modules/pi-subagents/src",
+);
+const { registerPiWebSessionLiveness } = await jiti.import(
+	join(subagentSource, "integrations/pi-web-session-liveness.ts"),
+);
+const { default: registerNotify } = await jiti.import(
+	join(subagentSource, "runs/background/notify.ts"),
+);
 const { registerHerdrStatusBridge } = await jiti.import(
 	join(
 		root,
@@ -75,8 +90,8 @@ const loader = new pi.DefaultResourceLoader({
 			{
 				...configuredPackage,
 				// Select all Herdr entries so an accidental second reporter is detected.
-				extensions: configuredPackage.extensions.filter((p) =>
-					p.startsWith("packages/herdr-"),
+				extensions: configuredPackage.extensions.filter(
+					(p) => p === entry || p.startsWith("packages/herdr-"),
 				),
 				skills: [],
 				prompts: [],
@@ -96,6 +111,8 @@ let file = join(agentDir, "sessions/example.jsonl");
 let runner;
 let runtime;
 let bridge;
+let releaseActivity;
+let notifier;
 const activeRuns = new Map();
 const eventErrors = [];
 const pending = [];
@@ -114,7 +131,11 @@ const states = () =>
 		.map((r) => r.params.state);
 const lastState = () => states().at(-1);
 const dispatch = async (type, extra = {}) => {
-	await runner.emit({ type, ...extra });
+	await runner.emit({
+		type,
+		...(type === "agent_end" ? { messages: [] } : {}),
+		...extra,
+	});
 	await tick();
 	assert.deepEqual(eventErrors, []);
 };
@@ -142,7 +163,11 @@ async function load() {
 	);
 	runner.bindCore(
 		{},
-		{ isIdle: () => idle, hasPendingMessages: () => pendingMessages },
+		{
+			getModel: () => undefined,
+			isIdle: () => idle,
+			hasPendingMessages: () => pendingMessages,
+		},
 	);
 	runner.onError((error) => eventErrors.push(error));
 	runner.setUIContext(
@@ -152,9 +177,25 @@ async function load() {
 			input: waitForAnswer,
 			editor: waitForAnswer,
 			custom: waitForAnswer,
+			notify: (message) => {
+				throw new Error(`Unexpected notification: ${message}`);
+			},
 		},
 		["outside", "popup", "child"].includes(mode) ? "tui" : mode,
 	);
+	notifier = registerNotify(
+		{
+			events: bus,
+			sendMessage: (_message, options) => {
+				if (options.triggerTurn) pendingMessages = true;
+			},
+		},
+		{ currentSessionId: "session-uuid", completionOwnerId: "fixture-owner" },
+	);
+	releaseActivity = registerPiWebSessionLiveness({
+		sessionId: "session-uuid",
+		isActive: () => activeRuns.size > 0 || notifier.hasPendingDelivery(),
+	}).release;
 	bridge = registerHerdrStatusBridge({
 		events: bus,
 		getRuns: () => activeRuns.values(),
@@ -165,6 +206,8 @@ async function load() {
 async function shutdown() {
 	await dispatch("session_shutdown", { reason: "reload" });
 	bridge.dispose();
+	releaseActivity();
+	notifier.dispose();
 	await bridge.flush();
 	runtime.invalidate();
 }
@@ -184,6 +227,7 @@ try {
 		await dispatch("session_start", { reason: "startup" });
 		bridge.sessionStarted({ hasUI: mode === "tui", runs: [] });
 		await dispatch("resources_discover", { reason: "startup" });
+		assert.ok(!moshiRequests.some((r) => r.category === "task_complete"));
 		idle = false;
 		await dispatch("agent_start");
 		if (mode === "tui") {
@@ -220,11 +264,15 @@ try {
 				const waiter = pending.pop();
 				await tick();
 				if (mode === "tui") assert.equal(lastState(), "blocked");
+				if (rootTui)
+					assert.equal(moshiRequests.at(-1).category, "approval_required");
 				if (outcome === "error") waiter.reject(new Error("fixture failure"));
 				else waiter.resolve(outcome === "cancel" ? undefined : "answer");
 				await completion;
 				await tick();
 				if (mode === "tui") assert.equal(lastState(), "working");
+				if (rootTui)
+					assert.equal(moshiRequests.at(-1).eventName, "PermissionResolved");
 			}
 		}
 		if (mode === "tui") {
@@ -242,7 +290,7 @@ try {
 			two.resolve(undefined);
 			await second;
 			await tick();
-			assert.equal(lastState(), "blocked");
+			assert.equal(lastState(), "working"); // Anonymous blockers are ignored.
 			idle = true;
 			await dispatch("agent_settled");
 			bus.emit("herdr:blocked", { active: false });
@@ -289,11 +337,75 @@ try {
 			}
 		} else {
 			assert.deepEqual(requests, []);
+			if (!rootTui) assert.deepEqual(moshiRequests, []);
+		}
+		if (rootTui) {
+			// Native notifier batching: no child-process activity remains, but delivery
+			// itself must keep BOTH destinations busy, including outside Herdr.
+			idle = false;
+			await dispatch("agent_start");
+			const delivered = notifier.deliver({
+				source: "async",
+				sessionId: "session-uuid",
+				completionOwnerId: "fixture-owner",
+				runId: "batch",
+				asyncId: "batch",
+				agent: "fixture",
+				success: true,
+				exitCode: 0,
+				output: "fixture output",
+				triggerTurn: true,
+			});
+			await dispatch("agent_end", {
+				messages: [{ role: "assistant", stopReason: "stop", content: [] }],
+			});
+			idle = true;
+			await dispatch("agent_settled");
+			assert.equal(notifier.hasPendingDelivery(), true);
+			assert.ok(!moshiRequests.some((r) => r.category === "task_complete"));
+			await Promise.all([
+				delivered,
+				new Promise((resolve) => setTimeout(resolve, 200)),
+			]);
+			await tick();
+			assert.equal(pendingMessages, true);
+			assert.ok(!moshiRequests.some((r) => r.category === "task_complete"));
+			pendingMessages = false;
+			idle = false;
+			await dispatch("agent_start");
+			await dispatch("agent_end", {
+				messages: [{ role: "assistant", stopReason: "stop", content: [] }],
+			});
+			idle = true;
+			await dispatch("agent_settled");
+			assert.equal(
+				moshiRequests.filter((r) => r.category === "task_complete").length,
+				1,
+			);
+			const count = moshiRequests.length;
+			await dispatch("agent_settled");
+			assert.equal(moshiRequests.length, count);
+			// Restore authoritative activity without the Herdr bridge at all.
+			activeRuns.set("restored", { id: "restored", agent: "fixture" });
+			await shutdown();
+			await load();
+			await dispatch("session_start", { reason: "reload" });
+			await dispatch("resources_discover", { reason: "reload" });
+			assert.equal(moshiRequests.at(-1).category, "session_started");
+			assert.equal(
+				moshiRequests.filter((r) => r.category === "task_complete").length,
+				1,
+			);
+			assert.ok(!moshiRequests.some((r) => r.category === "session_ended"));
+			assert.ok(
+				!JSON.stringify(moshiRequests).includes("sensitive fixture title"),
+			);
+			assert.ok(moshiRequests.every((r) => r.sessionId === "session-uuid"));
 		}
 	}
 } finally {
 	await shutdown();
 }
 console.log(
-	`PASS ${mode} (${profile}): single reporter; ${requests.length} captured reports`,
+	`PASS ${mode} (${profile}): ${requests.length} Herdr and ${moshiRequests.length} Moshi reports`,
 );

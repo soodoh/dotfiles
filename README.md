@@ -159,15 +159,17 @@ into Git; session snapshots, sockets, plugins, and history remain local.
 `ha` launches/attaches Herdr; prefix **Ctrl+Space**, then **d**, detaches back to
 Fish. Existing tmux panes and editor terminals are excluded from autostart.
 
-The locally maintained Pi integration in
-`pi-extensions/packages/herdr-agent-state` is enabled by both profile filters.
-It combines parent lifecycle, native prompts, and background busy/blocker signals
-into one authoritative reporter. Parent settlement stays working while subagents
-or a queued continuation remain. The existing mise Pi-package symlink deploys it;
-no separate Herdr installer task is needed. An explicit exclusion prevents a
-legacy standalone reporter from loading twice without deleting it. See the
-package README for upstream attribution, regression tests, and the remaining
-limitation around untyped subagent attention signals.
+The locally maintained [`pi-extensions/packages/agent-state`](pi-extensions/packages/agent-state/README.md)
+is enabled by both profile filters. One state owner combines parent lifecycle,
+native prompts, subagent work and pending completion delivery, then reports to
+Herdr and Moshi. Moshi also works outside Herdr; neither adapter treats the parent
+yielding to children as task completion. An ownership-safe adapter uses upstream's
+versioned host-liveness protocol without patching pi-subagents. Only the parent's
+native prompts request human attention; legacy blocker events are ignored. Both
+generated standalone hooks are excluded without deleting them.
+Reconcile with `bun install --cwd pi-extensions --frozen-lockfile`, then `/reload`;
+no bootstrap, daemon update or pairing change is needed. See the package README
+for protocol tests, upstream attribution and manual notification acceptance.
 Pi now uses its regular rendering default. `pi --tui-mode fullscreen` remains a
 per-launch rendering fallback; the state reporter does not alter Pi rendering.
 

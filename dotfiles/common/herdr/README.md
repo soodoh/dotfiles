@@ -20,18 +20,19 @@ and 10,000,000-byte scrollback defaults remain; optional `experimental.pane_hist
 is disabled by default. Restored layouts/native agent conversations do **not**
 mean arbitrary old processes survive a server restart.
 
-The official revision **8** reporter is now vendored byte-for-byte in
-[`pi-extensions/packages/herdr-agent-state`](../../../pi-extensions/packages/herdr-agent-state/README.md),
-with its upstream license, source commit and checksum. The existing mise Pi-package
-symlink and both profile filters deploy it; `bootstrap:pi` only runs Bun dependency
-setup. The former `configure:herdr-pi` task has been removed.
+The locally maintained [`agent-state`](../../../pi-extensions/packages/agent-state/README.md)
+extension owns Pi lifecycle reporting to Herdr and Moshi. The Herdr adapter derives
+from the official revision **8** reporter, with its license and provenance retained;
+it is no longer an unmodified vendored asset. Both profiles deploy it through the
+existing Pi-package symlink. An ownership-safe adapter consumes upstream's
+versioned host-liveness protocol independently of Herdr, without a dependency patch.
 
-Both profiles explicitly exclude the standalone `extensions/herdr-agent-state.ts`
-path. This prevents a previously installed copy from loading twice, while leaving
-that file and unrelated standalone extensions untouched. Do not run the upstream
-installer for deployment. `herdr integration status` only checks the standalone
-path, not the package; its markers do not prove byte integrity or runtime delivery.
-Update the vendored reporter deliberately with the Herdr pin, not via Bun updates.
+Both profiles exclude `extensions/herdr-agent-state.ts` and `extensions/moshi-hooks.ts`.
+This prevents generated hooks from reporting alongside our adapters without
+removing those files or affecting unrelated extensions. Reconcile dependencies
+with `bun install --cwd pi-extensions --frozen-lockfile`, then `/reload`. Do not run
+a workstation bootstrap or upstream integration installer for this change.
+`herdr integration status` checks the excluded standalone path, not our package.
 
 ## Notification plugin provisioning
 
@@ -165,21 +166,21 @@ Visual acceptance is **not** a gate for this decision. Rendering-only fallback:
 pi --tui-mode fullscreen
 ```
 
-The locally maintained [`herdr-agent-state`](../../../pi-extensions/packages/herdr-agent-state/README.md)
-extension enables only with `HERDR_ENV=1`, a socket, and a pane ID. It reports
-session identity (absolute session path preferred, otherwise UUID) and combines
-parent activity, core continuations, counted `herdr:busy` contributions, native
-`ui_prompt_start/end` spans, and independent counted `herdr:blocked` contributions.
-Blockers take precedence over working; idle is published only when neither remains.
-The former `herdr-ui-prompts` companion is consolidated into this single writer.
-Reload restoration waits for all session-start handlers before announcing idle;
-teardown cancels pending writes rather than manufacturing a completion.
+The shared [`agent-state`](../../../pi-extensions/packages/agent-state/README.md)
+extension reports parent activity, pending continuations, subagent liveness and
+completion delivery, native prompt spans, and independent counted external
+busy contributions. Its Herdr adapter requires `HERDR_ENV=1`, a socket and
+pane ID; its Moshi adapter also works outside Herdr. Native parent prompts take
+precedence over work. Missing subagent evidence retains working
+state instead of guessing completion. Initial idle waits for all restoration
+handlers; teardown never manufactures completion.
 
-Native spans include the question tool's `ui.custom` and pending custom
-loaders/inspectors. Arbitrary shell/browser input and uninstrumented built-in UI
-are not covered. Prompt titles and sibling labels are not sent to Herdr. Legacy
-subagent blocker events lack source/reason information, so inactivity warnings
-can still surface as blocked; human-only classification needs a richer signal.
+The former `herdr-ui-prompts` companion is consolidated here. Native spans include
+the question tool's `ui.custom` and custom loaders/inspectors. Arbitrary
+shell/browser input and uninstrumented built-in UI are not covered. Neither
+adapter sends prompt titles or sibling labels. Anonymous `herdr:blocked` events
+are ignored, including third-party legacy blockers. A child asks its supervisor;
+only when the parent opens a native prompt does either adapter signal human input.
 The notification plugin's explicit `blocked`/`done` filter is unchanged.
 The macOS notification plugin supplies app activation and Herdr-pane focus, not
 exact parity with the old terminal-notifier/Ghostty-window AppleScript bridge.

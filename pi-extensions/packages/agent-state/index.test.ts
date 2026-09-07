@@ -5,6 +5,12 @@ import type {
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { registerActivity } from "./liveness.test.fixture";
+
+// These inherited regressions isolate Herdr; moshi.test.ts exercises both adapters.
+vi.mock("./moshi", () => ({
+	createMoshi: () => ({ associate() {}, update() {}, close() {} }),
+}));
 
 type Handler = (
 	event: Record<string, unknown>,
@@ -35,18 +41,21 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 		queueMicrotask(() => socket.emit("connect"));
 		return socket;
 	}) as unknown as typeof net.createConnection);
-	const handlers = new Map<string, Handler>();
+	const handlers = new Map<string, Handler[]>();
 	const bus = new EventEmitter();
 	const { default: extension } = await import("./index");
 	extension({
-		on: (event: string, handler: Handler) => handlers.set(event, handler),
+		on: (event: string, handler: Handler) =>
+			handlers.set(event, [...(handlers.get(event) ?? []), handler]),
 		events: {
+			emit: (event: string, data: unknown) => bus.emit(event, data),
 			on: (event: string, handler: (data: unknown) => void) => {
 				bus.on(event, handler);
 				return () => bus.off(event, handler);
 			},
 		},
 	} as unknown as ExtensionAPI);
+	const releaseActivity = registerActivity(() => false);
 	let idle = true;
 	let pending = false;
 	let file: string | undefined = "/tmp/root-session.jsonl";
@@ -55,13 +64,15 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 		hasUI: mode === "tui" || mode === "rpc",
 		isIdle: () => idle,
 		hasPendingMessages: () => pending,
+		ui: { notify: vi.fn() },
 		sessionManager: {
 			getSessionFile: () => file,
 			getSessionId: () => "root-session",
 		},
 	} as unknown as ExtensionContext;
 	async function dispatch(event: string, data: Record<string, unknown> = {}) {
-		await handlers.get(event)?.({ type: event, ...data }, ctx);
+		for (const handler of handlers.get(event) ?? [])
+			await handler({ type: event, messages: [], ...data }, ctx);
 	}
 	async function start() {
 		await dispatch("session_start", { reason: "startup" });
@@ -70,6 +81,7 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 	}
 	cleanups.push(async () => {
 		await dispatch("session_shutdown", { reason: "quit" });
+		releaseActivity();
 		await flush();
 	});
 	return {
@@ -169,23 +181,20 @@ test.each(["active", "queued"])(
 	},
 );
 
-test("native prompts and external blockers are independent of busy work", async () => {
+test("native prompts are independent of work and anonymous blocker events", async () => {
 	const f = await fixture();
 	await f.start();
 	f.bus.emit("herdr:busy", { active: true });
 	await flush();
 	await f.dispatch("ui_prompt_start", { title: "secret question" });
 	await f.dispatch("ui_prompt_start"); // Native overlapping span is coalesced.
+	f.bus.emit("herdr:blocked", { active: false });
 	await flush();
+	expect(f.states().at(-1)).toBe("blocked");
 	f.bus.emit("herdr:blocked", { active: true, label: "secret external label" });
 	await f.dispatch("ui_prompt_end");
 	await flush();
-	expect(f.states().at(-1)).toBe("blocked");
-	f.bus.emit("herdr:blocked", { active: false });
-	await flush();
 	expect(f.states().at(-1)).toBe("working");
-	await f.dispatch("ui_prompt_end");
-	await flush();
 	expect(JSON.stringify(f.reports)).not.toContain("secret");
 	f.bus.emit("herdr:busy", { active: false });
 	await flush();
@@ -369,19 +378,20 @@ test("obsolete state is not retried after newer state was queued", async () => {
 	expect(f.states()).toEqual(["idle", "working", "blocked"]);
 });
 
-test("each external blocker owns its count; malformed releases cannot clear it", async () => {
+test("anonymous blocker events never claim the human must intervene", async () => {
 	const f = await fixture();
 	await f.start();
-	f.bus.emit("herdr:blocked", { active: true });
-	f.bus.emit("herdr:blocked", { active: true });
-	await flush();
-	f.bus.emit("herdr:blocked", {});
-	f.bus.emit("herdr:blocked", { active: false });
-	await flush();
-	expect(f.states()).toEqual(["idle", "blocked"]);
-	f.bus.emit("herdr:blocked", { active: false });
-	await flush();
-	expect(f.states()).toEqual(["idle", "blocked", "idle"]);
+	for (const value of [
+		{ active: true },
+		{ active: true },
+		{},
+		{ active: false },
+	]) {
+		f.bus.emit("herdr:blocked", value);
+		await flush();
+	}
+	expect(f.bus.listenerCount("herdr:blocked")).toBe(0);
+	expect(f.states()).toEqual(["idle"]);
 });
 
 test("a prompt from a non-TUI context cannot alter the root's native span", async () => {
@@ -410,7 +420,7 @@ test("identity lookup failures do not prevent state reporting", async () => {
 		throw new Error("no id");
 	});
 	await f.start();
-	expect(f.states()).toEqual(["idle"]);
+	expect(f.states()).toEqual(["working"]); // Missing identity cannot prove background work is finished.
 	expect(f.reports.at(-1)?.params.agent_session_path).toBeUndefined();
 	expect(f.reports.at(-1)?.params.agent_session_id).toBeUndefined();
 });

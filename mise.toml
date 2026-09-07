@@ -375,7 +375,7 @@ run = [
   "bun run --cwd pi-extensions ci",
   'node pi-extensions/extensions-host.test.mjs "$(mise which pi)"',
   'node pi-extensions/subagents-host.test.mjs "$(mise which pi)"',
-  'python3 pi-extensions/packages/herdr-agent-state/integration.test.py "$(mise which pi)"',
+  'python3 pi-extensions/packages/agent-state/integration.test.py "$(mise which pi)"',
   '''
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT

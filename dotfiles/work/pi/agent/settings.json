@@ -14,14 +14,15 @@
   "enableSkillCommands": true,
   "extensions": [
     "extensions/*.ts",
-    "-extensions/herdr-agent-state.ts"
+    "-extensions/herdr-agent-state.ts",
+    "-extensions/moshi-hooks.ts"
   ],
   "packages": [
     {
       "source": "./pi-extensions",
       "extensions": [
         "packages/auto-session-name/index.ts",
-        "packages/herdr-agent-state/index.ts",
+        "packages/agent-state/index.ts",
         "packages/shared-prompt-history/index.ts",
         "packages/statusline/index.ts",
         "packages/aidev-track/index.ts",
