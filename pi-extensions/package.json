@@ -20,7 +20,6 @@
 			"node_modules/pi-mcp-adapter/index.ts",
 			"node_modules/pi-web-access/index.ts",
 			"node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
-			"node_modules/pi-readseek/dist/index.ts",
 			"node_modules/pi-subagents/index.ts"
 		],
 		"skills": [
@@ -47,7 +46,6 @@
 		"google-auth-library": "11.0.2",
 		"pi-mcp-adapter": "2.32.1",
 		"pi-openai-fast": "1.0.1",
-		"pi-readseek": "0.9.16",
 		"pi-subagents": "0.66.0",
 		"pi-vim": "0.14.2",
 		"pi-web-access": "0.28.0",
@@ -79,7 +77,6 @@
 		"pi-mcp-adapter",
 		"pi-web-access",
 		"@juicesharp/rpiv-ask-user-question",
-		"pi-readseek",
 		"pi-subagents"
 	]
 }

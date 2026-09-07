@@ -104,8 +104,6 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "apt:gnupg" = { version = "latest", os = "linux" }
 "brew:fish" = { version = "latest", os = "macos" }
 "brew:gnupg" = { version = "latest", os = "macos" }
-# Required on macOS for Readseek
-"brew:libgit2" = { version = "latest", os = "macos" }
 "brew:lima" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
 "brew:tailscale" = { version = "latest", os = "macos" }
