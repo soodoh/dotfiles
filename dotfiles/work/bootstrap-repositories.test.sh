@@ -33,11 +33,11 @@ fi
 
 projects_dir="$HOME/Projects"
 grep -Fx $'git@github.docusignhq.com:Core/1ds.git\t'"$projects_dir/1ds" "$GIT_LOG" >/dev/null
-grep -Fx $'git@github.docusignhq.com:Microservices/ipg-engagements-infra.git\t'"$projects_dir/ipg-engagements/infra" "$GIT_LOG" >/dev/null
+grep -Fx $'git@github.docusignhq.com:Microservices/ipg-engagements-infra.git\t'"$projects_dir/ipg-engagements-infra" "$GIT_LOG" >/dev/null
 grep -Fx $'https://github.docusignhq.com/Microservices/msf-dev\t'"$projects_dir/msf-dev" "$GIT_LOG" >/dev/null
 
 test -d "$projects_dir/1ds/.git"
-test -d "$projects_dir/ipg-engagements/infra/.git"
+test -d "$projects_dir/ipg-engagements-infra/.git"
 test -d "$projects_dir/msf-dev/.git"
 test -d "$projects_dir/widget-starter-kit/.git"
 
