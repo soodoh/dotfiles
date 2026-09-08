@@ -42,10 +42,22 @@
       "google-vertex/gemini-3.7-flash"
     ]
   },
+  "subagents": {
+    "modelScope": {
+      "enforce": true,
+      "strict": true,
+      "allow": [
+        "github-copilot/*",
+        "google-vertex/*",
+        "litellm/*"
+      ]
+    }
+  },
   "enabledModels": [
     "litellm/chatgpt/gpt-6-astra",
     "litellm/chatgpt/gpt-5.6-sol",
     "litellm/chatgpt/gpt-5.6-luna",
+    "github-copilot/gpt-6-astra",
     "github-copilot/gpt-5.6-sol",
     "github-copilot/gpt-5.6-luna",
     "github-copilot/claude-opus-5",
