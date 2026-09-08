@@ -20,7 +20,7 @@ LITELLM_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxQ2VMTkZxe
 # Azure CLI is declared above; gcloud is shared.
 "aqua:Azure/kubelogin" = "0.2.19"
 "aqua:GoogleContainerTools/skaffold" = "2.24.0"
-"aqua:PowerShell/PowerShell" = "7.6.5"
+"aqua:PowerShell/PowerShell" = "7.6.6"
 "aqua:ahmetb/kubectx" = "0.11.0"
 "aqua:derailed/k9s" = "0.51.0"
 "aqua:helm/helm" = "4.2.4"
