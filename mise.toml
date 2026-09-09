@@ -9,6 +9,7 @@ age.key_file = "~/.config/mise/age.txt"
 age.strict = false
 dotfiles.default_mode = "symlink"
 task.run_auto_install = false
+auto_update = true
 
 [task_config]
 dir = "{{ env.MISE_CONFIG_DIR | default(value=config_root) }}"
