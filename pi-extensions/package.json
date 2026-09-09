@@ -50,7 +50,7 @@
 		"pi-vim": "0.14.2",
 		"pi-web-access": "0.28.0",
 		"proper-lockfile": "4.1.2",
-		"typebox": "1.3.29"
+		"typebox": "1.3.30"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-agent-core": "*",
@@ -64,7 +64,7 @@
 		"@earendil-works/pi-ai": "0.85.1",
 		"@earendil-works/pi-coding-agent": "0.85.1",
 		"@earendil-works/pi-tui": "0.85.1",
-		"@types/node": "^26.5.0",
+		"@types/node": "^26.5.1",
 		"@types/proper-lockfile": "4.1.4",
 		"@vitest/coverage-v8": "^5.0.0",
 		"typescript": "^7.0.2",

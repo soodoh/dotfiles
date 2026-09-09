@@ -50,7 +50,7 @@ gcloud = { version = "583.0.0", depends = ["python"] }
 bun = "1.4.2"
 go = "1.27.1"
 rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
-"aqua:astral-sh/uv" = "0.12.11"
+"aqua:astral-sh/uv" = "0.12.12"
 "aqua:cli/cli" = "2.100.0"
 "aqua:jqlang/jq" = "1.8.2"
 "aqua:FiloSottile/age" = "1.3.2"
@@ -91,7 +91,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:oxlint" = "1.82.0"
 "npm:prettier" = "3.9.6"
-"npm:pyright" = "1.1.413"
+"npm:pyright" = "1.1.414"
 "npm:typescript-language-server" = "6.0.0"
 "npm:vim-language-server" = "2.3.1"
 "npm:vscode-langservers-extracted" = "4.10.0"
