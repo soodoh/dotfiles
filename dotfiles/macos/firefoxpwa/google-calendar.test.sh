@@ -199,6 +199,13 @@ case "$1 $2" in
 </dict></plist>
 PLIST
     ;;
+  "runtime patch")
+    runtime_bundle="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
+    if [[ ! -w "$runtime_bundle" ]]; then
+      printf 'Permission denied\n' >&2
+      exit 1
+    fi
+    ;;
   "profile list")
     cat "$FIREFOXPWA_TEST_PROFILE_LIST"
     ;;
@@ -368,6 +375,24 @@ bash "$script" >/dev/null 2>&1
 status=$?
 set -e
 [[ "$status" -eq 75 ]] || fail "drifted running profile should fail with status 75"
+assert_log "profile list"
+assert_codesign_log ""
+
+setup_case unwritable-runtime
+setup_current_state
+runtime_bundle="$HOME/Library/Application Support/firefoxpwa/runtime/Firefox.app"
+rm "$runtime_bundle/Contents/Resources/google-calendar.icns"
+chmod a-w "$runtime_bundle"
+set +e
+output=$(bash "$script" 2>&1)
+status=$?
+set -e
+chmod u+w "$runtime_bundle"
+[[ "$status" -eq 77 ]] || fail "unwritable runtime should fail with status 77"
+[[ "$output" == *"FirefoxPWA runtime is not writable"* ]] \
+  || fail "unwritable runtime should explain the ownership problem"
+[[ "$output" == *'sudo chown -R'* ]] \
+  || fail "unwritable runtime should print the repair command"
 assert_log "profile list"
 assert_codesign_log ""
 

@@ -175,6 +175,14 @@ if [[ -f "$profile_lock" ]] && "$lsof_bin" "$profile_lock" >/dev/null 2>&1; then
   exit 75
 fi
 
+if [[ -d "$runtime_bundle" && ! -w "$runtime_bundle" ]]; then
+  printf 'error: FirefoxPWA runtime is not writable: %s\n' "$runtime_bundle" >&2
+  printf 'repair its ownership, then rerun bootstrap:\n' >&2
+  printf '  sudo chown -R "%s:%s" "%s"\n' \
+    "$(id -un)" "$(id -gn)" "$runtime_bundle" >&2
+  exit 77
+fi
+
 if [[ -x "$runtime_executable" ]]; then
   "$firefoxpwa_bin" runtime patch
 else
