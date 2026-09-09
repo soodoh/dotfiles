@@ -15,7 +15,7 @@ LITELLM_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxQ2VMTkZxe
 
 [tools]
 "pipx:azure-cli" = "2.90.0"
-"pipx:snowflake-cli" = "3.26.0"
+"pipx:snowflake-cli" = "3.27.0"
 # MSF TrueDev tooling. Docker/Compose and jq come from the shared profile;
 # Azure CLI is declared above; gcloud is shared.
 "aqua:Azure/kubelogin" = "0.2.19"
@@ -26,7 +26,7 @@ LITELLM_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxQ2VMTkZxe
 "aqua:helm/helm" = "4.2.4"
 "aqua:kubernetes/kubernetes/kubectl" = "1.37.0"
 "npm:@azure/mcp" = "2.0.5"
-"npm:@azure-devops/mcp" = "2.9.0"
+"npm:@azure-devops/mcp" = "2.10.0"
 "npm:figma-developer-mcp" = "0.13.2"
 "npm:kusto-mcp" = "1.14.0"
 

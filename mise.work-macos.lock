@@ -177,7 +177,7 @@ checksum = "sha256:3614508ef332146026086775bbac42bec0668f66d5af2cd77bc7966be10ed
 url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.2.7"
 
 [[tools."npm:@azure-devops/mcp"]]
-version = "2.9.0"
+version = "2.10.0"
 backend = "npm:@azure-devops/mcp"
 
 [[tools."npm:@azure/mcp"]]
@@ -197,5 +197,5 @@ version = "2.90.0"
 backend = "pipx:azure-cli"
 
 [[tools."pipx:snowflake-cli"]]
-version = "3.26.0"
+version = "3.27.0"
 backend = "pipx:snowflake-cli"
