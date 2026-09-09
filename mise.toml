@@ -42,7 +42,7 @@ herdr_focus_notify_ref = "f931db5090ded54086e365dfb8db896c3a3e1a05"
 herdr_sesh_ref = "6539de584655072fc0ff24d0189b343b872d65d9"
 
 [tools]
-node = "24.20.0" # LTS; keep aligned with .nvmrc
+node = "24.21.0" # LTS; keep aligned with .nvmrc
 "aqua:Schniz/fnm" = "1.39.0"
 "aqua:yarnpkg/berry" = "4.18.0"
 python = "3.14.7"
