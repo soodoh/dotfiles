@@ -59,7 +59,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:BurntSushi/ripgrep" = "15.2.0"
 "aqua:junegunn/fzf" = "0.74.3"
 "aqua:jdx/usage" = "6.8.0"
-"aqua:atuinsh/atuin" = "18.21.0"
+"aqua:atuinsh/atuin" = "18.22.0"
 "aqua:jesseduffield/lazygit" = "0.65.0"
 "aqua:starship/starship" = "1.26.0"
 "aqua:ajeetdsouza/zoxide" = "0.10.0"
