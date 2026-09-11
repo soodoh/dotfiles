@@ -28,6 +28,13 @@ def load_toml(path: Path) -> dict[str, Any]:
         return tomllib.load(stream)
 
 
+def configured_mise_version(root: Path) -> str:
+    version = load_toml(root / "mise.toml").get("min_version")
+    if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        raise ValueError("mise.toml min_version must be a semantic version")
+    return version
+
+
 def requested_version(specification: Any) -> str:
     if isinstance(specification, str):
         return specification
@@ -235,21 +242,32 @@ def main() -> None:
     parser.add_argument("--os", default=os.environ.get("RUNNER_OS"))
     parser.add_argument("--arch", default=os.environ.get("RUNNER_ARCH"))
     parser.add_argument("--image", default=os.environ.get("ImageOS"))
-    parser.add_argument("--mise-version", default=os.environ.get("MISE_VERSION"))
-    parser.add_argument("--mode", choices=("key", "reconcile", "record"), default="key")
+    parser.add_argument("--mise-version")
+    parser.add_argument(
+        "--mode", choices=("key", "reconcile", "record", "version"), default="key"
+    )
     parser.add_argument("--data-dir", type=Path, default=Path.home() / ".local/share/mise")
     arguments = parser.parse_args()
-    if arguments.mode != "key":
+    if arguments.mode in ("reconcile", "record"):
         reconcile_or_record(arguments)
         return
+
+    mise_version = arguments.mise_version or configured_mise_version(arguments.root)
+    if arguments.mode == "version":
+        emit_outputs({"mise-version": mise_version})
+        return
+
     emit_outputs(
-        build_keys(
-            arguments.root,
-            arguments.os,
-            arguments.arch,
-            arguments.image,
-            arguments.mise_version,
-        )
+        {
+            "mise-version": mise_version,
+            **build_keys(
+                arguments.root,
+                arguments.os,
+                arguments.arch,
+                arguments.image,
+                mise_version,
+            ),
+        }
     )
 
 

@@ -50,6 +50,22 @@ class MisePolicyTests(unittest.TestCase):
         ]
         self.assertEqual(disabled_mise_rules, [])
 
+    def test_renovate_updates_the_repository_mise_version(self) -> None:
+        renovate = json.loads((ROOT / "renovate.json").read_text())
+        managers = [
+            manager
+            for manager in renovate["customManagers"]
+            if manager.get("packageNameTemplate") == "jdx/mise"
+        ]
+        self.assertEqual(len(managers), 1)
+        manager = managers[0]
+        self.assertEqual(manager["datasourceTemplate"], "github-releases")
+        self.assertIn("min_version", manager["matchStrings"][0])
+        pattern = manager["matchStrings"][0].replace(
+            "(?<currentValue>", "(?P<currentValue>"
+        )
+        self.assertRegex((ROOT / "mise.toml").read_text(), pattern)
+
     def test_repository_updates_only_explicitly_unsupported_tools(self) -> None:
         mise_lock = load_mise_lock_module()
         self.assertEqual(mise_lock.UNSUPPORTED_TOOLS, {"work-macos": ("http:twg",)})

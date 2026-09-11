@@ -11,7 +11,6 @@ permissions:
 env:
   MISE_LOCKED_VERIFY_PROVENANCE: "1"
   MISE_AGE_STRICT: "false"
-  MISE_VERSION: "2026.9.1"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,8 +32,7 @@ jobs:
           python3 .github/workflows/mise-cache-key.py \
             --os "$RUNNER_OS" \
             --arch "$RUNNER_ARCH" \
-            --image "${ImageOS:?runner image is required for cache compatibility}" \
-            --mise-version "$MISE_VERSION"
+            --image "${ImageOS:?runner image is required for cache compatibility}"
       - name: Restore mise tool cache
         id: mise-cache
         continue-on-error: true
@@ -69,7 +67,7 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
-          version: ${{ env.MISE_VERSION }}
+          version: ${{ steps.mise-cache-key.outputs.mise-version }}
           install: false
           cache: false
       - name: Detect mise dependency changes
@@ -145,8 +143,7 @@ jobs:
           python3 .github/workflows/mise-cache-key.py \
             --os "$RUNNER_OS" \
             --arch "$RUNNER_ARCH" \
-            --image "${ImageOS:?runner image is required for cache compatibility}" \
-            --mise-version "$MISE_VERSION"
+            --image "${ImageOS:?runner image is required for cache compatibility}"
       - name: Restore mise tool cache
         id: mise-cache
         continue-on-error: true
@@ -183,7 +180,7 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
-          version: ${{ env.MISE_VERSION }}
+          version: ${{ steps.mise-cache-key.outputs.mise-version }}
           install: false
           cache: false
       - name: Install mise-managed tools

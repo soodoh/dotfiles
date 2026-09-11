@@ -79,6 +79,17 @@ class MiseCacheKeyTests(unittest.TestCase):
             self.root, os_name, architecture, image, mise_version
         )
 
+    def test_configured_mise_version_comes_from_min_version(self) -> None:
+        self.assertEqual(self.helper.configured_mise_version(self.root), "2026.8.6")
+        path = self.root / "mise.toml"
+        path.write_text(
+            path.read_text().replace(
+                'min_version = "2026.8.6"', 'min_version = "latest"'
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "min_version"):
+            self.helper.configured_mise_version(self.root)
+
     def test_unchanged_inputs_are_stable(self) -> None:
         self.assertEqual(self.keys(), self.keys())
 
@@ -268,6 +279,26 @@ class WorkflowCachePolicyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.workflow = (ROOT / ".github/workflows/mise.yml").read_text()
+        cls.update_workflow = (
+            ROOT / ".github/workflows/repository-updates.yml"
+        ).read_text()
+
+    def test_workflows_install_the_configured_minimum_mise_version(self) -> None:
+        self.assertNotIn("MISE_VERSION", self.workflow)
+        self.assertEqual(
+            self.workflow.count(
+                "version: ${{ steps.mise-cache-key.outputs.mise-version }}"
+            ),
+            2,
+        )
+        self.assertIn(
+            "python3 .github/workflows/mise-cache-key.py --mode version",
+            self.update_workflow,
+        )
+        self.assertIn(
+            "version: ${{ steps.mise-version.outputs.mise-version }}",
+            self.update_workflow,
+        )
 
     def test_required_jobs_and_unconditional_work_remain(self) -> None:
         self.assertRegex(self.workflow, r"(?m)^  ubuntu:$")

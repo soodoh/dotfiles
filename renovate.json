@@ -11,6 +11,23 @@
     "dotfiles/personal/agents/**",
     "dotfiles/work/agents/**"
   ],
+  "customManagers": [
+    {
+      "description": "Keep the repository-wide mise CLI version current",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^mise\\.toml$/"
+      ],
+      "matchStrings": [
+        "min_version\\s*=\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "mise",
+      "packageNameTemplate": "jdx/mise",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>\\d+\\.\\d+\\.\\d+)$",
+      "versioningTemplate": "semver"
+    }
+  ],
   "packageRules": [
     {
       "description": "Automerge lock maintenance and non-major updates after checks pass",
