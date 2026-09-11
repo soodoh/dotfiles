@@ -31,7 +31,9 @@ class ColimaLaunchAgentTests(unittest.TestCase):
         self.assertTrue(self.agent["run_at_load"])
 
     def test_uses_repository_working_directory_and_separate_logs(self) -> None:
-        self.assertEqual(self.agent["working_directory"], "~/Projects/dotfiles")
+        self.assertEqual(
+            self.agent["working_directory"], "~/.local/share/dotfiles"
+        )
         self.assertEqual(self.agent["stdout_path"], "~/Library/Logs/colima-default.log")
         self.assertEqual(
             self.agent["stderr_path"], "~/Library/Logs/colima-default.error.log"

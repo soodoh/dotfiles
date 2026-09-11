@@ -211,7 +211,7 @@ args = [
   "default",
 ]
 run_at_load = true
-working_directory = "~/Projects/dotfiles"
+working_directory = "~/.local/share/dotfiles"
 stdout_path = "~/Library/Logs/colima-default.log"
 stderr_path = "~/Library/Logs/colima-default.error.log"
 
@@ -222,7 +222,7 @@ program = "~/.local/bin/mise"
 args = ["exec", "--", "/opt/homebrew/opt/moshi-hook/bin/moshi-hook", "serve"]
 run_at_load = true
 keep_alive = true
-working_directory = "~/Projects/dotfiles"
+working_directory = "~/.local/share/dotfiles"
 stdout_path = "~/Library/Logs/moshi-hook.log"
 stderr_path = "~/Library/Logs/moshi-hook.error.log"
 
@@ -247,6 +247,8 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 '''
 
 [dotfiles]
+# Stable runtime anchor for services that need this checkout's mise configuration.
+"~/.local/share/dotfiles" = "."
 "~/.config/.gitignore_global" = "dotfiles/common/gitignore_global"
 "~/.config/atuin" = "dotfiles/common/atuin"
 "~/.config/fish/config.fish" = "dotfiles/common/fish/config.fish"

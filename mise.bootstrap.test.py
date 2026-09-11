@@ -150,7 +150,8 @@ class MiseConfigurationTests(unittest.TestCase):
             agent["args"],
             ["exec", "--", "/opt/homebrew/opt/moshi-hook/bin/moshi-hook", "serve"],
         )
-        self.assertEqual(agent["working_directory"], "~/Projects/dotfiles")
+        self.assertEqual(agent["working_directory"], "~/.local/share/dotfiles")
+        self.assertEqual(self.base["dotfiles"]["~/.local/share/dotfiles"], ".")
         self.assertTrue(agent["run_at_load"])
         self.assertTrue(agent["keep_alive"])
         self.assertNotIn("PATH", agent.get("environment", {}))
@@ -171,6 +172,11 @@ class MiseConfigurationTests(unittest.TestCase):
         agent = self.base["bootstrap"]["macos"]["launchd"]["agents"]["moshi-hook"]
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
+            checkout = home / "checkouts/dotfiles"
+            checkout.mkdir(parents=True)
+            repo_alias = home / agent["working_directory"].removeprefix("~/")
+            repo_alias.parent.mkdir(parents=True)
+            repo_alias.symlink_to(checkout, target_is_directory=True)
             tools = home / "tools"
             tools.mkdir()
             herdr = tools / "herdr"
@@ -181,13 +187,13 @@ class MiseConfigurationTests(unittest.TestCase):
                 '#!/bin/sh\n[ "$1" = serve ] || exit 64\ncommand -v herdr\n'
             )
             moshi.chmod(0o755)
-            (home / "mise.toml").write_text(
+            (checkout / "mise.toml").write_text(
                 f"[env]\n_.path = [{json.dumps(str(tools))}]\n"
             )
             environment = {
                 "HOME": str(home),
                 "PATH": os.defpath,  # launchd-like environment, no interactive activation.
-                "MISE_TRUSTED_CONFIG_PATHS": str(home),
+                "MISE_TRUSTED_CONFIG_PATHS": str(checkout),
             }
             self.assertIsNone(shutil.which("herdr", path=environment["PATH"]))
             # Replace only the daemon with a probe; run the declared mise exec arguments.
@@ -197,7 +203,7 @@ class MiseConfigurationTests(unittest.TestCase):
             ]
             result = subprocess.run(
                 [mise, *arguments],
-                cwd=home,
+                cwd=repo_alias,
                 env=environment,
                 capture_output=True,
                 text=True,
