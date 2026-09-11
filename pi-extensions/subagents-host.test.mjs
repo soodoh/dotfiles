@@ -37,13 +37,50 @@ const piName = "@earendil-works/pi-coding-agent";
 // covers imports and required APIs, not successful native background execution.
 const requiredSpecifiers = HOST_PEER_ALIASES.map(({ specifier }) => specifier);
 
-function assertAliasResolution(result, missing = []) {
+function assertAliasResolution(
+	result,
+	missing = [],
+	specifiers = requiredSpecifiers,
+) {
 	assert.deepEqual([...result.missing].sort(), [...missing].sort());
-	for (const specifier of requiredSpecifiers) {
+	for (const specifier of specifiers) {
 		assert.equal(
 			Object.hasOwn(result.aliases, specifier),
 			!missing.includes(specifier),
 			`${specifier}: required aliases must resolve, missing ones must not have fallback targets`,
+		);
+	}
+}
+
+function inferPeerAlias(specifier) {
+	const segments = specifier.split("/");
+	const packageSegmentCount = specifier.startsWith("@") ? 2 : 1;
+	return {
+		specifier,
+		pkg: segments.slice(0, packageSegmentCount).join("/"),
+		subpath:
+			segments.length === packageSegmentCount
+				? "."
+				: `./${segments.slice(packageSegmentCount).join("/")}`,
+	};
+}
+
+function writeImportOnlyPeerPackages(modules, aliases, expectedAliases) {
+	for (const pkg of new Set(aliases.map((entry) => entry.pkg))) {
+		const directory = join(modules, pkg);
+		mkdirSync(directory, { recursive: true });
+		const exports = {};
+		for (const { specifier, subpath } of aliases.filter(
+			(entry) => entry.pkg === pkg,
+		)) {
+			const target = `./${subpath.replaceAll(/[./]/g, "_")}.mjs`;
+			exports[subpath] = { types: "./absent.d.ts", import: target };
+			writeFileSync(join(directory, target), "export const marker = true;\n");
+			expectedAliases[specifier] = join(directory, target);
+		}
+		writeFileSync(
+			join(directory, "package.json"),
+			JSON.stringify({ name: pkg, version: "0.85.1", exports }),
 		);
 	}
 }
@@ -68,25 +105,17 @@ test("historical isolated Pi layout: import-only exports resolve and missing dep
 	const modules = join(temporary, "node_modules/.mise/pi@0.85.1/node_modules");
 	const host = join(modules, piName);
 	const expectedAliases = {};
-	for (const pkg of new Set(HOST_PEER_ALIASES.map((entry) => entry.pkg))) {
-		const directory = join(modules, pkg);
-		mkdirSync(directory, { recursive: true });
-		const exports = {};
-		for (const { specifier, subpath } of HOST_PEER_ALIASES.filter(
-			(entry) => entry.pkg === pkg,
-		)) {
-			const target = `./${subpath.replaceAll(/[./]/g, "_")}.mjs`;
-			exports[subpath] = { types: "./absent.d.ts", import: target };
-			writeFileSync(join(directory, target), "export const marker = true;\n");
-			expectedAliases[specifier] = join(directory, target);
-		}
-		writeFileSync(
-			join(directory, "package.json"),
-			JSON.stringify({ name: pkg, version: "0.85.1", exports }),
-		);
+	const fixtureAliases = [...HOST_PEER_ALIASES];
+	writeImportOnlyPeerPackages(modules, fixtureAliases, expectedAliases);
+	// The resolver can add aliases conditionally for the pinned host version.
+	// Build those packages too instead of assuming its exported base list is exhaustive.
+	for (const specifier of resolveHostPeerAliases(host).missing) {
+		fixtureAliases.push(inferPeerAlias(specifier));
 	}
+	writeImportOnlyPeerPackages(modules, fixtureAliases, expectedAliases);
+	const fixtureSpecifiers = fixtureAliases.map(({ specifier }) => specifier);
 	const result = resolveHostPeerAliases(host);
-	assertAliasResolution(result);
+	assertAliasResolution(result, [], fixtureSpecifiers);
 	assert.deepEqual(result.aliases, expectedAliases);
 	for (const target of Object.values(result.aliases)) {
 		assert.ok(
@@ -109,33 +138,41 @@ test("historical isolated Pi layout: import-only exports resolve and missing dep
 			const source = readFileSync(target);
 			rmSync(target);
 			try {
-				assertAliasResolution(resolveHostPeerAliases(host), missing);
+				assertAliasResolution(
+					resolveHostPeerAliases(host),
+					missing,
+					fixtureSpecifiers,
+				);
 			} finally {
 				writeFileSync(target, source);
 			}
 		});
 	}
-	for (const pkg of new Set(HOST_PEER_ALIASES.map((entry) => entry.pkg))) {
+	for (const pkg of new Set(fixtureAliases.map((entry) => entry.pkg))) {
 		const packagePath = join(modules, pkg, "package.json");
 		const source = readFileSync(packagePath, "utf8");
 		const pkgManifest = JSON.parse(source);
 		for (const subpath of Object.keys(pkgManifest.exports)) {
-			const missing = HOST_PEER_ALIASES.filter(
-				(entry) => entry.pkg === pkg && entry.subpath === subpath,
-			).map((entry) => entry.specifier);
+			const missing = fixtureAliases
+				.filter((entry) => entry.pkg === pkg && entry.subpath === subpath)
+				.map((entry) => entry.specifier);
 			await t.test(`missing export: ${missing.join(", ")}`, () => {
 				const modified = JSON.parse(source);
 				delete modified.exports[subpath];
 				writeFileSync(packagePath, JSON.stringify(modified));
 				try {
-					assertAliasResolution(resolveHostPeerAliases(host), missing);
+					assertAliasResolution(
+						resolveHostPeerAliases(host),
+						missing,
+						fixtureSpecifiers,
+					);
 				} finally {
 					writeFileSync(packagePath, source);
 				}
 			});
 		}
 	}
-	assertAliasResolution(resolveHostPeerAliases(host));
+	assertAliasResolution(resolveHostPeerAliases(host), [], fixtureSpecifiers);
 });
 
 // Optional actual-host integration: node subagents-host.test.mjs "$(mise which pi)"

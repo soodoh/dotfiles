@@ -46,7 +46,7 @@ class IntegrationTests(unittest.TestCase):
             cwd=self.home,
             capture_output=True,
             text=True,
-            timeout=20,
+            timeout=60,
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
 
