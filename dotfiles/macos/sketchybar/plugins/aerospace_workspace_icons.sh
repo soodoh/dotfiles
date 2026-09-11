@@ -8,6 +8,11 @@ WORKSPACE_GROUP_PADDING_X="${WORKSPACE_GROUP_PADDING_X:-8}"
 EMPTY_WORKSPACE_GROUP_WIDTH="${EMPTY_WORKSPACE_GROUP_WIDTH:-12}"
 WORKSPACE_ICON_PADDING_X="${WORKSPACE_ICON_PADDING_X:-1}"
 WORKSPACE_ICON_SCALE="${WORKSPACE_ICON_SCALE:-0.65}"
+APP_ICON_CACHE_DIR="${APP_ICON_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar/app-icons}"
+APP_ICON_PIXEL_SIZE="${APP_ICON_PIXEL_SIZE:-32}"
+MDFIND_BIN="${MDFIND_BIN:-mdfind}"
+PLISTBUDDY_BIN="${PLISTBUDDY_BIN:-/usr/libexec/PlistBuddy}"
+SIPS_BIN="${SIPS_BIN:-sips}"
 
 extract_workspace_apps_from_windows() {
 	awk -F'|' '
@@ -75,12 +80,78 @@ workspace_overflow_count() {
   '
 }
 
+find_app_bundle() {
+	local bundle_id="$1"
+	local candidate
+
+	[[ -n "$bundle_id" ]] || return 1
+	while IFS= read -r candidate; do
+		if [[ -d "$candidate/Contents/Resources" ]]; then
+			printf '%s\n' "$candidate"
+			return 0
+		fi
+	done < <("$MDFIND_BIN" "kMDItemCFBundleIdentifier == '$bundle_id'" 2>/dev/null)
+
+	return 1
+}
+
+find_app_icon_resource() {
+	local bundle_id="$1"
+	local app_bundle
+	local icon_file
+	local icon_path
+
+	app_bundle="$(find_app_bundle "$bundle_id")" || return 1
+	icon_file="$("$PLISTBUDDY_BIN" -c 'Print :CFBundleIconFile' "$app_bundle/Contents/Info.plist" 2>/dev/null)" || return 1
+	[[ -n "$icon_file" ]] || return 1
+
+	icon_path="$app_bundle/Contents/Resources/$icon_file"
+	if [[ ! -f "$icon_path" && "$icon_file" != *.icns ]]; then
+		icon_path="$icon_path.icns"
+	fi
+	[[ -f "$icon_path" ]] || return 1
+	printf '%s\n' "$icon_path"
+}
+
+cache_app_icon() {
+	local bundle_id="$1"
+	local icon_resource="$2"
+	local cache_name
+	local cache_path
+	local temporary_path
+
+	cache_name="$(printf '%s' "$bundle_id" | LC_ALL=C tr -c 'A-Za-z0-9._-' '_')"
+	cache_path="$APP_ICON_CACHE_DIR/$cache_name.png"
+
+	if [[ -f "$cache_path" && ! "$icon_resource" -nt "$cache_path" ]]; then
+		printf '%s\n' "$cache_path"
+		return 0
+	fi
+
+	mkdir -p "$APP_ICON_CACHE_DIR" || return 1
+	temporary_path="$(mktemp "$APP_ICON_CACHE_DIR/.icon.XXXXXX.png")" || return 1
+	if ! "$SIPS_BIN" -s format png -z "$APP_ICON_PIXEL_SIZE" "$APP_ICON_PIXEL_SIZE" \
+		"$icon_resource" --out "$temporary_path" >/dev/null 2>&1; then
+		rm -f "$temporary_path"
+		return 1
+	fi
+	mv -f "$temporary_path" "$cache_path"
+	printf '%s\n' "$cache_path"
+}
+
 resolve_workspace_app_image() {
 	local app_name="$1"
 	local bundle_id="${2:-}"
+	local icon_resource
+	local cached_icon
 
 	if [[ -n "$bundle_id" ]]; then
-		printf 'app.%s\n' "$bundle_id"
+		if icon_resource="$(find_app_icon_resource "$bundle_id")" \
+			&& cached_icon="$(cache_app_icon "$bundle_id" "$icon_resource")"; then
+			printf '%s\n' "$cached_icon"
+		else
+			printf 'app.%s\n' "$bundle_id"
+		fi
 	elif [[ -n "$app_name" ]]; then
 		printf 'app.%s\n' "$app_name"
 	else
