@@ -53,7 +53,7 @@ gcloud = { version = "583.0.0", depends = ["python"] }
 bun = "1.4.2"
 go = "1.27.1"
 rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
-"aqua:astral-sh/uv" = "0.12.12"
+"aqua:astral-sh/uv" = "0.12.13"
 "aqua:cli/cli" = "2.100.0"
 "aqua:jqlang/jq" = "1.8.2"
 "aqua:FiloSottile/age" = "1.3.2"
@@ -71,7 +71,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "github:docker/docker-language-server" = "0.20.1"
 "aqua:LuaLS/lua-language-server" = "3.19.1"
 "aqua:artempyanykh/marksman" = "2026-02-08"
-"aqua:astral-sh/ruff" = "0.16.6"
+"aqua:astral-sh/ruff" = "0.16.7"
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:JohnnyMorganz/StyLua" = "2.5.2"
@@ -89,7 +89,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:@googleworkspace/cli" = "0.22.5"
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.6.0", trust_policy_excludes = ["fastq@1.20.2"] }
-"npm:@biomejs/biome" = "2.5.12"
+"npm:@biomejs/biome" = "2.5.13"
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:oxlint" = "1.82.0"
