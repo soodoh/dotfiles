@@ -35,6 +35,13 @@ for _, module in ipairs(modules) do
   end
 end
 
+dofile(
+  vim.fs.joinpath(
+    vim.fs.dirname(vim.env.NVIM_VALIDATE_SCRIPT),
+    "typescript-lsp.lua"
+  )
+)
+
 if vim.treesitter.language.get_lang("jsonc") ~= "json" then
   error("jsonc is not registered to use the JSON Tree-sitter parser")
 end

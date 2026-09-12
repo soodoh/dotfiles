@@ -1,3 +1,5 @@
+local typescript_lsp = require("typescript-lsp")
+
 local get_default_opts = function(opts)
   local lsp_opts = {}
 
@@ -40,7 +42,10 @@ return {
     dependencies = {
       "saghen/blink.cmp", -- Autocomplete
       -- Zip plugin (needed for Yarn PnP compatibility)
-      { "lbrayner/vim-rzip", commit = "f65400fed27b27c7cff7ef8d428c4e5ff749bf28" },
+      {
+        "lbrayner/vim-rzip",
+        commit = "f65400fed27b27c7cff7ef8d428c4e5ff749bf28",
+      },
     },
     config = function()
       -- LSP mappings
@@ -154,7 +159,40 @@ return {
       vim.lsp.config("graphql", get_default_opts())
       vim.lsp.config("html", get_default_opts())
       vim.lsp.config("marksman", get_default_opts())
-      vim.lsp.config("ts_ls", get_default_opts({ format = false }))
+
+      local ts_ls_root_dir = vim.lsp.config.ts_ls.root_dir
+      local tsc_config = vim.lsp.config.tsc
+      vim.lsp.config(
+        "ts_ls",
+        vim.tbl_deep_extend(
+          "force",
+          get_default_opts({ format = false }),
+          {
+            root_dir = typescript_lsp.filter_root(
+              "ts_ls",
+              ts_ls_root_dir,
+              ts_ls_root_dir
+            ),
+          }
+        )
+      )
+      vim.lsp.config(
+        "tsc",
+        vim.tbl_deep_extend(
+          "force",
+          get_default_opts({ format = false }),
+          {
+            -- Keep cmd and root_dir from the same upstream config instance so
+            -- its selected native binary is available to the cmd callback.
+            cmd = tsc_config.cmd,
+            root_dir = typescript_lsp.filter_root(
+              "tsc",
+              tsc_config.root_dir,
+              ts_ls_root_dir
+            ),
+          }
+        )
+      )
       -- Server
       vim.lsp.config("csharp_ls", get_default_opts())
       vim.lsp.config("docker_language_server", get_default_opts())
@@ -198,6 +236,7 @@ return {
         "rust_analyzer",
         "taplo",
         "ts_ls",
+        "tsc",
         "vimls",
         "yamlls",
       })
