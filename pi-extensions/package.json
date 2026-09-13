@@ -41,7 +41,7 @@
 		"test:coverage:html": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.reporter=html"
 	},
 	"dependencies": {
-		"@juicesharp/rpiv-ask-user-question": "2.9.0",
+		"@juicesharp/rpiv-ask-user-question": "2.10.0",
 		"@plannotator/pi-extension": "0.27.14",
 		"google-auth-library": "11.0.2",
 		"pi-mcp-adapter": "2.33.0",
