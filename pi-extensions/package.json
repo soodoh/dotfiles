@@ -46,7 +46,7 @@
 		"google-auth-library": "11.0.2",
 		"pi-mcp-adapter": "2.34.0",
 		"pi-openai-fast": "1.0.1",
-		"pi-subagents": "0.67.0",
+		"pi-subagents": "0.68.0",
 		"pi-vim": "0.14.2",
 		"pi-web-access": "0.29.0",
 		"proper-lockfile": "4.1.2",
