@@ -1,4 +1,4 @@
-min_version = "2026.9.8"
+min_version = "2026.9.9"
 
 [settings]
 experimental = true
@@ -53,8 +53,8 @@ gcloud = { version = "583.0.0", depends = ["python"] }
 bun = "1.4.2"
 go = "1.27.1"
 rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
-"aqua:astral-sh/uv" = "0.12.14"
-"aqua:cli/cli" = "2.100.0"
+"aqua:astral-sh/uv" = "0.12.15"
+"aqua:cli/cli" = "2.101.0"
 "aqua:jqlang/jq" = "1.8.2"
 "aqua:FiloSottile/age" = "1.3.2"
 "aqua:getsops/sops" = "3.13.3"
@@ -75,7 +75,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:JohnnyMorganz/StyLua" = "2.5.2"
-"aqua:docker/cli" = "29.8.0"
+"aqua:docker/cli" = "29.8.1"
 "aqua:docker/compose" = "5.5.1"
 # Upstream does not publish macOS binaries; Cargo works on all shared platforms.
 "cargo:eza" = "0.23.5"
