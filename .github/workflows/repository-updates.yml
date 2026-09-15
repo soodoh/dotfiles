@@ -99,7 +99,8 @@ jobs:
       - name: Push update branch
         if: steps.changes.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Use a trusted user token so this push and PR can trigger validation.
+          GH_TOKEN: ${{ secrets.REPOSITORY_UPDATES_TOKEN }}
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -112,7 +113,7 @@ jobs:
       - name: Open pull request
         if: steps.changes.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.REPOSITORY_UPDATES_TOKEN }}
         shell: bash
         run: |
           existing_pr="$(gh pr list --head "$UPDATE_BRANCH" --state open --json number --jq '.[0].number')"
