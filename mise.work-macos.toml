@@ -31,7 +31,7 @@ LITELLM_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxQ2VMTkZxe
 "npm:kusto-mcp" = "1.14.0"
 
 [tools."http:twg"]
-version = "1.2.7"
+version = "1.2.8"
 bin = "twg"
 version_list_url = "https://teamwork-graph.atlassian.com/cli/manifest.json"
 version_json_path = ".version"
