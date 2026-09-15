@@ -300,6 +300,22 @@ class WorkflowCachePolicyTests(unittest.TestCase):
             self.update_workflow,
         )
 
+    def test_repository_updates_use_trusted_token_and_enable_auto_merge(self) -> None:
+        self.assertEqual(
+            self.update_workflow.count(
+                "GH_TOKEN: ${{ secrets.REPOSITORY_UPDATES_TOKEN }}"
+            ),
+            2,
+        )
+        self.assertNotIn("GH_TOKEN: ${{ github.token }}", self.update_workflow)
+        self.assertIn('gh pr merge "$UPDATE_BRANCH"', self.update_workflow)
+        self.assertIn("            --auto \\\n", self.update_workflow)
+        self.assertIn("            --squash \\\n", self.update_workflow)
+        self.assertIn(
+            '            --match-head-commit "$(git rev-parse HEAD)"',
+            self.update_workflow,
+        )
+
     def test_required_jobs_and_unconditional_work_remain(self) -> None:
         self.assertRegex(self.workflow, r"(?m)^  ubuntu:$")
         self.assertRegex(self.workflow, r"(?m)^  macos:$")
