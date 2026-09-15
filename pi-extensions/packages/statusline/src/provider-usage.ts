@@ -1,16 +1,13 @@
 import { createHash } from "node:crypto";
 import {
-	existsSync,
 	mkdirSync,
 	readFileSync,
 	renameSync,
-	statSync,
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { type AuthClient, GoogleAuth } from "google-auth-library";
 import lockfile from "proper-lockfile";
 import type {
 	AuthCredentialLike,
@@ -36,7 +33,6 @@ const PROVIDER_BADGE_SEPARATOR = " · ";
 const OPENAI_LOGO = "\u{F0004}";
 const OPENROUTER_LOGO = "\u{F0469}";
 const GITHUB_LOGO = "\uF09B";
-const GOOGLE_LOGO = "\u{F02AD}";
 
 type ThemeLike = {
 	fg(color: string, text: string): string;
@@ -80,9 +76,6 @@ const OAUTH_PROVIDER_IDS = new Set([
 	"anthropic",
 	"openai-codex",
 	"github-copilot",
-	"google-gemini-cli",
-	"google-antigravity",
-	"google-vertex",
 ]);
 const LLMHUB_USAGE_PROVIDER_ID = "llm-hub";
 const LITELLM_PROVIDER_ID = "litellm";
@@ -92,7 +85,6 @@ const API_KEY_PROVIDER_IDS = new Set([
 	OPENAI_USAGE_FAMILY,
 	"openrouter",
 	LLMHUB_USAGE_PROVIDER_ID,
-	"google-vertex",
 ]);
 const USAGE_IGNORED_PROVIDER_IDS = new Set([LITELLM_PROVIDER_ID]);
 const PROVIDER_FAMILY_ORDER = [
@@ -100,7 +92,6 @@ const PROVIDER_FAMILY_ORDER = [
 	"github-copilot",
 	"openai",
 	"openrouter",
-	"google-vertex",
 ];
 
 type AvailableModelsCacheEntry = {
@@ -224,7 +215,12 @@ function readSharedCache(): Map<string, ProviderUsageCacheEntry> {
 		if (!isRecord(parsed.entries)) return entries;
 		for (const [key, value] of Object.entries(parsed.entries)) {
 			const entry = parseCacheEntry(value);
-			if (!entry) continue;
+			if (
+				!entry ||
+				!isProviderSupportedAuth(entry.providerId, entry.authKind)
+			) {
+				continue;
+			}
 			if (
 				parsed.version < PROVIDER_USAGE_CACHE_VERSION &&
 				providerFamily(entry.providerId) === OPENAI_USAGE_FAMILY
@@ -445,45 +441,19 @@ function supportedApiKeyProviderIds(): string[] {
 	return [...API_KEY_PROVIDER_IDS];
 }
 
-function hasGoogleVertexCredentials(ctx: ProviderUsageContext): boolean {
-	const authStatus =
-		ctx.modelRegistry?.getProviderAuthStatus?.("google-vertex");
-	if (authStatus?.configured) return true;
-	if (getStoredCredential(ctx, "google-vertex")) return true;
-	if (process.env.GOOGLE_CLOUD_API_KEY?.trim()) return true;
-
-	const configuredModels = getConfiguredModels(ctx);
-	const hasVertexModel =
-		configuredModels.some((m) => m.provider === "google-vertex") ||
-		(ctx.modelRegistry?.getAll?.() ?? []).some(
-			(m) => m.provider === "google-vertex",
-		) ||
-		ctx.modelRegistry?.getProvider?.("google-vertex") !== undefined;
-
-	if (!hasVertexModel) return false;
-	if (getStoredCredential(ctx, "google-vertex")) return true;
-	if (process.env.GOOGLE_CLOUD_API_KEY?.trim()) return true;
-	const adcPath =
-		process.env.GOOGLE_APPLICATION_CREDENTIALS ??
-		join(homedir(), ".config/gcloud/application_default_credentials.json");
-	try {
-		return existsSync(adcPath);
-	} catch {
-		return false;
-	}
-}
-
 function addProviderCandidate(
 	candidates: ProviderUsageTarget[],
 	providerId: string | undefined,
 	authKind: ProviderUsageAuthKind,
 	activeProviderId: string | undefined,
-	includeUnsupported = false,
 ): void {
 	if (!providerId) return;
 	const normalized = normalizeProviderId(providerId);
-	if (!normalized || USAGE_IGNORED_PROVIDER_IDS.has(normalized)) return;
-	if (!includeUnsupported && !isProviderSupportedAuth(normalized, authKind)) {
+	if (
+		!normalized ||
+		USAGE_IGNORED_PROVIDER_IDS.has(normalized) ||
+		!isProviderSupportedAuth(normalized, authKind)
+	) {
 		return;
 	}
 
@@ -657,19 +627,21 @@ export function discoverProviderUsageTargets(
 		) ||
 		ctx.modelRegistry?.getProvider?.(LLMHUB_USAGE_PROVIDER_ID) !== undefined;
 
-	if (activeProviderId && activeAuthKind) {
+	if (
+		activeProviderId &&
+		activeAuthKind &&
+		isProviderSupportedAuth(activeProviderId, activeAuthKind)
+	) {
 		addProviderCandidate(
 			candidates,
 			activeProviderId,
 			activeAuthKind,
 			activeProviderId,
-			true,
 		);
 	} else if (
 		activeProviderId &&
 		activeProviderId !== LLMHUB_USAGE_PROVIDER_ID
 	) {
-		let addedActiveProvider = false;
 		if (OAUTH_PROVIDER_IDS.has(activeProviderId)) {
 			addProviderCandidate(
 				candidates,
@@ -677,7 +649,6 @@ export function discoverProviderUsageTargets(
 				"oauth",
 				activeProviderId,
 			);
-			addedActiveProvider = true;
 		}
 		if (API_KEY_PROVIDER_IDS.has(activeProviderId)) {
 			addProviderCandidate(
@@ -685,16 +656,6 @@ export function discoverProviderUsageTargets(
 				activeProviderId,
 				"api_key",
 				activeProviderId,
-			);
-			addedActiveProvider = true;
-		}
-		if (!addedActiveProvider) {
-			addProviderCandidate(
-				candidates,
-				activeProviderId,
-				"unknown",
-				activeProviderId,
-				true,
 			);
 		}
 	}
@@ -736,17 +697,6 @@ export function discoverProviderUsageTargets(
 
 	for (const providerId of supportedApiKeyProviderIds()) {
 		if (providerId === LLMHUB_USAGE_PROVIDER_ID && !llmHubConfigured) {
-			continue;
-		}
-		if (providerId === "google-vertex") {
-			if (hasGoogleVertexCredentials(ctx)) {
-				addProviderCandidate(
-					candidates,
-					providerId,
-					"api_key",
-					activeProviderId,
-				);
-			}
 			continue;
 		}
 		const authStatus = ctx.modelRegistry?.getProviderAuthStatus?.(providerId);
@@ -812,8 +762,6 @@ type ResolvedProviderUsageAccess = {
 	cacheKey: string;
 	token?: string;
 	baseUrl?: string;
-	projectId?: string;
-	quotaProjectId?: string;
 };
 
 function configuredProviderBaseUrl(
@@ -844,279 +792,6 @@ function configuredProviderBaseUrl(
 	);
 }
 
-const GOOGLE_CLOUD_PLATFORM_SCOPE =
-	"https://www.googleapis.com/auth/cloud-platform";
-const GOOGLE_VERTEX_USAGE_CACHE_SCOPE = "monitoring-sequential-v2";
-const GOOGLE_ADC_SENTINEL_TOKENS = new Set([
-	"gcp-vertex-credentials",
-	"<authenticated>",
-]);
-
-type GoogleVertexCredential = {
-	token: string;
-	projectId: string;
-	quotaProjectId?: string;
-	identity: string;
-};
-
-type GoogleAuthCache = {
-	sourceKey: string;
-	auth: GoogleAuth;
-};
-
-let googleAuthCache: GoogleAuthCache | undefined;
-
-function googleProviderEnvValue(
-	providerEnv: Record<string, string> | undefined,
-	name: string,
-): string | undefined {
-	return providerEnv?.[name] ?? process.env[name];
-}
-
-function googleAuthSourceKey(
-	providerEnv: Record<string, string> | undefined,
-): string {
-	const adcPath =
-		googleProviderEnvValue(providerEnv, "GOOGLE_APPLICATION_CREDENTIALS") ??
-		join(homedir(), ".config/gcloud/application_default_credentials.json");
-	let adcVersion = "missing";
-	try {
-		const stat = statSync(adcPath);
-		adcVersion = `${stat.size}:${stat.mtimeMs}`;
-	} catch {
-		// File-backed ADC is optional; GoogleAuth can use gcloud or metadata.
-	}
-	return [
-		adcPath,
-		adcVersion,
-		...[
-			"GOOGLE_CLOUD_PROJECT",
-			"GCLOUD_PROJECT",
-			"CLOUDSDK_CORE_PROJECT",
-			"CLOUDSDK_CONFIG",
-			"GOOGLE_CLOUD_QUOTA_PROJECT",
-		].map((name) => googleProviderEnvValue(providerEnv, name) ?? ""),
-	].join("\0");
-}
-
-function configuredGoogleProjectId(
-	providerEnv: Record<string, string> | undefined,
-): string | undefined {
-	for (const name of [
-		"GOOGLE_CLOUD_PROJECT",
-		"GCLOUD_PROJECT",
-		"CLOUDSDK_CORE_PROJECT",
-	]) {
-		const value = googleProviderEnvValue(providerEnv, name);
-		if (value?.trim()) return value.trim();
-	}
-	return undefined;
-}
-
-function getGoogleAuth(
-	providerEnv: Record<string, string> | undefined,
-): GoogleAuth {
-	const sourceKey = googleAuthSourceKey(providerEnv);
-	if (googleAuthCache?.sourceKey === sourceKey) return googleAuthCache.auth;
-
-	const auth = new GoogleAuth({
-		scopes: GOOGLE_CLOUD_PLATFORM_SCOPE,
-		projectId: configuredGoogleProjectId(providerEnv),
-		keyFilename: googleProviderEnvValue(
-			providerEnv,
-			"GOOGLE_APPLICATION_CREDENTIALS",
-		),
-		clientOptions: {
-			quotaProjectId: googleProviderEnvValue(
-				providerEnv,
-				"GOOGLE_CLOUD_QUOTA_PROJECT",
-			),
-			transporterOptions: { timeout: PROVIDER_USAGE_FETCH_TIMEOUT_MS },
-		},
-	});
-	googleAuthCache = { sourceKey, auth };
-	return auth;
-}
-
-function withProviderUsageTimeout<T>(
-	operation: Promise<T>,
-	timeoutMs = PROVIDER_USAGE_FETCH_TIMEOUT_MS,
-): Promise<T> {
-	return new Promise<T>((resolve, reject) => {
-		const timeout = setTimeout(
-			() => reject(new Error("Google credential resolution timed out")),
-			timeoutMs,
-		);
-		operation.then(
-			(value) => {
-				clearTimeout(timeout);
-				resolve(value);
-			},
-			(error) => {
-				clearTimeout(timeout);
-				reject(error);
-			},
-		);
-	});
-}
-
-async function resolveGoogleProjectId(
-	auth: GoogleAuth,
-	providerEnv: Record<string, string> | undefined,
-	client?: AuthClient,
-): Promise<string | undefined> {
-	const configured = configuredGoogleProjectId(providerEnv);
-	if (configured) return configured;
-	if (typeof client?.projectId === "string" && client.projectId.trim()) {
-		return client.projectId.trim();
-	}
-	if (
-		typeof client?.quotaProjectId === "string" &&
-		client.quotaProjectId.trim()
-	) {
-		return client.quotaProjectId.trim();
-	}
-
-	const fallbackQuotaProject = configuredGoogleQuotaProjectId(providerEnv);
-	if (fallbackQuotaProject) return fallbackQuotaProject;
-
-	try {
-		const projectId = await withProviderUsageTimeout(auth.getProjectId());
-		if (projectId.trim()) return projectId.trim();
-	} catch {
-		// Fall through
-	}
-
-	return undefined;
-}
-
-function googleClientPrincipal(client: AuthClient): string | undefined {
-	if (!isRecord(client)) return undefined;
-	for (const key of ["serviceAccountEmail", "email", "targetPrincipal"]) {
-		const value = client[key];
-		if (typeof value === "string" && value) return value;
-	}
-	return undefined;
-}
-
-function configuredGoogleQuotaProjectId(
-	providerEnv: Record<string, string> | undefined,
-	client?: AuthClient,
-): string | undefined {
-	const configured = googleProviderEnvValue(
-		providerEnv,
-		"GOOGLE_CLOUD_QUOTA_PROJECT",
-	);
-	if (configured?.trim()) return configured.trim();
-	return typeof client?.quotaProjectId === "string" &&
-		client.quotaProjectId.trim()
-		? client.quotaProjectId.trim()
-		: undefined;
-}
-
-function googleAdcIdentity(
-	auth: GoogleAuth,
-	client: AuthClient,
-	projectId: string,
-	quotaProjectId: string | undefined,
-	token: string,
-): string {
-	const config = auth.jsonContent;
-	const serializedCredential = config ? JSON.stringify(config) : undefined;
-	const principal = googleClientPrincipal(client);
-	let sourceIdentity = principal ?? "adc";
-	if (serializedCredential) {
-		sourceIdentity = credentialFingerprint(serializedCredential);
-		if (principal) sourceIdentity = `${sourceIdentity}\0${principal}`;
-		if (isRecord(config) && config.type === "external_account" && !principal) {
-			sourceIdentity = `${sourceIdentity}\0${credentialFingerprint(token)}`;
-		}
-	} else {
-		sourceIdentity = `${sourceIdentity}\0${credentialFingerprint(token)}`;
-	}
-	return `${projectId}\0${quotaProjectId ?? ""}\0${client.constructor.name}\0${sourceIdentity}`;
-}
-
-async function resolveAdcCredentials(
-	auth: GoogleAuth,
-	providerEnv: Record<string, string> | undefined,
-): Promise<GoogleVertexCredential | undefined> {
-	try {
-		return await withProviderUsageTimeout(
-			auth.getClient().then(async (client) => {
-				const [accessToken, projectId] = await Promise.all([
-					client.getAccessToken(),
-					resolveGoogleProjectId(auth, providerEnv, client),
-				]);
-				const token = accessToken.token;
-				if (!token || !projectId) return undefined;
-				const quotaProjectId = configuredGoogleQuotaProjectId(
-					providerEnv,
-					client,
-				);
-				return {
-					token,
-					projectId,
-					quotaProjectId,
-					identity: googleAdcIdentity(
-						auth,
-						client,
-						projectId,
-						quotaProjectId,
-						token,
-					),
-				};
-			}),
-		);
-	} catch {
-		return undefined;
-	}
-}
-
-async function resolveGoogleVertexAccess(
-	ctx: ProviderUsageContext,
-	target: ProviderUsageTarget,
-): Promise<GoogleVertexCredential | undefined> {
-	const providerAuth = await ctx.modelRegistry?.getProviderAuth?.(
-		target.providerId,
-	);
-	const providerEnv = providerAuth?.env;
-	const registryToken =
-		providerAuth?.auth?.apiKey ??
-		(await ctx.modelRegistry?.getApiKeyForProvider?.(target.providerId));
-	const providerToken =
-		target.authKind === "oauth"
-			? (getStoredOAuthCredential(ctx, target.providerId)?.access ??
-				registryToken)
-			: registryToken;
-	const auth = getGoogleAuth(providerEnv);
-	const quotaProjectId = configuredGoogleQuotaProjectId(providerEnv);
-
-	if (providerToken && !GOOGLE_ADC_SENTINEL_TOKENS.has(providerToken)) {
-		const parsed = parseGoogleOAuthToken(providerToken);
-		if (parsed) {
-			return {
-				...parsed,
-				quotaProjectId,
-				identity: `${parsed.projectId}\0${quotaProjectId ?? ""}\0${parsed.token}`,
-			};
-		}
-
-		if (target.authKind === "oauth") {
-			const projectId = await resolveGoogleProjectId(auth, providerEnv);
-			if (!projectId) return undefined;
-			return {
-				token: providerToken,
-				projectId,
-				identity: `${projectId}\0${quotaProjectId ?? ""}\0${providerToken}`,
-				quotaProjectId,
-			};
-		}
-	}
-
-	return resolveAdcCredentials(auth, providerEnv);
-}
-
 async function resolveProviderUsageAccess(
 	ctx: ProviderUsageContext,
 	target: ProviderUsageTarget,
@@ -1124,8 +799,6 @@ async function resolveProviderUsageAccess(
 	const targetKey = providerTargetKey(target.providerId, target.authKind);
 	let token: string | undefined;
 	let baseUrl: string | undefined;
-	let projectId: string | undefined;
-	let quotaProjectId: string | undefined;
 	let credentialIdentity: string | undefined;
 
 	if (
@@ -1136,16 +809,6 @@ async function resolveProviderUsageAccess(
 		baseUrl = configuredProviderBaseUrl(ctx, target.providerId);
 		if (baseUrl && token) {
 			credentialIdentity = `${normalizeBaseUrl(baseUrl)}\0${token}`;
-		}
-	} else if (target.providerId === "google-vertex") {
-		const vertex = await withProviderUsageTimeout(
-			resolveGoogleVertexAccess(ctx, target),
-		);
-		if (vertex) {
-			token = vertex.token;
-			projectId = vertex.projectId;
-			quotaProjectId = vertex.quotaProjectId;
-			credentialIdentity = `${vertex.identity}\0${GOOGLE_VERTEX_USAGE_CACHE_SCOPE}`;
 		}
 	} else if (target.authKind === "oauth") {
 		token =
@@ -1161,7 +824,7 @@ async function resolveProviderUsageAccess(
 	const cacheKey = credentialIdentity
 		? `${targetKey}:${credentialFingerprint(`${targetKey}\0${credentialIdentity}`)}`
 		: targetKey;
-	return { cacheKey, token, baseUrl, projectId, quotaProjectId };
+	return { cacheKey, token, baseUrl };
 }
 
 function normalizeBaseUrl(url: string): string {
@@ -1587,238 +1250,6 @@ async function fetchGitHubCopilotUsage(
 		: undefined;
 }
 
-function parseGoogleOAuthToken(
-	value: string,
-): { token: string; projectId: string } | undefined {
-	try {
-		const parsed: unknown = JSON.parse(value);
-		if (!isRecord(parsed)) return undefined;
-		const token = parsed.token ?? parsed.access;
-		const projectId = parsed.projectId ?? parsed.project;
-		return typeof token === "string" &&
-			token &&
-			typeof projectId === "string" &&
-			projectId
-			? { token, projectId }
-			: undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-async function fetchGoogleCloudQuota(
-	credential: GoogleCloudCredential,
-): Promise<ProviderUsageScope | undefined> {
-	const body = await fetchJson(
-		"https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
-		{
-			method: "POST",
-			headers: googleCloudRequestHeaders(credential),
-			body: JSON.stringify({ project: credential.projectId }),
-		},
-	);
-	if (!isRecord(body) || !Array.isArray(body.buckets)) return undefined;
-
-	const usedPercents = body.buckets
-		.map((bucket) => {
-			if (!isRecord(bucket)) return undefined;
-			const remainingFraction = numericField(bucket.remainingFraction);
-			if (remainingFraction !== undefined) {
-				return clampPercent((1 - remainingFraction) * 100);
-			}
-			const percentUsed = numericField(
-				bucket.usedPercent ?? bucket.used_percentage ?? bucket.utilization,
-			);
-			return percentUsed !== undefined
-				? parseUtilization(percentUsed)
-				: undefined;
-		})
-		.filter((value): value is number => value !== undefined);
-
-	return usedPercents.length > 0
-		? { percentUsed: Math.max(...usedPercents) }
-		: undefined;
-}
-
-type GoogleCloudCredential = {
-	token: string;
-	projectId: string;
-	quotaProjectId?: string;
-};
-
-function googleCloudRequestHeaders(
-	credential: GoogleCloudCredential,
-): Record<string, string> {
-	return {
-		Authorization: `Bearer ${credential.token}`,
-		"Content-Type": "application/json",
-		"X-Goog-User-Project": credential.quotaProjectId ?? credential.projectId,
-		"User-Agent": "pi-statusline",
-	};
-}
-
-function monitoringTimeSeries(body: unknown): unknown[] | undefined {
-	if (!isRecord(body)) return undefined;
-	return Array.isArray(body.timeSeries) ? body.timeSeries : [];
-}
-
-type VertexMonitoringPoint = {
-	value: number;
-	intervalStart?: string;
-};
-
-function monitoringPoints(
-	timeSeries: unknown[] | undefined,
-): VertexMonitoringPoint[] {
-	const points: VertexMonitoringPoint[] = [];
-	for (const series of timeSeries ?? []) {
-		if (!isRecord(series) || !Array.isArray(series.points)) continue;
-		for (const point of series.points) {
-			if (!isRecord(point) || !isRecord(point.value)) continue;
-			const value = numericField(
-				point.value.int64Value ?? point.value.doubleValue,
-			);
-			if (value === undefined) continue;
-			const interval = isRecord(point.interval) ? point.interval : undefined;
-			points.push({
-				value,
-				intervalStart:
-					typeof interval?.startTime === "string"
-						? interval.startTime
-						: undefined,
-			});
-		}
-	}
-	return points;
-}
-
-async function fetchVertexMonitoringTimeSeries(
-	credential: GoogleCloudCredential,
-	filter: string,
-	startTime: Date,
-	endTime: Date,
-): Promise<unknown[] | undefined> {
-	const url = new URL(
-		`https://monitoring.googleapis.com/v3/projects/${encodeURIComponent(credential.projectId)}/timeSeries`,
-	);
-	url.searchParams.set("filter", filter);
-	url.searchParams.set("interval.startTime", startTime.toISOString());
-	url.searchParams.set("interval.endTime", endTime.toISOString());
-	const body = await fetchJson(url.toString(), {
-		headers: googleCloudRequestHeaders(credential),
-	});
-	return monitoringTimeSeries(body);
-}
-
-function peakMonitoringValue(timeSeries: unknown[] | undefined): number {
-	return Math.max(0, ...monitoringPoints(timeSeries).map(({ value }) => value));
-}
-
-function peakRequestCountPerMinute(timeSeries: unknown[] | undefined): number {
-	const rpmByMinute = new Map<string, number>();
-	for (const point of monitoringPoints(timeSeries)) {
-		const minute = point.intervalStart ?? "unknown";
-		rpmByMinute.set(minute, (rpmByMinute.get(minute) ?? 0) + point.value);
-	}
-	return Math.max(0, ...rpmByMinute.values());
-}
-
-function monitoringSeriesKey(series: unknown): string | undefined {
-	if (!isRecord(series)) return undefined;
-	const metric = isRecord(series.metric) ? series.metric : undefined;
-	const metricLabels =
-		metric && isRecord(metric.labels) ? metric.labels : undefined;
-	const resource = isRecord(series.resource) ? series.resource : undefined;
-	const resourceLabels =
-		resource && isRecord(resource.labels) ? resource.labels : undefined;
-	const label = (name: string): string => {
-		const value = metricLabels?.[name] ?? resourceLabels?.[name];
-		return typeof value === "string" ? value : "";
-	};
-	return [
-		label("quota_metric"),
-		label("limit_name"),
-		label("location"),
-		label("service"),
-	].join("\0");
-}
-
-function peakMonitoringValuesBySeries(
-	timeSeries: unknown[] | undefined,
-): Map<string, number> {
-	const peaks = new Map<string, number>();
-	for (const series of timeSeries ?? []) {
-		const key = monitoringSeriesKey(series);
-		if (key === undefined) continue;
-		const peak = peakMonitoringValue([series]);
-		peaks.set(key, Math.max(peaks.get(key) ?? 0, peak));
-	}
-	return peaks;
-}
-
-function monitoringQuotaPercent(
-	netUsage: unknown[] | undefined,
-	quotaLimits: unknown[] | undefined,
-): number | undefined {
-	const usageByQuota = peakMonitoringValuesBySeries(netUsage);
-	const limitsByQuota = peakMonitoringValuesBySeries(quotaLimits);
-	let highestPercent: number | undefined;
-	for (const [key, usage] of usageByQuota) {
-		const limit = limitsByQuota.get(key);
-		if (limit === undefined || limit <= 0) continue;
-		const percent = clampPercent((usage / limit) * 100);
-		highestPercent = Math.max(highestPercent ?? 0, percent);
-	}
-	return highestPercent;
-}
-
-const VERTEX_FALLBACK_RPM_QUOTA = 200;
-const VERTEX_MONITORING_FILTERS = {
-	requestCount:
-		'metric.type="serviceruntime.googleapis.com/api/request_count" AND resource.labels.service="aiplatform.googleapis.com"',
-	netUsage:
-		'metric.type="serviceruntime.googleapis.com/quota/rate/net_usage" AND metric.labels.quota_metric=starts_with("aiplatform.googleapis.com")',
-	quotaLimit:
-		'metric.type="serviceruntime.googleapis.com/quota/limit" AND metric.labels.quota_metric=starts_with("aiplatform.googleapis.com")',
-	exceeded:
-		'metric.type="serviceruntime.googleapis.com/quota/exceeded" AND metric.labels.quota_metric=starts_with("aiplatform.googleapis.com")',
-};
-
-async function fetchVertexMonitoringQuota(
-	credential: GoogleCloudCredential,
-): Promise<ProviderUsageScope | undefined> {
-	const endTime = new Date();
-	const startTime = new Date(Date.now() - 15 * 60 * 1000);
-	const query = (filter: string) =>
-		fetchVertexMonitoringTimeSeries(
-			credential,
-			filter,
-			startTime,
-			endTime,
-		).catch(() => undefined);
-	const exceeded = await query(VERTEX_MONITORING_FILTERS.exceeded);
-	if (exceeded && peakMonitoringValue(exceeded) > 0) {
-		return { percentUsed: 100 };
-	}
-
-	const requestCounts = await query(VERTEX_MONITORING_FILTERS.requestCount);
-	if (requestCounts !== undefined) {
-		const peakRpm = peakRequestCountPerMinute(requestCounts);
-		return {
-			percentUsed: clampPercent(
-				Math.round((peakRpm / VERTEX_FALLBACK_RPM_QUOTA) * 100),
-			),
-		};
-	}
-
-	const [netUsage, quotaLimits] = await Promise.all([
-		query(VERTEX_MONITORING_FILTERS.netUsage),
-		query(VERTEX_MONITORING_FILTERS.quotaLimit),
-	]);
-	const quotaPercent = monitoringQuotaPercent(netUsage, quotaLimits);
-	return quotaPercent === undefined ? undefined : { percentUsed: quotaPercent };
-}
-
 async function fetchProviderUsage(
 	target: ProviderUsageTarget,
 	access: ResolvedProviderUsageAccess,
@@ -1828,25 +1259,6 @@ async function fetchProviderUsage(
 		authKind: target.authKind,
 		fetchedAt: Date.now(),
 	};
-
-	if (target.providerId === "google-vertex") {
-		if (!access.token || !access.projectId) {
-			return { ...statusBase, state: "unknown" };
-		}
-
-		const credential = {
-			token: access.token,
-			projectId: access.projectId,
-			quotaProjectId: access.quotaProjectId,
-		};
-		const scope =
-			(await fetchGoogleCloudQuota(credential).catch(() => undefined)) ??
-			(await fetchVertexMonitoringQuota(credential).catch(() => undefined));
-
-		return scope
-			? { ...statusBase, state: "ready", scope }
-			: { ...statusBase, state: "unknown" };
-	}
 
 	if (target.authKind === "oauth") {
 		let scope: ProviderUsageScope | undefined;
@@ -1862,14 +1274,6 @@ async function fetchProviderUsage(
 				scope = await fetchAnthropicOAuthUsage(token);
 			} else if (target.providerId === "openai-codex") {
 				scope = await fetchOpenAiCodexUsage(token);
-			} else if (
-				target.providerId === "google-gemini-cli" ||
-				target.providerId === "google-antigravity"
-			) {
-				const googleCredential = parseGoogleOAuthToken(token);
-				scope = googleCredential
-					? await fetchGoogleCloudQuota(googleCredential)
-					: undefined;
 			} else {
 				return { ...statusBase, state: "unsupported" };
 			}
@@ -1915,7 +1319,6 @@ export function invalidateProviderUsageCache(): void {
 	providerUsageResolvedCacheKeys.clear();
 	providerUsageResolutionIds.clear();
 	providerUsageCachePath = undefined;
-	googleAuthCache = undefined;
 	try {
 		unlinkSync(sharedCachePath());
 	} catch {
@@ -2111,9 +1514,13 @@ export function refreshProviderUsage(
 	getConfiguredModels(ctx, onUpdate);
 	const fetchId = providerUsageInvalidation;
 	return Promise.all(
-		targets.map((target) =>
-			queueProviderUsageRefresh(ctx, target, fetchId, onUpdate),
-		),
+		targets
+			.filter((target) =>
+				isProviderSupportedAuth(target.providerId, target.authKind),
+			)
+			.map((target) =>
+				queueProviderUsageRefresh(ctx, target, fetchId, onUpdate),
+			),
 	).then(() => undefined);
 }
 
@@ -2129,10 +1536,6 @@ function providerDisplayLabel(providerId: string): string {
 			return OPENROUTER_LOGO;
 		case "github-copilot":
 			return GITHUB_LOGO;
-		case "google-gemini-cli":
-		case "google-antigravity":
-		case "google-vertex":
-			return GOOGLE_LOGO;
 		default:
 			return providerId;
 	}
@@ -2236,6 +1639,9 @@ function providerUsageBadges(
 ): { active: boolean; text: string }[] {
 	hydrateSharedCache();
 	return targets
+		.filter((target) =>
+			isProviderSupportedAuth(target.providerId, target.authKind),
+		)
 		.map((target) => ({
 			...target,
 			active:
