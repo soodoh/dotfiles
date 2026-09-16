@@ -353,61 +353,61 @@ url = "https://github.com/artempyanykh/marksman/releases/download/2026-02-08/mar
 url_api = "https://api.github.com/repos/artempyanykh/marksman/releases/assets/352747961"
 
 [[tools."aqua:astral-sh/ruff"]]
-version = "0.16.7"
+version = "0.16.8"
 backend = "aqua:astral-sh/ruff"
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-arm64"]
-checksum = "sha256:1e06b11127c28387c8066da4ce6a617a84a359591be09dbf581fbb0c3e006239"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.7/ruff-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/555530686"
+checksum = "sha256:8ff18ee07d6ed3cfbd05fdc9012646a79482c00045dbcbf32416ef8f14ab1f7e"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.8/ruff-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/568294361"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-arm64-musl"]
-checksum = "sha256:dd669efe4ac74ffd5842b26147c36cdd6c93b9cf0d10d5e53c12ec5b44f540bd"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.7/ruff-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/555530691"
+checksum = "sha256:57a4e072b6b74a4dd0036b7b253e056bdb70e02c68504ca6f2bfca2707d03fb6"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.8/ruff-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/568294370"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-x64"]
-checksum = "sha256:73894c7b7c9a53fd66ed715eb3a1ec65077f316328e377057a98bdb7fcba0326"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.7/ruff-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/555530800"
+checksum = "sha256:c4a8c7c152532bcb7e7ede4bd6ccd440dcacddffcdcdd79b90090ac6021f41c2"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.8/ruff-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/568294510"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-x64-baseline"]
-checksum = "sha256:73894c7b7c9a53fd66ed715eb3a1ec65077f316328e377057a98bdb7fcba0326"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.7/ruff-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/555530800"
+checksum = "sha256:c4a8c7c152532bcb7e7ede4bd6ccd440dcacddffcdcdd79b90090ac6021f41c2"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.8/ruff-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/568294510"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-x64-musl"]
-checksum = "sha256:8d28939cf5cabe54a2f8f7cbfab52c643436d1bc70474198181db9e48f504411"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.7/ruff-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/555530803"
+checksum = "sha256:e56aa612121de356f37d05f3284cd806081fb72d5dbd4814b3810c5a23c562cc"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.8/ruff-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/568294522"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:8d28939cf5cabe54a2f8f7cbfab52c643436d1bc70474198181db9e48f504411"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.7/ruff-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/555530803"
+checksum = "sha256:e56aa612121de356f37d05f3284cd806081fb72d5dbd4814b3810c5a23c562cc"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.8/ruff-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/568294522"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.macos-arm64"]
-checksum = "sha256:80221a5e0b1ae29262a74496f2ad1380c1ab52b3edd8cee13ec76d8acff406ca"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.7/ruff-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/555530669"
+checksum = "sha256:0ffa53899f2970d24f14fbed8d8265c87180b159b7100794d97a1527dc60fa79"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.8/ruff-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/568294350"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.macos-x64"]
-checksum = "sha256:6f3b98ec349f470b7efde5294d44e5171613ddaac3c251a918a7946b303d3ec2"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.7/ruff-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/555530779"
+checksum = "sha256:bccb4d49c5c9f7e69fd42df2475730a08a641af31b8e0ee5e775e3dd829c4686"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.8/ruff-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/568294476"
 provenance = "github-attestations"
 
 [tools."aqua:astral-sh/ruff"."platforms.macos-x64-baseline"]
-checksum = "sha256:6f3b98ec349f470b7efde5294d44e5171613ddaac3c251a918a7946b303d3ec2"
-url = "https://github.com/astral-sh/ruff/releases/download/0.16.7/ruff-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/555530779"
+checksum = "sha256:bccb4d49c5c9f7e69fd42df2475730a08a641af31b8e0ee5e775e3dd829c4686"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.8/ruff-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/568294476"
 provenance = "github-attestations"
 
 [[tools."aqua:astral-sh/uv"]]
@@ -738,53 +738,53 @@ url_api = "https://api.github.com/repos/getsops/sops/releases/assets/486808228"
 url = "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.intoto.jsonl"
 
 [[tools."aqua:herdrdev/herdr"]]
-version = "0.9.0"
+version = "0.9.1"
 backend = "aqua:herdrdev/herdr"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-arm64"]
-checksum = "sha256:9c8db20fb7e7427b138d5367113f1621ffd319f2f65d6f009e2594029115f0d2"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-linux-aarch64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/549270160"
+checksum = "sha256:f4ccf4de745f2cb9a39a983e9ba3703dad50ec2a58dea83026ceab721bbd8d9e"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.1/herdr-linux-aarch64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/568559680"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-arm64-musl"]
-checksum = "sha256:9c8db20fb7e7427b138d5367113f1621ffd319f2f65d6f009e2594029115f0d2"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-linux-aarch64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/549270160"
+checksum = "sha256:f4ccf4de745f2cb9a39a983e9ba3703dad50ec2a58dea83026ceab721bbd8d9e"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.1/herdr-linux-aarch64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/568559680"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-x64"]
-checksum = "sha256:4fa1a01158dd8043da92d31b270780b0dcc10603038d9b61cac4d81ab63fb71f"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-linux-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/549270163"
+checksum = "sha256:2a02fed16beb651ef006e1d43f048f652ca4dc58ad053cd2d44450563d5c54b7"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.1/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/568559679"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-x64-baseline"]
-checksum = "sha256:4fa1a01158dd8043da92d31b270780b0dcc10603038d9b61cac4d81ab63fb71f"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-linux-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/549270163"
+checksum = "sha256:2a02fed16beb651ef006e1d43f048f652ca4dc58ad053cd2d44450563d5c54b7"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.1/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/568559679"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-x64-musl"]
-checksum = "sha256:4fa1a01158dd8043da92d31b270780b0dcc10603038d9b61cac4d81ab63fb71f"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-linux-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/549270163"
+checksum = "sha256:2a02fed16beb651ef006e1d43f048f652ca4dc58ad053cd2d44450563d5c54b7"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.1/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/568559679"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:4fa1a01158dd8043da92d31b270780b0dcc10603038d9b61cac4d81ab63fb71f"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-linux-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/549270163"
+checksum = "sha256:2a02fed16beb651ef006e1d43f048f652ca4dc58ad053cd2d44450563d5c54b7"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.1/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/568559679"
 
 [tools."aqua:herdrdev/herdr"."platforms.macos-arm64"]
-checksum = "sha256:32b53df09872628059c789a69f02a6b8e29e14ddf26711421f3463f70c1aef17"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-macos-aarch64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/549270162"
+checksum = "sha256:5fc7a7e7adfaca56fa80aa89dcb025693357268dab8285b9ce2d08a2313c89de"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.1/herdr-macos-aarch64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/568559677"
 
 [tools."aqua:herdrdev/herdr"."platforms.macos-x64"]
-checksum = "sha256:d0c920b2a126a74809fa1491411c9a097a44786cac9c2ca51b818a995581cf16"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-macos-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/549270161"
+checksum = "sha256:053be0639935fe54ab5efbdb46651054e4f6a753a5b43153c88bd6912bce1e94"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.1/herdr-macos-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/568559678"
 
 [tools."aqua:herdrdev/herdr"."platforms.macos-x64-baseline"]
-checksum = "sha256:d0c920b2a126a74809fa1491411c9a097a44786cac9c2ca51b818a995581cf16"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-macos-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/549270161"
+checksum = "sha256:053be0639935fe54ab5efbdb46651054e4f6a753a5b43153c88bd6912bce1e94"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.1/herdr-macos-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/568559678"
 
 [[tools."aqua:jdx/usage"]]
 version = "6.9.1"
@@ -1512,7 +1512,7 @@ version = "0.10.6"
 backend = "npm:awk-language-server"
 
 [[tools."npm:bash-language-server"]]
-version = "5.6.0"
+version = "5.7.1"
 backend = "npm:bash-language-server"
 
 [tools."npm:bash-language-server".options]
