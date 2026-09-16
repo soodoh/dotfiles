@@ -1,4 +1,4 @@
-min_version = "2026.9.9"
+min_version = "2026.9.10"
 
 [settings]
 experimental = true
@@ -65,13 +65,13 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:jesseduffield/lazygit" = "0.65.1"
 "aqua:starship/starship" = "1.26.0"
 "aqua:ajeetdsouza/zoxide" = "0.10.0"
-"aqua:herdrdev/herdr" = "0.9.0"
+"aqua:herdrdev/herdr" = "0.9.1"
 "aqua:sxyazi/yazi" = "26.9.1"
 "aqua:neovim/neovim" = "0.12.5"
 "github:docker/docker-language-server" = "0.20.1"
 "aqua:LuaLS/lua-language-server" = "3.19.1"
 "aqua:artempyanykh/marksman" = "2026-02-08"
-"aqua:astral-sh/ruff" = "0.16.7"
+"aqua:astral-sh/ruff" = "0.16.8"
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:JohnnyMorganz/StyLua" = "2.5.2"
@@ -88,7 +88,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:@playwright/mcp" = { version = "0.0.81", trust_policy_excludes = ["@playwright/mcp@0.0.80", "playwright@1.63.0-alpha-2026-08-31", "playwright-core@1.63.0-alpha-2026-08-31"] }
 "npm:@googleworkspace/cli" = "0.22.5"
 "npm:awk-language-server" = "0.10.6"
-"npm:bash-language-server" = { version = "5.6.0", trust_policy_excludes = ["fastq@1.20.2"] }
+"npm:bash-language-server" = { version = "5.7.1", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:@biomejs/biome" = "2.5.14"
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
