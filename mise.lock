@@ -1489,7 +1489,7 @@ checksum = "sha256:1462cb3b3046b815cf8ea436d3da450ec1a9f11dac7e5a46b0ada5305d7e8
 url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-x64.tar.gz"
 
 [[tools."npm:@biomejs/biome"]]
-version = "2.5.13"
+version = "2.5.14"
 backend = "npm:@biomejs/biome"
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
@@ -1534,7 +1534,7 @@ version = "1.83.0"
 backend = "npm:oxlint"
 
 [[tools."npm:prettier"]]
-version = "3.9.6"
+version = "3.9.7"
 backend = "npm:prettier"
 
 [[tools."npm:pyright"]]
