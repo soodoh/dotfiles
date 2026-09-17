@@ -10,6 +10,34 @@
         }
       }
     },
+    "github-copilot": {
+      "modelOverrides": {
+        "gpt-5.4": {
+          "contextWindow": 272000
+        },
+        "gpt-5.5": {
+          "contextWindow": 272000
+        },
+        "gpt-5.6-sol": {
+          "contextWindow": 272000
+        },
+        "gpt-5.6-terra": {
+          "contextWindow": 272000
+        },
+        "gpt-5.6-luna": {
+          "contextWindow": 200000
+        },
+        "gpt-6-astra": {
+          "contextWindow": 272000
+        },
+        "grok-4.5": {
+          "contextWindow": 200000
+        },
+        "grok-4.6": {
+          "contextWindow": 200000
+        }
+      }
+    },
     "litellm": {
       "baseUrl": "http://192.168.0.100:4000/v1",
       "api": "openai-responses",
