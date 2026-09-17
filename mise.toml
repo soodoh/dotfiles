@@ -124,6 +124,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "brew-cask:bitwarden" = { version = "latest", os = "macos" }
 "brew-cask:ghostty" = { version = "latest", os = "macos" }
 "brew-cask:obsidian" = { version = "latest", os = "macos" }
+"brew-cask:openwhispr" = { version = "latest", os = "macos" }
 "brew-cask:lunar" = { version = "latest", os = "macos" }
 "brew-cask:nextcloud" = { version = "latest", os = "macos" }
 "brew-cask:zen" = { version = "latest", os = "macos" }
