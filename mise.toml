@@ -88,7 +88,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:@playwright/mcp" = { version = "0.0.81", trust_policy_excludes = ["@playwright/mcp@0.0.80", "playwright@1.63.0-alpha-2026-08-31", "playwright-core@1.63.0-alpha-2026-08-31"] }
 "npm:@googleworkspace/cli" = "0.22.5"
 "npm:awk-language-server" = "0.10.6"
-"npm:bash-language-server" = { version = "5.7.1", trust_policy_excludes = ["fastq@1.20.2"] }
+"npm:bash-language-server" = { version = "5.8.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:@biomejs/biome" = "2.5.14"
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
