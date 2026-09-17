@@ -1,14 +1,15 @@
 ---
 name: open-pr
 description: >
-  Prepare and open a GitHub pull request for the current repository, including
-  Jira-ticket discovery or creation, safe branch preparation, rebasing onto the
-  repository's real default branch, repository-specific validation, PR-template
-  completion, and evidence-based reviewer selection. Use this skill whenever the
-  user asks to open, create, raise, submit, or prepare a PR on GitHub, even when
-  they only say "PR my changes", "push this branch", or "get this ready for
-  review". Also use it when Jira linkage, branch cleanup, or PR metadata is only
-  implied by the request.
+  Prepare and open a GitHub pull request for the current repository, preserving
+  an existing non-default branch as the PR head and creating a Jira-named branch
+  only from the default branch or detached HEAD. Includes Jira-ticket discovery
+  or creation, safe synchronization with the real default branch,
+  repository-specific validation, PR-template completion, and evidence-based
+  reviewer selection. Use this skill whenever the user asks to open, create,
+  raise, submit, or prepare a PR on GitHub, even when they only say "PR my
+  changes", "push this branch", or "get this ready for review". Also use it when
+  Jira linkage, branch cleanup, or PR metadata is only implied by the request.
 compatibility: Requires git and an authenticated GitHub CLI (`gh`). Jira fallback requires the installed `jira` skill and its authenticated TWG CLI.
 ---
 
@@ -86,75 +87,111 @@ Do not silently use a malformed, inaccessible, closed, or unrelated issue. Ask
 for direction if verification shows that the apparent ticket does not describe
 the work.
 
-## 3. Choose the head branch safely
+## 3. Select the head branch
 
-Determine whether the current branch is the base/default branch, whether the
-worktree is clean, whether an upstream exists, and whether a same-named remote
-branch already exists:
+Determine whether `HEAD` is attached to a named branch and compare that branch
+with the verified base:
 
 ```bash
-git branch --show-current
-git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}'
-git ls-remote --exit-code --heads origin "$(git branch --show-current)"
+git symbolic-ref --quiet --short HEAD
+git rev-parse --short HEAD
 ```
 
-Handle detached HEAD as a blocker that requires a named branch.
+Use this branch-selection invariant:
 
-### Starting on the default branch
+- on the default branch, create a Jira-named branch;
+- on a named non-default branch, preserve and reuse that branch; and
+- on detached HEAD, create a Jira-named branch at the current commit.
 
-Commit the intended staged, unstaged, and untracked changes if present, following
-repository commit conventions and hooks. Never use `git add -A` until the status
-and diff have been reviewed for generated files, credentials, unrelated work,
-or other unsafe content. Include the Jira key in the commit subject when that is
-compatible with repository conventions.
+Worktree state, upstream configuration, remote publication, and branch naming do
+not otherwise change the selected head. If synchronization later becomes unsafe
+or ambiguous, stop and ask rather than creating a child branch.
 
-Create a branch named exactly with the canonical Jira key, for example
-`OB-1234`. If that local or remote name already exists, inspect it rather than
-overwriting it; ask before selecting a different branch name.
+### Creating a branch
 
-### Starting on a non-default branch
+When starting from the default branch or detached HEAD, create the branch before
+committing local changes so the feature commit is not placed on the local default
+branch and detached commits remain anchored:
 
-Reuse the current branch only when all of these are true:
+```bash
+git switch -c "<JIRA-KEY>"
+```
 
-- the worktree is clean;
-- the branch has no configured upstream; and
-- no same-named branch exists on `origin`.
+Use the canonical Jira key exactly, for example `OB-1234`. If that branch already
+exists locally or on `origin`, inspect it and ask whether to switch to it or use
+a different name. Do not overwrite it or invent a suffixed name automatically.
+The branch switch carries compatible staged, unstaged, and untracked work onto
+the new branch.
 
-Otherwise, first commit all intended local changes on the current branch. Then
-create a fresh child branch at that commit so the existing/published branch is
-not rewritten. Name it with the Jira key. If that name already exists, use a
-clear Jira-prefixed variant such as `OB-1234-pr` only after confirming it will
-not overwrite or confuse existing work.
+### Reusing a non-default branch
 
-If the current clean unpublished branch lacks the Jira key, it may still be
-reused, but mention the mismatch in the final report. Never rename or rewrite a
-published branch merely to improve naming.
+Use the current named non-default branch as the PR head whether or not it has
+local changes, a configured upstream, a same-named branch on `origin`, or the
+Jira key in its name. A naming mismatch may be reported, but do not rename the
+branch or create a Jira-named child solely to improve its name.
 
-Review the resulting commit range against the base. If it includes unrelated
-commits, stop and ask whether to isolate the intended commits; do not open a PR
-with accidental history.
+Treat upstream and remote state as synchronization concerns, not branch-selection
+criteria. Never create a child branch to avoid reconciling an existing branch.
 
-## 4. Fetch and rebase before pushing
+## 4. Synchronize the selected head
 
 Fetch without pruning or deleting refs unless repository guidance requires it:
 
 ```bash
 git fetch origin
-git rebase "origin/<base>"
 ```
 
-Rebase only the selected unpublished head branch. Never rebase the remote base
-branch or force-push an existing remote branch.
+If the selected head exists on `origin`, compare its remote and local commits:
 
-For conflicts, inspect the base version, branch version, surrounding code,
-relevant tests, and rename/delete history. Resolve only when intent is clear and
-the result preserves both compatible changes. Stage each resolved path and
-continue the rebase. If intent is ambiguous, abort the rebase to restore the
-pre-rebase state and ask the user; never guess, choose all "ours"/"theirs", or
-leave conflict markers.
+```bash
+git rev-list --left-right --count "origin/<head>...HEAD"
+```
 
-After a successful rebase, review `git diff origin/<base>...HEAD` and the commit
-list again for scope and secrets.
+Continue when both sides match or the local branch is only ahead. When the local
+branch is only behind, fast-forward it:
+
+```bash
+git merge --ff-only "origin/<head>"
+```
+
+If local changes prevent that safe update, stop and ask. If the histories have
+diverged, stop and ask how to reconcile them. Do not create a replacement branch.
+
+Once the selected head is synchronized with its remote counterpart, review and
+commit the intended staged, unstaged, and untracked changes, following repository
+commit conventions and hooks. Never use `git add -A` until the status and diff
+have been reviewed for generated files, credentials, unrelated work, or other
+unsafe content. Include the Jira key in the commit subject when compatible with
+repository conventions.
+
+For a new or otherwise unpublished head, rebase onto the merge target only when
+it is not already based on the fetched target:
+
+```bash
+git merge-base --is-ancestor "origin/<base>" HEAD ||
+  git rebase "origin/<base>"
+```
+
+This includes a branch created from detached HEAD. Before rebasing detached
+commits, inspect `origin/<base>..HEAD`; if the intended replay boundary is unclear
+or the range contains unrelated commits, stop and ask.
+
+For a published head, preserve its history. If `origin/<base>` is already an
+ancestor of `HEAD`, continue without integration. Otherwise follow repository
+guidance: merge `origin/<base>` when merge commits are permitted, or ask before
+a rebase that would rewrite the published branch. Never force-push or create a
+child branch as a substitute for that decision.
+
+For rebase or merge conflicts, inspect the base version, branch version,
+surrounding code, relevant tests, and rename/delete history. Resolve only when
+intent is clear and the result preserves both compatible changes. Stage each
+resolved path and continue the operation. If intent is ambiguous, abort to the
+pre-operation state and ask; never guess, choose all "ours"/"theirs", or leave
+conflict markers.
+
+Review `git diff origin/<base>...HEAD` and the commit list for scope and secrets.
+If the range includes unrelated commits, stop and ask whether to isolate the
+intended work; do not open a PR with accidental history.
 
 ## 5. Run lightweight repository quality gates
 
@@ -181,8 +218,9 @@ were intentionally left to CI when useful. If an authoritative lightweight check
 cannot run because of an environment or dependency problem, stop before pushing
 unless the user explicitly accepts that limitation.
 
-If fixes create a new commit, fetch and rebase again when the remote base moved
-since the prior fetch.
+If fixes create a new commit and the remote base moved since the prior fetch,
+repeat the applicable synchronization from step 4 without rewriting a published
+branch.
 
 ## 6. Build the PR title, body, and reviewers
 
@@ -241,7 +279,13 @@ gh pr list --head "<head>" --state all --json number,state,url,title
 If a PR already exists, return its URL and update it only when the user requested
 an update; do not create a duplicate.
 
-Push a new branch without force:
+Push the selected head without force. If it already tracks `origin`, use:
+
+```bash
+git push
+```
+
+Otherwise establish its upstream:
 
 ```bash
 git push --set-upstream origin "<head>"
