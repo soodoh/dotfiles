@@ -1534,7 +1534,7 @@ version = "1.83.0"
 backend = "npm:oxlint"
 
 [[tools."npm:prettier"]]
-version = "3.9.7"
+version = "3.9.8"
 backend = "npm:prettier"
 
 [[tools."npm:pyright"]]
