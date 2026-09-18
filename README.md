@@ -109,7 +109,7 @@ MISE_ENV=work-macos mise bootstrap
 ### Manual steps for Work macOS
 
 - Authenticate TWG: `twg login`
-- Create isolated Azure CLI profiles. Bare `az` uses the development profile through `AZURE_CONFIG_DIR`; the read-only `azure-prod` Pi MCP uses the production profile. Run these after bootstrap from a fresh work-profile shell so mise has decrypted `AZURE_DEV_TENANT_ID`, `AZURE_PROD_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`:
+- Create isolated Azure CLI profiles. Bare `az` and the read-only `azure-test` Pi MCP use the development profile; the read-only `azure` Pi MCP uses the production profile. Run these after bootstrap from a fresh work-profile shell so mise has decrypted `AZURE_DEV_TENANT_ID`, `AZURE_PROD_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`:
 
   ```bash
   mkdir -p ~/.azure/dev/.azure ~/.azure/prod/.azure
@@ -133,7 +133,7 @@ MISE_ENV=work-macos mise bootstrap
     az account show --query '{user:user.name, tenant:tenantId, subscription:name}' -o table
   ```
 
-  The first command must report the development identity and the second the production identity. Restart Pi after changing these profiles so `azure-prod` receives the current production login. Do not put Azure CLI state directly under `~/.azure`; only `dev/` and `prod/` should live there.
+  The first command must report the development identity and the second the production identity. Restart Pi after changing either profile so its MCP server receives the current login. Query Integration telemetry through `azure-test` at `docusigntestfollower.westus` / `KazMonTestDb`; query Stage, Demo, and Prod through `azure` at `docusign1.westus` / `KazMonDb`. Both Azure MCP servers start with `--read-only`; production Azure exposes Kusto and subscription discovery, while test Azure additionally exposes resource discovery, Resource Health, and Azure Monitor. The Mixpanel MCP surface similarly allowlists read-oriented query and metadata tools. Do not put Azure CLI state directly under `~/.azure`; only `dev/` and `prod/` should live there.
 - Authenticate gcloud:
 
   ```bash

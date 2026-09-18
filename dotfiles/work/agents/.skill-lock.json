@@ -47,33 +47,6 @@
       "installedAt": "2026-05-04T02:23:23.173Z",
       "updatedAt": "2026-05-04T02:23:23.173Z"
     },
-    "azure-devops-cli": {
-      "source": "github/awesome-copilot",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/github/awesome-copilot.git",
-      "skillPath": "skills/azure-devops-cli/SKILL.md",
-      "skillFolderHash": "8581438adbc12a8f2e960f03d3c0ad739aa11b56",
-      "installedAt": "2026-05-09T01:14:02.888Z",
-      "updatedAt": "2026-08-18T20:02:16.230Z"
-    },
-    "azure-kusto": {
-      "source": "microsoft/azure-skills",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/microsoft/azure-skills.git",
-      "skillPath": "skills/azure-kusto/SKILL.md",
-      "skillFolderHash": "632436f7c4b5718a1af4391713b877a8dd21ea94",
-      "installedAt": "2026-05-09T01:16:25.577Z",
-      "updatedAt": "2026-08-18T20:02:18.140Z"
-    },
-    "thermo-nuclear-code-quality-review": {
-      "source": "cursor/plugins",
-      "sourceType": "github",
-      "sourceUrl": "https://github.com/cursor/plugins.git",
-      "skillPath": "cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md",
-      "skillFolderHash": "d9c8935dd560b3b6f5941247d04a1843f8c7cc35",
-      "installedAt": "2026-06-04T16:25:51.032Z",
-      "updatedAt": "2026-06-04T16:25:51.032Z"
-    },
     "grill-me": {
       "source": "mattpocock/skills",
       "sourceType": "github",

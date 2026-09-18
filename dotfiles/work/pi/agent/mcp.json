@@ -1,88 +1,402 @@
 {
-	"settings": {
-		"autoAuth": true,
-		"samplingAutoApprove": true
-	},
-	"mcpServers": {
-		"context7": {
-			"url": "https://mcp.context7.com/mcp",
-			"headers": {
-				"CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
-			},
-			"lifecycle": "lazy",
-			"directTools": true
-		},
-		"mixpanel": {
-			"url": "https://mcp.mixpanel.com/mcp",
-			"auth": "oauth",
-			"lifecycle": "lazy",
-			"directTools": false
-		},
-		"playwright": {
-			"command": "playwright-mcp",
-			"args": ["--extension"],
-			"lifecycle": "lazy"
-		},
-		"glean": {
-			"url": "https://docusign-prod-be.glean.com/mcp/default",
-			"auth": "oauth",
-			"lifecycle": "lazy",
-			"directTools": true
-		},
-		"azure-prod": {
-			"command": "azmcp",
-			"args": ["server", "start", "--read-only"],
-			"env": {
-				"HOME": "${HOME}/.azure/prod",
-				"AZURE_CONFIG_DIR": "${HOME}/.azure/prod/.azure",
-				"AZURE_SUBSCRIPTION_ID": "${AZURE_SUBSCRIPTION_ID}",
-				"AZURE_TOKEN_CREDENTIALS": "AzureCliCredential",
-				"PATH": "${PATH}",
-				"NODE_OPTIONS": "${NODE_OPTIONS}",
-				"NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
-				"SSL_CERT_FILE": "${SSL_CERT_FILE}",
-				"REQUESTS_CA_BUNDLE": "${REQUESTS_CA_BUNDLE}"
-			},
-			"inheritEnv": false,
-			"lifecycle": "lazy",
-			"directTools": false
-		},
-		"azure-devops": {
-			"command": "mcp-server-azuredevops",
-			"args": [
-				"DocusignOrg",
-				"--authentication",
-				"pat",
-				"--domains",
-				"core",
-				"--domains",
-				"pipelines"
-			],
-			"env": {
-				"NODE_OPTIONS": "${NODE_OPTIONS}",
-				"NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
-				"SSL_CERT_FILE": "${SSL_CERT_FILE}",
-				"PERSONAL_ACCESS_TOKEN": "${ADO_MCP_PAT_BASIC}"
-			},
-			"inheritEnv": false,
-			"includeTools": [
-				"core_list_projects",
-				"pipelines_build",
-				"pipelines_build_log",
-				"pipelines_definition",
-				"pipelines_run",
-				"pipelines_artifact"
-			],
-			"lifecycle": "lazy",
-			"directTools": false
-		},
-		"figma": {
-			"command": "figma-developer-mcp",
-			"args": ["--stdio"],
-			"env": {
-				"FIGMA_API_KEY": "${FIGMA_API_KEY}"
-			},
-			"lifecycle": "lazy"
-		}
-	}
+  "settings": {
+    "autoAuth": true,
+    "sampling": false
+  },
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      },
+      "lifecycle": "lazy",
+      "directTools": true
+    },
+    "mixpanel": {
+      "url": "https://mcp.mixpanel.com/mcp",
+      "auth": "oauth",
+      "includeTools": [
+        "Get-*",
+        "List-*",
+        "Search-*",
+        "Describe-*",
+        "Explain-*",
+        "Run-Query",
+        "Display-Query",
+        "Run-Experiment-Pre-Launch-Checks",
+        "Find-Duplicate-Groups"
+      ],
+      "lifecycle": "lazy",
+      "directTools": false,
+      "searchKeywords": {
+        "*": [
+          "Mixpanel",
+          "product analytics"
+        ],
+        "Get-Business-Context": [
+          "organization context",
+          "project context"
+        ],
+        "Run-Query": [
+          "analytics query",
+          "funnel",
+          "retention",
+          "user behavior"
+        ],
+        "Get-User-Replays-Data": [
+          "session replay"
+        ],
+        "*Experiment*": [
+          "experiment",
+          "A/B test"
+        ],
+        "*Feature-Flag*": [
+          "feature flag"
+        ],
+        "Search-Entities": [
+          "dashboard",
+          "report"
+        ]
+      }
+    },
+    "playwright": {
+      "command": "playwright-mcp",
+      "args": [
+        "--extension"
+      ],
+      "env": {
+        "HOME": "${HOME}",
+        "PATH": "${PATH}",
+        "NODE_OPTIONS": "${NODE_OPTIONS}",
+        "NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
+        "SSL_CERT_FILE": "${SSL_CERT_FILE}",
+        "REQUESTS_CA_BUNDLE": "${REQUESTS_CA_BUNDLE}"
+      },
+      "inheritEnv": false,
+      "lifecycle": "lazy",
+      "directTools": false,
+      "approveTools": [
+        "browser_run_code_unsafe",
+        "browser_file_upload",
+        "browser_drop",
+        "browser_webmcp_call"
+      ],
+      "searchKeywords": {
+        "*": [
+          "browser automation",
+          "UI test",
+          "website"
+        ],
+        "browser_snapshot": [
+          "accessibility tree",
+          "inspect page"
+        ],
+        "browser_take_screenshot": [
+          "screenshot",
+          "visual check"
+        ],
+        "browser_console_messages": [
+          "browser console",
+          "JavaScript errors"
+        ],
+        "browser_network_*": [
+          "network requests",
+          "HTTP traffic"
+        ]
+      }
+    },
+    "glean": {
+      "url": "https://docusign-prod-be.glean.com/mcp/default",
+      "auth": "oauth",
+      "lifecycle": "lazy",
+      "directTools": "search",
+      "approveTools": [
+        "memory",
+        "share_artifact",
+        "update_artifact",
+        "upload_artifact"
+      ],
+      "searchKeywords": {
+        "search": [
+          "internal knowledge",
+          "company docs",
+          "enterprise search"
+        ],
+        "code_search": [
+          "company code",
+          "implementation search"
+        ],
+        "Slack_MCP_*": [
+          "Slack",
+          "channel",
+          "thread",
+          "message"
+        ],
+        "employee_search": [
+          "employee",
+          "owner",
+          "subject matter expert"
+        ],
+        "read_document": [
+          "internal document",
+          "full document"
+        ]
+      }
+    },
+    "azure": {
+      "command": "azmcp",
+      "args": [
+        "server",
+        "start",
+        "--read-only"
+      ],
+      "env": {
+        "HOME": "${HOME}/.azure/prod",
+        "AZURE_CONFIG_DIR": "${HOME}/.azure/prod/.azure",
+        "AZURE_SUBSCRIPTION_ID": "${AZURE_SUBSCRIPTION_ID}",
+        "AZURE_TOKEN_CREDENTIALS": "AzureCliCredential",
+        "PATH": "${PATH}",
+        "NODE_OPTIONS": "${NODE_OPTIONS}",
+        "NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
+        "SSL_CERT_FILE": "${SSL_CERT_FILE}",
+        "REQUESTS_CA_BUNDLE": "${REQUESTS_CA_BUNDLE}"
+      },
+      "inheritEnv": false,
+      "includeTools": [
+        "kusto",
+        "subscription_list",
+        "group_list",
+        "group_resource_list",
+        "resourcehealth",
+        "monitor"
+      ],
+      "lifecycle": "lazy",
+      "directTools": "search",
+      "searchKeywords": {
+        "kusto": [
+          "KQL",
+          "ADX",
+          "KazMon",
+          "telemetry",
+          "logs",
+          "observability",
+          "OpenTelemetry",
+          "investigation",
+          "runtime",
+          "rollout verification",
+          "Stage",
+          "Demo",
+          "Prod"
+        ],
+        "subscription_list": [
+          "Azure authentication",
+          "Azure account",
+          "credential check"
+        ],
+        "group_list": [
+          "resource group",
+          "Azure resource discovery"
+        ],
+        "group_resource_list": [
+          "resources",
+          "resource ID",
+          "Azure resource discovery"
+        ],
+        "resourcehealth": [
+          "service health",
+          "availability",
+          "incident",
+          "maintenance",
+          "degraded"
+        ],
+        "monitor": [
+          "Azure Monitor",
+          "metrics",
+          "activity logs",
+          "resource logs"
+        ]
+      }
+    },
+    "azure-test": {
+      "command": "azmcp",
+      "args": [
+        "server",
+        "start",
+        "--read-only"
+      ],
+      "env": {
+        "HOME": "${HOME}/.azure/dev",
+        "AZURE_CONFIG_DIR": "${HOME}/.azure/dev/.azure",
+        "AZURE_TOKEN_CREDENTIALS": "AzureCliCredential",
+        "PATH": "${PATH}",
+        "NODE_OPTIONS": "${NODE_OPTIONS}",
+        "NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
+        "SSL_CERT_FILE": "${SSL_CERT_FILE}",
+        "REQUESTS_CA_BUNDLE": "${REQUESTS_CA_BUNDLE}"
+      },
+      "inheritEnv": false,
+      "includeTools": [
+        "kusto",
+        "subscription_list",
+        "group_list",
+        "group_resource_list",
+        "resourcehealth",
+        "monitor"
+      ],
+      "lifecycle": "lazy",
+      "directTools": "search",
+      "searchKeywords": {
+        "kusto": [
+          "KQL",
+          "ADX",
+          "KazMon",
+          "telemetry",
+          "logs",
+          "observability",
+          "OpenTelemetry",
+          "investigation",
+          "runtime",
+          "rollout verification",
+          "Integration",
+          "Test",
+          "Dev"
+        ],
+        "subscription_list": [
+          "Azure authentication",
+          "Azure account",
+          "credential check"
+        ],
+        "group_list": [
+          "resource group",
+          "Azure resource discovery"
+        ],
+        "group_resource_list": [
+          "resources",
+          "resource ID",
+          "Azure resource discovery"
+        ],
+        "resourcehealth": [
+          "service health",
+          "availability",
+          "incident",
+          "maintenance",
+          "degraded"
+        ],
+        "monitor": [
+          "Azure Monitor",
+          "metrics",
+          "activity logs",
+          "resource logs"
+        ]
+      }
+    },
+    "azure-devops": {
+      "command": "mcp-server-azuredevops",
+      "args": [
+        "DocusignOrg",
+        "--authentication",
+        "pat",
+        "--domains",
+        "core",
+        "--domains",
+        "pipelines"
+      ],
+      "env": {
+        "NODE_OPTIONS": "${NODE_OPTIONS}",
+        "NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
+        "SSL_CERT_FILE": "${SSL_CERT_FILE}",
+        "PERSONAL_ACCESS_TOKEN": "${ADO_MCP_PAT_BASIC}"
+      },
+      "inheritEnv": false,
+      "includeTools": [
+        "core_list_projects",
+        "pipelines_build",
+        "pipelines_build_log",
+        "pipelines_definition",
+        "pipelines_run",
+        "pipelines_artifact",
+        "pipelines_write"
+      ],
+      "lifecycle": "lazy",
+      "directTools": false,
+      "searchKeywords": {
+        "core_list_projects": [
+          "ADO",
+          "Azure DevOps",
+          "organization",
+          "project"
+        ],
+        "pipelines_build": [
+          "CI",
+          "build",
+          "release",
+          "deployment",
+          "pipeline status",
+          "checks"
+        ],
+        "pipelines_build_log": [
+          "CI logs",
+          "build logs",
+          "deployment logs",
+          "release logs",
+          "failure"
+        ],
+        "pipelines_definition": [
+          "pipeline definition",
+          "YAML pipeline"
+        ],
+        "pipelines_run": [
+          "pipeline run",
+          "release run",
+          "deployment run"
+        ],
+        "pipelines_artifact": [
+          "build artifact",
+          "pipeline artifact",
+          "download artifact"
+        ],
+        "pipelines_write": [
+          "queue pipeline",
+          "run pipeline",
+          "cancel build",
+          "retry build"
+        ]
+      }
+    },
+    "figma": {
+      "command": "figma-developer-mcp",
+      "args": [
+        "--stdio"
+      ],
+      "env": {
+        "HOME": "${HOME}",
+        "PATH": "${PATH}",
+        "NODE_OPTIONS": "${NODE_OPTIONS}",
+        "NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
+        "SSL_CERT_FILE": "${SSL_CERT_FILE}",
+        "REQUESTS_CA_BUNDLE": "${REQUESTS_CA_BUNDLE}",
+        "FIGMA_API_KEY": "${FIGMA_API_KEY}"
+      },
+      "inheritEnv": false,
+      "lifecycle": "lazy",
+      "directTools": false,
+      "searchKeywords": {
+        "*": [
+          "Figma",
+          "design",
+          "mockup",
+          "component"
+        ],
+        "get_figma_data": [
+          "design file",
+          "layout"
+        ],
+        "download_figma_images": [
+          "design asset",
+          "icon",
+          "image export"
+        ]
+      }
+    }
+  }
 }

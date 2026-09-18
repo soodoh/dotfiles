@@ -235,15 +235,15 @@ class MiseConfigurationTests(unittest.TestCase):
         mcp = json.loads(
             (ROOT / "dotfiles/work/pi/agent/mcp.json").read_text()
         )["mcpServers"]
-        self.assertNotIn("azure", mcp)
-        azure_prod = mcp["azure-prod"]
-        self.assertEqual(azure_prod["args"], ["server", "start", "--read-only"])
+        self.assertNotIn("azure-prod", mcp)
+        azure = mcp["azure"]
+        self.assertEqual(azure["args"], ["server", "start", "--read-only"])
         self.assertEqual(
-            azure_prod["env"]["HOME"],
+            azure["env"]["HOME"],
             "${HOME}/.azure/prod",
         )
         self.assertEqual(
-            azure_prod["env"]["AZURE_CONFIG_DIR"],
+            azure["env"]["AZURE_CONFIG_DIR"],
             "${HOME}/.azure/prod/.azure",
         )
         for variable in (
@@ -254,16 +254,142 @@ class MiseConfigurationTests(unittest.TestCase):
             with self.subTest(variable=variable):
                 self.assertEqual(set(self.work["env"][variable]), {"age"})
         self.assertEqual(
-            azure_prod["env"]["AZURE_SUBSCRIPTION_ID"],
+            azure["env"]["AZURE_SUBSCRIPTION_ID"],
             "${AZURE_SUBSCRIPTION_ID}",
         )
         self.assertEqual(
-            azure_prod["env"]["AZURE_TOKEN_CREDENTIALS"],
+            azure["env"]["AZURE_TOKEN_CREDENTIALS"],
             "AzureCliCredential",
         )
-        self.assertIs(azure_prod["inheritEnv"], False)
-        self.assertIs(azure_prod["directTools"], False)
-        self.assertEqual(azure_prod["lifecycle"], "lazy")
+        self.assertIs(azure["inheritEnv"], False)
+        self.assertEqual(
+            azure["includeTools"],
+            ["kusto", "subscription_list"],
+        )
+        self.assertEqual(azure["directTools"], "search")
+        self.assertIn("KazMon", azure["searchKeywords"]["kusto"])
+        self.assertIn(
+            "rollout verification",
+            azure["searchKeywords"]["kusto"],
+        )
+        self.assertEqual(azure["lifecycle"], "lazy")
+
+        azure_test = mcp["azure-test"]
+        self.assertEqual(azure_test["command"], "azmcp")
+        self.assertEqual(azure_test["args"], ["server", "start", "--read-only"])
+        self.assertEqual(azure_test["env"]["HOME"], "${HOME}/.azure/dev")
+        self.assertEqual(
+            azure_test["env"]["AZURE_CONFIG_DIR"],
+            "${HOME}/.azure/dev/.azure",
+        )
+        self.assertEqual(
+            azure_test["env"]["AZURE_TOKEN_CREDENTIALS"],
+            "AzureCliCredential",
+        )
+        self.assertNotIn("AZURE_SUBSCRIPTION_ID", azure_test["env"])
+        self.assertIs(azure_test["inheritEnv"], False)
+        self.assertEqual(
+            azure_test["includeTools"],
+            [
+                "kusto",
+                "subscription_list",
+                "group_list",
+                "group_resource_list",
+                "resourcehealth",
+                "monitor",
+            ],
+        )
+        self.assertEqual(azure_test["directTools"], "search")
+        self.assertIn("Integration", azure_test["searchKeywords"]["kusto"])
+        self.assertEqual(azure_test["lifecycle"], "lazy")
+        self.assertNotIn("kusto-test", mcp)
+        self.assertNotIn("npm:kusto-mcp", self.work["tools"])
+
+        azure_devops = mcp["azure-devops"]
+        self.assertIs(azure_devops["directTools"], False)
+        self.assertEqual(
+            azure_devops["includeTools"],
+            [
+                "core_list_projects",
+                "pipelines_build",
+                "pipelines_build_log",
+                "pipelines_definition",
+                "pipelines_run",
+                "pipelines_artifact",
+            ],
+        )
+        self.assertNotIn("pipelines_write", azure_devops["includeTools"])
+        self.assertEqual(azure_devops["approveTools"], ["pipelines_write"])
+        self.assertIn(
+            "deployment logs",
+            azure_devops["searchKeywords"]["pipelines_build_log"],
+        )
+        self.assertEqual(
+            self.work["dotfiles"]["~/.pi/agent/AGENTS.md"],
+            "dotfiles/work/pi/agent/AGENTS.md",
+        )
+
+    def test_mcp_defaults_are_lazy_and_least_privilege(self) -> None:
+        configs = {
+            profile: json.loads(
+                (ROOT / f"dotfiles/{profile}/pi/agent/mcp.json").read_text()
+            )
+            for profile in ("personal", "work")
+        }
+        for profile, config in configs.items():
+            with self.subTest(profile=profile):
+                self.assertIs(config["settings"]["sampling"], False)
+                self.assertNotIn("samplingAutoApprove", config["settings"])
+                context7 = config["mcpServers"]["context7"]
+                self.assertIs(context7["directTools"], True)
+                playwright = config["mcpServers"]["playwright"]
+                self.assertIs(playwright["directTools"], False)
+                self.assertIs(playwright["inheritEnv"], False)
+                self.assertIn(
+                    "browser_run_code_unsafe",
+                    playwright["approveTools"],
+                )
+                self.assertIn(
+                    "browser_drop",
+                    playwright["approveTools"],
+                )
+                self.assertIn(
+                    "browser_webmcp_call",
+                    playwright["approveTools"],
+                )
+
+        work = configs["work"]["mcpServers"]
+        mixpanel = work["mixpanel"]
+        self.assertIs(mixpanel["directTools"], False)
+        self.assertEqual(
+            mixpanel["includeTools"],
+            [
+                "Get-*",
+                "List-*",
+                "Search-*",
+                "Describe-*",
+                "Explain-*",
+                "Run-Query",
+                "Display-Query",
+                "Run-Experiment-Pre-Launch-Checks",
+                "Find-Duplicate-Groups",
+            ],
+        )
+
+        glean = work["glean"]
+        self.assertEqual(glean["directTools"], "search")
+        self.assertEqual(
+            glean["approveTools"],
+            [
+                "memory",
+                "share_artifact",
+                "update_artifact",
+                "upload_artifact",
+            ],
+        )
+        figma = work["figma"]
+        self.assertIs(figma["directTools"], False)
+        self.assertIs(figma["inheritEnv"], False)
 
     def test_renovate_can_generate_locks_without_age_keys_or_overrides(self) -> None:
         mise = shutil.which("mise")

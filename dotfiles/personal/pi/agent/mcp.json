@@ -1,7 +1,7 @@
 {
 	"settings": {
 		"autoAuth": true,
-		"samplingAutoApprove": true
+		"sampling": false
 	},
 	"mcpServers": {
 		"context7": {
@@ -15,7 +15,25 @@
 		"playwright": {
 			"command": "playwright-mcp",
 			"args": ["--extension"],
-			"lifecycle": "lazy"
+			"env": {
+				"HOME": "${HOME}",
+				"PATH": "${PATH}",
+				"NODE_OPTIONS": "${NODE_OPTIONS}",
+				"NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
+				"SSL_CERT_FILE": "${SSL_CERT_FILE}",
+				"REQUESTS_CA_BUNDLE": "${REQUESTS_CA_BUNDLE}"
+			},
+			"inheritEnv": false,
+			"lifecycle": "lazy",
+			"directTools": false,
+			"approveTools": ["browser_run_code_unsafe", "browser_file_upload", "browser_drop", "browser_webmcp_call"],
+			"searchKeywords": {
+				"*": ["browser automation", "UI test", "website"],
+				"browser_snapshot": ["accessibility tree", "inspect page"],
+				"browser_take_screenshot": ["screenshot", "visual check"],
+				"browser_console_messages": ["browser console", "JavaScript errors"],
+				"browser_network_*": ["network requests", "HTTP traffic"]
+			}
 		}
 	}
 }
