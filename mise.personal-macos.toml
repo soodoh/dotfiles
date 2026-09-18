@@ -1,5 +1,8 @@
 [tools]
 "aqua:aws/aws-cli" = "2.36.48"
+"aqua:opentofu/opentofu" = "1.12.5"
+"pipx:ansible-core" = "2.21.2"
+"pipx:ansible-lint" = "26.8.0"
 
 [bootstrap.packages]
 "brew-cask:discord" = "latest"
