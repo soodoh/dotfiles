@@ -222,6 +222,46 @@ class MiseConfigurationTests(unittest.TestCase):
     def test_age_decryption_allows_credential_free_automation(self) -> None:
         self.assertIs(self.base["settings"]["age"]["strict"], False)
 
+    def test_azure_devops_mcp_allows_required_keytar_build(self) -> None:
+        tool = self.work["tools"]["npm:@azure-devops/mcp"]
+        self.assertEqual(tool["version"], "2.10.0")
+        self.assertEqual(tool["allow_builds"], ["keytar"])
+
+    def test_work_azure_profiles_are_isolated(self) -> None:
+        self.assertEqual(
+            self.work["env"]["AZURE_CONFIG_DIR"],
+            "{{ env.HOME }}/.azure/dev/.azure",
+        )
+        mcp = json.loads(
+            (ROOT / "dotfiles/work/pi/agent/mcp.json").read_text()
+        )["mcpServers"]
+        self.assertNotIn("azure", mcp)
+        azure_prod = mcp["azure-prod"]
+        self.assertEqual(azure_prod["args"], ["server", "start", "--read-only"])
+        self.assertEqual(
+            azure_prod["env"]["HOME"],
+            "${HOME}/.azure/prod",
+        )
+        self.assertEqual(
+            azure_prod["env"]["AZURE_CONFIG_DIR"],
+            "${HOME}/.azure/prod/.azure",
+        )
+        self.assertEqual(
+            set(self.work["env"]["AZURE_SUBSCRIPTION_ID"]),
+            {"age"},
+        )
+        self.assertEqual(
+            azure_prod["env"]["AZURE_SUBSCRIPTION_ID"],
+            "${AZURE_SUBSCRIPTION_ID}",
+        )
+        self.assertEqual(
+            azure_prod["env"]["AZURE_TOKEN_CREDENTIALS"],
+            "AzureCliCredential",
+        )
+        self.assertIs(azure_prod["inheritEnv"], False)
+        self.assertIs(azure_prod["directTools"], False)
+        self.assertEqual(azure_prod["lifecycle"], "lazy")
+
     def test_renovate_can_generate_locks_without_age_keys_or_overrides(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise)

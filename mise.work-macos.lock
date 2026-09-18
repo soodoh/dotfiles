@@ -180,6 +180,13 @@ url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.2.8"
 version = "2.10.0"
 backend = "npm:@azure-devops/mcp"
 
+[[tools."npm:@azure-devops/mcp"]]
+version = "2.10.0"
+backend = "npm:@azure-devops/mcp"
+
+[tools."npm:@azure-devops/mcp".options]
+allow_builds = '["keytar"]'
+
 [[tools."npm:@azure/mcp"]]
 version = "2.0.5"
 backend = "npm:@azure/mcp"
@@ -187,10 +194,6 @@ backend = "npm:@azure/mcp"
 [[tools."npm:figma-developer-mcp"]]
 version = "0.13.2"
 backend = "npm:figma-developer-mcp"
-
-[[tools."npm:kusto-mcp"]]
-version = "1.14.0"
-backend = "npm:kusto-mcp"
 
 [[tools."pipx:azure-cli"]]
 version = "2.90.0"

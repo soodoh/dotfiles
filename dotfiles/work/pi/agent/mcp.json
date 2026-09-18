@@ -29,20 +29,50 @@
 			"lifecycle": "lazy",
 			"directTools": true
 		},
-		"azure": {
+		"azure-prod": {
 			"command": "azmcp",
-			"args": ["server", "start"],
-			"lifecycle": "lazy",
-			"directTools": false
-		},
-		"kusto": {
-			"command": "kusto-mcp",
+			"args": ["server", "start", "--read-only"],
+			"env": {
+				"HOME": "${HOME}/.azure/prod",
+				"AZURE_CONFIG_DIR": "${HOME}/.azure/prod/.azure",
+				"AZURE_SUBSCRIPTION_ID": "${AZURE_SUBSCRIPTION_ID}",
+				"AZURE_TOKEN_CREDENTIALS": "AzureCliCredential",
+				"PATH": "${PATH}",
+				"NODE_OPTIONS": "${NODE_OPTIONS}",
+				"NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
+				"SSL_CERT_FILE": "${SSL_CERT_FILE}",
+				"REQUESTS_CA_BUNDLE": "${REQUESTS_CA_BUNDLE}"
+			},
+			"inheritEnv": false,
 			"lifecycle": "lazy",
 			"directTools": false
 		},
 		"azure-devops": {
 			"command": "mcp-server-azuredevops",
-			"args": ["DocusignOrg"],
+			"args": [
+				"DocusignOrg",
+				"--authentication",
+				"pat",
+				"--domains",
+				"core",
+				"--domains",
+				"pipelines"
+			],
+			"env": {
+				"NODE_OPTIONS": "${NODE_OPTIONS}",
+				"NODE_EXTRA_CA_CERTS": "${NODE_EXTRA_CA_CERTS}",
+				"SSL_CERT_FILE": "${SSL_CERT_FILE}",
+				"PERSONAL_ACCESS_TOKEN": "${ADO_MCP_PAT_BASIC}"
+			},
+			"inheritEnv": false,
+			"includeTools": [
+				"core_list_projects",
+				"pipelines_build",
+				"pipelines_build_log",
+				"pipelines_definition",
+				"pipelines_run",
+				"pipelines_artifact"
+			],
 			"lifecycle": "lazy",
 			"directTools": false
 		},
