@@ -161,21 +161,23 @@ MISE_ENV=work-macos mise bootstrap
 
 ## Validation
 
-Run the non-destructive native checks and colocated tests:
+Run fast syntax, policy, and unit checks during normal iteration, or the full suite before merging:
 
 ```bash
+mise run validate:fast
+mise run validate:integration
 mise run validate
 ```
 
-The suite parses and plans both profiles, checks shell syntax, runs the Pi package suite, exercises isolated Fish autostart and Herdr integration tests, validates the Herdr config natively, verifies the expected work security failure, runs Neovim in an isolated environment, and executes colocated macOS configuration tests. CI never runs a workstation bootstrap.
+The full suite parses and plans both profiles, validates GitHub Actions with actionlint, checks shell syntax, runs the Pi package suite, exercises isolated Fish autostart and Herdr integration tests, validates the Herdr config natively, runs Neovim in an isolated environment, and executes colocated macOS configuration tests. CI never runs a workstation bootstrap.
 
 CI restores tools explicitly and always runs `mise install --locked` and the full validation suite, including on exact cache hits. Successful PR and main jobs save misses and compatible fallback generations. Both CI workflows read their mise release from `min_version` in `mise.toml`, so updating that single declaration also updates CI installation. A Renovate custom manager keeps the declaration current from mise's GitHub releases; mise's `auto_update` setting handles interactive workstations but is intentionally skipped in CI. `.github/workflows/mise-cache-key.py` keys the shared CI tool declarations, task tools, install options, and current-platform lock state—not profile-only tools, task descriptions, or ordinary environment values. OS, architecture, runner image family, mise version, and installation policy bound fallback reuse; new options invalidate the whole boundary. A cached fingerprint manifest forces reinstallation of new or replaced lock artifacts, including same-version changes, while retaining unchanged installs. Review the projection and bump its schema when changing installation/provenance policy or introducing environment-dependent tool inputs. Neither the manifest nor locked installation is an integrity scan of cached executable contents.
 
 The tool archive retains mise's data directory and CI-owned Cargo proxies. Rustup lives inside mise's data directory, so Rust symlinks and their toolchains travel together without archiving runner-preinstalled toolchains. Mise configuration, credentials, Cargo registries, and unrelated HOME state are excluded. Neovim archives only the active validation namespace, keyed by the actual Neovim version, OS/architecture, plugin lock, parser list, and runner image family; there is no cross-namespace fallback. Plugin restore, parser/executable assertions, and copied-lock checks still execute. Main cannot reuse PR merge-ref caches, so successful main runs must seed their own generations. No cache cleanup or retention automation is configured here.
 
-`mise run validate:agents` also validates resources declared in `pi-extensions/package.json` and loads each extension, then the combined manifest, through the actual mise-managed Pi loader. These checks use mise's Node LTS in temporary, credential-free processes with subprocesses, native addons, and external writes denied; no extension exception list is maintained. Network access is not blocked: `PI_OFFLINE` is best-effort, and the checks do not start sessions, invoke tools, or prompt models. They cover imports, factory registration, resource diagnostics, and registration conflicts—not session lifecycle, tool execution, or native background completion, which still needs a manual smoke test after relevant upgrades.
+`mise run validate:agents:integration` validates resources declared in `pi-extensions/package.json` and loads each extension, then the combined manifest, through the actual mise-managed Pi loader. These checks use mise's Node LTS in temporary, credential-free processes with subprocesses, native addons, and external writes denied; no extension exception list is maintained. Network access is not blocked: `PI_OFFLINE` is best-effort, and the checks do not start sessions, invoke tools, or prompt models. They cover imports, factory registration, resource diagnostics, and registration conflicts—not session lifecycle, tool execution, or native background completion, which still needs a manual smoke test after relevant upgrades.
 
-The work LiteLLM cleartext HTTP endpoint remains an intentional, exact expected failure, checked against enabled Pi model providers. A follow-up must explicitly choose either HTTPS or a narrowly scoped private-network allowlist and update `AGENTS.md` with that policy; this validation change does neither.
+The work LiteLLM endpoint intentionally remains on cleartext HTTP until the coordinated home-server HTTPS change is ready. The test suite does not treat that temporary deployment choice as either a passing security assertion or an expected failure.
 
 ## Herdr terminal workspaces
 

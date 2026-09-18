@@ -89,7 +89,7 @@ and `hasPendingMessages()` cover the delivery-to-parent handoff.
 
 Missing providers, wrong identities, malformed/throwing activity and ownership
 conflicts retain working state and suppress completion. One local warning asks
-to check registry ownership and run `mise run validate:agents`, then `/reload`.
+to check registry ownership and run `mise run validate:agents:integration`, then `/reload`.
 Do not overwrite another host's registry or add a guessed completion timeout.
 
 This is a pi-web-named **versioned host protocol**, not a general Pi extension
@@ -161,7 +161,7 @@ policy belongs to [Moshi](https://getmoshi.app/docs/notifications), not this mod
 ```sh
 bun run --cwd pi-extensions test packages/agent-state
 python3 pi-extensions/packages/agent-state/integration.test.py "$(mise which pi)"
-mise run validate:agents
+mise run validate:agents:integration
 ```
 
 Unit tests cover full report sequences, overlap, restoration, outcome handling,

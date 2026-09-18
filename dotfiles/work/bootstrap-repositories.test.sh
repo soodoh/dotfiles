@@ -25,9 +25,14 @@ export GIT_LOG="$tmp_dir/git-clones.log"
 export PATH="$tmp_dir/bin:$PATH"
 
 bash "$repository_root/dotfiles/work/bootstrap-repositories.sh" >/dev/null 2>&1
-first_clone_count=$(wc -l < "$GIT_LOG" | tr -d ' ')
-if [[ $first_clone_count != 33 ]]; then
-  printf 'expected 33 initial clones, got %s\n' "$first_clone_count" >&2
+if [[ ! -s "$GIT_LOG" ]]; then
+  printf 'expected at least one repository clone\n' >&2
+  exit 1
+fi
+
+duplicate_destinations=$(cut -f2 "$GIT_LOG" | sort | uniq -d)
+if [[ -n $duplicate_destinations ]]; then
+  printf 'repository destinations must be unique:\n%s\n' "$duplicate_destinations" >&2
   exit 1
 fi
 

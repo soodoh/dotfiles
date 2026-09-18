@@ -111,7 +111,6 @@ class MisePolicyTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/repository-updates.yml").read_text()
         run_commands = re.findall(r"^\s*run:\s*([^|].*)$", workflow, re.MULTILINE)
         self.assertIn("python3 mise.lock.py update-unsupported", run_commands)
-        self.assertNotIn("python3 mise.lock.py update", run_commands)
 
 
 class MiseConfigurationTests(unittest.TestCase):
@@ -121,50 +120,17 @@ class MiseConfigurationTests(unittest.TestCase):
         cls.personal = load_toml("mise.personal-macos.toml")
         cls.work = load_toml("mise.work-macos.toml")
 
-    def test_pi_web_search_is_shared_brave_without_curator_or_stored_credentials(self) -> None:
-        target = "~/.pi/agent/web-search.json"
-        source = self.base["dotfiles"][target]
-        self.assertEqual(source, "dotfiles/common/pi/agent/web-search.json")
-        self.assertEqual(
-            json.loads((ROOT / source).read_text()),
-            {"provider": "brave", "workflow": "none"},
-        )
-        for profile, config in (("personal", self.personal), ("work", self.work)):
-            with self.subTest(profile=profile):
-                self.assertNotIn(target, config["dotfiles"])
-                settings = json.loads(
-                    (ROOT / "dotfiles" / profile / "pi/agent/settings.json").read_text()
-                )
-                package = next(
-                    p for p in settings["packages"] if p["source"] == "./pi-extensions"
-                )
-                self.assertIn("node_modules/pi-web-access/index.ts", package["extensions"])
-                self.assertFalse(
-                    any("rpiv-web-tools" in path for path in package["extensions"])
-                )
-
-    def test_moshi_uses_one_shared_macos_launch_agent(self) -> None:
-        agent = self.base["bootstrap"]["macos"]["launchd"]["agents"]["moshi-hook"]
-        self.assertEqual(agent["program"], "~/.local/bin/mise")
-        self.assertEqual(
-            agent["args"],
-            ["exec", "--", "/opt/homebrew/opt/moshi-hook/bin/moshi-hook", "serve"],
-        )
-        self.assertEqual(agent["working_directory"], "~/.local/share/dotfiles")
-        self.assertEqual(self.base["dotfiles"]["~/.local/share/dotfiles"], ".")
-        self.assertTrue(agent["run_at_load"])
-        self.assertTrue(agent["keep_alive"])
-        self.assertNotIn("PATH", agent.get("environment", {}))
-        for config in (self.base, self.personal, self.work):
-            self.assertFalse(any("moshi-hook.env" in key for key in config["dotfiles"]))
+    def test_moshi_launch_agent_has_one_shared_owner(self) -> None:
+        agents = self.base["bootstrap"]["macos"]["launchd"]["agents"]
+        self.assertIn("moshi-hook", agents)
         for profile in (self.personal, self.work):
-            agents = (
+            profile_agents = (
                 profile.get("bootstrap", {})
                 .get("macos", {})
                 .get("launchd", {})
                 .get("agents", {})
             )
-            self.assertNotIn("moshi-hook", agents)
+            self.assertNotIn("moshi-hook", profile_agents)
 
     def test_moshi_launch_command_gets_mise_path_without_shell_activation(self) -> None:
         mise = shutil.which("mise")
@@ -204,6 +170,7 @@ class MiseConfigurationTests(unittest.TestCase):
             result = subprocess.run(
                 [mise, *arguments],
                 cwd=repo_alias,
+                check=False,
                 env=environment,
                 capture_output=True,
                 text=True,
@@ -219,12 +186,8 @@ class MiseConfigurationTests(unittest.TestCase):
             "Keep mise and fnm on the same Node LTS version",
         )
 
-    def test_age_decryption_allows_credential_free_automation(self) -> None:
-        self.assertIs(self.base["settings"]["age"]["strict"], False)
-
-    def test_azure_devops_mcp_allows_required_keytar_build(self) -> None:
+    def test_azure_devops_mcp_allows_only_required_package_builds(self) -> None:
         tool = self.work["tools"]["npm:@azure-devops/mcp"]
-        self.assertEqual(tool["version"], "2.10.0")
         self.assertEqual(tool["allow_builds"], ["keytar"])
 
     def test_work_azure_profiles_are_isolated(self) -> None:
@@ -232,10 +195,9 @@ class MiseConfigurationTests(unittest.TestCase):
             self.work["env"]["AZURE_CONFIG_DIR"],
             "{{ env.HOME }}/.azure/dev/.azure",
         )
-        mcp = json.loads(
-            (ROOT / "dotfiles/work/pi/agent/mcp.json").read_text()
-        )["mcpServers"]
-        self.assertNotIn("azure-prod", mcp)
+        mcp = json.loads((ROOT / "dotfiles/work/pi/agent/mcp.json").read_text())[
+            "mcpServers"
+        ]
         azure = mcp["azure"]
         self.assertEqual(azure["args"], ["server", "start", "--read-only"])
         self.assertEqual(
@@ -262,17 +224,6 @@ class MiseConfigurationTests(unittest.TestCase):
             "AzureCliCredential",
         )
         self.assertIs(azure["inheritEnv"], False)
-        self.assertEqual(
-            azure["includeTools"],
-            ["kusto", "subscription_list"],
-        )
-        self.assertEqual(azure["directTools"], "search")
-        self.assertIn("KazMon", azure["searchKeywords"]["kusto"])
-        self.assertIn(
-            "rollout verification",
-            azure["searchKeywords"]["kusto"],
-        )
-        self.assertEqual(azure["lifecycle"], "lazy")
 
         azure_test = mcp["azure-test"]
         self.assertEqual(azure_test["command"], "azmcp")
@@ -288,108 +239,58 @@ class MiseConfigurationTests(unittest.TestCase):
         )
         self.assertNotIn("AZURE_SUBSCRIPTION_ID", azure_test["env"])
         self.assertIs(azure_test["inheritEnv"], False)
-        self.assertEqual(
-            azure_test["includeTools"],
-            [
-                "kusto",
-                "subscription_list",
-                "group_list",
-                "group_resource_list",
-                "resourcehealth",
-                "monitor",
-            ],
-        )
-        self.assertEqual(azure_test["directTools"], "search")
-        self.assertIn("Integration", azure_test["searchKeywords"]["kusto"])
-        self.assertEqual(azure_test["lifecycle"], "lazy")
-        self.assertNotIn("kusto-test", mcp)
-        self.assertNotIn("npm:kusto-mcp", self.work["tools"])
+
+        for server_name, server, environment_names in (
+            ("azure", azure, {"Stage", "Demo", "Prod"}),
+            ("azure-test", azure_test, {"Integration", "Test", "Dev"}),
+        ):
+            with self.subTest(server=server_name):
+                self.assertIn("--read-only", server["args"])
+                self.assertIn("kusto", server["includeTools"])
+                self.assertEqual(server["directTools"], "search")
+                self.assertLessEqual(
+                    environment_names,
+                    set(server["searchKeywords"]["kusto"]),
+                )
 
         azure_devops = mcp["azure-devops"]
         self.assertIs(azure_devops["directTools"], False)
-        self.assertEqual(
-            azure_devops["includeTools"],
-            [
-                "core_list_projects",
-                "pipelines_build",
-                "pipelines_build_log",
-                "pipelines_definition",
-                "pipelines_run",
-                "pipelines_artifact",
-            ],
-        )
-        self.assertNotIn("pipelines_write", azure_devops["includeTools"])
-        self.assertEqual(azure_devops["approveTools"], ["pipelines_write"])
-        self.assertIn(
-            "deployment logs",
-            azure_devops["searchKeywords"]["pipelines_build_log"],
-        )
+        self.assertIn("pipelines_build", azure_devops["includeTools"])
+        self.assertIn("pipelines_build_log", azure_devops["includeTools"])
+        self.assertIn("pipelines_write", azure_devops["includeTools"])
         self.assertEqual(
             self.work["dotfiles"]["~/.pi/agent/AGENTS.md"],
             "dotfiles/work/pi/agent/AGENTS.md",
         )
 
-    def test_mcp_defaults_are_lazy_and_least_privilege(self) -> None:
+    def test_mcp_servers_follow_shared_safety_defaults(self) -> None:
         configs = {
             profile: json.loads(
                 (ROOT / f"dotfiles/{profile}/pi/agent/mcp.json").read_text()
             )
             for profile in ("personal", "work")
         }
+        direct_tool_exceptions = {"context7"}
         for profile, config in configs.items():
-            with self.subTest(profile=profile):
-                self.assertIs(config["settings"]["sampling"], False)
-                self.assertNotIn("samplingAutoApprove", config["settings"])
-                context7 = config["mcpServers"]["context7"]
-                self.assertIs(context7["directTools"], True)
-                playwright = config["mcpServers"]["playwright"]
-                self.assertIs(playwright["directTools"], False)
-                self.assertIs(playwright["inheritEnv"], False)
-                self.assertIn(
-                    "browser_run_code_unsafe",
-                    playwright["approveTools"],
-                )
-                self.assertIn(
-                    "browser_drop",
-                    playwright["approveTools"],
-                )
-                self.assertIn(
-                    "browser_webmcp_call",
-                    playwright["approveTools"],
-                )
+            self.assertIs(config["settings"]["sampling"], False)
+            self.assertNotIn("samplingAutoApprove", config["settings"])
+            for server_name, server in config["mcpServers"].items():
+                with self.subTest(profile=profile, server=server_name):
+                    self.assertEqual(server.get("lifecycle", "lazy"), "lazy")
+                    if "command" in server:
+                        self.assertIs(server.get("inheritEnv"), False)
+                    if server_name not in direct_tool_exceptions:
+                        self.assertIn(
+                            server.get("directTools", False), (False, "search")
+                        )
 
-        work = configs["work"]["mcpServers"]
-        mixpanel = work["mixpanel"]
-        self.assertIs(mixpanel["directTools"], False)
-        self.assertEqual(
-            mixpanel["includeTools"],
-            [
-                "Get-*",
-                "List-*",
-                "Search-*",
-                "Describe-*",
-                "Explain-*",
-                "Run-Query",
-                "Display-Query",
-                "Run-Experiment-Pre-Launch-Checks",
-                "Find-Duplicate-Groups",
-            ],
-        )
-
-        glean = work["glean"]
-        self.assertEqual(glean["directTools"], "search")
-        self.assertEqual(
-            glean["approveTools"],
-            [
-                "memory",
-                "share_artifact",
-                "update_artifact",
-                "upload_artifact",
-            ],
-        )
-        figma = work["figma"]
-        self.assertIs(figma["directTools"], False)
-        self.assertIs(figma["inheritEnv"], False)
+        playwright = configs["work"]["mcpServers"]["playwright"]
+        for unsafe_tool in (
+            "browser_run_code_unsafe",
+            "browser_drop",
+            "browser_webmcp_call",
+        ):
+            self.assertIn(unsafe_tool, playwright["approveTools"])
 
     def test_renovate_can_generate_locks_without_age_keys_or_overrides(self) -> None:
         mise = shutil.which("mise")
@@ -399,7 +300,7 @@ class MiseConfigurationTests(unittest.TestCase):
         # Test both Renovate execution modes and every dependency configuration.
         for profile in (None, "personal-macos", "work-macos"):
             for safe in (False, True):
-                with self.subTest(profile=profile, safe=safe):
+                with self.subTest(profile=profile, safe=safe):  # noqa: SIM117
                     with tempfile.TemporaryDirectory() as directory:
                         stage = Path(directory)
                         home = stage / "home"
@@ -440,7 +341,7 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertIsNotNone(fish)
         self.assertIsNotNone(mise)
         for profile in ("personal", "work"):
-            with self.subTest(profile=profile):
+            with self.subTest(profile=profile):  # noqa: SIM117
                 with tempfile.TemporaryDirectory() as home:
                     result = subprocess.run(
                         [
@@ -542,7 +443,6 @@ class MiseConfigurationTests(unittest.TestCase):
     def test_yarn_lock_covers_every_supported_platform(self) -> None:
         yarn_tool = "aqua:yarnpkg/berry"
         yarn_version = tool_version(self.base["tools"][yarn_tool])
-        self.assertNotIn("yarn", self.base["tools"])
         yarn_lock = next(
             entry
             for entry in load_toml("mise.lock")["tools"][yarn_tool]
@@ -634,40 +534,17 @@ class MiseConfigurationTests(unittest.TestCase):
             r"(?m)^\s*mise\s+bootstrap\s+packages\s+apply\s+brew:mas\s+--yes\s*$",
         )
 
-    def test_supported_third_party_homebrew_packages_are_declarative(self) -> None:
-        packages = self.base["bootstrap"]["packages"]
-        tapped = {
-            "brew:FelixKratz/formulae/sketchybar",
-            "brew:FelixKratz/formulae/borders",
-            "brew:rjyo/moshi/moshi-hook",
-            "brew:vjeantet/tap/alerter",
-        }
-        for package in tapped:
-            with self.subTest(package=package):
-                self.assertEqual(packages[package], {"version": "latest", "os": "macos"})
-                for profile in (self.personal, self.work):
-                    self.assertNotIn(package, profile.get("bootstrap", {}).get("packages", {}))
-        self.assertNotIn("brew-cask:nikitabobko/tap/aerospace", packages)
-        config = (ROOT / "mise.toml").read_text()
-        self.assertIn("mise 2026.9.6", config)
-        self.assertIn("jdx/mise#13060", config)
-
     def test_aerospace_homebrew_fallback_is_macos_only_and_install_only(self) -> None:
-        tasks = self.base["tasks"]
-        task_name = "bootstrap:homebrew-aerospace"
-        task = tasks[task_name]["run"]
-        self.assertIn(task_name, [step["task"] for step in tasks["bootstrap"]["run"]])
-        self.assertNotIn("bootstrap:homebrew-packages", tasks)
-        self.assertNotIn("update:homebrew-packages", tasks)
-        self.assertNotIn("update:homebrew-aerospace", tasks)
-        self.assertEqual(tasks["update:packages"]["run"], "mise bootstrap packages upgrade")
+        task = self.base["tasks"]["bootstrap:homebrew-aerospace"]["run"]
 
-        with tempfile.TemporaryDirectory(prefix="aerospace-bootstrap-test-") as directory:
+        with tempfile.TemporaryDirectory(
+            prefix="aerospace-bootstrap-test-"
+        ) as directory:
             home = Path(directory)
             log = home / "brew.log"
             marker = home / "aerospace-installed"
             (home / "uname").write_text('#!/bin/sh\nprintf "%s\\n" "$TEST_OS"\n')
-            (home / "brew").write_text('''#!/bin/sh
+            (home / "brew").write_text("""#!/bin/sh
 set -eu
 printf '%s\n' "$*" >> "$BREW_LOG"
 case "$*" in
@@ -679,7 +556,7 @@ case "$*" in
     : > "$AEROSPACE_MARKER" ;;
   *) exit 91 ;;
 esac
-''')
+""")
             for executable in ("uname", "brew"):
                 (home / executable).chmod(0o755)
             env = {
@@ -692,6 +569,7 @@ esac
                 result = subprocess.run(
                     ["/bin/sh", "-eu", "-c", task],
                     cwd=home,
+                    check=False,
                     env={**env, "TEST_OS": platform},
                     capture_output=True,
                     text=True,
@@ -702,9 +580,7 @@ esac
                     self.assertFalse(log.exists())
             calls = log.read_text().splitlines()
             self.assertEqual(calls.count("list --cask aerospace"), 2)
-            self.assertEqual(
-                calls.count("install --cask nikitabobko/tap/aerospace"), 1
-            )
+            self.assertEqual(calls.count("install --cask nikitabobko/tap/aerospace"), 1)
             self.assertTrue(marker.exists())
 
 

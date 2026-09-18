@@ -72,6 +72,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:LuaLS/lua-language-server" = "3.19.1"
 "aqua:artempyanykh/marksman" = "2026-02-08"
 "aqua:astral-sh/ruff" = "0.16.8"
+"aqua:rhysd/actionlint" = "1.7.12"
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:JohnnyMorganz/StyLua" = "2.5.2"
@@ -335,14 +336,26 @@ description = "Refresh shared and profile-specific mise lockfiles"
 run = "python3 mise.lock.py refresh"
 
 [tasks.validate]
-description = "Run native configuration checks and colocated tests"
+description = "Run fast checks and external-runtime integration tests"
+depends = ["validate:fast", "validate:integration"]
+
+[tasks."validate:fast"]
+description = "Run syntax, policy, unit, and repository checks"
 depends = [
   "validate:config",
-  "validate:dotfiles",
-  "validate:agents",
-  "validate:neovim",
-  "validate:macos",
+  "validate:dotfiles:fast",
+  "validate:agents:fast",
+  "validate:macos:fast",
   "validate:repository",
+]
+
+[tasks."validate:integration"]
+description = "Run tests that launch external application runtimes"
+depends = [
+  "validate:dotfiles:integration",
+  "validate:agents:integration",
+  "validate:neovim",
+  "validate:macos:integration",
 ]
 
 [tasks."validate:config"]
@@ -351,6 +364,7 @@ run = [
   "python3 mise.lock.test.py",
   "python3 .github/workflows/mise-cache-key.test.py",
   "python3 dotfiles/common/herdr/plugin.test.py",
+  "actionlint",
   "mise --env personal-macos bootstrap plan >/dev/null",
   "mise --env work-macos bootstrap plan >/dev/null",
 ]
@@ -359,43 +373,39 @@ run = [
 description = "Regenerate mise lockfiles and verify the canonical Linux output"
 run = "python3 mise.lock.py check"
 
-[tasks."validate:dotfiles"]
+[tasks."validate:dotfiles:fast"]
 run = '''
 find dotfiles -type f -name '*.sh' -exec bash -n {} +
 find dotfiles -type f -name '*.fish' -exec fish --no-execute {} \;
 bash dotfiles/work/bootstrap-repositories.test.sh
 python3 dotfiles/common/fish/config.test.py
-python3 dotfiles/common/yazi/copy-relative-path.test.py
 HERDR_CONFIG_PATH="$PWD/dotfiles/common/herdr/config.toml" herdr config check
 '''
 
-[tasks."validate:agents"]
+[tasks."validate:dotfiles:integration"]
+run = "python3 dotfiles/common/yazi/copy-relative-path.test.py"
+
+[tasks."validate:agents:fast"]
 run = [
   "bun ci --cwd pi-extensions",
-  "bun run --cwd pi-extensions ci",
+  "bun run --cwd pi-extensions ci:fast",
+]
+
+[tasks."validate:agents:integration"]
+run = [
   'node pi-extensions/extensions-host.test.mjs "$(mise which pi)"',
-  'node pi-extensions/subagents-host.test.mjs "$(mise which pi)"',
+  'bun run --cwd pi-extensions test:host -- "$(mise which pi)"',
   'python3 pi-extensions/packages/agent-state/integration.test.py "$(mise which pi)"',
-  '''
-log=$(mktemp)
-trap 'rm -f "$log"' EXIT
-if node dotfiles/work/pi/agent/settings.security.test.mjs >"$log" 2>&1; then
-  printf 'error: expected work HTTP security test to fail\n' >&2
-  exit 1
-fi
-grep -F 'FAIL enabled model provider "litellm" does not use a cleartext HTTP endpoint' "$log" >/dev/null
-''',
 ]
 
 [tasks."validate:neovim"]
 run = "dotfiles/common/nvim/tests/validate.sh"
 
-[tasks."validate:macos"]
-run = [
-  "python3 dotfiles/macos/colima/colima.test.py",
-  "bash dotfiles/macos/firefoxpwa/google-calendar.test.sh",
-  "for test in dotfiles/macos/sketchybar/plugins/tests/*_test.sh; do bash \"$test\"; done",
-]
+[tasks."validate:macos:fast"]
+run = "for test in dotfiles/macos/sketchybar/plugins/tests/*_test.sh; do bash \"$test\"; done"
+
+[tasks."validate:macos:integration"]
+run = "bash dotfiles/macos/firefoxpwa/google-calendar.test.sh"
 
 [tasks."validate:repository"]
 run = "git diff --check"

@@ -30,4 +30,4 @@ The tests run real Yazi processes in isolated PTYs with temporary config/state,
 Git fixtures, and a fake clipboard executable. They do not use the workstation
 clipboard. A headless Neovim check verifies that its config delegates the mapping;
 this is not a full test of the Neovim UI or every terminal's clipboard transport.
-The suite also runs under `mise run validate:dotfiles` on macOS/Linux.
+The suite also runs under `mise run validate:dotfiles:integration` on macOS/Linux.

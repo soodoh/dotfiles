@@ -34,8 +34,10 @@
 		"build": "tsc --noEmit",
 		"check": "biome check .",
 		"check:write": "biome check --write .",
-		"ci": "bun run check && bun run typecheck && bun run test:coverage && node subagents-host.test.mjs",
+		"ci": "bun run ci:fast && bun run test:host",
+		"ci:fast": "bun run check && bun run typecheck && bun run test:coverage",
 		"test": "vitest run",
+		"test:host": "node subagents-host.test.mjs",
 		"test:coverage": "vitest run --coverage",
 		"typecheck": "tsc --noEmit",
 		"test:coverage:html": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.reporter=html"

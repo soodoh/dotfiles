@@ -231,7 +231,7 @@ test("unavailable activity contract fails closed instead of claiming completion"
 	await f.dispatch("agent_settled");
 	expect(f.ctx.ui.notify).toHaveBeenCalledTimes(1);
 	expect(f.ctx.ui.notify).toHaveBeenCalledWith(
-		expect.stringContaining("mise run validate:agents"),
+		expect.stringContaining("mise run validate:agents:integration"),
 		"warning",
 	);
 	f.setAvailable(true);

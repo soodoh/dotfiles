@@ -45,7 +45,7 @@ export function observeState(
 		if (ready && background === undefined && !warned) {
 			warned = true;
 			context.ui.notify(
-				"Subagent liveness unavailable; completion notifications paused. Check registry ownership and pi-subagents compatibility (mise run validate:agents), then /reload.",
+				"Subagent liveness unavailable; completion notifications paused. Check registry ownership and pi-subagents compatibility (mise run validate:agents:integration), then /reload.",
 				"warning",
 			);
 		}
