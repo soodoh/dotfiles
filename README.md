@@ -109,6 +109,31 @@ MISE_ENV=work-macos mise bootstrap
 ### Manual steps for Work macOS
 
 - Authenticate TWG: `twg login`
+- Create isolated Azure CLI profiles. Bare `az` uses the development profile through `AZURE_CONFIG_DIR`; the read-only `azure-prod` Pi MCP uses the production profile. Run these after bootstrap from a fresh work-profile shell so mise has decrypted `AZURE_DEV_TENANT_ID`, `AZURE_PROD_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`:
+
+  ```bash
+  mkdir -p ~/.azure/dev/.azure ~/.azure/prod/.azure
+
+  AZURE_CONFIG_DIR="$HOME/.azure/dev/.azure" \
+    az login --tenant "$AZURE_DEV_TENANT_ID"
+  AZURE_CONFIG_DIR="$HOME/.azure/dev/.azure" \
+    az account set --subscription "GitHub Billing - Builders and Partners"
+
+  AZURE_CONFIG_DIR="$HOME/.azure/prod/.azure" \
+    az login --tenant "$AZURE_PROD_TENANT_ID"
+  AZURE_CONFIG_DIR="$HOME/.azure/prod/.azure" \
+    az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+  ```
+
+  Verify that the profiles remain separate:
+
+  ```bash
+  az account show --query '{user:user.name, tenant:tenantId, subscription:name}' -o table
+  AZURE_CONFIG_DIR="$HOME/.azure/prod/.azure" \
+    az account show --query '{user:user.name, tenant:tenantId, subscription:name}' -o table
+  ```
+
+  The first command must report the development identity and the second the production identity. Restart Pi after changing these profiles so `azure-prod` receives the current production login. Do not put Azure CLI state directly under `~/.azure`; only `dev/` and `prod/` should live there.
 - Authenticate gcloud:
 
   ```bash

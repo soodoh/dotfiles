@@ -246,10 +246,13 @@ class MiseConfigurationTests(unittest.TestCase):
             azure_prod["env"]["AZURE_CONFIG_DIR"],
             "${HOME}/.azure/prod/.azure",
         )
-        self.assertEqual(
-            set(self.work["env"]["AZURE_SUBSCRIPTION_ID"]),
-            {"age"},
-        )
+        for variable in (
+            "AZURE_DEV_TENANT_ID",
+            "AZURE_PROD_TENANT_ID",
+            "AZURE_SUBSCRIPTION_ID",
+        ):
+            with self.subTest(variable=variable):
+                self.assertEqual(set(self.work["env"][variable]), {"age"})
         self.assertEqual(
             azure_prod["env"]["AZURE_SUBSCRIPTION_ID"],
             "${AZURE_SUBSCRIPTION_ID}",
