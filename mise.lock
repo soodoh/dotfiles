@@ -1529,7 +1529,7 @@ version = "0.22.5"
 backend = "npm:@googleworkspace/cli"
 
 [[tools."npm:@playwright/mcp"]]
-version = "0.0.81"
+version = "0.0.82"
 backend = "npm:@playwright/mcp"
 
 [tools."npm:@playwright/mcp".options]
