@@ -4,8 +4,7 @@
       "modelOverrides": {
         "gemini-3.7-flash": {
           "thinkingLevelMap": {
-            "off": null,
-            "minimal": null
+            "off": null
           }
         }
       }

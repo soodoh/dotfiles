@@ -10,6 +10,7 @@ import type {
 	SessionShutdownEvent,
 	SessionStartEvent,
 	SessionTreeEvent,
+	TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import autoSessionName, {
@@ -77,6 +78,10 @@ type AgentSettledHandler = (
 	event: AgentSettledEvent,
 	ctx: TestContext,
 ) => void | Promise<void>;
+type TurnEndHandler = (
+	event: TurnEndEvent,
+	ctx: TestContext,
+) => void | Promise<void>;
 type SessionStartHandler = (
 	event: SessionStartEvent,
 	ctx: TestContext,
@@ -135,7 +140,9 @@ const userMessageEntry = (text: string): SessionEntry => ({
 	},
 });
 
-const assistantMessageEntry = (text: string): SessionEntry => ({
+const assistantMessageEntry = (
+	text: string,
+): Extract<SessionEntry, { type: "message" }> => ({
 	...entryBase(),
 	type: "message",
 	message: {
@@ -212,6 +219,7 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 	let lastContext = createContext(branch);
 	let inputHandler: InputHandler | undefined;
 	let agentSettledHandler: AgentSettledHandler | undefined;
+	let turnEndHandler: TurnEndHandler | undefined;
 	let sessionStartHandler: SessionStartHandler | undefined;
 	let sessionInfoChangedHandler: SessionInfoChangedHandler | undefined;
 	let sessionShutdownHandler: SessionShutdownHandler | undefined;
@@ -220,6 +228,7 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 
 	function on(eventName: "input", handler: InputHandler): void;
 	function on(eventName: "agent_settled", handler: AgentSettledHandler): void;
+	function on(eventName: "turn_end", handler: TurnEndHandler): void;
 	function on(eventName: "session_start", handler: SessionStartHandler): void;
 	function on(
 		eventName: "session_info_changed",
@@ -234,6 +243,7 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 		...args:
 			| [eventName: "input", handler: InputHandler]
 			| [eventName: "agent_settled", handler: AgentSettledHandler]
+			| [eventName: "turn_end", handler: TurnEndHandler]
 			| [eventName: "session_start", handler: SessionStartHandler]
 			| [eventName: "session_info_changed", handler: SessionInfoChangedHandler]
 			| [eventName: "session_shutdown", handler: SessionShutdownHandler]
@@ -247,6 +257,9 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 				break;
 			case "agent_settled":
 				agentSettledHandler = handler;
+				break;
+			case "turn_end":
+				turnEndHandler = handler;
 				break;
 			case "session_start":
 				sessionStartHandler = handler;
@@ -312,6 +325,20 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 			if (!agentSettledHandler)
 				throw new Error("agent_settled handler was not registered");
 			await agentSettledHandler({ type: "agent_settled" }, ctx);
+		},
+		async turnEnd(ctx = lastContext, turnIndex = 0) {
+			lastContext = ctx;
+			if (!turnEndHandler)
+				throw new Error("turn_end handler was not registered");
+			await turnEndHandler(
+				{
+					type: "turn_end",
+					turnIndex,
+					message: assistantMessageEntry("Done").message,
+					toolResults: [],
+				},
+				ctx,
+			);
 		},
 		async sessionStart(
 			ctx = lastContext,
@@ -391,24 +418,38 @@ const nameInitialSession = async ({
 	const harness = createHarness(branch);
 	const ctx = createContext(branch);
 	await harness.input(initialRequest, ctx);
-	await harness.agentSettled(ctx);
+	await harness.turnEnd(ctx);
 	await waitForName(harness, initialTitle);
 	return { harness, ctx, branch };
 };
 
-describe("settled initial naming and raw input", () => {
-	test("registers initial naming on agent_settled and not turn_end", async () => {
-		mocks.completeSimple.mockResolvedValue({ content: "Backup Strategy" });
+describe("first-turn initial naming and raw input", () => {
+	test("awaits initial naming on turn_end", async () => {
+		let resolveTitle: (value: { content: string }) => void = () => undefined;
+		mocks.completeSimple.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveTitle = resolve;
+				}),
+		);
 		const branch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(branch);
 		const ctx = createContext(branch);
 
+		expect(harness.registeredEvents).toContain("turn_end");
 		expect(harness.registeredEvents).toContain("agent_settled");
-		expect(harness.registeredEvents).not.toContain("turn_end");
-		expect(mocks.completeSimple).not.toHaveBeenCalled();
+		const naming = harness.turnEnd(ctx);
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
+		let completed = false;
+		void naming.then(() => {
+			completed = true;
+		});
+		await Promise.resolve();
+		expect(completed).toBe(false);
 
-		await harness.agentSettled(ctx);
-		await waitForName(harness, "Backup Strategy");
+		resolveTitle({ content: "Backup Strategy" });
+		await naming;
+		expect(harness.getSessionName()).toBe("Backup Strategy");
 	});
 
 	test("prefers raw skill arguments over expanded skill content", async () => {
@@ -423,7 +464,7 @@ describe("settled initial naming and raw input", () => {
 			"/skill:brainstorming Improve session title readability",
 			ctx,
 		);
-		await harness.agentSettled(ctx);
+		await harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
 		const request = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
@@ -440,7 +481,7 @@ describe("settled initial naming and raw input", () => {
 		const harness = createHarness(branch);
 		const ctx = createContext(branch);
 
-		await harness.agentSettled(ctx);
+		await harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
 		const request = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
@@ -457,7 +498,7 @@ describe("settled initial naming and raw input", () => {
 		const ctx = createContext(branch);
 
 		await harness.input("/skill:brainstorming", ctx);
-		await harness.agentSettled(ctx);
+		await harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
 		const request = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
@@ -477,7 +518,7 @@ describe("settled initial naming and raw input", () => {
 		const ctx = createContext(branch);
 		await harness.input("/internal-control do not use", ctx, "extension");
 		await harness.input("Implement the actual parser", ctx, "extension");
-		await harness.agentSettled(ctx);
+		await harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
 		const request = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
@@ -498,7 +539,7 @@ describe("settled initial naming and raw input", () => {
 		const harness = createHarness(branch);
 		const ctx = createContext(branch);
 		await harness.input(longRequest, ctx);
-		await harness.agentSettled(ctx);
+		await harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 		const prompt = mocks.completeSimple.mock.calls[0]?.[1];
 		expect(JSON.stringify(prompt)).toContain("BEGIN-");
@@ -516,14 +557,14 @@ describe("bounded model generation", () => {
 		const harness = createHarness(branch);
 		const ctx = createContext(branch);
 
-		await harness.agentSettled(ctx);
+		await harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
 		expect(mocks.completeSimple.mock.calls[0]?.[2]).toMatchObject({
 			apiKey: "test-api-key",
 			headers: { "x-test": "header" },
 			env: { TEST_PROVIDER_ENV: "value" },
-			maxTokens: 32,
+			maxTokens: 128,
 			maxRetries: 0,
 			temperature: 0,
 			timeoutMs: 8_000,
@@ -552,9 +593,10 @@ describe("bounded model generation", () => {
 			return new Promise(() => undefined);
 		};
 
-		await harness.agentSettled(ctx);
+		const naming = harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(authStarted).toHaveBeenCalled());
 		controller.abort();
+		await naming;
 		await waitForName(harness, "Help me design a reliable backup strategy for");
 	});
 
@@ -565,11 +607,11 @@ describe("bounded model generation", () => {
 		const harness = createHarness(branch);
 		const ctx = createContext(branch, [codexModel], codexModel);
 
-		await harness.agentSettled(ctx);
+		await harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.complete).toHaveBeenCalled());
 
 		expect(mocks.complete.mock.calls[0]?.[2]).toMatchObject({
-			maxTokens: 32,
+			maxTokens: 128,
 			maxRetries: 0,
 			reasoningEffort: "none",
 			temperature: 0,
@@ -587,7 +629,7 @@ describe("bounded model generation", () => {
 		const branch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(branch);
 
-		await harness.agentSettled(createContext(branch, [codexModel], codexModel));
+		await harness.turnEnd(createContext(branch, [codexModel], codexModel));
 		await vi.waitFor(() => expect(mocks.complete).toHaveBeenCalled());
 
 		expect(mocks.complete.mock.calls[0]?.[2]).toMatchObject({
@@ -607,12 +649,13 @@ describe("bounded model generation", () => {
 		const harness = createHarness(branch);
 		const ctx = createContext(branch);
 
-		await harness.agentSettled(ctx);
-		await harness.agentSettled(ctx);
+		const firstTurn = harness.turnEnd(ctx);
+		const secondTurn = harness.turnEnd(ctx);
 		await vi.waitFor(() =>
 			expect(mocks.completeSimple).toHaveBeenCalledTimes(1),
 		);
 		resolveTitle({ content: "Single Request Title" });
+		await Promise.all([firstTurn, secondTurn]);
 		await waitForName(harness, "Single Request Title");
 	});
 });
@@ -622,7 +665,7 @@ describe("ownership and stale async results", () => {
 		const branch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(branch, "CLI supplied name");
 		await harness.sessionStart(createContext(branch));
-		await harness.agentSettled(createContext(branch));
+		await harness.turnEnd(createContext(branch));
 
 		expect(mocks.completeSimple).not.toHaveBeenCalled();
 		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
@@ -640,10 +683,11 @@ describe("ownership and stale async results", () => {
 		const harness = createHarness(branch);
 		const ctx = createContext(branch);
 
-		await harness.agentSettled(ctx);
+		const naming = harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 		await harness.manualName("User supplied name", ctx);
 		resolveTitle({ content: "Stale Model Title" });
+		await naming;
 		await vi.waitFor(() =>
 			expect(harness.getSessionName()).toBe("User supplied name"),
 		);
@@ -680,7 +724,7 @@ describe("ownership and stale async results", () => {
 			undefined,
 			sessionFile,
 		);
-		await harness.agentSettled(ctx);
+		const naming = harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
 		await appendFile(
@@ -694,7 +738,7 @@ describe("ownership and stale async results", () => {
 			})}\n`,
 		);
 		resolveTitle({ content: "Stale Model Title" });
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		await naming;
 
 		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
 	});
@@ -710,14 +754,14 @@ describe("ownership and stale async results", () => {
 		const oldBranch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(oldBranch);
 		const oldContext = createContext(oldBranch);
-		await harness.agentSettled(oldContext);
+		const naming = harness.turnEnd(oldContext);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
 		await harness.shutdown(oldContext, "new");
 		const replacementBranch: SessionEntry[] = [];
 		await harness.sessionStart(createContext(replacementBranch), "new");
 		resolveTitle({ content: "Old Session Title" });
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		await naming;
 
 		expect(harness.pi.setSessionName).not.toHaveBeenCalled();
 	});
@@ -1028,12 +1072,12 @@ describe("fallbacks, settings, and no backfill", () => {
 		mocks.completeSimple.mockRejectedValue(new Error("provider unavailable"));
 		const branch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(branch);
-		await harness.agentSettled(createContext(branch));
+		await harness.turnEnd(createContext(branch));
 		await waitForName(harness, "Help me design a reliable backup strategy for");
 		expect(reconstructAutoTitleState(branch)?.initialFallback).toBe(true);
 	});
 
-	test.each(["error", "aborted"])(
+	test.each(["error", "aborted", "length"])(
 		"%s completion responses discard partial title text",
 		async (stopReason) => {
 			mocks.completeSimple.mockResolvedValue({
@@ -1044,7 +1088,7 @@ describe("fallbacks, settings, and no backfill", () => {
 			const request = "Implement reliable backup rotation for home servers";
 			const branch = [userMessageEntry(request)];
 			const harness = createHarness(branch);
-			await harness.agentSettled(createContext(branch));
+			await harness.turnEnd(createContext(branch));
 
 			await waitForName(
 				harness,
@@ -1062,7 +1106,7 @@ describe("fallbacks, settings, and no backfill", () => {
 			});
 			const branch = [userMessageEntry(plainPrompt)];
 			const harness = createHarness(branch);
-			await harness.agentSettled(createContext(branch));
+			await harness.turnEnd(createContext(branch));
 			await vi.waitFor(() =>
 				expect(mocks.completeSimple).not.toHaveBeenCalled(),
 			);
@@ -1085,7 +1129,7 @@ describe("fallbacks, settings, and no backfill", () => {
 			});
 			const branch = [userMessageEntry(plainPrompt)];
 			const harness = createHarness(branch);
-			await harness.agentSettled(createContext(branch));
+			await harness.turnEnd(createContext(branch));
 			await waitForName(harness, "Configured Model Title");
 			expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(configuredModel);
 		} finally {
@@ -1104,9 +1148,7 @@ describe("fallbacks, settings, and no backfill", () => {
 		});
 		const branch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(branch);
-		await harness.agentSettled(
-			createContext(branch, [minimalModel], minimalModel),
-		);
+		await harness.turnEnd(createContext(branch, [minimalModel], minimalModel));
 		await waitForName(harness, "Minimal Reasoning Title");
 
 		expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(minimalModel);
@@ -1124,7 +1166,7 @@ describe("fallbacks, settings, and no backfill", () => {
 		mocks.completeSimple.mockResolvedValue({ content: "Low Reasoning Title" });
 		const branch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(branch);
-		await harness.agentSettled(createContext(branch, [lowModel], lowModel));
+		await harness.turnEnd(createContext(branch, [lowModel], lowModel));
 		await waitForName(harness, "Low Reasoning Title");
 
 		expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(lowModel);
@@ -1144,7 +1186,7 @@ describe("fallbacks, settings, and no backfill", () => {
 			});
 			const branch = [userMessageEntry(plainPrompt)];
 			const harness = createHarness(branch);
-			await harness.agentSettled(createContext(branch));
+			await harness.turnEnd(createContext(branch));
 			await waitForName(harness, "Default Model Title");
 			expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(defaultModel);
 		} finally {
@@ -1160,7 +1202,7 @@ describe("fallbacks, settings, and no backfill", () => {
 			});
 			const branch = [userMessageEntry(plainPrompt)];
 			const harness = createHarness(branch);
-			await harness.agentSettled(createContext(branch));
+			await harness.turnEnd(createContext(branch));
 			await waitForName(
 				harness,
 				"Help me design a reliable backup strategy for",
@@ -1169,6 +1211,26 @@ describe("fallbacks, settings, and no backfill", () => {
 		} finally {
 			tempHome.restore();
 		}
+	});
+
+	test("a fork with copied history is named from its first new request", async () => {
+		const branch = [userMessageEntry("Historical request from the parent")];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
+		await harness.sessionStart(ctx, "fork");
+
+		const forkRequest = "Implement the fork-specific authentication fix";
+		branch.push(userMessageEntry(forkRequest));
+		await harness.input(forkRequest, ctx);
+		mocks.completeSimple.mockResolvedValue({
+			content: "Fork Authentication Fix",
+		});
+		await harness.turnEnd(ctx);
+
+		expect(harness.getSessionName()).toBe("Fork Authentication Fix");
+		const prompt = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
+		expect(prompt).toContain(forkRequest);
+		expect(prompt).not.toContain("Historical request from the parent");
 	});
 
 	test("session_start reconstructs state without historical naming work", async () => {
@@ -1184,14 +1246,14 @@ describe("fallbacks, settings, and no backfill", () => {
 		expect(timeoutSpy).not.toHaveBeenCalled();
 	});
 
-	test("a resumed unnamed historical session is not backfilled on later settles", async () => {
+	test("a resumed unnamed historical session is not backfilled on later turns", async () => {
 		const branch = [userMessageEntry("Historical request")];
 		const harness = createHarness(branch);
 		const ctx = createContext(branch);
 		await harness.sessionStart(ctx, "resume");
 		branch.push(userMessageEntry("A new request after resume"));
 		await harness.input("A new request after resume", ctx);
-		await harness.agentSettled(ctx);
+		await harness.turnEnd(ctx);
 
 		expect(mocks.completeSimple).not.toHaveBeenCalled();
 		expect(harness.pi.setSessionName).not.toHaveBeenCalled();

@@ -19,6 +19,7 @@ import {
 	type SessionShutdownEvent,
 	type SessionStartEvent,
 	type SessionTreeEvent,
+	type TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
 
 type AutoSessionNameContext = Pick<ExtensionContext, "model" | "signal"> & {
@@ -43,6 +44,7 @@ type AutoSessionNameAPI = Pick<
 > & {
 	on(event: "input", handler: EventHandler<InputEvent>): void;
 	on(event: "agent_settled", handler: EventHandler<AgentSettledEvent>): void;
+	on(event: "turn_end", handler: EventHandler<TurnEndEvent>): void;
 	on(event: "session_start", handler: EventHandler<SessionStartEvent>): void;
 	on(
 		event: "session_info_changed",
@@ -92,7 +94,7 @@ const MAX_TITLE_INPUT_CHARS = 1_600;
 const MAX_RECENT_REQUEST_CHARS = 400;
 const MAX_RECENT_RAW_REQUESTS = 4;
 const MAX_STABLE_ANCHORS = 8;
-const MAX_TITLE_OUTPUT_TOKENS = 32;
+const MAX_TITLE_OUTPUT_TOKENS = 128;
 const TITLE_TEMPERATURE = 0;
 const TITLE_TIMEOUT_MS = 8_000;
 const TITLE_PROVIDER_RETRIES = 0;
@@ -481,7 +483,11 @@ const generateTitle = async (
 						? baseOptions
 						: { ...baseOptions, reasoning: reasoningLevel },
 				);
-	if (response.stopReason === "error" || response.stopReason === "aborted") {
+	if (
+		response.stopReason === "error" ||
+		response.stopReason === "aborted" ||
+		response.stopReason === "length"
+	) {
 		throw new Error(response.errorMessage ?? "Title generation failed");
 	}
 	return normalizeModelTitle(extractCompletionText(response.content));
@@ -524,7 +530,10 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 		requestController = undefined;
 	};
 
-	const restoreBranchState = (ctx: AutoSessionNameContext) => {
+	const restoreBranchState = (
+		ctx: AutoSessionNameContext,
+		allowExistingRequests = false,
+	) => {
 		abortRequest();
 		sessionEpoch += 1;
 		firstRawRequest = undefined;
@@ -540,7 +549,8 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 		initialEligible =
 			!autoTitleState &&
 			!manualOverride &&
-			extractUserRequests(ctx.sessionManager.getBranch()).length === 0;
+			(allowExistingRequests ||
+				extractUserRequests(ctx.sessionManager.getBranch()).length === 0);
 	};
 
 	const applyAutomaticTitle = (nextState: AutoTitleState) => {
@@ -733,26 +743,27 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 		);
 	});
 
-	pi.on("agent_settled", (_event, ctx) => {
-		if (!active || manualOverride) return;
+	pi.on("turn_end", async (_event, ctx) => {
+		if (!active || manualOverride || autoTitleState) return;
 		const storedRequests = extractUserRequests(ctx.sessionManager.getBranch());
-		if (!autoTitleState) {
-			void runInitialNaming(ctx, storedRequests).catch(() => undefined);
-			return;
-		}
+		await runInitialNaming(ctx, storedRequests).catch(() => undefined);
+	});
+
+	pi.on("agent_settled", async (_event, ctx) => {
+		if (!active || manualOverride || !autoTitleState || !ownsTitle) return;
+		const storedRequests = extractUserRequests(ctx.sessionManager.getBranch());
 		if (
-			ownsTitle &&
 			shouldRefineTitle({ state: autoTitleState, userRequests: storedRequests })
 		) {
-			void runRefinement(ctx, autoTitleState, storedRequests).catch(
+			await runRefinement(ctx, autoTitleState, storedRequests).catch(
 				() => undefined,
 			);
 		}
 	});
 
-	pi.on("session_start", (_event, ctx) => {
+	pi.on("session_start", (event, ctx) => {
 		active = true;
-		restoreBranchState(ctx);
+		restoreBranchState(ctx, event.reason === "fork");
 	});
 
 	pi.on("session_tree", (_event, ctx) => {

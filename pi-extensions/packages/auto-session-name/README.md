@@ -1,20 +1,20 @@
 # auto-session-name
 
-`auto-session-name` gives new unnamed Pi sessions a stable navigation title after the first submitted request has fully settled. Its single default behavior combines one low-cost initial title with, only when conservative local heuristics justify it, at most one later refinement attempt.
+`auto-session-name` gives new unnamed Pi sessions a stable navigation title after the first turn of the first submitted request. Its single default behavior combines one low-cost initial title with, only when conservative local heuristics justify it, at most one later refinement attempt.
 
 ## Behavior
 
 - Captures the first meaningful raw `input` before skill or prompt-template expansion and prefers it over the stored message.
 - Removes a raw skill/template command prefix while keeping meaningful arguments. Command-only input falls back to the stored user message.
 - Strips a leading Pi `<skill ...>...</skill>` block from the stored-message fallback.
-- Generates the initial title on the first `agent_settled`, after retries, compaction retries, tool loops, and queued continuations finish. It does not run on individual `turn_end` events.
+- Generates and persists the initial title on the first `turn_end`, before later tool-loop turns can be interrupted or the process can exit. The event handler waits for naming to finish.
 - Uses only bounded user-request text. Assistant messages, tool calls, tool results, system prompts, and project instructions are never sent to the title model.
-- Limits title input to 1,600 characters using head-and-tail truncation, output to 32 tokens, provider retries to zero, and generation time to about eight seconds. Requests use deterministic temperature and disable reasoning through Pi's provider paths.
+- Limits title input to 1,600 characters using head-and-tail truncation, output to 128 tokens, provider retries to zero, and generation time to about eight seconds. Requests use deterministic temperature and the model's lowest supported reasoning level.
 - Normalizes titles to plain text with no more than 8 words and 60 characters.
-- Falls back to a deterministic prefix of the initial request if model resolution, authentication, timeout, provider generation, or output validation fails.
+- Falls back to a deterministic prefix of the initial request if model resolution, authentication, timeout, provider generation, truncation, or output validation fails.
 - Persists branch-aware ownership state in Pi custom entries, which do not enter LLM context.
 - Never overwrites a startup/CLI name, `/name`, a session-picker rename, an RPC rename, or another extension's name. Changing or clearing an automatic title permanently gives ownership to that explicit choice.
-- Does not scan, schedule, or backfill historical sessions. A resumed historical unnamed session remains unnamed.
+- Does not scan, schedule, or backfill historical sessions. A resumed historical unnamed session remains unnamed, while a new fork with copied history is eligible for naming from its first post-fork request.
 
 ## Conditional Refinement
 
