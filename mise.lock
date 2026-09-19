@@ -1540,7 +1540,7 @@ version = "0.10.6"
 backend = "npm:awk-language-server"
 
 [[tools."npm:bash-language-server"]]
-version = "5.8.0"
+version = "5.8.1"
 backend = "npm:bash-language-server"
 
 [tools."npm:bash-language-server".options]
