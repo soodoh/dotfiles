@@ -548,54 +548,17 @@ class MiseConfigurationTests(unittest.TestCase):
             r"(?m)^\s*mise\s+bootstrap\s+packages\s+apply\s+brew:mas\s+--yes\s*$",
         )
 
-    def test_aerospace_homebrew_fallback_is_macos_only_and_install_only(self) -> None:
-        task = self.base["tasks"]["bootstrap:homebrew-aerospace"]["run"]
-
-        with tempfile.TemporaryDirectory(
-            prefix="aerospace-bootstrap-test-"
-        ) as directory:
-            home = Path(directory)
-            log = home / "brew.log"
-            marker = home / "aerospace-installed"
-            (home / "uname").write_text('#!/bin/sh\nprintf "%s\\n" "$TEST_OS"\n')
-            (home / "brew").write_text("""#!/bin/sh
-set -eu
-printf '%s\n' "$*" >> "$BREW_LOG"
-case "$*" in
-  'list --cask aerospace') [ -f "$AEROSPACE_MARKER" ] ;;
-  'install --cask nikitabobko/tap/aerospace')
-    [ "$HOMEBREW_NO_AUTO_UPDATE" = 1 ]
-    [ "$HOMEBREW_NO_ANALYTICS" = 1 ]
-    [ "$HOMEBREW_NO_ENV_HINTS" = 1 ]
-    : > "$AEROSPACE_MARKER" ;;
-  *) exit 91 ;;
-esac
-""")
-            for executable in ("uname", "brew"):
-                (home / executable).chmod(0o755)
-            env = {
-                "HOME": directory,
-                "PATH": directory,
-                "BREW_LOG": str(log),
-                "AEROSPACE_MARKER": str(marker),
-            }
-            for platform in ("Linux", "Darwin", "Darwin"):
-                result = subprocess.run(
-                    ["/bin/sh", "-eu", "-c", task],
-                    cwd=home,
-                    check=False,
-                    env={**env, "TEST_OS": platform},
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                if platform == "Linux":
-                    self.assertFalse(log.exists())
-            calls = log.read_text().splitlines()
-            self.assertEqual(calls.count("list --cask aerospace"), 2)
-            self.assertEqual(calls.count("install --cask nikitabobko/tap/aerospace"), 1)
-            self.assertTrue(marker.exists())
+    def test_aerospace_is_a_declarative_macos_package(self) -> None:
+        package = self.base["bootstrap"]["packages"][
+            "brew-cask:nikitabobko/tap/aerospace"
+        ]
+        self.assertEqual(package, {"version": "latest", "os": "macos"})
+        self.assertNotIn("bootstrap:homebrew-aerospace", self.base["tasks"])
+        self.assertGreaterEqual(
+            tuple(map(int, self.base["min_version"].split("."))),
+            (2026, 9, 12),
+            "AeroSpace requires staged_path support for third-party casks",
+        )
 
 
 if __name__ == "__main__":

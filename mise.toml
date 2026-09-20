@@ -120,8 +120,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "brew:FelixKratz/formulae/borders" = { version = "latest", os = "macos" }
 "brew:rjyo/moshi/moshi-hook" = { version = "latest", os = "macos" }
 "brew:vjeantet/tap/alerter" = { version = "latest", os = "macos" }
-# TODO: Declare brew-cask:nikitabobko/tap/aerospace here after mise 2026.9.6
-# ships third-party tap cask flight-step extraction (jdx/mise#13060).
+"brew-cask:nikitabobko/tap/aerospace" = { version = "latest", os = "macos" }
 "brew-cask:bitwarden" = { version = "latest", os = "macos" }
 "brew-cask:ghostty" = { version = "latest", os = "macos" }
 "brew-cask:obsidian" = { version = "latest", os = "macos" }
@@ -274,7 +273,6 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 description = "Install repository dependencies and configure managed integrations"
 run = [
   { task = "bootstrap:pi" },
-  { task = "bootstrap:homebrew-aerospace" },
   { task = "bootstrap:herdr-plugins" },
   { task = "configure:google-calendar-webapp" },
   { task = "configure:docker-compose-plugin" },
@@ -282,26 +280,6 @@ run = [
 
 [tasks."bootstrap:pi"]
 run = "bun ci --cwd pi-extensions"
-
-[tasks."bootstrap:homebrew-aerospace"]
-description = "Install AeroSpace through Homebrew until mise can manage its tapped cask"
-interactive = true
-run = '''
-[ "$(uname -s)" = Darwin ] || exit 0
-
-brew_bin=$(command -v brew 2>/dev/null || true)
-if [ -z "$brew_bin" ]; then
-  printf 'error: Homebrew CLI is required to install AeroSpace\n' >&2
-  exit 69
-fi
-
-export HOMEBREW_NO_AUTO_UPDATE=1
-export HOMEBREW_NO_ANALYTICS=1
-export HOMEBREW_NO_ENV_HINTS=1
-
-"$brew_bin" list --cask aerospace >/dev/null 2>&1 ||
-  "$brew_bin" install --cask nikitabobko/tap/aerospace
-'''
 
 [tasks."bootstrap:herdr-plugins"]
 description = "Reconcile Herdr plugins to committed pins; preserve unsafe or disabled state"
