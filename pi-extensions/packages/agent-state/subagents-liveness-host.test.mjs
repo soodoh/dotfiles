@@ -26,7 +26,7 @@ syncBuiltinESMExports();
 const pi = await import(pathToFileURL(join(host.root, "dist/index.js")).href);
 const bus = pi.createEventBus();
 const paths = [
-	join(root, "pi-extensions/node_modules/pi-subagents/index.ts"),
+	join(root, "pi-extensions/node_modules/pi-subagents/index.js"),
 	join(root, "pi-extensions/packages/agent-state/index.ts"),
 ];
 if (order === "producer-last") paths.reverse();

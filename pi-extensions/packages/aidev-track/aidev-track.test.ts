@@ -109,7 +109,17 @@ const beforeAgentStart = (prompt: string): BeforeAgentStartEvent => ({
 	type: "before_agent_start",
 	prompt,
 	systemPrompt: "",
-	systemPromptOptions: { cwd: "/repo" },
+	systemPromptOptions: {
+		cwd: "/repo",
+		selectedTools: [],
+		toolSnippets: {},
+		toolGuidelines: {},
+		promptGuidelines: [],
+		appendSystemPrompt: "",
+		sections: {},
+		contextFiles: [],
+		skills: [],
+	},
 });
 
 const toolCall = (toolName: string, path: string): ToolCallEvent => ({
