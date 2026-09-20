@@ -93,8 +93,11 @@ processes were not stopped or reloaded.
 
 ## Sesh workspace picker
 
-Alt+E opens `fullerzz/herdr-plugin-sesh` through the native
-`fullerzz.sesh.open-picker` plugin action. Native `goto` is unbound.
+Alt+E opens `fullerzz/herdr-plugin-sesh` as a 90% session-modal popup through
+`plugin pane open`. This bypasses the plugin action's temporary overlay pane so
+workspace selection cannot leave native `last_pane` pointing at a pane that has
+already exited. `$HERDR_BIN_PATH` ensures the detached custom command uses the
+same Herdr binary and socket. Native `goto` is unbound.
 The initial managed pin is the commit behind v0.11.0. Provision on macOS through
 mise (substitute `work-macos` as appropriate):
 
@@ -111,7 +114,9 @@ installation, use `MISE_CARGO_BINSTALL=false mise install cargo:eza` to build fr
 
 No plugin config is needed: running workspaces and zoxide history populate the
 picker; `eza` supplies the default directory preview. fzf is optional for the
-experimental picker, not required for the default native overlay.
+experimental picker, not required for the default native picker. The Yazi and
+LazyGit launchers already use true popups and likewise stay out of pane focus
+history.
 Plugin checkouts/config/history stay in Herdr's runtime directory, not this repo.
 After changing the binding, reload Herdr with Ctrl+Space, then Shift+R.
 ## Keymap

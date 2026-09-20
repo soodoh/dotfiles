@@ -88,8 +88,8 @@ navigate_pane_right = "l"
 # Sesh workspace/session picker
 [[keys.command]]
 key = "alt+e"
-type = "plugin_action"
-command = "fullerzz.sesh.open-picker"
+type = "shell"
+command = '"$HERDR_BIN_PATH" plugin pane open --plugin fullerzz.sesh --entrypoint picker --placement popup --width 90% --height 90%'
 description = "Open Sesh picker"
 
 # Tool popups
