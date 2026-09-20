@@ -5,14 +5,14 @@
 "pipx:ansible-lint" = "26.8.0"
 
 [bootstrap.packages]
-"brew-cask:discord" = "latest"
-"brew-cask:anki" = "latest"
-"brew-cask:moonlight" = "latest"
-"brew-cask:google-chrome" = "latest"
-"brew-cask:slack" = "latest"
-"brew-cask:zoom" = "latest"
-"brew-cask:prusaslicer" = "latest"
-"brew-cask:rar" = "latest"
+"brew-cask:discord" = { version = "latest", os = "macos" }
+"brew-cask:anki" = { version = "latest", os = "macos" }
+"brew-cask:moonlight" = { version = "latest", os = "macos" }
+"brew-cask:google-chrome" = { version = "latest", os = "macos" }
+"brew-cask:slack" = { version = "latest", os = "macos" }
+"brew-cask:zoom" = { version = "latest", os = "macos" }
+"brew-cask:prusaslicer" = { version = "latest", os = "macos" }
+"brew-cask:rar" = { version = "latest", os = "macos" }
 
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"

@@ -120,6 +120,20 @@ class MiseConfigurationTests(unittest.TestCase):
         cls.personal = load_toml("mise.personal-macos.toml")
         cls.work = load_toml("mise.work-macos.toml")
 
+    def test_brew_casks_are_explicitly_macos_only(self) -> None:
+        for config_name, config in (
+            ("mise.toml", self.base),
+            ("mise.personal-macos.toml", self.personal),
+            ("mise.work-macos.toml", self.work),
+        ):
+            packages = config.get("bootstrap", {}).get("packages", {})
+            for package, specification in packages.items():
+                if not package.startswith("brew-cask:"):
+                    continue
+                with self.subTest(config=config_name, package=package):
+                    self.assertIsInstance(specification, dict)
+                    self.assertEqual(specification.get("os"), "macos")
+
     def test_moshi_launch_agent_has_one_shared_owner(self) -> None:
         agents = self.base["bootstrap"]["macos"]["launchd"]["agents"]
         self.assertIn("moshi-hook", agents)
