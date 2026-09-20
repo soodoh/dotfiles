@@ -29,7 +29,7 @@ const { createJiti } = await import(
 );
 const jiti = createJiti(import.meta.url);
 const { HOST_PEER_ALIASES, resolveHostPeerAliases } = await jiti.import(
-	join(extensionRoot, "src/runs/background/runner-aliases.ts"),
+	join(extensionRoot, "src/runs/background/runner-aliases.js"),
 );
 const piName = "@earendil-works/pi-coding-agent";
 

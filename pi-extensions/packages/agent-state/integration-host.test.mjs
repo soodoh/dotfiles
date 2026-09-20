@@ -66,20 +66,20 @@ const subagentSource = join(
 	"pi-extensions/node_modules/pi-subagents/src",
 );
 const { registerPiWebSessionLiveness } = await jiti.import(
-	join(subagentSource, "integrations/pi-web-session-liveness.ts"),
+	join(subagentSource, "integrations/pi-web-session-liveness.js"),
 );
 const { default: registerNotify } = await jiti.import(
-	join(subagentSource, "runs/background/notify.ts"),
+	join(subagentSource, "runs/background/notify.js"),
 );
 const { registerHerdrStatusBridge } = await jiti.import(
 	join(
 		root,
-		"pi-extensions/node_modules/pi-subagents/src/integrations/herdr-status.ts",
+		"pi-extensions/node_modules/pi-subagents/src/integrations/herdr-status.js",
 	),
 );
 const { SUBAGENT_ASYNC_STARTED_EVENT, SUBAGENT_ASYNC_COMPLETE_EVENT } =
 	await jiti.import(
-		join(root, "pi-extensions/node_modules/pi-subagents/src/shared/types.ts"),
+		join(root, "pi-extensions/node_modules/pi-subagents/src/shared/types.js"),
 	);
 const loader = new pi.DefaultResourceLoader({
 	cwd: process.cwd(),

@@ -1,11 +1,11 @@
 import { EventEmitter } from "node:events";
 import { expect, test } from "vitest";
 // Test-only imports exercise the installed upstream implementation on upgrades.
-import { registerHerdrStatusBridge } from "../../node_modules/pi-subagents/src/integrations/herdr-status.ts";
+import { registerHerdrStatusBridge } from "../../node_modules/pi-subagents/src/integrations/herdr-status.js";
 import {
 	hasLiveSubagentWork,
 	registerPiWebSessionLiveness,
-} from "../../node_modules/pi-subagents/src/integrations/pi-web-session-liveness.ts";
+} from "../../node_modules/pi-subagents/src/integrations/pi-web-session-liveness.js";
 import { createLiveness } from "./liveness";
 import { observeState } from "./state";
 

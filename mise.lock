@@ -1521,7 +1521,7 @@ version = "2.5.14"
 backend = "npm:@biomejs/biome"
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
-version = "0.85.1"
+version = "0.86.0"
 backend = "npm:@earendil-works/pi-coding-agent"
 
 [[tools."npm:@googleworkspace/cli"]]
