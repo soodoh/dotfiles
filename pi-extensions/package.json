@@ -44,10 +44,10 @@
 	},
 	"dependencies": {
 		"@juicesharp/rpiv-ask-user-question": "2.10.1",
-		"@plannotator/pi-extension": "0.27.16",
+		"@plannotator/pi-extension": "0.27.17",
 		"pi-mcp-adapter": "2.35.0",
 		"pi-openai-fast": "1.0.1",
-		"pi-subagents": "0.70.0",
+		"pi-subagents": "0.70.1",
 		"pi-vim": "0.14.2",
 		"pi-web-access": "0.30.0",
 		"proper-lockfile": "4.1.2",
