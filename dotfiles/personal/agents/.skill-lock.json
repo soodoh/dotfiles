@@ -24,9 +24,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/microsoft/playwright-cli.git",
       "skillPath": "skills/playwright-cli/SKILL.md",
-      "skillFolderHash": "10104bd92881e5ca5688f0a2cd1372e3c0e413a9",
+      "skillFolderHash": "4b040465accc10048d4b16479bb54d6d1d3bdeb6",
       "installedAt": "2026-04-29T01:21:13.083Z",
-      "updatedAt": "2026-09-15T22:52:27.930Z"
+      "updatedAt": "2026-09-21T20:38:59.080Z"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
