@@ -42,7 +42,7 @@ jobs:
         with:
           version: ${{ steps.mise-version.outputs.mise-version }}
           install: true
-          install_args: "aqua:neovim/neovim"
+          install_args: "aqua:neovim/neovim aqua:rhysd/actionlint"
           cache: true
 
       - name: Update Renovate-unsupported mise tools
