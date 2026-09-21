@@ -60,7 +60,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:getsops/sops" = "3.13.3"
 "aqua:BurntSushi/ripgrep" = "15.2.0"
 "aqua:junegunn/fzf" = "0.74.4"
-"aqua:jdx/usage" = "6.10.0"
+"aqua:jdx/usage" = "6.11.0"
 "aqua:atuinsh/atuin" = "18.22.0"
 "aqua:jesseduffield/lazygit" = "0.65.1"
 "aqua:starship/starship" = "1.26.0"
@@ -85,7 +85,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "cargo:taplo-cli" = "0.10.0"
 "go:golang.org/x/tools/gopls" = "0.23.0"
 "pipx:yamllint" = "1.38.0"
-"npm:@earendil-works/pi-coding-agent" = "0.86.1"
+"npm:@earendil-works/pi-coding-agent" = "0.87.0"
 "npm:@playwright/mcp" = { version = "0.0.82", trust_policy_excludes = ["@playwright/mcp@0.0.80", "playwright@1.63.0-alpha-2026-08-31", "playwright-core@1.63.0-alpha-2026-08-31"] }
 "npm:@googleworkspace/cli" = "0.22.5"
 "npm:awk-language-server" = "0.10.6"
@@ -93,7 +93,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:@biomejs/biome" = "2.5.14"
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
-"npm:oxlint" = "1.83.0"
+"npm:oxlint" = "1.85.0"
 "npm:prettier" = "3.9.8"
 "npm:pyright" = "1.1.414"
 "npm:typescript-language-server" = "6.0.0"

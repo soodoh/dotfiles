@@ -330,15 +330,26 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 			lastContext = ctx;
 			if (!turnEndHandler)
 				throw new Error("turn_end handler was not registered");
-			await turnEndHandler(
-				{
-					type: "turn_end",
-					turnIndex,
-					message: assistantMessageEntry("Done").message,
-					toolResults: [],
+			const messageEntry = assistantMessageEntry("Done");
+			const event = {
+				type: "turn_end" as const,
+				turnIndex,
+				message: messageEntry.message,
+				toolResults: [],
+				messageEntryId: messageEntry.id,
+				toolResultEntryIds: [],
+				entries: [],
+				continue: false,
+				context: {
+					contextEntries: [],
+					contextMessages: [],
+					llmMessages: [],
+					pendingMessages: [],
+					canContinue: false,
 				},
-				ctx,
-			);
+				outcome: "completed" as const,
+			};
+			await turnEndHandler(event, ctx);
 		},
 		async sessionStart(
 			ctx = lastContext,
