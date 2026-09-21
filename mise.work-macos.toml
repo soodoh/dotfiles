@@ -34,7 +34,7 @@ AZURE_PROD_TENANT_ID = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBFMm1p
 "npm:figma-developer-mcp" = "0.13.2"
 
 [tools."http:twg"]
-version = "1.2.8"
+version = "1.3.1"
 bin = "twg"
 version_list_url = "https://teamwork-graph.atlassian.com/cli/manifest.json"
 version_json_path = ".version"
