@@ -41,16 +41,6 @@
       "google-vertex/gemini-3.7-flash"
     ]
   },
-  "subagents": {
-    "modelScope": {
-      "enforce": true,
-      "strict": true,
-      "allow": [
-        "openai-codex/*",
-        "google-vertex/*"
-      ]
-    }
-  },
   "enabledModels": [
     "openai-codex/gpt-6-astra",
     "openai-codex/gpt-6-sol",

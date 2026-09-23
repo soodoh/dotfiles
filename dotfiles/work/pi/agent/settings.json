@@ -41,16 +41,5 @@
     "titleModel": [
       "google-vertex/gemini-3.7-flash"
     ]
-  },
-  "subagents": {
-    "modelScope": {
-      "enforce": true,
-      "strict": true,
-      "allow": [
-        "github-copilot/*",
-        "google-vertex/*",
-        "litellm/*"
-      ]
-    }
   }
 }
