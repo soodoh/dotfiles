@@ -33,20 +33,20 @@ chains:
       - name: home-lab
         nodes:
           - name: authenticated-websocket
-            addr: "ts-control.diloreto.com:443"
+            addr: "gost.diloreto.com:443"
             connector:
               type: http
             dialer:
               type: wss
               metadata:
-                host: ts-control.diloreto.com
+                host: gost.diloreto.com
                 path: /tailscale-control
                 keepAlive: true
                 ttl: 15s
                 header:
                   Authorization: "Basic ${authorization}"
             tls:
-              serverName: ts-control.diloreto.com
+              serverName: gost.diloreto.com
 EOF
 }
 
