@@ -50,6 +50,7 @@ EOF
 }
 
 # GOST does not interpolate environment variables in YAML. Feed the generated
-# configuration through an inherited descriptor so the Authentik app password
-# is absent from launchd plists, argv, and persistent plaintext files.
-exec "$gost_bin" -C <(render_config)
+# configuration through inherited stdin so the Authentik app password is absent
+# from launchd plists, argv, and persistent plaintext files. The explicit "-"
+# tells GOST to parse stdin as YAML; an extensionless /dev/fd path is unsupported.
+exec "$gost_bin" -C - < <(render_config)

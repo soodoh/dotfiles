@@ -70,7 +70,7 @@ args = [
 run_at_load = true
 keep_alive = true
 working_directory = "~/.local/share/dotfiles"
-environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", MISE_EXEC_AUTO_INSTALL = "false" }
 stdout_path = "~/Library/Logs/tailscale-control-proxy.log"
 stderr_path = "~/Library/Logs/tailscale-control-proxy.error.log"
 

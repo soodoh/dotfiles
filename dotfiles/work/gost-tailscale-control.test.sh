@@ -9,10 +9,10 @@ mkdir -p "$work/bin"
 cat >"$work/bin/gost" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ $1 == -C && ${2:-} == /dev/fd/* ]]
+[[ $1 == -C && ${2:-} == - ]]
 [[ $* != *test-app-password* ]]
 [[ -z ${GOST_AUTH_USERNAME+x} && -z ${GOST_AUTH_PASSWORD+x} ]]
-cat "$2"
+cat
 EOF
 chmod 0755 "$work/bin/gost"
 

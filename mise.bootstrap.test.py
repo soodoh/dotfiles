@@ -159,6 +159,7 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertEqual(agent["args"][:3], ["--env", "work-macos", "exec"])
         self.assertNotIn("GOST_AUTH_PASSWORD", json.dumps(agent))
         self.assertTrue(agent["environment"]["PATH"].startswith("/opt/homebrew/bin:"))
+        self.assertEqual(agent["environment"]["MISE_EXEC_AUTO_INSTALL"], "false")
         self.assertTrue(agent["keep_alive"])
 
     def test_moshi_launch_agent_has_one_shared_owner(self) -> None:
