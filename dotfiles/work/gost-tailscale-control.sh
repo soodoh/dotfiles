@@ -39,6 +39,7 @@ chains:
             dialer:
               type: wss
               metadata:
+                host: ts-control.diloreto.com
                 path: /tailscale-control
                 keepAlive: true
                 ttl: 15s
