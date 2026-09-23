@@ -134,6 +134,28 @@ class MiseConfigurationTests(unittest.TestCase):
                     self.assertIsInstance(specification, dict)
                     self.assertEqual(specification.get("os"), "macos")
 
+    def test_work_tailscale_control_proxy_is_profile_scoped(self) -> None:
+        self.assertIn("brew:gost", self.work["bootstrap"]["packages"])
+        self.assertNotIn("brew:gost", self.base["bootstrap"]["packages"])
+        self.assertNotIn("brew:gost", self.personal.get("bootstrap", {}).get("packages", {}))
+
+        managed_file = self.work["bootstrap"]["files"][
+            "/etc/tailscale/tailscaled-env.txt"
+        ]
+        self.assertEqual(managed_file["source"], "dotfiles/work/tailscaled-env.txt")
+        self.assertEqual(managed_file["owner"], "root")
+        self.assertEqual(managed_file["group"], "wheel")
+        self.assertEqual(managed_file["mode"], "0600")
+
+        agent = self.work["bootstrap"]["macos"]["launchd"]["agents"][
+            "tailscale-control-proxy"
+        ]
+        self.assertEqual(agent["program"], "~/.local/bin/mise")
+        self.assertEqual(agent["args"][:3], ["--env", "work-macos", "exec"])
+        self.assertNotIn("GOST_AUTH_PASSWORD", json.dumps(agent))
+        self.assertTrue(agent["environment"]["PATH"].startswith("/opt/homebrew/bin:"))
+        self.assertTrue(agent["keep_alive"])
+
     def test_moshi_launch_agent_has_one_shared_owner(self) -> None:
         agents = self.base["bootstrap"]["macos"]["launchd"]["agents"]
         self.assertIn("moshi-hook", agents)

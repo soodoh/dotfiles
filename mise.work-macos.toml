@@ -16,6 +16,8 @@ ADO_MCP_PAT_BASIC = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBzRmw4MDN
 AZURE_SUBSCRIPTION_ID = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBpUzNqbXZJMisyTStYaEZNb2pEOG53THhOOXl6Ri90S1R2V1pEOTJYRmdvCkk3UzhmbjErNFUwMW85N0RqbGxrZ2ZyYWxMU2ZSanErT01VZzJVSDFLcEkKLT4gdGw6LWdyZWFzZSBdeF88VjUtSCAnOUBxfgppd0RVNlk4ODlRVHVpT1h5WTdzbVBxeGE1TEVmRlYyRlR2bytEblNSanNBL3lLYmlqWE9lVGJjcDYzc0RIdis1CnRwRTBKQkdXWVJKTjA1UEJNOW9hYkZTZ1gzNEl6NDc0ZlA2ZTk1THJtWVFwZTZuLwotLS0gZWJ2MHE1NWJoMTZjckJHaEpFcnd2VXFNMTlWWExLWlVlWFpLS1p0OEx5UQpdOfTuK4riuuFmw604ItXA29umyXX7VeRfOnPuDU0XiWSYjqA5exEVUh6QiNhXdSO4UGs/4V00v43tg7+4ij8ExvFLKg" }
 AZURE_DEV_TENANT_ID = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBHR0NMdkJrMm1FZFBWZkRTL2JnUWRKYnh2WUpLQUNtZTJhaHZpUDZjemdNCjlQU3I4dDcrTzZTN1pWajVrUzNvT3FzeWZXaGtyc0xwdTJtTXhueUhjSVUKLT4gUS1yLWdyZWFzZSBtIHcgX04gbHoua0JmCmRyWDRGZEZjUGMwNnVaRlBSQzJaNHFwem1ONEZ4VXVZSFgzK0ZHM0tXVVRGOTE2M1piMVViUlN5MlBKY3JVVzYKRGtGc3E2UGpVbUNCZWVGQXJFWnFzTkFWLzdWakdvTlVtZwotLS0gYzE5TzhsaXkvUHY2d2IzNVJuWkVqa2FuWWJjWEhUeTNWSTlqVDA0aGlOVQoR1rbM8wHlQNPT3KvKtuhKYODKPLU81E28X8mGkCiH8HKrjkPk6JSsiKt9aiGy3glULbbE9ib4DaD3VzMiwypW/qL00g" }
 AZURE_PROD_TENANT_ID = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBFMm1pM0lWckM4blZSZ0puYVJCUWlTc3YxL2E3RjJXS3liMEdERGYzWkFjCklaUFNscWZaNHh5SEFJejQwUm05RldtcitpWWh4ZEI3dDcxWUV4TS83elEKLT4gZHlOXFR9LWdyZWFzZSBwXkgiJjFQICVLakBoTCAtSUpaPjJMLiBIYTQ7JXAKZ2lmQ0lsRkNQZTh1eFNsdW5pS1YzVGxnNkFzb01OK3ZJUnd2cXRkYW5TV1R6RENJTjhpUnFkQ1lBSFhCZVF3cwo4ZWF1UDBnTGRmZkJGbWtzSndKU2NvTHJJYzdoemZ6M2J0cUpzakdETlNpMWxaQXJ0dUNIQnFRCi0tLSB4OWJZd0RkQ2IzcUE1ajdXcTZuS3lUbFU4R2NXYy9hUlFXanM4ZGEzZGdFCh0eXrTupXfHT1PUQL1Pra1ZDNh1XKHI+rQVqUFButHJOq42qLzJLqZJgpkxFjlVrK4Z6OkTrObJFDWgU7OtCD++2PHV" }
+GOST_AUTH_USERNAME = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBmcWJSTUJ1SHVTNjRPRkZreGVOYWZXVXNmbmhGbGRKMlZFZHE3a1JHbUNFCm54enc2TDZ6THoyWXdLN1JLZ0FRYnNwMXc0emU1cnZrUWtxVEEwaktuNE0KLT4gIlo6SXI7Uy1ncmVhc2UgOXo9ID54bFdDS0ggeXJ8I1BEOSAxCnp1ZjN6cUIvbldrTEx2STlIYno3YVBDaldQSytpejk5N254K3plQnh0RTZUNU81b1kwUXpBRUgxRGFDWWlQL2sKaGQ5VlFVRHBzTUNRMXFMSTJUNFFNc0pvVHlCblNudDM2eHJ3WkwwCi0tLSB3T0Y2TzBVaG5XTlpBa3dtTnNJazduSE5PbjZwQXUrOGtHRmh4aEhHT29rCjZHY3JA1AG+HUm6z4BOiphAvoh95GaycKyPRkPsyT9c7ElMPf6b3RdQxc3grnm56Js7ZF1YUg4" }
+GOST_AUTH_PASSWORD = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA0cjZ0K3kzeG9Ld0dQYzBDY0xIWDQ0am84T3pudXpMWjZOQmpMSUx6WkM4CmE3Q1hIU3B1cmlTVWFBd002a2N3a1BCNDZ2YzQzQWJzV1Y3Zlg1enNMYlkKLT4gOCg3Nic+Py1ncmVhc2UgMWggTH5KSi1MVjsgV21tPHRpcAo4RldMK3hPMHNLWFQvamd0ZFQ4Ci0tLSBZeEZ0VTF2Z2h4dDJGNnNsVUpzYVVqYUl4NGJEM1RsWWEzaDRBR0REZXlrCocO5Bgfn5p/Pv6SHEVBs/tajQ1oP2BR1EEmFzBIRdNFHCn+JMUiPHed84LkBVOE3yd3nN82tA4ZFLrnBtFylckxwJXbC3D9zkWKXpNmqxPiFbs+aMAfG6F0zkJg" }
 
 [tools]
 "pipx:azure-cli" = "2.90.0"
@@ -40,6 +42,32 @@ version_list_url = "https://teamwork-graph.atlassian.com/cli/manifest.json"
 version_json_path = ".version"
 checksum_url = "https://teamwork-graph.atlassian.com/cli/SHA256SUMS-v{{ version }}"
 platforms= { macos-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v{{ version }}" }, macos-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v{{ version }}" }, linux-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v{{ version }}" }, linux-x64 = { url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v{{ version }}" } }
+
+[bootstrap.packages]
+"brew:gost" = { version = "latest", os = "macos" }
+
+[bootstrap.files."/etc/tailscale/tailscaled-env.txt"]
+source = "dotfiles/work/tailscaled-env.txt"
+owner = "root"
+group = "wheel"
+mode = "0600"
+
+[bootstrap.macos.launchd.agents.tailscale-control-proxy]
+program = "~/.local/bin/mise"
+args = [
+  "--env",
+  "work-macos",
+  "exec",
+  "--",
+  "bash",
+  "dotfiles/work/gost-tailscale-control.sh",
+]
+run_at_load = true
+keep_alive = true
+working_directory = "~/.local/share/dotfiles"
+environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+stdout_path = "~/Library/Logs/tailscale-control-proxy.log"
+stderr_path = "~/Library/Logs/tailscale-control-proxy.error.log"
 
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"

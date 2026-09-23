@@ -356,6 +356,7 @@ run = '''
 find dotfiles -type f -name '*.sh' -exec bash -n {} +
 find dotfiles -type f -name '*.fish' -exec fish --no-execute {} \;
 bash dotfiles/work/bootstrap-repositories.test.sh
+bash dotfiles/work/gost-tailscale-control.test.sh
 python3 dotfiles/common/fish/config.test.py
 HERDR_CONFIG_PATH="$PWD/dotfiles/common/herdr/config.toml" herdr config check
 '''
