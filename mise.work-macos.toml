@@ -46,6 +46,11 @@ platforms= { macos-arm64 = { url = "https://teamwork-graph.atlassian.com/cli/twg
 [bootstrap.packages]
 "brew:gost" = { version = "latest", os = "macos" }
 
+[bootstrap.directories."/etc/tailscale"]
+owner = "root"
+group = "wheel"
+mode = "0755"
+
 [bootstrap.files."/etc/tailscale/tailscaled-env.txt"]
 source = "dotfiles/work/tailscaled-env.txt"
 owner = "root"

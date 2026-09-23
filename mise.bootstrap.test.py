@@ -139,6 +139,11 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertNotIn("brew:gost", self.base["bootstrap"]["packages"])
         self.assertNotIn("brew:gost", self.personal.get("bootstrap", {}).get("packages", {}))
 
+        managed_directory = self.work["bootstrap"]["directories"]["/etc/tailscale"]
+        self.assertEqual(managed_directory["owner"], "root")
+        self.assertEqual(managed_directory["group"], "wheel")
+        self.assertEqual(managed_directory["mode"], "0755")
+
         managed_file = self.work["bootstrap"]["files"][
             "/etc/tailscale/tailscaled-env.txt"
         ]
