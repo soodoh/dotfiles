@@ -26,7 +26,7 @@
         "packages/shared-prompt-history/index.ts",
         "packages/statusline/index.ts",
         "node_modules/pi-vim/index.ts",
-        "node_modules/pi-openai-fast/index.ts",
+        "node_modules/@router-for-me/pi-cliproxyapi-provider/extensions/index.ts",
         "node_modules/@plannotator/pi-extension/",
         "node_modules/pi-mcp-adapter/index.ts",
         "node_modules/pi-web-access/index.ts",

@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import {
+	resolveEndpoints,
+	saveModelsCache,
+} from "@router-for-me/pi-cliproxyapi-provider/extensions/lib";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import statusline from "./index";
 import { invalidateGit } from "./src/git-status";
@@ -32,7 +36,6 @@ type FooterFactory = (
 	theme: { fg(color: string, text: string): string },
 	footerData: {
 		getGitBranch(): string | null;
-		getExtensionStatuses?(): ReadonlyMap<string, string>;
 		onBranchChange(cb: () => void): () => void;
 	},
 ) => Widget;
@@ -109,10 +112,9 @@ describe("statusline extension", () => {
 		expect(pi.getThinkingLevel).not.toHaveBeenCalled();
 	});
 
-	test("registers a below-editor widget and renders model/context smoke output", () => {
+	test("registers a below-editor widget and renders model/context smoke output", async () => {
 		let widgetFactory: WidgetFactory | undefined;
 		let footerFactory: FooterFactory | undefined;
-		const extensionStatuses = new Map<string, string>();
 		const pi = createPi();
 		statusline(pi);
 		const ctx: StatuslineContext = {
@@ -158,7 +160,6 @@ describe("statusline extension", () => {
 			{ fg: (_color, text) => text },
 			{
 				getGitBranch: () => "main",
-				getExtensionStatuses: () => extensionStatuses,
 				onBranchChange: () => () => undefined,
 			},
 		);
@@ -166,17 +167,28 @@ describe("statusline extension", () => {
 		const line = widget?.render(120).join("\n") ?? "";
 
 		expect(line).toContain("Sonnet Test");
-		expect(line).not.toContain("\uF0E7");
 		expect(line).toContain("off");
 		expect(line.indexOf("Sonnet Test")).toBeLessThan(line.indexOf("off"));
 		expect(line).toContain("25.0%/1.0k");
 
-		extensionStatuses.set("pi-openai-fast", "fast");
-		const fastLine = widget?.render(120).join("\n") ?? "";
-		expect(fastLine).toContain("\uF0E7");
-		expect(fastLine.indexOf("Sonnet Test")).toBeLessThan(
-			fastLine.indexOf("\uF0E7"),
-		);
+		const agentDir = await tempDir("pi-statusline-cliproxy");
+		const baseUrl = "https://proxy.example.test";
+		vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
+		vi.stubEnv("CLIPROXYAPI_BASE_URL", baseUrl);
+		vi.stubEnv("CLIPROXYAPI_API_KEY", "test-key");
+		vi.stubEnv("CLIPROXYAPI_FAST", undefined);
+		const { inferenceBaseUrl, modelsUrl } = resolveEndpoints(baseUrl);
+		saveModelsCache(agentDir, {
+			models: [],
+			fastModelIds: ["gpt-fast"],
+			inferenceBaseUrl,
+			modelsUrl,
+		});
+		ctx.model = { name: "gpt-fast", id: "gpt-fast", provider: "cliproxyapi" };
+		await writeFile(join(agentDir, "cliproxyapi.json"), '{"fast":true}');
+		expect(widget?.render(120).join("\n")).toContain("\uF0E7");
+		await writeFile(join(agentDir, "cliproxyapi.json"), '{"fast":false}');
+		expect(widget?.render(120).join("\n")).not.toContain("\uF0E7");
 	});
 
 	test("renders and immediately updates the configured thinking section", () => {

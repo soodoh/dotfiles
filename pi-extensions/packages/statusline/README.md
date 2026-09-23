@@ -7,7 +7,7 @@ This package was created to provide similar statusline-focused functionality to 
 ## Highlights
 
 - Renders a compact statusline below the editor.
-- Shows the active model name and an active-only Fast Mode bolt when `pi-openai-fast` publishes its status.
+- Shows the active model name, with shorter display for Claude names, and a Fast bolt when CLIProxyAPI Fast is effective for that model.
 - Shows the current thinking level as a separately configurable, level-colored section.
 - Shows the current git branch plus staged and unstaged change counts.
 - Shows provider usage badges when the `provider_usage` section is configured and Pi exposes the relevant provider/auth data. All supported authenticated providers are shown (e.g. GitHub Copilot, OpenAI Codex subscription, Anthropic, and OpenRouter), with the selected model's provider highlighted in the model accent.
@@ -55,7 +55,7 @@ The rendered line is width-aware: narrow terminals use active-only provider deta
 
 | Segment        | Description                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Model          | Current Pi model name, with a shorter display for Claude names and an active-only `pi-openai-fast` bolt.            |
+| Model          | Current Pi model name, shortened for Claude, with a bolt when the selected CLIProxyAPI model has Fast enabled and supports priority service tier. |
 | Thinking       | Current Pi thinking level (`off` through `max`), using Pi's matching level color.                                   |
 | Git            | Branch name, staged `+n`, and unstaged `*n` markers. Untracked files still make the branch appear dirty.           |
 | Provider usage | Usage or balance information for all authenticated configured providers, with OpenAI window reset dates and reset-credit counts and the selected model's provider highlighted. |
@@ -115,7 +115,8 @@ Or to put git on a separate line from the model:
 
 ## Notes
 
-- Configure `pi-openai-fast` with `footer.mode: "status"`; the model section consumes its `pi-openai-fast` extension status without taking over the footer.
+- CLIProxyAPI is loaded from the local `pi-extensions` package in both macOS profiles. Supply `CLIPROXYAPI_BASE_URL` in the environment before launching Pi; mise provides the encrypted `CLIPROXYAPI_API_KEY`. Existing default models remain unchanged. Use `/model` to select a CLIProxyAPI model and `/fast` to toggle the provider's Fast preference (off initially).
+- The bolt reads the provider's Fast preference and model-capability cache using the provider's own helpers, because its built-in footer label is hidden by this statusline. It appears only for the selected CLIProxyAPI model when priority service tier is effective; it stays hidden until the provider has populated its model cache.
 - Git status is fetched asynchronously with short-lived caches so rendering stays responsive.
 - Running the `bash` tool invalidates git status so the line updates after filesystem changes.
 - Provider usage is best-effort, only runs when the `provider_usage` section is configured, and reflects every supported provider Pi reports as authenticated—not just the active model's provider. Supported providers include LLM Hub, Anthropic (OAuth), OpenAI Codex (subscription), GitHub Copilot, and OpenRouter (API key). LLM Hub is treated as a normal authenticated Pi provider: its endpoint comes from Pi's configured model/provider data and its API key is resolved through Pi's provider-auth APIs.

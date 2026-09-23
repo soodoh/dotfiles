@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 
 export type ReadonlyFooterDataProvider = {
 	getGitBranch(): string | null;
-	getExtensionStatuses?(): ReadonlyMap<string, string>;
 	onBranchChange(callback: () => void): () => void;
 };
 

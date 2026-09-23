@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { readStoredCredential } from "@earendil-works/pi-coding-agent";
 import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { isCliproxyFast } from "./cliproxy-fast";
 import {
 	type GitStatus,
 	getGitStatus,
@@ -125,7 +126,6 @@ type ExtensionAPI = {
 const ANSI_RESET = "\x1b[0m";
 const SEPARATOR_COLOR = "\x1b[38;5;244m";
 const POWERLINE_THIN_LEFT = "\uE0B1";
-const FAST_STATUS_KEY = "pi-openai-fast";
 const ICONS = {
 	model: "\uEC19",
 	fast: "\uF0E7",
@@ -353,18 +353,14 @@ function collectContextTokens(ctx: ExtensionContext): number {
 	return contextTokens ?? 0;
 }
 
-function renderModel(
-	ctx: ExtensionContext,
-	theme: Theme,
-	footerData: ReadonlyFooterDataProvider | null,
-): string {
+function renderModel(ctx: ExtensionContext, theme: Theme): string {
 	let modelName = ctx.model?.name || ctx.model?.id || "no-model";
 	if (modelName.startsWith("Claude ")) modelName = modelName.slice(7);
 
 	const model = color(theme, "model", withIcon(ICONS.model, modelName));
-	const fastActive =
-		footerData?.getExtensionStatuses?.().get(FAST_STATUS_KEY) === "fast";
-	return fastActive ? `${model} ${theme.fg("warning", ICONS.fast)}` : model;
+	return isCliproxyFast(ctx.model)
+		? `${model} ${theme.fg("warning", ICONS.fast)}`
+		: model;
 }
 
 function thinkingColor(level: ThinkingLevel): ThemeColor {
@@ -497,7 +493,7 @@ function buildStatusLines(
 		sections.map((section) => {
 			switch (section) {
 				case "model":
-					return renderModel(ctx, theme, footerData);
+					return renderModel(ctx, theme);
 				case "thinking":
 					return renderThinking(thinkingLevel, theme);
 				case "git":

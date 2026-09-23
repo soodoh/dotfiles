@@ -27,7 +27,7 @@
         "packages/statusline/index.ts",
         "packages/aidev-track/index.ts",
         "node_modules/pi-vim/index.ts",
-        "node_modules/pi-openai-fast/index.ts",
+        "node_modules/@router-for-me/pi-cliproxyapi-provider/extensions/index.ts",
         "node_modules/@plannotator/pi-extension/",
         "node_modules/pi-mcp-adapter/index.ts",
         "node_modules/pi-web-access/index.ts",
@@ -52,14 +52,5 @@
         "litellm/*"
       ]
     }
-  },
-  "enabledModels": [
-    "github-copilot/gpt-6-astra",
-    "github-copilot/gpt-6-sol",
-    "github-copilot/gpt-6-luna",
-    "github-copilot/claude-opus-5.5",
-    "github-copilot/claude-opus-5",
-    "github-copilot/claude-sonnet-5",
-    "google-vertex/gemini-3.7-flash"
-  ]
+  }
 }
