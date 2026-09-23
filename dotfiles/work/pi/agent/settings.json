@@ -54,9 +54,6 @@
     }
   },
   "enabledModels": [
-    "litellm/chatgpt/gpt-6-astra",
-    "litellm/chatgpt/gpt-6-sol",
-    "litellm/chatgpt/gpt-6-luna",
     "github-copilot/gpt-6-astra",
     "github-copilot/gpt-6-sol",
     "github-copilot/gpt-6-luna",
