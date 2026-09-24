@@ -62,7 +62,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:getsops/sops" = "3.13.3"
 "aqua:BurntSushi/ripgrep" = "15.2.0"
 "aqua:junegunn/fzf" = "0.74.4"
-"aqua:jdx/usage" = "6.11.0"
+"aqua:jdx/usage" = "6.11.1"
 "aqua:atuinsh/atuin" = "18.23.0"
 "aqua:jesseduffield/lazygit" = "0.65.1"
 "aqua:starship/starship" = "1.26.0"
@@ -96,7 +96,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:oxlint" = "1.85.0"
-"npm:prettier" = "3.9.8"
+"npm:prettier" = "3.9.9"
 "npm:pyright" = "1.1.414"
 "npm:typescript-language-server" = "6.0.0"
 "npm:vim-language-server" = "2.3.1"
