@@ -199,6 +199,17 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertEqual(agent["environment"]["MISE_EXEC_AUTO_INSTALL"], "false")
         self.assertTrue(agent["keep_alive"])
 
+    def test_work_http_proxy_uses_local_first_hop_for_the_entire_profile(self) -> None:
+        environment = self.work["env"]
+        self.assertEqual(environment["HTTP_PROXY"], "http://127.0.0.1:1055")
+        self.assertEqual(environment["HTTPS_PROXY"], "http://127.0.0.1:1055")
+        self.assertEqual(environment["NO_PROXY"], "localhost,127.0.0.1,::1")
+        self.assertEqual(
+            self.base["env"]["CLIPROXYAPI_BASE_URL"],
+            "https://docker-host.mora-rattlesnake.ts.net:8444/",
+        )
+        self.assertNotIn("proxy:shell", self.work["tasks"])
+
     def test_moshi_launch_agent_has_one_shared_owner(self) -> None:
         agents = self.base["bootstrap"]["macos"]["launchd"]["agents"]
         self.assertIn("moshi-hook", agents)

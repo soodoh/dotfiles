@@ -108,9 +108,11 @@ MISE_ENV=work-macos mise bootstrap
 
 ### Manual steps for Work macOS
 
-Run `mise --env work-macos run proxy:shell` to opt in to an interactive Fish
-shell with `HTTP_PROXY`/`HTTPS_PROXY`. Do not set these for the entire work
-profile: bootstrap and CI also need unrestricted access to unrelated hosts.
+The `work-macos` profile exports `HTTP_PROXY`/`HTTPS_PROXY` to the loopback
+GOST client for proxy-aware processes started in that profile. Keep its user
+LaunchAgent running before relying on the profile: if `127.0.0.1:1055` is down,
+**all** proxy-aware HTTP requests can fail, including unrelated destinations.
+Bootstrap and CI may also require this local service when using the work profile.
 The loopback GOST client's **first-hop whitelist** sends `tailscale.com` and
 subdomains on ports 80/443, plus every `*.mora-rattlesnake.ts.net` peer on
 **any TCP port**, through the authenticated remote relay. This intentionally
@@ -119,11 +121,12 @@ protect and revoke the Authentik app password accordingly. Other requests that
 reach the local proxy are dialed directly from the Mac, subject to work-device
 network policy; they do **not** reach the remote GOST server. This is not
 equivalent to bypassing the local proxy or retaining an existing corporate
-upstream proxy. Do not add `.ts.net` to the task's `NO_PROXY` (the Tailscale
-daemon has its own, separate proxy environment). These shell variables do not
-configure browsers started by macOS. The opt-in macOS PAC sends all matching
-MagicDNS peers and ports through GOST, returning `DIRECT` for other browser
-destinations (the suffix apex does not match).
+upstream proxy. Do not add `.ts.net` to the work profile's `NO_PROXY` (the
+Tailscale daemon has its own, separate proxy environment). Profile environment
+variables do not configure browsers started by macOS. The opt-in macOS PAC sends
+all matching MagicDNS peers and ports through GOST, returning `DIRECT` for other
+browser destinations (the suffix apex does not match).
+
 The observed system baseline was no PAC, no autodiscovery and no active system
 proxy; do not apply this PAC if a corporate route is later configured. `DIRECT`
 still remains subject to the work device's network policy. A browser extension
@@ -137,11 +140,10 @@ mise --env work-macos run validate:fast
 launchctl kickstart -k "gui/$(id -u)/dev.mise.tailscale-control-proxy"
 ```
 
-Enter the opt-in shell and force a request through the local client, keeping
+From a work-profile shell, force a request through the local client, keeping
 response bodies and credentials out of terminal output:
 
 ```sh
-mise --env work-macos run proxy:shell
 curl --proxy http://127.0.0.1:1055 --noproxy '' \
   --silent --show-error --connect-timeout 10 --max-time 30 \
   --output /dev/null \
@@ -155,8 +157,9 @@ it should take the Mac's direct route rather than return the remote relay's
 allowlist refusal. This is no longer a valid negative test of the *remote*
 GOST server: the local client bypasses it for that destination. Verify Pi's
 CLIProxyAPI model request and an unrelated provider/tool independently. If
-other work services require a corporate HTTP proxy, leave the opt-in shell
-rather than broadening the remote GOST allowlist.
+other work services require a corporate HTTP proxy, use their approved route
+rather than assuming this first-hop bypass preserves that upstream or broadening
+the remote GOST allowlist.
 
 To test system browser routing, first confirm your work-device policy permits a
 user PAC. Mise manages the loopback-only PAC server but deliberately does **not**
