@@ -29,6 +29,11 @@ grep -Fq 'addr: "gost.diloreto.com:443"' <<<"$output"
 grep -Fq 'path: /tailscale-control' <<<"$output"
 grep -Fq 'host: gost.diloreto.com' <<<"$output"
 grep -Fq 'serverName: gost.diloreto.com' <<<"$output"
+grep -Fq 'bypass: relay-destinations' <<<"$output"
+grep -Fq 'whitelist: true' <<<"$output"
+for destination in 'tailscale.com:80' 'tailscale.com:443' '*.tailscale.com:80' '*.tailscale.com:443' 'docker-host.tailea1a78.ts.net:8444'; do
+  grep -Fq -- "- \"$destination\"" <<<"$output"
+done
 grep -Fq "Authorization: \"Basic $expected\"" <<<"$output"
 if grep -Fq 'test-app-password' <<<"$output"; then
   printf 'plaintext app password leaked into rendered configuration\n' >&2

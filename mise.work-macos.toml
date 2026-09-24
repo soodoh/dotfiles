@@ -74,6 +74,30 @@ environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr
 stdout_path = "~/Library/Logs/tailscale-control-proxy.log"
 stderr_path = "~/Library/Logs/tailscale-control-proxy.error.log"
 
+# Serves only the public routing rule on loopback; system PAC activation is opt-in.
+[bootstrap.macos.launchd.agents.cli-proxy-pac]
+program = "~/.local/bin/mise"
+args = [
+  "--env",
+  "work-macos",
+  "exec",
+  "--",
+  "python3",
+  "-m",
+  "http.server",
+  "1056",
+  "--bind",
+  "127.0.0.1",
+  "--directory",
+  "dotfiles/work/pac/site",
+]
+run_at_load = true
+keep_alive = true
+working_directory = "~/.local/share/dotfiles"
+environment = { PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", MISE_EXEC_AUTO_INSTALL = "false" }
+stdout_path = "~/Library/Logs/cli-proxy-pac.log"
+stderr_path = "~/Library/Logs/cli-proxy-pac.error.log"
+
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"
 
@@ -94,3 +118,29 @@ bash "$repo/dotfiles/work/bootstrap-repositories.sh"
 "~/.pi/agent/models.json" = "dotfiles/work/pi/agent/models.json"
 "~/.pi/agent/AGENTS.md" = "dotfiles/work/pi/agent/AGENTS.md"
 "~/.agents" = "dotfiles/work/agents"
+
+# Opt in from the work Mac: mise --env work-macos run proxy:shell.
+# Keep .ts.net out of NO_PROXY so CLIProxyAPI reaches the remote relay.
+# Other destinations reach the local GOST client, which dials them directly.
+[tasks."proxy:shell"]
+description = "Interactive work shell with selective local GOST relay routing"
+dir = "{{cwd}}"
+interactive = true
+run = "exec fish -i"
+env.HTTP_PROXY = "http://127.0.0.1:1055"
+env.HTTPS_PROXY = "http://127.0.0.1:1055"
+env.NO_PROXY = "localhost,127.0.0.1,::1"
+env.CLIPROXYAPI_BASE_URL = "https://docker-host.tailea1a78.ts.net:8444"
+
+# macOS PAC is per network service. Do not enable automatically at bootstrap.
+[tasks."proxy:pac:enable"]
+description = "Enable the work-only PAC after observing the named network service"
+interactive = true
+usage = 'arg "<service>" help="Network service name (e.g. Wi-Fi)"'
+run = 'bash dotfiles/work/pac/configure.sh enable {{ usage.service | quote }}'
+
+[tasks."proxy:pac:disable"]
+description = "Disable only the PAC URL managed by this work profile"
+interactive = true
+usage = 'arg "<service>" help="Network service name (e.g. Wi-Fi)"'
+run = 'bash dotfiles/work/pac/configure.sh disable {{ usage.service | quote }}'

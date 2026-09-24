@@ -31,6 +31,9 @@ chains:
   - name: tailscale-control-relay
     hops:
       - name: home-lab
+        # Only these destinations use the authenticated remote relay.
+        # Other requests through this loopback proxy exit directly from this Mac.
+        bypass: relay-destinations
         nodes:
           - name: authenticated-websocket
             addr: "gost.diloreto.com:443"
@@ -47,6 +50,16 @@ chains:
                   Authorization: "Basic ${authorization}"
             tls:
               serverName: gost.diloreto.com
+
+bypasses:
+  - name: relay-destinations
+    whitelist: true
+    matchers:
+      - "tailscale.com:80"
+      - "tailscale.com:443"
+      - "*.tailscale.com:80"
+      - "*.tailscale.com:443"
+      - "docker-host.tailea1a78.ts.net:8444"
 EOF
 }
 

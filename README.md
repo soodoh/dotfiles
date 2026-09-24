@@ -108,6 +108,87 @@ MISE_ENV=work-macos mise bootstrap
 
 ### Manual steps for Work macOS
 
+Run `mise --env work-macos run proxy:shell` to opt in to an interactive Fish
+shell with `HTTP_PROXY`/`HTTPS_PROXY`. Do not set these for the entire work
+profile: bootstrap and CI also need unrestricted access to unrelated hosts.
+The loopback GOST client uses a **first-hop whitelist**: only
+`tailscale.com` and its subdomains on ports 80/443, and
+`docker-host.tailea1a78.ts.net:8444`, use the authenticated remote relay.
+Other requests that reach the local proxy are dialed directly from the Mac,
+subject to work-device network policy; they do **not** reach the remote GOST
+server. This is not equivalent to bypassing the local proxy or retaining an
+existing corporate upstream proxy. Do not add `.ts.net` to the task's
+`NO_PROXY` (the Tailscale daemon has its own, separate proxy environment).
+These shell variables do not configure browsers started by macOS. On the work
+Mac, a separate opt-in macOS PAC rule sends only the exact CLIProxyAPI HTTPS
+host and port through GOST, returning `DIRECT` for other browser destinations.
+The observed system baseline was no PAC, no autodiscovery and no active system
+proxy; do not apply this PAC if a corporate route is later configured. `DIRECT`
+still remains subject to the work device's network policy. A browser extension
+proxy-permission block does not by itself block a system PAC.
+
+After pulling a reviewed change to the GOST client, validate and restart just
+its user LaunchAgent on the work Mac (not Tailscale):
+
+```sh
+mise --env work-macos run validate:fast
+launchctl kickstart -k "gui/$(id -u)/dev.mise.tailscale-control-proxy"
+```
+
+Enter the opt-in shell and force a request through the local client, keeping
+response bodies and credentials out of terminal output:
+
+```sh
+mise --env work-macos run proxy:shell
+curl --proxy http://127.0.0.1:1055 --noproxy '' \
+  --silent --show-error --connect-timeout 10 --max-time 30 \
+  --output /dev/null \
+  --write-out 'connect=%{http_connect} http=%{http_code} tls=%{ssl_verify_result}\n' \
+  https://docker-host.tailea1a78.ts.net:8444/v1/models
+```
+
+Expect `connect=200 http=401 tls=0` without an API key. Separately test a
+non-allowlisted site that work policy permits, **through the local proxy**;
+it should take the Mac's direct route rather than return the remote relay's
+allowlist refusal. This is no longer a valid negative test of the *remote*
+GOST server: the local client bypasses it for that destination. Verify Pi's
+CLIProxyAPI model request and an unrelated provider/tool independently. If
+other work services require a corporate HTTP proxy, leave the opt-in shell
+rather than broadening the remote GOST allowlist.
+
+To test system browser routing, first confirm your work-device policy permits a
+user PAC. Mise manages the loopback-only PAC server but deliberately does **not**
+enable macOS proxy settings at bootstrap. After reviewing the diff, on the work
+Mac install/reconcile just the user LaunchAgents, confirm the PAC is reachable,
+then enable it for the observed network service (replace `Wi-Fi` if needed):
+
+```sh
+MISE_ENV=work-macos mise bootstrap --only macos-launchd-agents
+curl --noproxy '*' --fail --silent --show-error --output /dev/null \
+  http://127.0.0.1:1056/cli-proxy.pac
+mise --env work-macos run proxy:pac:enable 'Wi-Fi'
+```
+
+The enable task refuses a different PAC, autodiscovery or manual web proxy and
+requires the authenticated relay transport to return the expected unauthenticated
+API refusal first. Test Chrome and Safari against the management page and a
+normal unrelated site with Zscaler enabled; Firefox must select **Use system
+proxy settings**. The PAC source is served over loopback HTTP only for this
+reversible trial: current macOS deprecates cleartext PAC URLs, so a browser may
+ignore or fail to fetch it. If either site fails, disable the setting promptly:
+
+```sh
+mise --env work-macos run proxy:pac:disable 'Wi-Fi'
+```
+
+The disable task only touches the exact managed URL; it leaves that URL stored
+but **inactive**. Confirm `networksetup -getautoproxyurl 'Wi-Fi'` reports
+`Enabled: No`. Clearing the inactive URL itself can be done in System Settings
+once verified; do not change an unrelated corporate proxy. Neither the PAC nor
+this task alters the Tailscale daemon's separate proxy environment. Browser
+requests for the management UI still require the distinct, full-privilege
+management key; do not put it in the PAC file or browser logs.
+
 - Authenticate TWG: `twg login`
 - Create isolated Azure CLI profiles. Bare `az` and the read-only `azure-test` Pi MCP use the development profile; the read-only `azure` Pi MCP uses the production profile. Run these after bootstrap from a fresh work-profile shell so mise has decrypted `AZURE_DEV_TENANT_ID`, `AZURE_PROD_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`:
 
