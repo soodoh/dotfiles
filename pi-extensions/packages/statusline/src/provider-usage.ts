@@ -9,15 +9,15 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import lockfile from "proper-lockfile";
+import { proxyUsageBadges, refreshProxyUsage } from "./cliproxy-usage";
 import type {
 	AuthCredentialLike,
 	ModelLike,
 	ModelRegistryLike,
 	ProviderUsageContext,
 } from "./pi-types";
+import { isUsageCacheFresh, usageSnapshotFreshness } from "./usage-freshness";
 
-const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
-const PROVIDER_USAGE_FAILURE_TTL_MS = 60 * 1000;
 const PROVIDER_USAGE_CACHE_VERSION = 10;
 const PROVIDER_USAGE_MIN_CACHE_VERSION = 5;
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
@@ -310,21 +310,6 @@ async function persistSharedCache(): Promise<void> {
 			// A compromised lease is already reported by the refresh owner.
 		}
 	}
-}
-
-function cacheEntryTtlMs(entry: ProviderUsageCacheEntry): number {
-	return entry.state === "error" || entry.state === "unknown"
-		? PROVIDER_USAGE_FAILURE_TTL_MS
-		: PROVIDER_USAGE_TTL_MS;
-}
-
-function isCacheEntryFresh(
-	entry: ProviderUsageCacheEntry | undefined,
-	now = Date.now(),
-): boolean {
-	return Boolean(
-		entry?.lastAttemptAt && now - entry.lastAttemptAt < cacheEntryTtlMs(entry),
-	);
 }
 
 function credentialFingerprint(value: string): string {
@@ -1355,7 +1340,7 @@ async function refreshProviderUsageTarget(
 		);
 	} catch {
 		hydrateSharedCache();
-		if (!isCacheEntryFresh(providerUsageCache.get(access.cacheKey))) {
+		if (!isUsageCacheFresh(providerUsageCache.get(access.cacheKey))) {
 			reportProviderUsageIssue(
 				ctx,
 				target,
@@ -1369,7 +1354,7 @@ async function refreshProviderUsageTarget(
 		lease.assertOwned();
 		// Another process may have refreshed while this process acquired the lease.
 		hydrateSharedCache();
-		if (isCacheEntryFresh(providerUsageCache.get(access.cacheKey)))
+		if (isUsageCacheFresh(providerUsageCache.get(access.cacheKey)))
 			return false;
 
 		const attemptedAt = Date.now();
@@ -1476,7 +1461,7 @@ async function queueProviderUsageRefresh(
 	}
 
 	hydrateSharedCache();
-	if (isCacheEntryFresh(providerUsageCache.get(access.cacheKey))) {
+	if (isUsageCacheFresh(providerUsageCache.get(access.cacheKey))) {
 		if (mappingChanged) onUpdate();
 		return;
 	}
@@ -1513,18 +1498,19 @@ export function refreshProviderUsage(
 ): Promise<void> {
 	getConfiguredModels(ctx, onUpdate);
 	const fetchId = providerUsageInvalidation;
-	return Promise.all(
-		targets
+	return Promise.all([
+		refreshProxyUsage(onUpdate),
+		...targets
 			.filter((target) =>
 				isProviderSupportedAuth(target.providerId, target.authKind),
 			)
 			.map((target) =>
 				queueProviderUsageRefresh(ctx, target, fetchId, onUpdate),
 			),
-	).then(() => undefined);
+	]).then(() => undefined);
 }
 
-function providerDisplayLabel(providerId: string): string {
+export function providerDisplayLabel(providerId: string): string {
 	switch (providerFamily(providerId)) {
 		case LLMHUB_USAGE_PROVIDER_ID:
 			return "LLMHub";
@@ -1557,12 +1543,17 @@ function formatLabeledPercent(label: string, percent: number): string {
 	return `${label}${formatPercent(percent)}`;
 }
 
-function formatResetDate(timestamp: number): string {
-	const resetAt = new Date(timestamp);
-	return `${resetAt.getMonth() + 1}/${resetAt.getDate()}`;
+function formatResetCountdown(timestamp: number): string {
+	const remainingMinutes = Math.max(
+		0,
+		Math.ceil((timestamp - Date.now()) / 60_000),
+	);
+	if (remainingMinutes < 60) return `${remainingMinutes}m`;
+	if (remainingMinutes < 24 * 60) return `${Math.ceil(remainingMinutes / 60)}h`;
+	return `${Math.ceil(remainingMinutes / (24 * 60))}d`;
 }
 
-function formatProviderScope(
+export function formatProviderScope(
 	scope: ProviderUsageScope | undefined,
 ): string | undefined {
 	if (!scope) return undefined;
@@ -1602,10 +1593,10 @@ function formatProviderScope(
 						? formatLabeledPercent(label, value)
 						: formatPercent(value);
 				const details: string[] = [];
-				if (resetAt !== undefined) details.push(formatResetDate(resetAt));
+				if (resetAt !== undefined) details.push(formatResetCountdown(resetAt));
 				if (index === percentages.length - 1 && resets) details.push(resets);
 				return details.length > 0
-					? `${percentage} (${details.join(" · ")})`
+					? `${percentage} (${details.join(" ")})`
 					: percentage;
 			})
 			.join("/");
@@ -1627,18 +1618,24 @@ function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
 	const status = providerUsageCache.get(
 		providerCacheKey(target.providerId, target.authKind),
 	);
-	const scopeText = formatProviderScope(status?.scope);
+	const freshness = usageSnapshotFreshness(status);
+	const scopeText =
+		freshness === "expired" ? undefined : formatProviderScope(status?.scope);
 	if (!scopeText && !target.active) return [];
-	return [`${providerDisplayLabel(target.providerId)} ${scopeText ?? "?"}`];
+	return [
+		`${providerDisplayLabel(target.providerId)} ${scopeText ? `${scopeText}${freshness === "stale" ? " !" : ""}` : "?"}`,
+	];
 }
 
 function providerUsageBadges(
 	targets: ProviderUsageTarget[],
 	activeOnly: boolean,
 	activeFamilyOverride?: string,
+	compact = false,
+	activeProxy = false,
 ): { active: boolean; text: string }[] {
 	hydrateSharedCache();
-	return targets
+	const direct = targets
 		.filter((target) =>
 			isProviderSupportedAuth(target.providerId, target.authKind),
 		)
@@ -1657,13 +1654,23 @@ function providerUsageBadges(
 				text,
 			})),
 		);
+	return [
+		...direct,
+		...(activeOnly && !activeProxy
+			? []
+			: proxyUsageBadges(compact).map((text) => ({
+					active: activeProxy,
+					text,
+				}))),
+	];
 }
 
 export function formatProviderUsage(
 	targets: ProviderUsageTarget[],
 	activeOnly = false,
+	compact = false,
 ): string | undefined {
-	const badges = providerUsageBadges(targets, activeOnly);
+	const badges = providerUsageBadges(targets, activeOnly, undefined, compact);
 	return badges.length > 0
 		? badges.map(({ text }) => text).join(PROVIDER_BADGE_SEPARATOR)
 		: undefined;
@@ -1675,8 +1682,15 @@ export function renderProviderUsage(
 	activeOnly: boolean,
 	renderActive: (text: string) => string = (text) => theme.fg("dim", text),
 	activeFamilyOverride?: string,
+	activeProxy = false,
 ): string | undefined {
-	const badges = providerUsageBadges(targets, activeOnly, activeFamilyOverride);
+	const badges = providerUsageBadges(
+		targets,
+		activeOnly,
+		activeFamilyOverride,
+		false,
+		activeProxy,
+	);
 	if (badges.length === 0) return undefined;
 	const separator = theme.fg("dim", PROVIDER_BADGE_SEPARATOR);
 	return badges

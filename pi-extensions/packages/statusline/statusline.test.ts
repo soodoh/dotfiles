@@ -87,6 +87,7 @@ function createPi(thinkingLevel: "off" | "high" = "off") {
 }
 
 beforeEach(async () => {
+	vi.stubEnv("CLIPROXYAPI_MANAGEMENT_KEY", undefined);
 	invalidateGit();
 	const cacheDir = await tempDir("pi-statusline-provider-cache");
 	vi.stubEnv(

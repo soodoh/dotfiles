@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
 
@@ -168,6 +168,10 @@ function llmHubContext({
 	};
 }
 
+beforeEach(() => {
+	delete process.env.CLIPROXYAPI_MANAGEMENT_KEY;
+});
+
 afterEach(() => {
 	invalidateProviderUsageCache();
 	process.env = { ...originalEnv };
@@ -263,7 +267,9 @@ describe("provider usage", () => {
 		await refreshAndWait(ctx, targets);
 
 		expect(fetchMock).toHaveBeenCalledTimes(2);
-		expect(render(targets)).toContain(`${OPENAI_LOGO} 95% (9/6 · ↻3)`);
+		expect(render(targets)).toContain(
+			`${OPENAI_LOGO} 95% (${Math.ceil((resetAt - Date.now()) / 86_400_000)}d ↻3)`,
+		);
 	});
 
 	test("does not reuse cached usage across different credentials", async () => {
@@ -556,12 +562,16 @@ describe("provider usage", () => {
 			responseKind = "error";
 			vi.setSystemTime(start + 5 * 60 * 1000 + 1);
 			await refreshAndWait(ctx, targets);
-			expect(render(targets)).toContain("Anthropic 42%");
+			expect(render(targets)).toContain("Anthropic 42% !");
 
 			responseKind = "unknown";
 			vi.setSystemTime(start + 6 * 60 * 1000 + 2);
 			await refreshAndWait(ctx, targets);
-			expect(render(targets)).toContain("Anthropic 42%");
+			expect(render(targets)).toContain("Anthropic 42% !");
+
+			vi.setSystemTime(start + 15 * 60 * 1000 + 1);
+			expect(render(targets)).toContain("Anthropic ?");
+			expect(render([{ ...targets[0], active: false }])).toBe("");
 		} finally {
 			vi.useRealTimers();
 		}
@@ -796,13 +806,17 @@ describe("provider usage", () => {
 			"OpenAI-Beta": "codex-1",
 			originator: "Codex Desktop",
 		});
-		expect(render(targets)).toContain(`${OPENAI_LOGO} 93% (9/6 · ↻3)`);
+		expect(render(targets)).toContain(
+			`${OPENAI_LOGO} 93% (${Math.ceil((sessionResetAt - Date.now()) / 86_400_000)}d ↻3)`,
+		);
 
 		availableResets = 0;
 		invalidateProviderUsageCache();
 		await refreshAndWait(ctx, targets);
 
-		expect(render(targets)).toContain(`${OPENAI_LOGO} 93% (9/6)`);
+		expect(render(targets)).toContain(
+			`${OPENAI_LOGO} 93% (${Math.ceil((sessionResetAt - Date.now()) / 86_400_000)}d)`,
+		);
 		expect(render(targets)).not.toContain("↻");
 		expect(render(targets)).not.toContain(" · ");
 	});

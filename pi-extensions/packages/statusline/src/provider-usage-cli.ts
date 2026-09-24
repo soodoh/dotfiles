@@ -39,5 +39,5 @@ const targets = await discoverProviderUsageTargetsAsync(ctx);
 await refreshProviderUsage(ctx, targets, () => {});
 
 process.stdout.write(
-	`${JSON.stringify({ text: formatProviderUsage(targets) ?? "" })}\n`,
+	`${JSON.stringify({ text: formatProviderUsage(targets, false, true) ?? "" })}\n`,
 );

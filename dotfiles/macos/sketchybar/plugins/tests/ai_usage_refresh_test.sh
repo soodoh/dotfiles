@@ -27,13 +27,41 @@ if env | grep -Eq '^(ANTHROPIC_BASE_URL|ANTHROPIC_AUTH_TOKEN|ANTHROPIC_API_KEY|L
   exit 1
 fi
 [ -f "$HOME/.pi/agent/models.json" ] && [ -f "$HOME/.pi/agent/auth.json" ] || exit 1
+if [ -n "${EXPECT_MISE_PROFILE:-}" ]; then
+  [ "$CLIPROXYAPI_MANAGEMENT_KEY" = 'fixture-only' ] || exit 1
+  [ "$CLIPROXYAPI_BASE_URL" = 'https://proxy.example.test/' ] || exit 1
+  if [ "$EXPECT_MISE_PROFILE" = work-macos ]; then
+    [ "$HTTPS_PROXY" = 'http://127.0.0.1:1055' ] || exit 1
+    [ "$NO_PROXY" = 'localhost,127.0.0.1,::1' ] || exit 1
+  else
+    [ -z "${HTTPS_PROXY:-}" ] && [ -z "${NO_PROXY:-}" ] || exit 1
+  fi
+fi
 printf '%s\n' '{"text":"Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%"}'
 EOF
 chmod +x "$tmp_dir/home/.local/share/mise/installs/bun/1.4.0/bin/bun"
 cat >"$tmp_dir/home/.local/bin/mise" <<'EOF'
 #!/bin/sh
-[ "$1" = "-C" ] && [ "$3" = "which" ] && [ "$4" = "bun" ] || exit 1
-printf '%s\n' "$HOME/.local/share/mise/installs/bun/1.4.0/bin/bun"
+[ "$1" = "-C" ] || exit 1
+if [ "$3" = "which" ] && [ "$4" = "bun" ]; then
+  printf '%s\n' "$HOME/.local/share/mise/installs/bun/1.4.0/bin/bun"
+  exit 0
+fi
+[ "$3" = "--env" ] && [ "$5" = "exec" ] && [ "$6" = "--" ] || exit 1
+[ "$MISE_AGE_STRICT" = true ] && [ "$MISE_EXEC_AUTO_INSTALL" = false ] || exit 1
+case "$4" in
+  work-macos)
+    EXPECT_MISE_PROFILE="$4" CLIPROXYAPI_MANAGEMENT_KEY=fixture-only \
+      CLIPROXYAPI_BASE_URL=https://proxy.example.test/ \
+      HTTP_PROXY=http://127.0.0.1:1055 HTTPS_PROXY=http://127.0.0.1:1055 \
+      NO_PROXY=localhost,127.0.0.1,::1 "$7" "$8"
+    ;;
+  personal-macos)
+    EXPECT_MISE_PROFILE="$4" CLIPROXYAPI_MANAGEMENT_KEY=fixture-only \
+      CLIPROXYAPI_BASE_URL=https://proxy.example.test/ "$7" "$8"
+    ;;
+  *) exit 1 ;;
+esac
 EOF
 chmod +x "$tmp_dir/home/.local/bin/mise"
 : >"$tmp_dir/provider-usage-cli.ts"
@@ -71,6 +99,36 @@ env -i \
 assert_contains 'icon.drawing=off label=Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%' "$log_file"
 assert_contains '--set right_separator.ai drawing=on' "$log_file"
 assert_contains '--move ai_usage.providers after right_separator.ai' "$log_file"
+
+mkdir -p "$tmp_dir/pi-extensions" "$tmp_dir/dotfiles/work" "$tmp_dir/dotfiles/personal"
+printf 'set -gx MISE_ENV work-macos\n' >"$tmp_dir/dotfiles/work/mise-profile.fish"
+printf 'set -gx MISE_ENV personal-macos\n' >"$tmp_dir/dotfiles/personal/mise-profile.fish"
+ln -s "$tmp_dir/dotfiles/work/mise-profile.fish" "$tmp_dir/profile"
+env -i \
+  HOME="$tmp_dir/home" \
+  PATH="$tmp_dir:/usr/bin:/bin" \
+  SKETCHYBAR_LOG="$log_file" \
+  SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
+  AI_USAGE_LOG_PATH="$usage_log" \
+  PI_EXTENSIONS_DIR="$tmp_dir/pi-extensions" \
+  PROVIDER_USAGE_CLI="$tmp_dir/provider-usage-cli.ts" \
+  AI_USAGE_MISE_PROFILE_FILE="$tmp_dir/profile" \
+  /bin/bash "$plugin_dir/ai_usage_refresh.sh"
+assert_contains 'icon.drawing=off label=Anthropic S12%/W55%' "$log_file"
+
+rm "$tmp_dir/profile"
+ln -s "$tmp_dir/dotfiles/personal/mise-profile.fish" "$tmp_dir/profile"
+env -i \
+  HOME="$tmp_dir/home" \
+  PATH="$tmp_dir:/usr/bin:/bin" \
+  SKETCHYBAR_LOG="$log_file" \
+  SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
+  AI_USAGE_LOG_PATH="$usage_log" \
+  PI_EXTENSIONS_DIR="$tmp_dir/pi-extensions" \
+  PROVIDER_USAGE_CLI="$tmp_dir/provider-usage-cli.ts" \
+  AI_USAGE_MISE_PROFILE_FILE="$tmp_dir/profile" \
+  /bin/bash "$plugin_dir/ai_usage_refresh.sh"
+assert_contains 'icon.drawing=off label=Anthropic S12%/W55%' "$log_file"
 
 printf '{"text":"Standalone 42%%"}\n' >"$tmp_dir/usage.json"
 PATH="$tmp_dir:$PATH" \

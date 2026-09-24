@@ -69,7 +69,26 @@ read_provider_usage() {
   fi
 
   [[ -n "$BUN_BIN" && -f "$PROVIDER_USAGE_CLI" ]] || return 1
-  "$BUN_BIN" "$PROVIDER_USAGE_CLI"
+  # Launchd/SketchyBar does not inherit Fish's mise profile. The installed
+  # Fish profile symlink already makes the choice explicitly; inspect its target
+  # without sourcing shell startup code. Only this child gets secrets and proxy vars.
+  local profile_file="${AI_USAGE_MISE_PROFILE_FILE:-$HOME/.config/fish/conf.d/10-mise-profile.fish}"
+  if [[ -e "$profile_file" ]]; then
+    local profile mise_bin checkout profile_target
+    checkout="$(dirname "$(realpath "$PI_EXTENSIONS_DIR")")"
+    profile_target="$(realpath "$profile_file")"
+    case "$profile_target" in
+      "$checkout/dotfiles/personal/mise-profile.fish") profile=personal-macos ;;
+      "$checkout/dotfiles/work/mise-profile.fish") profile=work-macos ;;
+      *) return 1 ;;
+    esac
+    mise_bin="${MISE_BIN:-$HOME/.local/bin/mise}"
+    [[ -x "$mise_bin" ]] || return 1
+    MISE_EXEC_AUTO_INSTALL=false MISE_AGE_STRICT=true \
+      "$mise_bin" -C "$checkout" --env "$profile" exec -- "$BUN_BIN" "$PROVIDER_USAGE_CLI"
+  else
+    "$BUN_BIN" "$PROVIDER_USAGE_CLI"
+  fi
 }
 
 sync_provider_usage() {

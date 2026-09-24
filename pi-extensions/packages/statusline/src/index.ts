@@ -506,6 +506,7 @@ function buildStatusLines(
 						providerMode === "active",
 						(text) => color(theme, "model", text),
 						mappedProviderUsageFamily(ctx.model),
+						ctx.model?.provider === "cliproxyapi",
 					);
 				case "context":
 					return renderContext(ctx, contextTokens, theme);
