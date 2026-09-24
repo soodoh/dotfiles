@@ -1,5 +1,5 @@
 [tools]
-"aqua:aws/aws-cli" = "2.37.1"
+"aqua:aws/aws-cli" = "2.37.2"
 "aqua:opentofu/opentofu" = "1.12.6"
 "pipx:ansible-core" = "2.21.4"
 "pipx:ansible-lint" = "26.9.0"
