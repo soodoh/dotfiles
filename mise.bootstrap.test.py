@@ -114,6 +114,43 @@ class MisePolicyTests(unittest.TestCase):
 
 
 class MiseConfigurationTests(unittest.TestCase):
+    def test_profile_bootstrap_plans_only_run_on_macos(self) -> None:
+        commands = load_toml("mise.toml")["tasks"]["validate:config"]["run"]
+        script = commands[-1]
+        with tempfile.TemporaryDirectory() as directory:
+            tools = Path(directory)
+            (tools / "uname").write_text('#!/bin/sh\nprintf "%s\\n" "$FAKE_UNAME"\n')
+            (tools / "mise").write_text(
+                '#!/bin/sh\nprintf "%s\\n" "$*" >> "$MISE_CALLS"\n'
+            )
+            for name in ("uname", "mise"):
+                (tools / name).chmod(0o755)
+            calls = tools / "calls"
+            for platform, expected in (
+                ("Linux", []),
+                (
+                    "Darwin",
+                    [
+                        "--env personal-macos bootstrap plan",
+                        "--env work-macos bootstrap plan",
+                    ],
+                ),
+            ):
+                with self.subTest(platform=platform):
+                    calls.write_text("")
+                    environment = os.environ | {
+                        "PATH": f"{tools}:{os.environ['PATH']}",
+                        "FAKE_UNAME": platform,
+                        "MISE_CALLS": str(calls),
+                    }
+                    subprocess.run(
+                        ["bash", "-c", script],
+                        cwd=ROOT,
+                        env=environment,
+                        check=True,
+                    )
+                    self.assertEqual(calls.read_text().splitlines(), expected)
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.base = load_toml("mise.toml")

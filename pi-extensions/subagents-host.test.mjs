@@ -116,10 +116,23 @@ test("historical isolated Pi layout: import-only exports resolve and missing dep
 	const fixtureSpecifiers = fixtureAliases.map(({ specifier }) => specifier);
 	const result = resolveHostPeerAliases(host);
 	assertAliasResolution(result, [], fixtureSpecifiers);
-	assert.deepEqual(result.aliases, expectedAliases);
+	assert.deepEqual(
+		Object.fromEntries(
+			Object.entries(result.aliases).map(([name, target]) => [
+				name,
+				realpathSync(target),
+			]),
+		),
+		Object.fromEntries(
+			Object.entries(expectedAliases).map(([name, target]) => [
+				name,
+				realpathSync(target),
+			]),
+		),
+	);
 	for (const target of Object.values(result.aliases)) {
 		assert.ok(
-			target.startsWith(`${modules}/`),
+			realpathSync(target).startsWith(`${realpathSync(modules)}/`),
 			"must not use extension/global peers",
 		);
 		assert.equal((await import(pathToFileURL(target).href)).marker, true);
