@@ -111,17 +111,19 @@ MISE_ENV=work-macos mise bootstrap
 Run `mise --env work-macos run proxy:shell` to opt in to an interactive Fish
 shell with `HTTP_PROXY`/`HTTPS_PROXY`. Do not set these for the entire work
 profile: bootstrap and CI also need unrestricted access to unrelated hosts.
-The loopback GOST client uses a **first-hop whitelist**: only
-`tailscale.com` and its subdomains on ports 80/443, and
-`docker-host.tailea1a78.ts.net:8444`, use the authenticated remote relay.
-Other requests that reach the local proxy are dialed directly from the Mac,
-subject to work-device network policy; they do **not** reach the remote GOST
-server. This is not equivalent to bypassing the local proxy or retaining an
-existing corporate upstream proxy. Do not add `.ts.net` to the task's
-`NO_PROXY` (the Tailscale daemon has its own, separate proxy environment).
-These shell variables do not configure browsers started by macOS. On the work
-Mac, a separate opt-in macOS PAC rule sends only the exact CLIProxyAPI HTTPS
-host and port through GOST, returning `DIRECT` for other browser destinations.
+The loopback GOST client's **first-hop whitelist** sends `tailscale.com` and
+subdomains on ports 80/443, plus every `*.mora-rattlesnake.ts.net` peer on
+**any TCP port**, through the authenticated remote relay. This intentionally
+includes other tailnet admin services reachable as the Docker-host identity:
+protect and revoke the Authentik app password accordingly. Other requests that
+reach the local proxy are dialed directly from the Mac, subject to work-device
+network policy; they do **not** reach the remote GOST server. This is not
+equivalent to bypassing the local proxy or retaining an existing corporate
+upstream proxy. Do not add `.ts.net` to the task's `NO_PROXY` (the Tailscale
+daemon has its own, separate proxy environment). These shell variables do not
+configure browsers started by macOS. The opt-in macOS PAC sends all matching
+MagicDNS peers and ports through GOST, returning `DIRECT` for other browser
+destinations (the suffix apex does not match).
 The observed system baseline was no PAC, no autodiscovery and no active system
 proxy; do not apply this PAC if a corporate route is later configured. `DIRECT`
 still remains subject to the work device's network policy. A browser extension
@@ -144,7 +146,7 @@ curl --proxy http://127.0.0.1:1055 --noproxy '' \
   --silent --show-error --connect-timeout 10 --max-time 30 \
   --output /dev/null \
   --write-out 'connect=%{http_connect} http=%{http_code} tls=%{ssl_verify_result}\n' \
-  https://docker-host.tailea1a78.ts.net:8444/v1/models
+  https://docker-host.mora-rattlesnake.ts.net:8444/v1/models
 ```
 
 Expect `connect=200 http=401 tls=0` without an API key. Separately test a

@@ -59,7 +59,7 @@ bypasses:
       - "tailscale.com:443"
       - "*.tailscale.com:80"
       - "*.tailscale.com:443"
-      - "docker-host.tailea1a78.ts.net:8444"
+      - "*.mora-rattlesnake.ts.net"
 EOF
 }
 

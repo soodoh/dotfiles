@@ -31,7 +31,7 @@ grep -Fq 'host: gost.diloreto.com' <<<"$output"
 grep -Fq 'serverName: gost.diloreto.com' <<<"$output"
 grep -Fq 'bypass: relay-destinations' <<<"$output"
 grep -Fq 'whitelist: true' <<<"$output"
-for destination in 'tailscale.com:80' 'tailscale.com:443' '*.tailscale.com:80' '*.tailscale.com:443' 'docker-host.tailea1a78.ts.net:8444'; do
+for destination in 'tailscale.com:80' 'tailscale.com:443' '*.tailscale.com:80' '*.tailscale.com:443' '*.mora-rattlesnake.ts.net'; do
   grep -Fq -- "- \"$destination\"" <<<"$output"
 done
 grep -Fq "Authorization: \"Basic $expected\"" <<<"$output"

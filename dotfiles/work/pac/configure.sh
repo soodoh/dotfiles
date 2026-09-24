@@ -34,7 +34,7 @@ if [[ $action == enable ]]; then
     --silent --show-error --connect-timeout 10 --max-time 30 \
     --output /dev/null \
     --write-out '%{http_connect} %{http_code} %{ssl_verify_result}' \
-    https://docker-host.tailea1a78.ts.net:8444/v1/models)
+    https://docker-host.mora-rattlesnake.ts.net:8444/v1/models)
   if [[ $observed != '200 401 0' ]]; then
     printf 'Refusing PAC activation: CLIProxyAPI relay did not pass the unauthenticated check\n' >&2
     exit 1

@@ -8,6 +8,9 @@ NODE_EXTRA_CA_CERTS = "${SSL_CERT_FILE:-}"
 AWS_CA_BUNDLE = "${SSL_CERT_FILE:-}"
 CURL_CA_BUNDLE = "${SSL_CERT_FILE:-}"
 HTTPLIB2_CA_CERTS = "${SSL_CERT_FILE:-}"
+HTTP_PROXY = "http://127.0.0.1:1055"
+HTTPS_PROXY = "http://127.0.0.1:1055"
+NO_PROXY = "localhost,127.0.0.1,::1"
 GH_HOST = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBkc3NBVS91azRMRXZSK0FUdkZ3NXhpUW9IeHdlUmNjWFZ2dEtFUzZpc1U4Cjh5YndzT2RSMlpFTHIzZldPS1pKQnhOaDFYS3Z0MGhlUytSL1FOMmNwQW8KLT4gc0ZOe0J3W3ctZ3JlYXNlCktRZU1qd1UzQ3lxNDEyT1poajdUbHFiekhGNFRoTks2VUZzSVpOcTFOMU13aTNaMXJaZ0I4SldKaWNQbE5XQi8KbUpqbXdyZFBqNmx4NWp5b2J1RHZ4Y3d0MkVySTlZWWl0WStLVlVnUkx4cU1YN0JvQlFPTWZqKy9tVTIzczkzZwpwUQotLS0gaTgrNkY5YlJNMjZpMjJBcndXTUJuMTNwSmlkNUF3aWttMkovK3NNV2xsRQq6kC+amBxGxzfj0ZiLt4KXgPyuFGJYpauISsOaX71gf0aVM2SROChOnrfW6cE+DIy8jusmeA" }
 GH_ENTERPRISE_TOKEN = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAzUjM1dnZPVENhZU9kSkpHWWtNNVJjVzQ0clBaT0Jsd2V5dmoxeUVGOXhJCmtrM3dmYWYrUENpTFg3RVdqU3hFZEhINGd5ODhQdDJqVDlxVHg5cWFNNzAKLT4gLyRLIzUtZ3JlYXNlICt+fHVuTiAzKyVXICZNClBHTQotLS0gVkZSQjByNFE1MEppTmgzd0drek15U1RFTFRENzlpRTlnQmJOemg4VGFxawr6upWbDTT+jsbeEPv84q9BWoB/xTgNroM901qeudvYpUdTvehHUvT9diBA6Fsn+A6F+V8a7e1ROBCMLjwpHuun7vgegZ8zpVM" }
 FIGMA_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBVQjJRS1VlWE1Jb0RZUTl4M2ZrWjBJVWxMVDkwaDVXNzE3WThQNS9VTENrCk8wZUp5cFF1TlEvWVBXQUhCbkNhWXZLTDZYRXJxbUNnbHQ4cW4xUHFEODQKLT4gJEQwci16TVktZ3JlYXNlIH4gSVVDRCBPfSU/CjJobHJMZGJQS2ozeXkxTlcKLS0tIG44YlQ2byt6Y1p6S2lyU3pWbmpqdkZDN2Zyd0FocU1oMS9yQmtFYmJrYzQKTj4ZnSSxJ6UW231KEjwJ96vgJ6MavhsAemHX7uwjSsBRnqs90qrwMPEmGb/oEaqKs4+IxtFmRSCSREAK32fHDN1jug4qVNwTfUp2viQ" }
@@ -118,19 +121,6 @@ bash "$repo/dotfiles/work/bootstrap-repositories.sh"
 "~/.pi/agent/models.json" = "dotfiles/work/pi/agent/models.json"
 "~/.pi/agent/AGENTS.md" = "dotfiles/work/pi/agent/AGENTS.md"
 "~/.agents" = "dotfiles/work/agents"
-
-# Opt in from the work Mac: mise --env work-macos run proxy:shell.
-# Keep .ts.net out of NO_PROXY so CLIProxyAPI reaches the remote relay.
-# Other destinations reach the local GOST client, which dials them directly.
-[tasks."proxy:shell"]
-description = "Interactive work shell with selective local GOST relay routing"
-dir = "{{cwd}}"
-interactive = true
-run = "exec fish -i"
-env.HTTP_PROXY = "http://127.0.0.1:1055"
-env.HTTPS_PROXY = "http://127.0.0.1:1055"
-env.NO_PROXY = "localhost,127.0.0.1,::1"
-env.CLIPROXYAPI_BASE_URL = "https://docker-host.tailea1a78.ts.net:8444"
 
 # macOS PAC is per network service. Do not enable automatically at bootstrap.
 [tasks."proxy:pac:enable"]
