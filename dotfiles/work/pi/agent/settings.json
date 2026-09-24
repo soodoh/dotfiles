@@ -39,7 +39,19 @@
   "steeringMode": "all",
   "autoSessionName": {
     "titleModel": [
-      "google-vertex/gemini-3.7-flash"
+      "google-vertex/gemini-flash-latest"
     ]
-  }
+  },
+  "enabledModels": [
+    "cliproxyapi/gpt-6-astra",
+    "cliproxyapi/gpt-6-sol",
+    "cliproxyapi/gpt-6-luna",
+    "github-copilot/gpt-6-astra",
+    "github-copilot/gpt-6-sol",
+    "github-copilot/gpt-6-luna",
+    "github-copilot/claude-opus-5.5",
+    "github-copilot/claude-opus-5",
+    "github-copilot/claude-sonnet-5",
+    "google-vertex/gemini-flash-latest"
+  ]
 }

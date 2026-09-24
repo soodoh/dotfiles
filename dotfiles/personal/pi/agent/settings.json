@@ -1,6 +1,6 @@
 {
   "lastChangelogVersion": "0.87.1",
-  "defaultProvider": "openai-codex",
+  "defaultProvider": "cliproxyapi",
   "defaultModel": "gpt-6-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
@@ -38,13 +38,13 @@
   "steeringMode": "all",
   "autoSessionName": {
     "titleModel": [
-      "google-vertex/gemini-3.7-flash"
+      "google-vertex/gemini-flash-latest"
     ]
   },
   "enabledModels": [
-    "openai-codex/gpt-6-astra",
-    "openai-codex/gpt-6-sol",
-    "openai-codex/gpt-6-luna",
-    "google-vertex/gemini-3.7-flash"
+    "cliproxyapi/gpt-6-astra",
+    "cliproxyapi/gpt-6-sol",
+    "cliproxyapi/gpt-6-luna",
+    "google-vertex/gemini-flash-latest"
   ]
 }
