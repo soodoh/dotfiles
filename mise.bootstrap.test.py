@@ -187,7 +187,7 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertEqual(managed_file["source"], "dotfiles/work/tailscaled-env.txt")
         self.assertEqual(managed_file["owner"], "root")
         self.assertEqual(managed_file["group"], "wheel")
-        self.assertEqual(managed_file["mode"], "0600")
+        self.assertEqual(managed_file["mode"], "0644")
 
         agent = self.work["bootstrap"]["macos"]["launchd"]["agents"][
             "tailscale-control-proxy"
