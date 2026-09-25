@@ -165,30 +165,35 @@ To test system browser routing, first confirm your work-device policy permits a
 user PAC. Mise manages the loopback-only PAC server but deliberately does **not**
 enable macOS proxy settings at bootstrap. After reviewing the diff, on the work
 Mac install/reconcile just the user LaunchAgents, confirm the PAC is reachable,
-then enable it for the observed network service (replace `Wi-Fi` if needed):
+then enable it for the allow-listed `Wi-Fi` and `Thunderbolt Ethernet Slot 0`
+services. A missing service is warned about and skipped; if neither exists,
+no changes are made:
 
 ```sh
 MISE_ENV=work-macos mise bootstrap --only macos-launchd-agents
 curl --noproxy '*' --fail --silent --show-error --output /dev/null \
   http://127.0.0.1:1056/cli-proxy.pac
-mise --env work-macos run proxy:pac:enable 'Wi-Fi'
+mise --env work-macos run proxy:pac:enable
 ```
 
-The enable task refuses a different PAC, autodiscovery or manual web proxy and
-requires the authenticated relay transport to return the expected unauthenticated
-API refusal first. Test Chrome and Safari against the management page and a
+The enable task checks both existing services before making changes, refuses a
+different PAC, autodiscovery or manual web proxy, and requires the authenticated
+relay transport to return the expected unauthenticated API refusal first. It
+only rolls back services changed by that run if activation fails. Test Chrome,
+Zen, Firefox and Safari against the management page and a
 normal unrelated site with Zscaler enabled; Firefox must select **Use system
 proxy settings**. The PAC source is served over loopback HTTP only for this
 reversible trial: current macOS deprecates cleartext PAC URLs, so a browser may
 ignore or fail to fetch it. If either site fails, disable the setting promptly:
 
 ```sh
-mise --env work-macos run proxy:pac:disable 'Wi-Fi'
+mise --env work-macos run proxy:pac:disable
 ```
 
-The disable task only touches the exact managed URL; it leaves that URL stored
-but **inactive**. Confirm `networksetup -getautoproxyurl 'Wi-Fi'` reports
-`Enabled: No`. Clearing the inactive URL itself can be done in System Settings
+The disable task only touches the exact managed URL on either existing service;
+it leaves that URL stored but **inactive**. Check `networksetup -getautoproxyurl`
+for each installed service and confirm it reports `Enabled: No`. Clearing the inactive URL itself
+can be done in System Settings
 once verified; do not change an unrelated corporate proxy. Neither the PAC nor
 this task alters the Tailscale daemon's separate proxy environment. Browser
 requests for the management UI still require the distinct, full-privilege

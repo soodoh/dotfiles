@@ -124,13 +124,11 @@ bash "$repo/dotfiles/work/bootstrap-repositories.sh"
 
 # macOS PAC is per network service. Do not enable automatically at bootstrap.
 [tasks."proxy:pac:enable"]
-description = "Enable the work-only PAC after observing the named network service"
+description = "Enable the work-only PAC for the allow-listed network services"
 interactive = true
-usage = 'arg "<service>" help="Network service name (e.g. Wi-Fi)"'
-run = 'bash dotfiles/work/pac/configure.sh enable {{ usage.service | quote }}'
+run = 'bash dotfiles/work/pac/configure.sh'
 
 [tasks."proxy:pac:disable"]
-description = "Disable only the PAC URL managed by this work profile"
+description = "Disable the PAC URL managed by this work profile"
 interactive = true
-usage = 'arg "<service>" help="Network service name (e.g. Wi-Fi)"'
-run = 'bash dotfiles/work/pac/configure.sh disable {{ usage.service | quote }}'
+run = 'bash dotfiles/work/pac/configure.sh disable'
