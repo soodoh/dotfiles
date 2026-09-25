@@ -1,6 +1,6 @@
 {
   "lastChangelogVersion": "0.87.1",
-  "defaultProvider": "cliproxyapi",
+  "defaultProvider": "openai-codex",
   "defaultModel": "gpt-6-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
@@ -42,6 +42,9 @@
     ]
   },
   "enabledModels": [
+    "openai-codex/gpt-6-astra",
+    "openai-codex/gpt-6-sol",
+    "openai-codex/gpt-6-luna",
     "cliproxyapi/gpt-6-astra",
     "cliproxyapi/gpt-6-sol",
     "cliproxyapi/gpt-6-luna",
