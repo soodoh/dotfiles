@@ -1,6 +1,6 @@
 {
   "lastChangelogVersion": "0.87.1",
-  "defaultProvider": "github-copilot",
+  "defaultProvider": "cliproxyapi",
   "defaultModel": "gpt-6-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
