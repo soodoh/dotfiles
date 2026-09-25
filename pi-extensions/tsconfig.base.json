@@ -1,6 +1,7 @@
 {
 	"exclude": ["coverage", "dist", "node_modules"],
 	"compilerOptions": {
+		"allowImportingTsExtensions": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
 		"lib": ["ES2022", "DOM"],

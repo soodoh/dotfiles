@@ -1,7 +1,12 @@
 import { resolve } from "node:path";
 import { readStoredCredential } from "@earendil-works/pi-coding-agent";
 import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { isCliproxyFast } from "./cliproxy-fast";
+import {
+	FAST_CHANGED_EVENT,
+	FAST_READER_EVENT,
+	type FastReader,
+	isCliproxyFast,
+} from "./cliproxy-fast";
 import {
 	type GitStatus,
 	getGitStatus,
@@ -113,6 +118,10 @@ type ExtensionEventName =
 	| "thinking_level_select";
 
 type ExtensionAPI = {
+	events: Pick<
+		import("@earendil-works/pi-coding-agent").ExtensionAPI["events"],
+		"on"
+	>;
 	getThinkingLevel?(): ThinkingLevel;
 	on(
 		eventName: ExtensionEventName,
@@ -353,12 +362,16 @@ function collectContextTokens(ctx: ExtensionContext): number {
 	return contextTokens ?? 0;
 }
 
-function renderModel(ctx: ExtensionContext, theme: Theme): string {
+function renderModel(
+	ctx: ExtensionContext,
+	theme: Theme,
+	fastReader: FastReader | undefined,
+): string {
 	let modelName = ctx.model?.name || ctx.model?.id || "no-model";
 	if (modelName.startsWith("Claude ")) modelName = modelName.slice(7);
 
 	const model = color(theme, "model", withIcon(ICONS.model, modelName));
-	return isCliproxyFast(ctx.model)
+	return isCliproxyFast(ctx.model, fastReader)
 		? `${model} ${theme.fg("warning", ICONS.fast)}`
 		: model;
 }
@@ -466,6 +479,7 @@ function buildStatusLines(
 	onUpdate: () => void,
 	width: number,
 	thinkingLevel: ThinkingLevel,
+	fastReader: FastReader | undefined,
 ): string[] {
 	const layout = getStatuslineLayout(ctx);
 	const allSections = layout.flat();
@@ -493,7 +507,7 @@ function buildStatusLines(
 		sections.map((section) => {
 			switch (section) {
 				case "model":
-					return renderModel(ctx, theme);
+					return renderModel(ctx, theme, fastReader);
 				case "thinking":
 					return renderThinking(thinkingLevel, theme);
 				case "git":
@@ -537,8 +551,14 @@ export default function statusline(pi: ExtensionAPI): void {
 	let footerData: ReadonlyFooterDataProvider | null = null;
 	let tuiRef: { requestRender?: () => void } | null = null;
 	let thinkingLevel: ThinkingLevel = "off";
-
+	let fastReader: FastReader | undefined;
 	const requestRender = () => tuiRef?.requestRender?.();
+	pi.events.on(FAST_READER_EVENT, (value) => {
+		fastReader =
+			typeof value === "function" ? (value as FastReader) : undefined;
+		requestRender();
+	});
+	pi.events.on(FAST_CHANGED_EVENT, requestRender);
 	const refreshCurrentProviderUsage = (ctx: ExtensionContext): void => {
 		currentCtx = ctx;
 		if (hasProviderUsageSection(ctx)) {
@@ -595,6 +615,7 @@ export default function statusline(pi: ExtensionAPI): void {
 							requestRender,
 							width,
 							thinkingLevel,
+							fastReader,
 						);
 					},
 				};
@@ -609,6 +630,7 @@ export default function statusline(pi: ExtensionAPI): void {
 	});
 	pi.on("session_shutdown", (_event, ctx) => {
 		if (currentCtx === ctx) currentCtx = null;
+		fastReader = undefined;
 	});
 	pi.on("agent_start", (_event, ctx) => {
 		currentCtx = ctx;

@@ -4,12 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import {
-	resolveEndpoints,
-	saveModelsCache,
-} from "@router-for-me/pi-cliproxyapi-provider/extensions/lib";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import statusline from "./index";
+import { FAST_CHANGED_EVENT, FAST_READER_EVENT } from "./src/cliproxy-fast";
 import { invalidateGit } from "./src/git-status";
 
 const execFileAsync = promisify(execFile);
@@ -77,8 +74,18 @@ type StatuslineContext = {
 
 function createPi(thinkingLevel: "off" | "high" = "off") {
 	const handlers = new Map<string, Handler>();
+	const listeners = new Map<string, (data: unknown) => void>();
 	return {
 		handlers,
+		events: {
+			on(name: string, handler: (data: unknown) => void) {
+				listeners.set(name, handler);
+				return () => listeners.delete(name);
+			},
+			emit(name: string, data: unknown) {
+				listeners.get(name)?.(data);
+			},
+		},
 		getThinkingLevel: vi.fn(() => thinkingLevel),
 		on(eventName: string, handler: Handler) {
 			handlers.set(eventName, handler);
@@ -164,7 +171,11 @@ describe("statusline extension", () => {
 				onBranchChange: () => () => undefined,
 			},
 		);
-		const widget = widgetFactory?.({}, { fg: (_color, text) => text });
+		const requestRender = vi.fn();
+		const widget = widgetFactory?.(
+			{ requestRender },
+			{ fg: (_color, text) => text },
+		);
 		const line = widget?.render(120).join("\n") ?? "";
 
 		expect(line).toContain("Sonnet Test");
@@ -173,22 +184,23 @@ describe("statusline extension", () => {
 		expect(line).toContain("25.0%/1.0k");
 
 		const agentDir = await tempDir("pi-statusline-cliproxy");
-		const baseUrl = "https://proxy.example.test";
 		vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
-		vi.stubEnv("CLIPROXYAPI_BASE_URL", baseUrl);
-		vi.stubEnv("CLIPROXYAPI_API_KEY", "test-key");
-		vi.stubEnv("CLIPROXYAPI_FAST", undefined);
-		const { inferenceBaseUrl, modelsUrl } = resolveEndpoints(baseUrl);
-		saveModelsCache(agentDir, {
-			models: [],
-			fastModelIds: ["gpt-fast"],
-			inferenceBaseUrl,
-			modelsUrl,
-		});
 		ctx.model = { name: "gpt-fast", id: "gpt-fast", provider: "cliproxyapi" };
-		await writeFile(join(agentDir, "cliproxyapi.json"), '{"fast":true}');
+		let enabled = false;
+		pi.events.emit(
+			FAST_READER_EVENT,
+			(provider: string, id: string) =>
+				enabled && provider === "cliproxyapi" && id === "gpt-fast",
+		);
+		expect(widget?.render(120).join("\n")).not.toContain("\uF0E7");
+		enabled = true;
+		pi.events.emit(FAST_CHANGED_EVENT, undefined);
+		expect(requestRender).toHaveBeenCalled();
 		expect(widget?.render(120).join("\n")).toContain("\uF0E7");
 		await writeFile(join(agentDir, "cliproxyapi.json"), '{"fast":false}');
+		expect(widget?.render(120).join("\n")).toContain("\uF0E7");
+		enabled = false;
+		pi.events.emit(FAST_CHANGED_EVENT, undefined);
 		expect(widget?.render(120).join("\n")).not.toContain("\uF0E7");
 	});
 

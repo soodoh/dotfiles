@@ -240,6 +240,38 @@ await test("unexpected persistent startup work is terminated, not reported as a 
 	);
 });
 
+await test("actual host publishes a Fast reader from the provider adapter", () => {
+	const root = realpathSync(mkdtempSync(join(tmpdir(), "pi-fast-host-")));
+	const listener = join(root, "listener.mjs");
+	const checker = join(root, "checker.mjs");
+	writeFileSync(
+		listener,
+		`export default (pi) => {
+		pi.events.on("dotfiles:cliproxyapi-fast-reader", (value) => {
+			if (typeof value !== "function") throw new Error("No live Fast reader");
+			globalThis.__fastReaderCaptured = true;
+		});
+	};`,
+	);
+	writeFileSync(
+		checker,
+		`export default () => {
+		if (!globalThis.__fastReaderCaptured) throw new Error("Provider did not publish its Fast reader");
+	};`,
+	);
+	try {
+		const report = runExtensionProbe(
+			host,
+			packageRoot,
+			[listener, join(packageRoot, "packages/cliproxyapi/index.ts"), checker],
+			{ extraReadPaths: [root] },
+		);
+		assert.deepEqual(report.errors, []);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
 await test("manifest resources load with the actual mise Pi", async (t) => {
 	t.diagnostic(`Node ${process.version}; Pi ${host.version}: ${host.root}`);
 	const resources = manifestResources(packageRoot);
