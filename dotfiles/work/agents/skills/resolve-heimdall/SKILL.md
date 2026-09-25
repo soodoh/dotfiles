@@ -89,24 +89,25 @@ After a successful reply:
 
 Re-fetch all threads after replies and resolution. The post-mutation invariant is: every non-self comment has a disposition reply, every Heimdall-only addressed thread is resolved, and non-Heimdall threads remain unresolved.
 
-## 5. Monitor the Azure DevOps Heimdall job
+## 5. Wait for the next run, then for Heimdall
 
-Use the PR's GitHub `statusCheckRollup` and check URLs to identify the Azure DevOps build/pipeline associated with the current PR. The GitHub check may be named after the **whole build**, while `Heimdall Code Review` is a stage or job within it. Use the check URL, build metadata, and pipeline configuration to identify that job; verify the Azure DevOps project, pipeline/build ID, repository, PR ref, and source revision instead of guessing any of them.
+After a push, record the PR head SHA and the push time. The GitHub Azure check may be absent until long after Azure has queued the build; its absence immediately after a push is **pending**, not a blocker. Use the last known PR check URL/build and repository pipeline configuration to identify the Azure DevOps project and pipeline definition. If no prior check exists, discover the definition from repository/PR metadata; stop only if the correct pipeline cannot be identified without guessing. Do not reuse an old run as evidence for the new head.
 
-Prefer the configured Azure DevOps MCP tools:
+Prefer `azure-devops_pipelines_build` with `action: "list"`, filtering by the identified definition and `branchName: "refs/pull/<number>/merge"`. Inspect the returned `triggerInfo["pr.sourceSha"]` (and `triggerInfo["pr.number"]` when present) for an exact match to the current **GitHub PR head SHA**. Azure `sourceVersion` on a PR build can be the synthetic merge commit, so it is not an adequate head-SHA comparison. If several runs match, follow the latest queued run; a run for an older head never satisfies the wait. Once found, record its build ID, queue/start timestamps, and URL. Check the GitHub status only when helpful for correlation, not as the sole discovery mechanism.
 
-- `azure-devops_pipelines_build` with `action: "list"` or `"get_status"` for build status and branch/repository filtering.
-- `azure-devops_pipelines_run` when the check identifies a YAML pipeline/run.
-- `azure-devops_pipelines_build_log` when status metadata is insufficient to distinguish the Heimdall stage/job. If the MCP surface cannot expose job-level status, use the Azure DevOps build timeline API with existing authenticated access; otherwise report that the job's completion cannot be verified.
+Use a bounded, low-token wait in **two phases**:
 
-Poll at a reasonable interval (roughly 30–60 seconds) while the associated Heimdall code-review job is queued or running. Re-read the PR status after each terminal build and ensure the observed run belongs to the current head commit. If the check is absent, the pipeline identity is ambiguous, or the run belongs to another commit, stop and report the evidence rather than waiting on an unrelated build.
+1. **Appearance:** allow an initial ~2-minute quiet period after the push, then check Azure every ~2 minutes for the matching build. At 15 minutes with no run, report a *delay* (not a failure) and keep checking every ~5 minutes up to 60 minutes after the push. If still absent, investigate path filters, disabled PR triggers, API/permission issues, and pipeline health before reporting a missing-run blocker. Do not wait for a build if the actual changed paths are excluded from the PR trigger; explain that no run is expected.
+2. **Execution:** once matched, poll the build/job about every 3 minutes. A queued build is still pending; queue-to-start delays of tens of minutes are possible. Determine Heimdall stage/job completion from job-level evidence when available (for example, the Azure DevOps build timeline via existing authenticated access). Use `azure-devops_pipelines_run` or `azure-devops_pipelines_build_log` only when needed to distinguish Heimdall from other stages. If job-level evidence is unavailable, wait for the **matching build's** terminal result as a conservative upper bound, and say which signal was observed. At 2 hours after queueing, give a delayed-status update and investigate; at 3 hours, report the still-pending run and stop monitoring rather than claim completion.
+
+Keep repeated checks inside a bounded scripted poll (for example, a 10–15-minute `mcpScript` batch with `timeoutMs` set above the batch duration and an explicit deadline). Its sandbox has no `setTimeout`; a tested way to sleep is `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, intervalMs)`. Check after each sleep, with a finite iteration limit; allow time for API calls within the batch deadline. Parse only the relevant fields and return state transitions, run IDs, elapsed time, and the terminal result, not full build HTML, log content, or every unchanged response. Resume another bounded batch if still pending. Use the Azure DevOps MCP for pipeline reads; use a fallback API only when the MCP cannot expose the needed job-level state. Check the PR/head SHA at each batch boundary and on terminal results, and stop if the branch advances unexpectedly. Bounded batches avoid both busy polling and spending model tokens on each unchanged result.
 
 Interpret terminal states carefully:
 
 - A completed successful Heimdall run permits the final thread scan.
 - A completed run with review findings requires another review cycle after the findings are replied to and any fixes are pushed. If all findings are answered without code changes, its completed result can satisfy the wait; an empty commit is not needed.
 - A failed or canceled run caused by infrastructure, authentication, or an unrelated pipeline error is a blocker to report.
-- A failed run that clearly produced Heimdall comments is handled as a review cycle. If fixes are pushed, verify a new run for the new head before finishing.
+- A failed run that clearly produced Heimdall comments is handled as a review cycle. If fixes are pushed, wait for a **new** run matching the new head before finishing.
 
 ## 6. Repeat until the done condition is true
 
