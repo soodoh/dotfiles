@@ -7,7 +7,7 @@
       "dependencies": {
         "@juicesharp/rpiv-ask-user-question": "2.11.0",
         "@plannotator/pi-extension": "0.27.20",
-        "@router-for-me/pi-cliproxyapi-provider": "1.4.19",
+        "@router-for-me/pi-cliproxyapi-provider": "1.4.20",
         "pi-mcp-adapter": "2.37.0",
         "pi-subagents": "0.71.0",
         "pi-vim": "0.14.2",
@@ -290,7 +290,7 @@
 
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.1", "", {}, "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="],
 
-    "@router-for-me/pi-cliproxyapi-provider": ["@router-for-me/pi-cliproxyapi-provider@1.4.19", "", { "peerDependencies": { "@earendil-works/pi-ai": "*", "@earendil-works/pi-coding-agent": ">=0.82.0" } }, "sha512-CHfws0vQubRpfj4NXYymSeSoAKw6UlK638YvN9DKphoIYJiIVeAmsHDta94i4Yvzuu6O30ZF2q0Mw/2t2BYtFg=="],
+    "@router-for-me/pi-cliproxyapi-provider": ["@router-for-me/pi-cliproxyapi-provider@1.4.20", "", { "peerDependencies": { "@earendil-works/pi-ai": "*", "@earendil-works/pi-coding-agent": ">=0.82.0" } }, "sha512-ff3Sofh+mSGH3ozqUKCbVi/EmHQIoC2wobpMhBE8UJI8wfQaTObBQ9nbeTzV077cLOObY3ubMfqiXAgwXIghfg=="],
 
     "@shikijs/core": ["@shikijs/core@4.4.3", "", { "dependencies": { "@shikijs/primitive": "4.4.3", "@shikijs/types": "4.4.3", "@shikijs/vscode-textmate": "^10.0.2", "@types/hast": "^3.0.5", "hast-util-to-html": "^9.0.5" } }, "sha512-QCR4q2ZO/ILJEuwiBMel4wdcTDb1JGwfjKTxPDF6x8ixOaluPrVqIn06C99AcRPhmYlBR56d/Fb+GN58GzExpg=="],
 
