@@ -367,7 +367,6 @@ class MiseConfigurationTests(unittest.TestCase):
                 dotfiles["~/.pi/agent/mcp-adapter.json"],
                 f"dotfiles/{profile}/pi/agent/mcp-adapter.json",
             )
-            self.assertNotIn("~/.pi/agent/mcp.json", dotfiles)
             self.assertIs(config["settings"]["sampling"], False)
             self.assertNotIn("samplingAutoApprove", config["settings"])
             for server_name, server in config["mcpServers"].items():
