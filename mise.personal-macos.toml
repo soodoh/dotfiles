@@ -21,7 +21,7 @@ login_shell = "/opt/homebrew/bin/fish"
 "~/.config/fish/conf.d/10-mise-profile.fish" = "dotfiles/personal/mise-profile.fish"
 "~/.gitconfig" = "dotfiles/personal/gitconfig"
 "~/.pi/agent/settings.json" = "dotfiles/personal/pi/agent/settings.json"
-"~/.pi/agent/mcp.json" = "dotfiles/personal/pi/agent/mcp.json"
+"~/.pi/agent/mcp-adapter.json" = "dotfiles/personal/pi/agent/mcp-adapter.json"
 "~/.pi/agent/models.json" = "dotfiles/personal/pi/agent/models.json"
 "~/.agents" = "dotfiles/personal/agents"
 

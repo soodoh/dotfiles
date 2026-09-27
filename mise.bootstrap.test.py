@@ -285,7 +285,7 @@ class MiseConfigurationTests(unittest.TestCase):
             self.work["env"]["AZURE_CONFIG_DIR"],
             "{{ env.HOME }}/.azure/dev/.azure",
         )
-        mcp = json.loads((ROOT / "dotfiles/work/pi/agent/mcp.json").read_text())[
+        mcp = json.loads((ROOT / "dotfiles/work/pi/agent/mcp-adapter.json").read_text())[
             "mcpServers"
         ]
         azure = mcp["azure"]
@@ -356,12 +356,17 @@ class MiseConfigurationTests(unittest.TestCase):
     def test_mcp_servers_follow_shared_safety_defaults(self) -> None:
         configs = {
             profile: json.loads(
-                (ROOT / f"dotfiles/{profile}/pi/agent/mcp.json").read_text()
+                (ROOT / f"dotfiles/{profile}/pi/agent/mcp-adapter.json").read_text()
             )
             for profile in ("personal", "work")
         }
         direct_tool_exceptions = {"context7"}
         for profile, config in configs.items():
+            dotfiles = (self.personal if profile == "personal" else self.work)["dotfiles"]
+            self.assertEqual(
+                dotfiles["~/.pi/agent/mcp-adapter.json"],
+                f"dotfiles/{profile}/pi/agent/mcp-adapter.json",
+            )
             self.assertIs(config["settings"]["sampling"], False)
             self.assertNotIn("samplingAutoApprove", config["settings"])
             for server_name, server in config["mcpServers"].items():
