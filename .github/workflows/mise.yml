@@ -18,8 +18,11 @@ concurrency:
 
 jobs:
   ubuntu:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
+    env:
+      # Ubuntu's node-gyp installs gyp for system Python, not mise's Python.
+      PYTHON: /usr/bin/python3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Compute mise tool cache key
@@ -63,7 +66,7 @@ jobs:
             "$outcome" "$PRIMARY_KEY" "${MATCHED_KEY:-none}"
           printf 'mise-cache-outcome=%s\n' "$outcome" >>"$GITHUB_STEP_SUMMARY"
       - name: Install native test dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential fish
+        run: sudo apt-get update && sudo apt-get install -y build-essential fish node-gyp
       - name: Set up mise
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
