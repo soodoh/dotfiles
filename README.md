@@ -59,6 +59,8 @@ pbpaste > ~/.config/mise/age.txt
 chmod 600 ~/.config/mise/age.txt
 ```
 
+- When upgrading an existing profile to pi-mcp-adapter 3.x, inspect `~/.pi/agent/mcp.json` with `ls -l` before bootstrapping. If it is the old symlink into this checkout's `dotfiles/<profile>/pi/agent/mcp.json`, remove **only that symlink** (`rm ~/.pi/agent/mcp.json`). Do not remove an independent `mcp.json`, which may belong to Pi's built-in MCP. Bootstrap will link the adapter config at `~/.pi/agent/mcp-adapter.json`. Use `/mcp-adapter` for adapter commands. Project-local servers now require trust and per-server approval (unapproved ones are skipped in headless sessions); `mcpScript` runs sandboxed without Node.js, filesystem, or process globals.
+
 - Run initial bootstrap command (with `MISE_ENV` set explicitly)
 
 ```bash
