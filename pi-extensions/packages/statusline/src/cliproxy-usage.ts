@@ -293,8 +293,7 @@ async function update(source: string): Promise<boolean> {
 			retries: { retries: 10, minTimeout: 100, maxTimeout: 100, factor: 1 },
 		});
 		const cached = currentSnapshot(source);
-		if (isProxySnapshotFresh(cached))
-			return false;
+		if (isProxySnapshotFresh(cached)) return false;
 		const accounts = parseProxyAccounts(await requestAuthFiles(url, key));
 		const updated: Snapshot = {
 			version: 3,
