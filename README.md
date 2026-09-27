@@ -114,18 +114,25 @@ LaunchAgent running before relying on the profile: if `127.0.0.1:1055` is down,
 **all** proxy-aware HTTP requests can fail, including unrelated destinations.
 Bootstrap and CI may also require this local service when using the work profile.
 The loopback GOST client's **first-hop whitelist** sends `tailscale.com` and
-subdomains on ports 80/443, plus every `*.mora-rattlesnake.ts.net` peer on
-**any TCP port**, through the authenticated remote relay. This intentionally
-includes other tailnet admin services reachable as the Docker-host identity:
-protect and revoke the Authentik app password accordingly. Other requests that
-reach the local proxy are dialed directly from the Mac, subject to work-device
-network policy; they do **not** reach the remote GOST server. This is not
+subdomains on ports 80/443, plus `*.ts.diloreto.com:443`, through the
+authenticated remote relay. The remote GOST whitelist has the same intended
+limit: it includes the existing LLM **and Omada** private routes, but not other
+MagicDNS peers, the suffix apex or other ports. Future services need separately
+reviewed, explicit private Traefik routes; a wildcard proxy permission does not
+create routes or provide per-service authentication. Protect and revoke the
+Authentik relay app password accordingly. This is a prepared
+single-cutover change, **not yet deployed** on the work Mac or Docker host:
+converge the reviewed server whitelist before restarting the work-Mac client,
+expect a short LLM interruption, and leave Tailscale's control-plane destinations
+available throughout. Other requests that reach the local proxy are dialed
+directly from the Mac, subject to work-device network policy; they do **not**
+reach the remote GOST server. This is not
 equivalent to bypassing the local proxy or retaining an existing corporate
 upstream proxy. Do not add `.ts.net` to the work profile's `NO_PROXY` (the
 Tailscale daemon has its own, separate proxy environment). Profile environment
 variables do not configure browsers started by macOS. The opt-in macOS PAC sends
-all matching MagicDNS peers and ports through GOST, returning `DIRECT` for other
-browser destinations (the suffix apex does not match).
+only HTTPS to subdomains of `ts.diloreto.com` on port 443 through GOST,
+returning `DIRECT` for other browser destinations.
 
 The observed system baseline was no PAC, no autodiscovery and no active system
 proxy; do not apply this PAC if a corporate route is later configured. `DIRECT`
@@ -148,10 +155,12 @@ curl --proxy http://127.0.0.1:1055 --noproxy '' \
   --silent --show-error --connect-timeout 10 --max-time 30 \
   --output /dev/null \
   --write-out 'connect=%{http_connect} http=%{http_code} tls=%{ssl_verify_result}\n' \
-  https://docker-host.mora-rattlesnake.ts.net:8444/v1/models
+  https://llm.ts.diloreto.com/v1/models
 ```
 
-Expect `connect=200 http=401 tls=0` without an API key. Separately test a
+Expect `connect=200 http=401 tls=0` without an API key. Also verify strict
+TLS and application login for `https://omada.ts.diloreto.com/` through the
+proxy; the relay credential alone does not authorize Omada. Separately test a
 non-allowlisted site that work policy permits, **through the local proxy**;
 it should take the Mac's direct route rather than return the remote relay's
 allowlist refusal. This is no longer a valid negative test of the *remote*
@@ -180,9 +189,9 @@ The enable task checks both existing services before making changes, refuses a
 different PAC, autodiscovery or manual web proxy, and requires the authenticated
 relay transport to return the expected unauthenticated API refusal first. It
 only rolls back services changed by that run if activation fails. Test Chrome,
-Zen, Firefox and Safari against the management page and a
-normal unrelated site with Zscaler enabled; Firefox must select **Use system
-proxy settings**. The PAC source is served over loopback HTTP only for this
+Zen, Firefox and Safari against `https://llm.ts.diloreto.com/management.html`
+and a normal unrelated site with Zscaler enabled; Firefox must select **Use
+system proxy settings**. The PAC source is served over loopback HTTP only for this
 reversible trial: current macOS deprecates cleartext PAC URLs, so a browser may
 ignore or fail to fetch it. If either site fails, disable the setting promptly:
 

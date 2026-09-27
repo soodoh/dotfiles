@@ -60,7 +60,10 @@ EOF
 cat >"$work/bin/curl" <<'EOF'
 #!/usr/bin/env bash
 if [[ ${PAC_TEST_CURL_FAIL:-} == yes ]]; then exit 7; fi
-if [[ " $* " == *' --write-out '* ]]; then printf '200 401 0'; fi
+if [[ " $* " == *' --write-out '* ]]; then
+  [[ " $* " == *' https://llm.ts.diloreto.com/v1/models '* ]] || exit 1
+  printf '200 401 0'
+fi
 EOF
 chmod 700 "$work/bin/"*
 export PATH="$work/bin:$PATH"

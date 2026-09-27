@@ -59,7 +59,7 @@ bypasses:
       - "tailscale.com:443"
       - "*.tailscale.com:80"
       - "*.tailscale.com:443"
-      - "*.mora-rattlesnake.ts.net"
+      - "*.ts.diloreto.com:443"
 EOF
 }
 

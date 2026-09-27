@@ -31,9 +31,14 @@ grep -Fq 'host: gost.diloreto.com' <<<"$output"
 grep -Fq 'serverName: gost.diloreto.com' <<<"$output"
 grep -Fq 'bypass: relay-destinations' <<<"$output"
 grep -Fq 'whitelist: true' <<<"$output"
-for destination in 'tailscale.com:80' 'tailscale.com:443' '*.tailscale.com:80' '*.tailscale.com:443' '*.mora-rattlesnake.ts.net'; do
-  grep -Fq -- "- \"$destination\"" <<<"$output"
-done
+actual_matchers=$(awk '/^    matchers:$/ { active=1; next } active && /^      - / { print; next } active { exit }' <<<"$output")
+expected_matchers=$(printf '      - "%s"\n' \
+  'tailscale.com:80' 'tailscale.com:443' '*.tailscale.com:80' '*.tailscale.com:443' \
+  '*.ts.diloreto.com:443')
+if [[ $actual_matchers != "$expected_matchers" ]]; then
+  printf 'work proxy relay destinations differ from the approved whitelist\n' >&2
+  exit 1
+fi
 grep -Fq "Authorization: \"Basic $expected\"" <<<"$output"
 if grep -Fq 'test-app-password' <<<"$output"; then
   printf 'plaintext app password leaked into rendered configuration\n' >&2

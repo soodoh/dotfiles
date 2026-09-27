@@ -206,7 +206,7 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertEqual(environment["NO_PROXY"], "localhost,127.0.0.1,::1")
         self.assertEqual(
             self.base["env"]["CLIPROXYAPI_BASE_URL"],
-            "https://docker-host.mora-rattlesnake.ts.net:8444/",
+            "https://llm.ts.diloreto.com/",
         )
         self.assertNotIn("proxy:shell", self.work["tasks"])
 
