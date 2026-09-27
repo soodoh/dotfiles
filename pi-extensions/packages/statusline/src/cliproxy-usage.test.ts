@@ -140,6 +140,45 @@ test("retains old observations only until their reset, skipping unsupported or d
 	).toHaveLength(1);
 });
 
+test("retries an empty account snapshot after one minute instead of five", async () => {
+	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+	process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+	process.env.PATH = `${directory}:${originalEnv.PATH}`;
+	const source = createHash("sha256")
+		.update("https://proxy.example.test\0test-key")
+		.digest("hex");
+	writeFileSync(
+		path,
+		JSON.stringify({
+			version: 3,
+			source,
+			fetchedAt: Date.now() - 30_000,
+			accounts: [],
+		}),
+	);
+	writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 47)] }));
+
+	await refreshProxyUsage(() => {});
+	expect(JSON.parse(readFileSync(path, "utf8")).accounts).toHaveLength(0);
+	writeFileSync(
+		path,
+		JSON.stringify({
+			version: 3,
+			source,
+			fetchedAt: Date.now() - 2 * 60_000,
+			accounts: [],
+		}),
+	);
+	resetProxyUsageForTests();
+	await refreshProxyUsage(() => {});
+	expect(proxyUsageBadges()).toEqual([
+		expect.stringMatching(/^\uF120 S20% \(2h\)\/W47% \(2d\)$/),
+	]);
+	expect(JSON.parse(readFileSync(path, "utf8")).accounts).toHaveLength(1);
+});
+
 test("a fresh management snapshot does not mark an older, unexpired quota stale", () => {
 	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
 	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";

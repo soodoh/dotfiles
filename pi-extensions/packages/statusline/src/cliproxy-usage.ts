@@ -103,6 +103,13 @@ function currentSnapshot(source: string): Snapshot | undefined {
 	return snapshot?.source === source ? snapshot : undefined;
 }
 
+function isProxySnapshotFresh(data: Snapshot | undefined): boolean {
+	return isUsageCacheFresh({
+		lastAttemptAt: data?.fetchedAt,
+		state: data?.accounts.length === 0 ? "unknown" : "ready",
+	});
+}
+
 function numeric(value: unknown): number | undefined {
 	const number =
 		typeof value === "number" || (typeof value === "string" && value.trim())
@@ -286,7 +293,7 @@ async function update(source: string): Promise<boolean> {
 			retries: { retries: 10, minTimeout: 100, maxTimeout: 100, factor: 1 },
 		});
 		const cached = currentSnapshot(source);
-		if (isUsageCacheFresh({ lastAttemptAt: cached?.fetchedAt, state: "ready" }))
+		if (isProxySnapshotFresh(cached))
 			return false;
 		const accounts = parseProxyAccounts(await requestAuthFiles(url, key));
 		const updated: Snapshot = {
@@ -319,13 +326,7 @@ async function update(source: string): Promise<boolean> {
 export function refreshProxyUsage(onUpdate: () => void): Promise<void> {
 	const source = sourceKey();
 	if (!source) return Promise.resolve();
-	if (
-		isUsageCacheFresh({
-			lastAttemptAt: currentSnapshot(source)?.fetchedAt,
-			state: "ready",
-		})
-	)
-		return Promise.resolve();
+	if (isProxySnapshotFresh(currentSnapshot(source))) return Promise.resolve();
 	if (
 		lastAttemptSource === source &&
 		isUsageCacheFresh({
