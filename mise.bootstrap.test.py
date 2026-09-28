@@ -280,6 +280,38 @@ class MiseConfigurationTests(unittest.TestCase):
         tool = self.work["tools"]["npm:@azure-devops/mcp"]
         self.assertEqual(tool["allow_builds"], ["keytar"])
 
+    def test_work_grafana_mcp_is_prod_only_and_read_only(self) -> None:
+        self.assertEqual(self.work["tools"]["github:grafana/mcp-grafana"], "1.6.0")
+        servers = json.loads(
+            (ROOT / "dotfiles/work/pi/agent/mcp-adapter.json").read_text()
+        )["mcpServers"]
+        self.assertEqual(
+            [name for name in servers if name.startswith("grafana")],
+            ["grafana-prod"],
+        )
+        grafana = servers["grafana-prod"]
+        self.assertEqual(grafana["command"], "/bin/sh")
+        self.assertIn("--disable-write", grafana["args"][1])
+        self.assertIn("--usage-stats disabled", grafana["args"][1])
+        self.assertIn(
+            "--resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f",
+            grafana["args"][1],
+        )
+        self.assertIn(
+            "--tenant 791313ac-cd3f-48b0-8501-2ac69aec78e9",
+            grafana["args"][1],
+        )
+        self.assertEqual(grafana["env"]["HOME"], "${HOME}/.azure/prod")
+        self.assertEqual(
+            grafana["env"]["AZURE_CONFIG_DIR"], "${HOME}/.azure/prod/.azure"
+        )
+        self.assertEqual(
+            grafana["env"]["GRAFANA_URL"],
+            "https://prod-obs-grafana-d6aubrhpbjc7etee.eus2.grafana.azure.com/",
+        )
+        self.assertNotIn("GRAFANA_SERVICE_ACCOUNT_TOKEN", grafana["env"])
+        self.assertIs(grafana["inheritEnv"], False)
+
     def test_work_azure_profiles_are_isolated(self) -> None:
         self.assertEqual(
             self.work["env"]["AZURE_CONFIG_DIR"],
