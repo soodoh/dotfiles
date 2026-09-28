@@ -38,7 +38,7 @@ jobs:
       - name: Install native build and test dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential fish
 
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+      - uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5
         with:
           version: ${{ steps.mise-version.outputs.mise-version }}
           install: true
