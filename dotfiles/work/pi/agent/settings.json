@@ -39,7 +39,7 @@
   "steeringMode": "all",
   "autoSessionName": {
     "titleModel": [
-      "google-vertex/gemini-flash-latest"
+      "google-vertex/gemini-3.8-flash"
     ]
   },
   "enabledModels": [
@@ -52,6 +52,6 @@
     "github-copilot/claude-opus-5.5",
     "github-copilot/claude-opus-5",
     "github-copilot/claude-sonnet-5",
-    "google-vertex/gemini-flash-latest"
+    "google-vertex/gemini-3.8-flash"
   ]
 }
