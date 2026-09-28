@@ -143,6 +143,15 @@
         ]
       }
     },
+    "heimdall": {
+      "url": "https://services.dev.docusign.net/heimdall/v1.0/api/mcp/heimdall/mcp",
+      "lifecycle": "lazy",
+      "directTools": false,
+      "includeTools": ["heimdall-query"],
+      "searchKeywords": {
+        "heimdall-query": ["Heimdall", "1DS docs", "MSF docs", "DocuWiki"]
+      }
+    },
     "azure": {
       "command": "azmcp",
       "args": [
