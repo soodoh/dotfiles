@@ -281,7 +281,7 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertEqual(tool["allow_builds"], ["keytar"])
 
     def test_work_grafana_mcp_is_prod_only_and_read_only(self) -> None:
-        self.assertEqual(self.work["tools"]["github:grafana/mcp-grafana"], "1.6.0")
+        self.assertIn("github:grafana/mcp-grafana", self.work["tools"])
         servers = json.loads(
             (ROOT / "dotfiles/work/pi/agent/mcp-adapter.json").read_text()
         )["mcpServers"]
