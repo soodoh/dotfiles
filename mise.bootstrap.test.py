@@ -66,6 +66,20 @@ class MisePolicyTests(unittest.TestCase):
         )
         self.assertRegex((ROOT / "mise.toml").read_text(), pattern)
 
+    def test_renovate_strips_grafana_release_tag_prefix(self) -> None:
+        renovate = json.loads((ROOT / "renovate.json").read_text())
+        rules = [
+            rule
+            for rule in renovate["packageRules"]
+            if "grafana/mcp-grafana" in rule.get("matchPackageNames", [])
+            and "github-releases" in rule.get("matchDatasources", [])
+        ]
+        self.assertEqual(len(rules), 1)
+        pattern = rules[0]["extractVersion"].replace("(?<version>", "(?P<version>")
+        release = re.fullmatch(pattern, "v1.6.2")
+        self.assertIsNotNone(release)
+        self.assertEqual(release.group("version"), "1.6.2")
+
     def test_repository_updates_only_explicitly_unsupported_tools(self) -> None:
         mise_lock = load_mise_lock_module()
         self.assertEqual(mise_lock.UNSUPPORTED_TOOLS, {"work-macos": ("http:twg",)})
