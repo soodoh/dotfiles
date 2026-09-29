@@ -61,6 +61,15 @@ owner = "root"
 group = "wheel"
 mode = "0644"
 
+# Work casks install in ~/Applications instead of /Applications.
+# Profile agent overrides replace the shared definition, so keep its settings in sync.
+[bootstrap.macos.launchd.agents.aerospace]
+program = "~/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
+run_at_load = true
+environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+stdout_path = "~/Library/Logs/aerospace.log"
+stderr_path = "~/Library/Logs/aerospace.error.log"
+
 [bootstrap.macos.launchd.agents.tailscale-control-proxy]
 program = "~/.local/bin/mise"
 args = [

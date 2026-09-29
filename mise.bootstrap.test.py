@@ -689,6 +689,37 @@ class MiseConfigurationTests(unittest.TestCase):
             r"(?m)^\s*mise\s+bootstrap\s+packages\s+apply\s+brew:mas\s+--yes\s*$",
         )
 
+    def test_aerospace_launch_agent_matches_each_profile_cask_appdir(self) -> None:
+        shared_agent = self.base["bootstrap"]["macos"]["launchd"]["agents"]["aerospace"]
+        work_agent = self.work["bootstrap"]["macos"]["launchd"]["agents"]["aerospace"]
+        personal_agents = (
+            self.personal.get("bootstrap", {})
+            .get("macos", {})
+            .get("launchd", {})
+            .get("agents", {})
+        )
+
+        self.assertNotIn("MISE_BREW_CASK_OPT_APPDIR", self.personal.get("env", {}))
+        self.assertNotIn("aerospace", personal_agents)
+        self.assertEqual(
+            shared_agent["program"],
+            "/Applications/AeroSpace.app/Contents/MacOS/AeroSpace",
+        )
+        self.assertTrue(shared_agent["run_at_load"])
+        self.assertEqual(
+            self.work["env"]["MISE_BREW_CASK_OPT_APPDIR"],
+            "{{ env.HOME }}/Applications",
+        )
+        self.assertEqual(
+            work_agent["program"],
+            "~/Applications/AeroSpace.app/Contents/MacOS/AeroSpace",
+        )
+        self.assertEqual(
+            {key: value for key, value in work_agent.items() if key != "program"},
+            {key: value for key, value in shared_agent.items() if key != "program"},
+            "profile overrides replace the entire agent; retain its startup settings",
+        )
+
     def test_aerospace_is_a_declarative_macos_package(self) -> None:
         package = self.base["bootstrap"]["packages"][
             "brew-cask:nikitabobko/tap/aerospace"
