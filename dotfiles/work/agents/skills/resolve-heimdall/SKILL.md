@@ -1,6 +1,7 @@
 ---
 name: resolve-heimdall
-description: "Resolve Heimdall code review on the current GitHub PR. Use when asked to address PR feedback, clear review comments, or iterate on Heimdall findings: assess non-self comments, fix and push valid issues, reply to each, resolve only Heimdall-owned threads, and wait for the Azure DevOps Heimdall job before repeating."
+description: Resolve Heimdall code review on the current GitHub PR.
+disable-model-invocation: true
 compatibility: Requires git, an authenticated GitHub CLI (`gh`), and access to the configured Azure DevOps MCP pipeline tools.
 ---
 
