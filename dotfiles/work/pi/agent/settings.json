@@ -12,6 +12,11 @@
   "collapseChangelog": true,
   "quietStartup": true,
   "enableSkillCommands": true,
+  "skills": [
+    "~/.acm/plugins/1ds/skills/ds-ui/SKILL.md",
+    "~/.acm/plugins/1ds/skills/ds-tokens/SKILL.md",
+    "~/.acm/plugins/1ds/skills/1ds-heimdall-usage/SKILL.md"
+  ],
   "extensions": [
     "extensions/*.ts",
     "-extensions/herdr-agent-state.ts",

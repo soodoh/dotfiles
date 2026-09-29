@@ -6,4 +6,5 @@ Prefer the configured MCP servers over browser automation or CLIs for Azure, Kus
 - Stage, Demo, and Prod Kusto: use `azure_kusto` with `https://docusign1.westus.kusto.windows.net/`, database `KazMonDb`, and the matching environment.
 - `azure-test` and shell `az`/`kubectl` use the isolated development profile; `azure` uses the production profile.
 - Azure DevOps MCP authenticates independently through a PAT. Prefer it over the CLI.
+- For 1DS or `@1ds/qe` guidance, follow ACM's `1ds-heimdall-usage` skill. In Pi, find the generic `heimdall-query` through the configured MCP adapter and use `modeType: "1ds-docs"`; its Claude/Copilot tool names do not apply here.
 - Treat Kusto and Mixpanel as read-only. Shared Kusto clusters remain queryable by URI even when subscription discovery does not list them.

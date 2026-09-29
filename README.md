@@ -343,6 +343,18 @@ After updating Moshi or mise-managed tools used by the daemon, run `launchctl ki
 
 A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, the Neovim plugin lock, and Herdr plugin commit pins. It runs configuration/lock validation and opens or refreshes a single update pull request when tracked files change. Herdr pin refresh resolves upstream main without building or executing plugin code. Review the upstream changes before merging; after pulling, run `MISE_ENV=<profile> mise bootstrap` to apply the committed pins, or use `mise --env <profile> run update:herdr-plugins` for plugins only. Neither plugin reconciliation task resolves newer upstream versions.
 
+### Work ACM plugin
+
+Install the [Agent Capability Manager CLI](https://github.docusignhq.com/FrontEndShared/agent-capabilities#installation) on the work Mac, then explicitly install or refresh the 1DS plugin:
+
+```bash
+mise --env work-macos run update:acm
+```
+
+This task runs ACM outside the checkout to avoid generating project hooks or instructions in dotfiles. ACM owns `~/.acm/plugins/1ds` and Claude's registration in `~/.claude/settings.json`; neither is symlinked into this repo. Work Pi loads only the three plugin entrypoints (`ds-ui`, `ds-tokens`, `1ds-heimdall-usage`) through its settings, and its existing Heimdall MCP adapter supplies `heimdall-query`. The nested offline fallback documents remain available to the routing skill without becoming separate Pi skills. Restart agent sessions after refreshing the plugin.
+
+The task is intentionally separate from bootstrap, the grouped `update`, and `update:skills` (which updates the dotfiles-managed `~/.agents` catalog using the `skills` CLI).
+
 ### Matt Pocock skills
 
 Both `dotfiles/personal/agents/` and `dotfiles/work/agents/` include the 25 published engineering and productivity skills from [mattpocock/skills](https://github.com/mattpocock/skills), with their reference files, templates, and `.skill-lock.json` entries. The initial full-set import matches upstream commit `3cca18b368ae95cdbdebbff572ccafa662551015`; `in-progress/` and `misc/` skills are excluded. Keep the vendored files unchanged so normal skill updates remain straightforward.

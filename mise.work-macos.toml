@@ -123,6 +123,20 @@ bash "$repo/dotfiles/work/bootstrap-repositories.sh"
 "~/.pi/agent/AGENTS.md" = "dotfiles/work/pi/agent/AGENTS.md"
 "~/.agents" = "dotfiles/work/agents"
 
+# ACM owns its global plugin store and Claude registration outside this checkout.
+# Run from an isolated directory so its project hooks cannot modify dotfiles.
+[tasks."update:acm"]
+description = "Install or refresh the global 1ds ACM plugin for work agents"
+run = '''
+if ! command -v acm >/dev/null 2>&1; then
+  printf 'ACM is not installed; see the dotfiles README work agent setup.\n' >&2
+  exit 127
+fi
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
+(cd "$scratch" && acm plugin install 1ds --force --non-interactive)
+'''
+
 # macOS PAC is per network service. Do not enable automatically at bootstrap.
 [tasks."proxy:pac:enable"]
 description = "Enable the work-only PAC for the allow-listed network services"
