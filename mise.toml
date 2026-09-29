@@ -255,6 +255,7 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 # Stable runtime anchor for services that need this checkout's mise configuration.
 "~/.local/share/dotfiles" = "."
 "~/.config/.gitignore_global" = "dotfiles/common/gitignore_global"
+"~/.config/mise/config.toml" = "dotfiles/common/mise/config.toml"
 "~/.config/atuin" = "dotfiles/common/atuin"
 "~/.config/fish/config.fish" = "dotfiles/common/fish/config.fish"
 "~/.config/fish/custom" = "dotfiles/common/fish/custom"

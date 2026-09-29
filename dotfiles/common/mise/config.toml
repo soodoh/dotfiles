@@ -1,0 +1,3 @@
+# Credential commands are global-only in mise; keep this file linked from shared bootstrap.
+[settings.github]
+credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'

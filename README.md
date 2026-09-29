@@ -67,6 +67,21 @@ MISE_ENV=personal-macos mise bootstrap
 MISE_ENV=work-macos mise bootstrap
 ```
 
+The shared bootstrap links `dotfiles/common/mise/config.toml` as mise's global
+config so subsequent GitHub API requests can use the existing host-specific
+`gh` login. If a machine is already rate-limited **before** that link exists,
+install/authenticate `gh` first, then make the global config available for the
+first retry (replace the profile as needed):
+
+```bash
+MISE_GLOBAL_CONFIG_FILE="$PWD/dotfiles/common/mise/config.toml" MISE_ENV=work-macos mise bootstrap
+```
+
+This is a recovery path for a machine with `gh` available, not an extra installer
+or a requirement to create a new GitHub token. A fresh machine without `gh`
+may need to wait for the unauthenticated rate limit to reset before the first
+bootstrap can install it.
+
 ### Other Manual Steps
 
 - Authenticate with Bitwarden desktop app & enable SSH agent. Then delete the temporary SSH keys we used to clone this repo initially: `rm ~/.ssh/id_ed25519*`

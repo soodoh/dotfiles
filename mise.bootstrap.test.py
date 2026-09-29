@@ -626,6 +626,20 @@ class MiseConfigurationTests(unittest.TestCase):
                     len({entry["skillFolderHash"] for entry in entries}), 1
                 )
 
+    def test_github_credential_command_is_shared_and_global(self) -> None:
+        config_path = "dotfiles/common/mise/config.toml"
+        self.assertEqual(
+            self.base["dotfiles"]["~/.config/mise/config.toml"], config_path
+        )
+        config = load_toml(config_path)
+        self.assertEqual(
+            config["settings"]["github"]["credential_command"],
+            'gh auth token --hostname "$MISE_CREDENTIAL_HOST"',
+        )
+        self.assertNotIn("github", self.base["settings"])
+        self.assertNotIn("~/.config/mise/config.toml", self.personal.get("dotfiles", {}))
+        self.assertNotIn("~/.config/mise/config.toml", self.work.get("dotfiles", {}))
+
     def test_google_workspace_configuration_stays_in_shared_scope(self) -> None:
         google_env = {
             "GOOGLE_CLOUD_PROJECT",
