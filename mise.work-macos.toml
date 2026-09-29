@@ -37,7 +37,7 @@ GOST_AUTH_PASSWORD = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAwY2llV3
 "npm:@azure/mcp" = "2.0.5"
 "npm:@azure-devops/mcp" = { version = "2.10.0", allow_builds = ["keytar"] }
 "npm:figma-developer-mcp" = "0.13.2"
-"github:grafana/mcp-grafana" = "1.6.0"
+"github:grafana/mcp-grafana" = "1.6.1"
 
 [tools."http:twg"]
 version = "1.3.3"
