@@ -30,6 +30,12 @@
   ],
   "packageRules": [
     {
+      "description": "Keep Grafana MCP's mise version unprefixed to match its lockfile",
+      "matchDatasources": ["github-releases"],
+      "matchPackageNames": ["grafana/mcp-grafana"],
+      "extractVersion": "^v(?<version>\\d+\\.\\d+\\.\\d+)$"
+    },
+    {
       "description": "Automerge lock maintenance and non-major updates after checks pass",
       "matchUpdateTypes": [
         "lockFileMaintenance",
