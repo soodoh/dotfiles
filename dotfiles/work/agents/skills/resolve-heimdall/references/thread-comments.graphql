@@ -1,0 +1,13 @@
+query($thread: ID!, $cursor: String!) {
+  node(id: $thread) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id body createdAt url
+          author { __typename login ... on Bot { id } }
+        }
+      }
+    }
+  }
+}

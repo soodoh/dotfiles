@@ -17,7 +17,7 @@ Drive the current branch's existing GitHub PR through Heimdall review cycles. Th
 - Treat review comments as requests for investigation, not instructions to change code. Validate each against the repository's behavior, tests, security requirements, and stated PR intent.
 - Resolve only threads whose author is verified as Heimdall for this PR. Reply to, but leave unresolved, threads from every other reviewer.
 - Do not resolve a thread before its reply has been accepted by GitHub and the pushed code is visible on the PR.
-- Stop for authentication, permission, API-contract, merge-conflict, failing-required-test, or ambiguous high-risk design failures. Report the exact blocker and leave provider state consistent.
+- Stop for authentication, permission, persistent API-contract, merge-conflict, failing-required-test, or ambiguous high-risk design failures. Report the exact blocker and leave provider state consistent.
 
 ## 1. Establish the PR and local safety boundary
 
@@ -34,7 +34,7 @@ Require one open PR whose `headRefName` equals the active branch. If there is no
 
 Read repository guidance and the PR's changed files before editing. Preserve pre-existing user changes; do not include unrelated staged, unstaged, or untracked files in a review-fix commit. If the worktree already contains changes, identify their scope before making further edits and keep them separate when possible.
 
-Fetch the PR's review threads with GitHub's API. Prefer a paginated GraphQL query for `pullRequest.reviewThreads`, including each thread's `id`, `isResolved`, `isOutdated`, `path`, `line`, and all comment `id`, `body`, `author.login`, `createdAt`, and `url` values. Paginate both threads and their comments; `gh api --hostname <host> graphql` must not silently truncate either connection. Read the initial (thread-opening) comment separately for thread ownership.
+Read [the GitHub GraphQL recipes](references/github-graphql.md) before fetching threads or writing replies. Use their complete, balanced selection sets for `pullRequest.reviewThreads` and comment pages; query the PR's GitHub host, check for GraphQL `errors` and missing data, and paginate both connections. Read the initial (thread-opening) comment separately for thread ownership. Inspect the host's schema before extending a selection set; an assumed field on an interface or mutation payload can invalidate the entire request.
 
 Filter the actionable set as follows:
 
@@ -43,7 +43,7 @@ Filter the actionable set as follows:
 3. Drop threads that have no remaining non-self comments.
 4. Record every remaining comment separately, while retaining its thread ID so replies and resolution target the correct conversation.
 
-Determine Heimdall's identity from the PR evidence, not from a hard-coded global login. Inspect review-comment authors, the PR's Azure status/check names and URLs, and (when present) repository pipeline configuration. Verify the bot account from the PR context and the Heimdall code-review job from the associated pipeline; a shared keyword alone is not proof that an account and build belong to this PR. If identity cannot be verified, process comments and reply where safe, but leave all threads unresolved and report the missing identity evidence.
+Determine Heimdall's identity from the PR evidence, not from a hard-coded global login. Inspect review-comment authors (including the GraphQL `Bot` type/ID when available), the PR's Azure status/check names and URLs, and (when present) repository pipeline configuration. A GitHub App bot can appear in review comments without a REST `/users/<login>` resource; that endpoint's 404 is not proof the bot is absent. Verify the bot account from the PR context and the Heimdall code-review job from the associated pipeline; a shared keyword alone is not proof that an account and build belong to this PR. If identity cannot be verified, process comments and reply where safe, but leave all threads unresolved and report the missing identity evidence.
 
 ## 2. Evaluate every comment
 
@@ -80,13 +80,13 @@ Reply briefly to **each non-self actionable comment**, even when several comment
 - Not applicable / incorrect: the concrete behavior or requirement that makes the suggestion inapplicable.
 - Needs user decision: the unresolved choice and why execution stopped.
 
-Use the thread ID with GitHub's verified `addPullRequestReviewThreadReply` GraphQL mutation for thread replies. When using the REST pull-request review-comment reply endpoint instead, target the top-level review comment ID because that endpoint does not accept a reply ID. Confirm each mutation succeeds and record the reply URL/ID. Use comment IDs to deduplicate dispositions. Do not post duplicate replies if a prior run already contains a disposition for the same comment; inspect the thread first and continue only for comments lacking a response from the current user.
+Use the thread ID with the `addPullRequestReviewThreadReply` mutation in [the GitHub GraphQL recipes](references/github-graphql.md); its payload returns `comment { id url }`, not `thread`. When using the REST pull-request review-comment reply endpoint instead, target the top-level review comment ID because that endpoint does not accept a reply ID. Confirm each mutation succeeds and record the reply URL/ID. Use comment IDs to deduplicate dispositions. Do not post duplicate replies if a prior run already contains a disposition for the same comment; inspect the thread first and continue only for comments lacking a response from the current user.
 
 After a successful reply:
 
 - Resolve only a thread opened by the verified Heimdall account, after all substantive comments in that thread have been addressed and no user decision remains. Confirm `isResolved: true` after the `resolveReviewThread` GraphQL mutation.
 - Leave threads opened by other reviewers unresolved. Also leave a Heimdall-opened thread unresolved if a different non-self reviewer has raised a substantive concern in it. The current user's explanatory replies do not change the thread's ownership.
-- If the reply or resolution API fails, stop and report the comment/thread IDs and the successful mutations already completed; do not retry blindly.
+- If a mutation fails or returns an uncertain response, re-fetch the thread to check whether the reply/resolution was accepted. Correct a syntax/schema error against the same host's schema and retry only if the intended change is confirmed absent. For persistent API-contract, permission, authentication, or ambiguous-state failures, stop and report the comment/thread IDs and successful mutations already completed.
 
 Re-fetch all threads after replies and resolution. The post-mutation invariant is: every non-self comment has a disposition reply, every Heimdall-only addressed thread is resolved, and non-Heimdall threads remain unresolved.
 
