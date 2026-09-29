@@ -9,7 +9,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { hideDeniedExistenceChecks } from "./exists-sync.mjs";
 
-const [hostRoot, pathsJSON] = process.argv.slice(2);
+const [hostRoot, pathsJSON, asPackage] = process.argv.slice(2);
+const packageRoot = JSON.parse(pathsJSON)[0];
 assert.ok(
 	process.permission,
 	"Run through the permission-restricted test harness",
@@ -29,18 +30,22 @@ const pi = await import(pathToFileURL(join(hostRoot, "dist/index.js")).href);
 const loader = new pi.DefaultResourceLoader({
 	cwd: process.cwd(),
 	agentDir: process.env.PI_CODING_AGENT_DIR,
-	settingsManager: pi.SettingsManager.inMemory({ packages: [] }),
-	noExtensions: true,
+	settingsManager: pi.SettingsManager.inMemory({
+		packages: asPackage === "package" ? [{ source: packageRoot }] : [],
+	}),
+	noExtensions: asPackage !== "package",
 	noSkills: true,
 	noPromptTemplates: true,
 	noThemes: true,
 	noContextFiles: true,
-	additionalExtensionPaths: JSON.parse(pathsJSON),
+	additionalExtensionPaths:
+		asPackage === "package" ? [] : JSON.parse(pathsJSON),
 });
 await loader.reload();
-const { extensions, errors } = loader.getExtensions();
+const { extensions, errors, warnings } = loader.getExtensions();
 const report = {
 	errors,
+	warnings: warnings ?? [],
 	resourceDiagnostics: [
 		...loader.getSkills().diagnostics,
 		...loader.getPrompts().diagnostics,

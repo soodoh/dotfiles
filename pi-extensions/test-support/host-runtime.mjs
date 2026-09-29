@@ -50,7 +50,7 @@ export function runExtensionProbe(
 	host,
 	packageRoot,
 	paths,
-	{ timeout = 30000, extraReadPaths = [] } = {},
+	{ timeout = 30000, extraReadPaths = [], asPackage = false } = {},
 ) {
 	const temporary = realpathSync(
 		mkdtempSync(join(tmpdir(), "pi-extension-smoke-")),
@@ -81,6 +81,7 @@ export function runExtensionProbe(
 				worker,
 				host.root,
 				JSON.stringify(paths),
+				...(asPackage ? ["package"] : []),
 			],
 			{
 				cwd: join(temporary, "work"),

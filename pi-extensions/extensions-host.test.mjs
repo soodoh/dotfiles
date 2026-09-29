@@ -272,6 +272,26 @@ await test("actual host publishes a Fast reader from the provider adapter", () =
 	}
 });
 
+await test("local package declares host-provided dependencies as peers", () => {
+	const report = runExtensionProbe(host, packageRoot, [packageRoot], {
+		asPackage: true,
+	});
+	assert.ok(report.extensions.length > 0);
+	assert.deepEqual(report.errors, []);
+	assert.deepEqual(
+		report.warnings.filter(({ warning }) =>
+			warning.includes("Host-provided extension packages must be declared"),
+		),
+		[],
+	);
+	const { peerDependencies } = JSON.parse(
+		readFileSync(join(packageRoot, "package.json"), "utf8"),
+	);
+	for (const [name, range] of Object.entries(peerDependencies)) {
+		assert.equal(range, "*", `${name} must use the host-provided version`);
+	}
+});
+
 await test("manifest resources load with the actual mise Pi", async (t) => {
 	t.diagnostic(`Node ${process.version}; Pi ${host.version}: ${host.root}`);
 	const resources = manifestResources(packageRoot);
