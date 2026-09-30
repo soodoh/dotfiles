@@ -39,7 +39,12 @@ class IntegrationTests(unittest.TestCase):
     def run_host(self, mode, profile="personal"):
         self.assertIsNotNone(PI, 'Pass "$(mise which pi)" for actual-host tests')
         self.assertIsNotNone(NODE)
-        program = "subagents-liveness-host.test.mjs" if mode.startswith("producer-") else "integration-host.test.mjs"
+        if mode == "handoff":
+            program = "settled-handoff-host.test.mjs"
+        elif mode.startswith("producer-"):
+            program = "subagents-liveness-host.test.mjs"
+        else:
+            program = "integration-host.test.mjs"
         result = subprocess.run(
             [NODE, str(PACKAGE / program), PI, mode, profile],
             env=self.env,
@@ -69,6 +74,9 @@ class IntegrationTests(unittest.TestCase):
         for mode in ("outside", "popup", "rpc", "json", "print", "child", "tui"):
             with self.subTest(mode=mode):
                 self.run_host(mode)
+
+    def test_native_deferred_wake_waits_for_slow_sibling_without_false_completion(self):
+        self.run_host("handoff")
 
     def test_full_upstream_registers_and_disposes_in_either_extension_order(self):
         for mode in ("producer-first", "producer-last"):

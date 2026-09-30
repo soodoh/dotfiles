@@ -21,8 +21,9 @@ one `task_complete` when an observed task settles with a normal assistant stop.
 Aborted, errored, and response-limit stops use `error`, never success. This is a
 lifecycle result, not proof that tests passed or the user's objective was met.
 Unknown outcomes, startup idle, and dialog closure alone do not complete a task.
-Automatic continuations keep the original Pi session identity and cannot complete
-it while more work or delivery remains. No time-based completion cooldown is used.
+Instrumented continuations keep the original Pi session identity and retain
+working state while core queues or authoritative producers report more work or
+pending delivery. No time-based completion cooldown is used.
 
 Native `ui_prompt_start/end` spans supply human-input state. Moshi documents
 `approval_required` as covering permissions **and user answers**: our title is
@@ -85,7 +86,24 @@ one unreferenced timer also reads every 250 ms during background activity/pendin
 continuations or unknown evidence, and every second otherwise. This discovers
 scheduled work without depending on event names. It is not filesystem polling
 or a notification cooldown; no timeout declares work finished. Pi's `isIdle()`
-and `hasPendingMessages()` cover the delivery-to-parent handoff.
+and `hasPendingMessages()` cover ordinary core-queued delivery-to-parent handoffs.
+
+**Deferred-settled boundary:** Pi 0.99.2 defers turns requested inside
+`agent_settled` until all sibling handlers finish. During a slow sibling,
+`ctx.isIdle()` can be true while `ctx.hasPendingMessages()` is false even though
+that turn is scheduled. A producer must retain v1 activity or a balanced
+`herdr:busy` contribution until the next `agent_start`, not merely until
+`sendMessage()` accepts delivery. The pinned upstream notifier's
+`hasPendingDelivery()` ends at acceptance, so this particular deferred interval
+is not guaranteed by its current provider. A general fix needs upstream pending
+handoff visibility or producer ownership; private-core inspection, timer guesses,
+and dependency patches are intentionally not introduced here.
+
+The credential-free native session regression covers a deferred wake with
+retained authoritative activity and a slow sibling lasting longer than a polling
+interval. It also records the native API visibility limitation so upgrades must
+revisit the requirement. It does not claim the upstream notifier retains that
+extra ownership.
 
 Missing providers, wrong identities, malformed/throwing activity and ownership
 conflicts retain working state and suppress completion. One local warning asks
