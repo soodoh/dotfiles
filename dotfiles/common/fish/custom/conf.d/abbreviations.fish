@@ -7,6 +7,7 @@ abbr -a l          ls -lAFh
 # Core
 abbr -a g          git
 abbr -a ghh        git help
+abbr -a --command  git -- nv --no-verify
 # Add & Apply
 abbr -a ga         git add
 abbr -a gaa        git add --all
