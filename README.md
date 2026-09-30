@@ -68,11 +68,19 @@ MISE_ENV=work-macos mise bootstrap
 ```
 
 The shared bootstrap links `dotfiles/common/mise/config.toml` as mise's global
-config. Both Fish profiles also explicitly select that file with
-`MISE_GLOBAL_CONFIG_FILE`, since `MISE_CONFIG_DIR` points to the checkout.
-This lets mise use the existing host-specific `gh` login, including tokens in
-the macOS Keychain. If a machine is already rate-limited **before** that link exists,
-install/authenticate `gh` first, then make the global config available for the
+config so bootstrap can use the existing host-specific `gh` login, including
+tokens in the macOS Keychain. The credential command must be global: mise ignores
+it in a local project config for security reasons.
+
+Both Fish profiles set `MISE_CONFIG_DIR` to the checkout and select an explicit
+`MISE_ENV`, making shared and profile tools available outside this repository.
+They clear `MISE_GLOBAL_CONFIG_FILE` (including an inherited settings-only override)
+and export `MISE_GITHUB_CREDENTIAL_COMMAND` with the same host-aware `gh` command.
+This preserves authenticated downloads without replacing the global tool config.
+Open a new Fish shell after updating to load these changes.
+
+If a machine is already rate-limited **before** the global-config link exists,
+install/authenticate `gh` first, then make the credentials config available for the
 first retry (replace the profile as needed):
 
 ```bash

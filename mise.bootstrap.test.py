@@ -640,7 +640,109 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertNotIn("~/.config/mise/config.toml", self.personal.get("dotfiles", {}))
         self.assertNotIn("~/.config/mise/config.toml", self.work.get("dotfiles", {}))
 
-    def test_workstation_profiles_load_global_github_credentials(self) -> None:
+    def test_bootstrap_loads_global_github_credentials_without_fish(self) -> None:
+        mise = shutil.which("mise")
+        self.assertIsNotNone(mise)
+        config = ROOT / "dotfiles/common/mise/config.toml"
+        for mode in ("linked", "explicit"):
+            with self.subTest(mode=mode):  # noqa: SIM117
+                with tempfile.TemporaryDirectory() as home:
+                    environment = {
+                        "HOME": home,
+                        "PATH": os.defpath,
+                        "MISE_ENV": "work-macos",
+                        "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
+                    }
+                    if mode == "linked":
+                        target = Path(home) / ".config/mise/config.toml"
+                        target.parent.mkdir(parents=True)
+                        target.symlink_to(config)
+                    else:
+                        environment["MISE_GLOBAL_CONFIG_FILE"] = str(config)
+                    # Read the setting at bootstrap scope; never apply bootstrap
+                    # or execute gh against the user's credentials.
+                    result = subprocess.run(
+                        [mise, "settings", "get", "github.credential_command"],
+                        cwd=ROOT,
+                        env=environment,
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(
+                        result.stdout.strip(),
+                        'gh auth token --hostname "$MISE_CREDENTIAL_HOST"',
+                    )
+
+    def test_workstation_profiles_select_tools_outside_checkout(self) -> None:
+        fish = shutil.which("fish")
+        mise = shutil.which("mise")
+        self.assertIsNotNone(fish)
+        self.assertIsNotNone(mise)
+        for profile in ("personal", "work"):
+            profile_config = self.personal if profile == "personal" else self.work
+            for project_override in (False, True):
+                with self.subTest(profile=profile, override=project_override):  # noqa: SIM117
+                    with tempfile.TemporaryDirectory() as home:
+                        project = Path(home) / "other-project"
+                        project.mkdir()
+                        expected = self.base["tools"] | profile_config["tools"]
+                        if project_override:
+                            (project / "mise.toml").write_text(
+                                '[tools]\n"aqua:starship/starship" = "1.0.0"\n'
+                            )
+                            (project / "mise.lock").write_text(
+                                '[[tools."aqua:starship/starship"]]\n'
+                                'version = "1.0.0"\n'
+                                'backend = "aqua:starship/starship"\n'
+                            )
+                            expected = expected | {"aqua:starship/starship": "1.0.0"}
+                        result = subprocess.run(
+                            [
+                                fish,
+                                "--no-config",
+                                "-c",
+                                (
+                                    'source "$argv[1]"; set -gx MISE_AGE_STRICT false; '
+                                    '"$argv[2]" ls --current --json'
+                                ),
+                                str(ROOT / "dotfiles" / profile / "mise-profile.fish"),
+                                mise,
+                            ],
+                            cwd=project,
+                            env={
+                                "HOME": home,
+                                "PATH": os.defpath,
+                                # A new shell must clear the old exported override.
+                                "MISE_GLOBAL_CONFIG_FILE": str(
+                                    ROOT / "dotfiles/common/mise/config.toml"
+                                ),
+                                "MISE_TRUSTED_CONFIG_PATHS": f"{ROOT}:{project}",
+                            },
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                            check=False,
+                        )
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        # Disable strict age only for this isolated selection probe.
+                        # The separate age test verifies that profiles enforce it.
+                        # No installs, downloads, or live GitHub credentials needed.
+                        selected = {
+                            tool: [record["version"] for record in records]
+                            for tool, records in json.loads(result.stdout).items()
+                        }
+                        self.assertEqual(
+                            selected,
+                            {
+                                tool: [tool_version(specification)]
+                                for tool, specification in expected.items()
+                            },
+                        )
+
+    def test_workstation_profiles_export_github_credentials(self) -> None:
         fish = shutil.which("fish")
         mise = shutil.which("mise")
         self.assertIsNotNone(fish)
@@ -662,6 +764,7 @@ class MiseConfigurationTests(unittest.TestCase):
                             "HOME": home,
                             "PATH": os.defpath,
                             "MISE_GLOBAL_CONFIG_FILE": str(Path(home) / "missing.toml"),
+                            "MISE_GITHUB_CREDENTIAL_COMMAND": "inherited-command",
                             "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
                             "MISE_YES": "1",
                         },
