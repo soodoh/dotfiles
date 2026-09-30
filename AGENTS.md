@@ -33,6 +33,16 @@ Never run a workstation bootstrap during repository-only implementation or CI. C
 
 Normal bootstrap installs/reconciles without pruning undeclared state or broadly upgrading existing apps. The grouped update task upgrades declared packages explicitly. Dock order and login items are user-owned.
 
+## Testing
+
+Tests should protect meaningful behavior or independently defined contracts, not mirror the implementation.
+
+- Before adding a test, identify the plausible failure it catches and why that failure matters. A test that merely restates the edited code or configuration does not provide independent assurance.
+- For declarative configuration, prefer parsing, schema validation, cross-field invariants, and observable effects. Do not duplicate configured values in assertions unless those values implement an independent requirement.
+- Negative assertions are appropriate when supported inputs, conditions, or execution paths in the current implementation could produce the forbidden behavior. Do not add “tombstone” tests that only assert deleted code, keys, dependencies, or files remain absent.
+- When removing functionality, remove or simplify its obsolete tests. Add or retain coverage only for meaningful behavior that remains, including cleanup or compatibility behavior exercised by the removal.
+- A change does not require a new test merely because it changes a file. Running existing tests or validators can be sufficient.
+
 ## Neovim and Fish
 
 lazy.nvim is the sole Neovim plugin manager; `lazy-lock.json` is committed. Tree-sitter manages parsers, while mise owns LSP servers, formatters, and linters. Do not add Mason or another plugin manager.
