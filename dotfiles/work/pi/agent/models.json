@@ -2,7 +2,7 @@
   "providers": {
     "google-vertex": {
       "modelOverrides": {
-        "gemini-3.7-flash": {
+        "gemini-3.8-flash": {
           "thinkingLevelMap": {
             "off": null
           }
@@ -12,6 +12,9 @@
     "github-copilot": {
       "modelOverrides": {
         "gpt-6-astra": {
+          "contextWindow": 272000
+        },
+        "gpt-6.1-sol": {
           "contextWindow": 272000
         },
         "gpt-6-sol": {

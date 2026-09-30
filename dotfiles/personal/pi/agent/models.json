@@ -2,7 +2,7 @@
   "providers": {
     "google-vertex": {
       "modelOverrides": {
-        "gemini-3.7-flash": {
+        "gemini-3.8-flash": {
           "thinkingLevelMap": {
             "off": null
           }

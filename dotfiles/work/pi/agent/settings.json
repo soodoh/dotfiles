@@ -1,7 +1,7 @@
 {
   "lastChangelogVersion": "0.99.1",
   "defaultProvider": "cliproxyapi",
-  "defaultModel": "gpt-6-sol",
+  "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
   "compaction": {
@@ -49,13 +49,12 @@
   },
   "enabledModels": [
     "cliproxyapi/gpt-6-astra",
-    "cliproxyapi/gpt-6-sol",
+    "cliproxyapi/gpt-6.1-sol",
     "cliproxyapi/gpt-6-luna",
     "github-copilot/gpt-6-astra",
-    "github-copilot/gpt-6-sol",
+    "github-copilot/gpt-6.1-sol",
     "github-copilot/gpt-6-luna",
     "github-copilot/claude-opus-5.5",
-    "github-copilot/claude-opus-5",
     "github-copilot/claude-sonnet-5",
     "google-vertex/gemini-3.8-flash"
   ]
