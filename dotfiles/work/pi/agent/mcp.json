@@ -1,0 +1,113 @@
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      },
+      "exposure": "direct"
+    },
+    "mixpanel": {
+      "url": "https://mcp.mixpanel.com/mcp",
+      "exposure": "hidden",
+      "toolExposure": {
+        "Get-*": "codemode-deferred",
+        "List-*": "codemode-deferred",
+        "Search-*": "codemode-deferred",
+        "Describe-*": "codemode-deferred",
+        "Explain-*": "codemode-deferred",
+        "Run-Query": "codemode-deferred",
+        "Display-Query": "codemode-deferred",
+        "Run-Experiment-Pre-Launch-Checks": "codemode-deferred",
+        "Find-Duplicate-Groups": "codemode-deferred"
+      }
+    },
+    "playwright": {
+      "command": "playwright-mcp",
+      "args": ["--extension"],
+      "exposure": "codemode-deferred"
+    },
+    "glean": {
+      "url": "https://docusign-prod-be.glean.com/mcp/default",
+      "exposure": "codemode-deferred"
+    },
+    "heimdall": {
+      "url": "https://services.dev.docusign.net/heimdall/v1.0/api/mcp/heimdall/mcp",
+      "exposure": "hidden",
+      "toolExposure": {
+        "heimdall-query": "codemode"
+      }
+    },
+    "azure": {
+      "command": "azmcp",
+      "args": ["server", "start", "--read-only"],
+      "env": {
+        "HOME": "${HOME}/.azure/prod",
+        "AZURE_CONFIG_DIR": "${HOME}/.azure/prod/.azure",
+        "AZURE_TOKEN_CREDENTIALS": "AzureCliCredential"
+      },
+      "exposure": "hidden",
+      "toolExposure": {
+        "kusto": "codemode-deferred",
+        "subscription_list": "codemode-deferred",
+        "group_list": "codemode-deferred",
+        "group_resource_list": "codemode-deferred",
+        "resourcehealth": "codemode-deferred",
+        "monitor": "codemode-deferred"
+      }
+    },
+    "azure-test": {
+      "command": "/usr/bin/env",
+      "args": ["-u", "AZURE_SUBSCRIPTION_ID", "azmcp", "server", "start", "--read-only"],
+      "env": {
+        "HOME": "${HOME}/.azure/dev",
+        "AZURE_CONFIG_DIR": "${HOME}/.azure/dev/.azure",
+        "AZURE_TOKEN_CREDENTIALS": "AzureCliCredential"
+      },
+      "exposure": "hidden",
+      "toolExposure": {
+        "kusto": "codemode-deferred",
+        "subscription_list": "codemode-deferred",
+        "group_list": "codemode-deferred",
+        "group_resource_list": "codemode-deferred",
+        "resourcehealth": "codemode-deferred",
+        "monitor": "codemode-deferred"
+      }
+    },
+    "grafana-prod": {
+      "command": "/bin/sh",
+      "args": [
+        "-c",
+        "token=$(az account get-access-token --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f --tenant 791313ac-cd3f-48b0-8501-2ac69aec78e9 --query accessToken -o tsv) || exit 1; [ -n \"$token\" ] || exit 1; export GRAFANA_SERVICE_ACCOUNT_TOKEN=\"$token\"; exec mcp-grafana -t stdio --disable-write --usage-stats disabled"
+      ],
+      "env": {
+        "HOME": "${HOME}/.azure/prod",
+        "AZURE_CONFIG_DIR": "${HOME}/.azure/prod/.azure",
+        "GRAFANA_URL": "https://prod-obs-grafana-d6aubrhpbjc7etee.eus2.grafana.azure.com/"
+      },
+      "exposure": "codemode-deferred"
+    },
+    "azure-devops": {
+      "command": "mcp-server-azuredevops",
+      "args": ["DocusignOrg", "--authentication", "pat", "--domains", "core", "--domains", "pipelines"],
+      "env": {
+        "PERSONAL_ACCESS_TOKEN": "${ADO_MCP_PAT_BASIC}"
+      },
+      "exposure": "hidden",
+      "toolExposure": {
+        "core_list_projects": "codemode",
+        "pipelines_build": "codemode",
+        "pipelines_build_log": "codemode",
+        "pipelines_definition": "codemode",
+        "pipelines_run": "codemode",
+        "pipelines_artifact": "codemode",
+        "pipelines_write": "codemode"
+      }
+    },
+    "figma": {
+      "command": "figma-developer-mcp",
+      "args": ["--stdio"],
+      "exposure": "codemode-deferred"
+    }
+  }
+}

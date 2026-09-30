@@ -17,13 +17,11 @@
 			"node_modules/pi-vim/index.ts",
 			"packages/cliproxyapi/index.ts",
 			"node_modules/@plannotator/pi-extension/",
-			"node_modules/pi-mcp-adapter/index.ts",
 			"node_modules/pi-web-access/index.ts",
 			"node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
 			"node_modules/pi-subagents/index.js"
 		],
 		"skills": [
-			"node_modules/pi-mcp-adapter/skills",
 			"node_modules/pi-subagents/skills"
 		],
 		"prompts": [
@@ -46,7 +44,6 @@
 		"@juicesharp/rpiv-ask-user-question": "2.12.0",
 		"@plannotator/pi-extension": "0.27.22",
 		"@router-for-me/pi-cliproxyapi-provider": "1.4.21",
-		"pi-mcp-adapter": "3.3.0",
 		"pi-subagents": "0.74.0",
 		"pi-vim": "0.14.2",
 		"pi-web-access": "0.35.0",
@@ -75,7 +72,6 @@
 		"pi-vim",
 		"@router-for-me/pi-cliproxyapi-provider",
 		"@plannotator/pi-extension",
-		"pi-mcp-adapter",
 		"pi-web-access",
 		"@juicesharp/rpiv-ask-user-question",
 		"pi-subagents"

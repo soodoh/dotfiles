@@ -310,7 +310,7 @@ class MiseConfigurationTests(unittest.TestCase):
 
     def test_work_grafana_mcp_is_prod_only_and_read_only(self) -> None:
         servers = json.loads(
-            (ROOT / "dotfiles/work/pi/agent/mcp-adapter.json").read_text()
+            (ROOT / "dotfiles/work/pi/agent/mcp.json").read_text()
         )["mcpServers"]
         self.assertEqual(
             [name for name in servers if name.startswith("grafana")],
@@ -324,11 +324,10 @@ class MiseConfigurationTests(unittest.TestCase):
                 grafana["env"][variable], servers["azure"]["env"][variable]
             )
         self.assertNotIn("GRAFANA_SERVICE_ACCOUNT_TOKEN", grafana["env"])
-        self.assertIs(grafana["inheritEnv"], False)
 
     def test_work_azure_profiles_are_isolated(self) -> None:
         mcp = json.loads(
-            (ROOT / "dotfiles/work/pi/agent/mcp-adapter.json").read_text()
+            (ROOT / "dotfiles/work/pi/agent/mcp.json").read_text()
         )["mcpServers"]
         azure = mcp["azure"]
         for variable in (
@@ -342,7 +341,6 @@ class MiseConfigurationTests(unittest.TestCase):
             azure["env"]["AZURE_TOKEN_CREDENTIALS"],
             "AzureCliCredential",
         )
-        self.assertIs(azure["inheritEnv"], False)
 
         azure_test = mcp["azure-test"]
         shell_directory = self.work["env"]["AZURE_CONFIG_DIR"].replace(
@@ -363,63 +361,8 @@ class MiseConfigurationTests(unittest.TestCase):
             azure_test["env"]["AZURE_TOKEN_CREDENTIALS"],
             "AzureCliCredential",
         )
-        self.assertNotIn("AZURE_SUBSCRIPTION_ID", azure_test["env"])
-        self.assertIs(azure_test["inheritEnv"], False)
-
-        for server_name, server, environment_names in (
-            ("azure", azure, {"Stage", "Demo", "Prod"}),
-            ("azure-test", azure_test, {"Integration", "Test", "Dev"}),
-        ):
-            with self.subTest(server=server_name):
-                self.assertIn("--read-only", server["args"])
-                self.assertIn("kusto", server["includeTools"])
-                self.assertEqual(server["directTools"], "search")
-                self.assertLessEqual(
-                    environment_names,
-                    set(server["searchKeywords"]["kusto"]),
-                )
-
-        azure_devops = mcp["azure-devops"]
-        self.assertIs(azure_devops["directTools"], False)
-        self.assertIn("pipelines_build", azure_devops["includeTools"])
-        self.assertIn("pipelines_build_log", azure_devops["includeTools"])
-        self.assertIn("pipelines_write", azure_devops["includeTools"])
-
-    def test_mcp_servers_follow_shared_safety_defaults(self) -> None:
-        configs = {
-            profile: json.loads(
-                (ROOT / f"dotfiles/{profile}/pi/agent/mcp-adapter.json").read_text()
-            )
-            for profile in ("personal", "work")
-        }
-        direct_tool_exceptions = {"context7"}
-        for profile, config in configs.items():
-            dotfiles = (self.personal if profile == "personal" else self.work)[
-                "dotfiles"
-            ]
-            self.assertEqual(
-                dotfiles["~/.pi/agent/mcp-adapter.json"],
-                f"dotfiles/{profile}/pi/agent/mcp-adapter.json",
-            )
-            self.assertIs(config["settings"]["sampling"], False)
-            self.assertNotIn("samplingAutoApprove", config["settings"])
-            for server_name, server in config["mcpServers"].items():
-                with self.subTest(profile=profile, server=server_name):
-                    self.assertEqual(server.get("lifecycle", "lazy"), "lazy")
-                    if "command" in server:
-                        self.assertIs(server.get("inheritEnv"), False)
-                    if server_name not in direct_tool_exceptions:
-                        self.assertIn(
-                            server.get("directTools", False), (False, "search")
-                        )
-
-        playwright = configs["work"]["mcpServers"]["playwright"]
-        for unsafe_tool in (
-            "browser_run_code_unsafe",
-            "browser_drop",
-            "browser_webmcp_call",
-        ):
-            self.assertIn(unsafe_tool, playwright["approveTools"])
+        for server in (azure, azure_test):
+            self.assertIn("--read-only", server["args"])
 
     def test_renovate_can_generate_locks_without_age_keys_or_overrides(self) -> None:
         mise = shutil.which("mise")

@@ -159,7 +159,7 @@ bootstrap can install it.
     az account show --query '{user:user.name, tenant:tenantId, subscription:name}' -o table
   ```
 
-  The first command must report the development identity and the second the production identity. Restart Pi after changing either profile so its MCP server receives the current login. Query Integration telemetry through `azure-test` at `docusigntestfollower.westus` / `KazMonTestDb`; query Stage, Demo, and Prod through `azure` at `docusign1.westus` / `KazMonDb`. Both Azure MCP servers start with `--read-only`; production Azure exposes Kusto and subscription discovery, while test Azure additionally exposes resource discovery, Resource Health, and Azure Monitor. The Mixpanel MCP surface similarly allowlists read-oriented query and metadata tools. Do not put Azure CLI state directly under `~/.azure`; only `dev/` and `prod/` should live there.
+  The first command must report the development identity and the second the production identity. Restart Pi after changing either profile so its MCP server receives the current login. Query Integration telemetry through `azure-test` at `docusigntestfollower.westus` / `KazMonTestDb`; query Stage, Demo, and Prod through `azure` at `docusign1.westus` / `KazMonDb`. Both Azure MCP servers start with `--read-only`; both expose the configured Kusto, subscription/resource discovery, Resource Health, and Azure Monitor tools. The Mixpanel MCP surface similarly allowlists read-oriented query and metadata tools. Do not put Azure CLI state directly under `~/.azure`; only `dev/` and `prod/` should live there.
 - Authenticate gcloud:
 
   ```bash
@@ -173,8 +173,8 @@ bootstrap can install it.
 - Open `pi` for the first time:
     - `/login google-vertex` (see previous step)
     - `/login github-copilot`
-    - `/mcp-auth glean`
-    - `/mcp-auth mixpanel`
+    - `/mcp login glean`
+    - `/mcp login mixpanel`
 
 - Install the self-updating internal `msf-cli` if it is not already present, then authenticate it as needed:
 
@@ -184,6 +184,16 @@ bootstrap can install it.
   msf-cli setup-workstation --step kubeconfig
   msf-cli login --resource keyvault --system-name ipg-engagements
   ```
+
+## Pi MCP
+
+Both profiles use Pi's built-in MCP client and codemode, configured in `dotfiles/<profile>/pi/agent/mcp.json` and linked to `~/.pi/agent/mcp.json`. Large tool catalogs stay deferred; discover tools with `tool_search` or codemode's `searchTools()`, then batch/filter results with `codemode`. Native MCP returns the full `{ content, structuredContent?, isError? }` result to scripts, even when the displayed text is truncated. Scripts must check `isError`; tool names use the `mcp__<server>__<tool>` prefix, with hyphens normalized to underscores inside codemode.
+
+Read-oriented tool allowlists use native `toolExposure`. Playwright operations and Glean writes remain callable without per-call approval prompts, including calls nested in codemode. Native MCP does not advertise model sampling.
+
+Stdio servers inherit Pi's environment, including Node/CA settings, proxies, and unrelated credential variables. Server-specific `env` entries still override it. Azure production and Grafana select the production CLI profile; `azure-test` explicitly removes the inherited production subscription variable before starting with the development profile. This is intentional broader environment inheritance, not the old environment allowlist.
+
+When upgrading an existing workstation, reconcile the Pi package with `bun ci --cwd pi-extensions`, then link the active profile's new `mcp.json` (or let its normal bootstrap reconcile the link). Stop the old Pi session before starting a fresh one. The obsolete `mcp-adapter.json` is ignored by native Pi and can be removed manually. Use `/mcp` to inspect connection errors; enabled servers now connect at session startup rather than through the adapter's lazy lifecycle. Native OAuth uses a separate credential store; for the work profile, sign in again with `/mcp login glean` and `/mcp login mixpanel`. No old adapter credentials are deleted or copied automatically.
 
 ## Validation
 
@@ -202,6 +212,8 @@ CI restores tools explicitly and always runs `mise install --locked` and the ful
 The tool archive retains mise's data directory and CI-owned Cargo proxies. Rustup lives inside mise's data directory, so Rust symlinks and their toolchains travel together without archiving runner-preinstalled toolchains. Mise configuration, credentials, Cargo registries, and unrelated HOME state are excluded. Neovim archives only the active validation namespace, keyed by the actual Neovim version, OS/architecture, plugin lock, parser list, and runner image family; there is no cross-namespace fallback. Plugin restore, parser/executable assertions, and copied-lock checks still execute. Main cannot reuse PR merge-ref caches, so successful main runs must seed their own generations. No cache cleanup or retention automation is configured here.
 
 `mise run validate:agents:integration` validates resources declared in `pi-extensions/package.json` and loads each extension, then the combined manifest, through the actual mise-managed Pi loader. These checks use mise's Node LTS in temporary, credential-free processes with subprocesses, native addons, and external writes denied; no extension exception list is maintained. Network access is not blocked: `PI_OFFLINE` is best-effort, and the checks do not start sessions, invoke tools, or prompt models. They cover imports, factory registration, resource diagnostics, and registration conflicts—not session lifecycle, tool execution, or native background completion, which still needs a manual smoke test after relevant upgrades.
+
+The same integration task runs `pi-extensions/native-mcp-host.test.mjs` against local stdio fixtures with synthetic credentials. It exercises native config parsing, tool-exposure restrictions, environment routing and subscription exclusion, disabled sampling, and codemode batching/filtering of full results and tool errors. No live MCP services or OAuth login are exercised.
 
 The work LiteLLM endpoint intentionally remains on cleartext HTTP until the coordinated home-server HTTPS change is ready. The test suite does not treat that temporary deployment choice as either a passing security assertion or an expected failure.
 
@@ -277,7 +289,7 @@ Install the [Agent Capability Manager CLI](https://github.docusignhq.com/FrontEn
 mise --env work-macos run update:acm
 ```
 
-This task runs ACM outside the checkout to avoid generating project hooks or instructions in dotfiles. ACM owns `~/.acm/plugins/1ds` and Claude's registration in `~/.claude/settings.json`; neither is symlinked into this repo. Work Pi loads only the three plugin entrypoints (`ds-ui`, `ds-tokens`, `1ds-heimdall-usage`) through its settings, and its existing Heimdall MCP adapter supplies `heimdall-query`. The nested offline fallback documents remain available to the routing skill without becoming separate Pi skills. Restart agent sessions after refreshing the plugin.
+This task runs ACM outside the checkout to avoid generating project hooks or instructions in dotfiles. ACM owns `~/.acm/plugins/1ds` and Claude's registration in `~/.claude/settings.json`; neither is symlinked into this repo. Work Pi loads only the three plugin entrypoints (`ds-ui`, `ds-tokens`, `1ds-heimdall-usage`) through its settings, and its native Heimdall MCP connection supplies `mcp__heimdall__heimdall-query`. The nested offline fallback documents remain available to the routing skill without becoming separate Pi skills. Restart agent sessions after refreshing the plugin.
 
 The task is intentionally separate from bootstrap, the grouped `update`, and `update:skills` (which updates the dotfiles-managed `~/.agents` catalog using the `skills` CLI).
 
