@@ -57,7 +57,7 @@ bun = "1.4.2"
 go = "1.27.1"
 rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
 "aqua:astral-sh/uv" = "0.12.21"
-"aqua:cli/cli" = "2.101.0"
+"aqua:cli/cli" = "2.102.0"
 "aqua:jqlang/jq" = "1.8.2"
 "aqua:FiloSottile/age" = "1.3.2"
 "aqua:getsops/sops" = "3.13.3"
