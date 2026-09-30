@@ -640,6 +640,42 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertNotIn("~/.config/mise/config.toml", self.personal.get("dotfiles", {}))
         self.assertNotIn("~/.config/mise/config.toml", self.work.get("dotfiles", {}))
 
+    def test_workstation_profiles_load_global_github_credentials(self) -> None:
+        fish = shutil.which("fish")
+        mise = shutil.which("mise")
+        self.assertIsNotNone(fish)
+        self.assertIsNotNone(mise)
+        for profile in ("personal", "work"):
+            with self.subTest(profile=profile):  # noqa: SIM117
+                with tempfile.TemporaryDirectory() as home:
+                    result = subprocess.run(
+                        [
+                            fish,
+                            "--no-config",
+                            "-c",
+                            'source "$argv[1]"; "$argv[2]" settings get github.credential_command',
+                            str(ROOT / "dotfiles" / profile / "mise-profile.fish"),
+                            mise,
+                        ],
+                        cwd=home,
+                        env={
+                            "HOME": home,
+                            "PATH": os.defpath,
+                            "MISE_GLOBAL_CONFIG_FILE": str(Path(home) / "missing.toml"),
+                            "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
+                            "MISE_YES": "1",
+                        },
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(
+                        result.stdout.strip(),
+                        'gh auth token --hostname "$MISE_CREDENTIAL_HOST"',
+                    )
+
     def test_google_workspace_configuration_stays_in_shared_scope(self) -> None:
         google_env = {
             "GOOGLE_CLOUD_PROJECT",

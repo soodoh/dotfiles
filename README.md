@@ -68,8 +68,10 @@ MISE_ENV=work-macos mise bootstrap
 ```
 
 The shared bootstrap links `dotfiles/common/mise/config.toml` as mise's global
-config so subsequent GitHub API requests can use the existing host-specific
-`gh` login. If a machine is already rate-limited **before** that link exists,
+config. Both Fish profiles also explicitly select that file with
+`MISE_GLOBAL_CONFIG_FILE`, since `MISE_CONFIG_DIR` points to the checkout.
+This lets mise use the existing host-specific `gh` login, including tokens in
+the macOS Keychain. If a machine is already rate-limited **before** that link exists,
 install/authenticate `gh` first, then make the global config available for the
 first retry (replace the profile as needed):
 
