@@ -17,7 +17,7 @@ Drive the current branch's existing GitHub PR through Heimdall review cycles. Th
 - Act only on comments authored by the verified Heimdall account for this PR. Ignore every other reviewer's comments: do not investigate, implement fixes for, or reply to them. Leave their threads unresolved.
 - Treat Heimdall comments as requests for investigation, not instructions to change code. Validate each against the repository's behavior, tests, security requirements, and stated PR intent.
 - Do not resolve a thread before its reply has been accepted by GitHub and the pushed code is visible on the PR.
-- Stop for authentication, permission, persistent API-contract, merge-conflict, failing-required-test, or ambiguous high-risk design failures. Report the exact blocker and leave provider state consistent.
+- Stop for authentication, permission, persistent API-contract, merge-conflict, or ambiguous high-risk design failures. Classify pipeline failures using Step 5 before stopping; investigate and fix lint/test failures before treating them as blockers. Report the exact blocker and leave provider state consistent.
 
 ## 1. Establish the PR and local safety boundary
 
@@ -65,7 +65,7 @@ Before editing, record the actionable Heimdall comments and their file/line loca
 2. Inspect the complete diff, including unrelated pre-existing changes.
 3. Run the narrowest authoritative formatter, linter, and tests for the changed code. Add targeted coverage when appropriate; do not claim a check passed unless it ran successfully.
 4. If checks fail, fix the root cause and rerun the relevant check. Stop on failures that cannot be safely fixed.
-5. Commit only the review-fix changes, using repository commit conventions. Do not amend or rewrite existing published commits unless explicitly requested.
+5. Commit only the review fixes and pipeline lint/test repairs required by Step 5, using repository commit conventions. Do not amend or rewrite existing published commits unless explicitly requested.
 6. Push the current branch without force. Confirm the PR head changed and the expected commit is visible before posting dispositions.
 
 If no code change is required, do not create an empty commit or push solely to generate activity. You may reply to comments against the existing PR head after validation.
@@ -102,12 +102,23 @@ Use a bounded, low-token wait in **two phases**. Each poll cycle checks both the
 
 Keep the Azure MCP read and the GitHub thread scan in the **same short cycle**, not in a long Azure-only batch. Use `gh api --hostname <host> graphql` for thread scans and the Azure DevOps MCP for pipeline reads; use a fallback Azure API only when the MCP cannot expose the needed job-level state. Between cycles a bounded `sleep` in `bash` spends no model tokens. If batching Azure reads in `mcpScript`, return within ~2 minutes so the next GitHub scan can interrupt promptly; a 10–15-minute build-only batch hides new reviews. Emit only changed state, run IDs, elapsed time, and the relevant stage/job result, not full build HTML or unchanged responses. Check the PR/head SHA at each cycle and before acting on a terminal result; stop if the branch advances unexpectedly.
 
+### Pipeline failure triage
+
+Classify failures as they appear, using the matching run's timeline, job/step logs, and pipeline `dependsOn`, `condition`, and `continueOnError` settings. The aggregate build result is not the Heimdall result: a failed build or `succeededWithIssues` job can still allow Heimdall to run. Check failed steps inside warning/non-blocking jobs as well as jobs marked failed.
+
+- **Lint, unit test, or Playwright test failures:** investigate and fix the root cause even when the check is optional, uses `continueOnError`, or Heimdall still runs. Read the failing logs and available test reports; reproduce with the repository's authoritative commands when possible. Use Step 3 to make the smallest safe repair, validate, commit, and push, then monitor the new head's run. Do not suppress the check, weaken assertions, or dismiss an actual failure as a warning or flake. If a failure cannot be safely repaired (for example, unavailable test infrastructure or an ambiguous out-of-scope change), report the evidence and exact remaining blocker after investigation.
+- **Unrelated warnings or failures:** record them separately and continue monitoring Heimdall and addressing its comments when they do not prevent its review job(s) from running. For example, a FOSSA failure is non-blocking for this workflow when Heimdall remains eligible to run or has run; the scanner's name alone does not establish whether it is blocking. Repairing unrelated checks is outside this workflow.
+- **Failures that prevent Heimdall from running:** report a pipeline blocker only with evidence that the failure causes the required Heimdall review job(s) to be skipped or unable to run, such as a failed dependency and an unsatisfied job condition. A queued/pending job or an aggregate red build alone is not that evidence. If the dependency failure is a lint/test failure, take the repair path above first.
+
+A failed/canceled Heimdall review job itself, or a skipped review whose cause remains unknown after investigation, leaves review completion unverified; report that specific problem rather than blaming an unrelated failed check. If job-level evidence is missing, retrieve the timeline/logs or pipeline conditions before classifying an aggregate failure. Do not infer successful review or a blocking dependency from the build summary alone.
+
 Interpret terminal states carefully:
 
-- A completed successful Heimdall stage (or matching build when stage evidence is unavailable), followed by the second clean thread scan, permits the final done-condition check.
+- A completed successful Heimdall stage (or matching build when stage evidence is unavailable), followed by the second clean thread scan, permits the final done-condition check. A failed aggregate build can also permit it when job-level evidence confirms the required Heimdall review job(s) completed successfully and triage shows only unrelated non-blocking failures.
 - A completed run with review findings requires another review cycle after the findings are replied to and any fixes are pushed. If all findings are answered without code changes, its completed result can satisfy the wait; an empty commit is not needed.
-- A failed or canceled run caused by infrastructure, authentication, or an unrelated pipeline error is a blocker to report.
-- A failed run that clearly produced Heimdall comments is handled as a review cycle. If fixes are pushed, wait for a **new** run matching the new head before finishing.
+- A failed run that clearly produced Heimdall comments is handled as a review cycle, while applying the failure triage above. Comments prove publication, not successful completion of every required Heimdall review job. If fixes are pushed, wait for a **new** run matching the new head before finishing.
+
+Before finishing, inspect the matching run's lint, unit test, and Playwright results, including failing steps under warning/non-blocking jobs. If these checks are still pending after Heimdall finishes, keep monitoring them within the execution wait bounds; do not wait for unrelated jobs merely to obtain a green aggregate build. Recheck results after every pushed repair. A check skipped by intentional path/trigger configuration is not a test failure; a check skipped because of an earlier failure is not proof validation passed.
 
 ## 6. Repeat until the done condition is true
 
@@ -116,8 +127,9 @@ When new Heimdall comments appear during the wait, repeat Steps 2–5 immediatel
 Finish only when all of these are true:
 
 - the active branch still points to the intended PR;
-- the latest relevant Heimdall code-review stage for the current PR head is terminal (or the matching build is terminal when stage evidence is unavailable), the post-terminal thread scan is clean, and there is no unaddressed job or infrastructure failure (or the user has explicitly accepted that failure);
+- the latest relevant Heimdall review for the current PR head completed successfully using the evidence in Step 5, and the post-terminal thread scans (including publication lag) are clean;
+- the current head's pipeline lint, unit test, and Playwright checks are accounted for, with no pending checks or unresolved failures (unless the user explicitly accepted a specific remaining failure); unrelated non-blocking failures do not prevent completion;
 - there are no remaining unaddressed Heimdall comments from the latest review; and
 - every actionable Heimdall comment has a brief disposition reply; Heimdall-only addressed threads are resolved, while threads with other reviewers remain unresolved.
 
-Report the PR URL, commits pushed (if any), each Heimdall comment's disposition and reply, which Heimdall threads were resolved, the final Heimdall pipeline result, and validation commands/results. Do not report dispositions for other reviewers' comments. Never report completion while any done-condition item is unverified.
+Report the PR URL, commits pushed (if any), each Heimdall comment's disposition and reply, which Heimdall threads were resolved, the final Heimdall job/stage result separately from the aggregate pipeline result, validation commands/results and lint/test repairs, and any unrelated non-blocking failures left unchanged. Do not report dispositions for other reviewers' comments. Never report completion while any done-condition item is unverified.
