@@ -29,7 +29,10 @@
     },
     "glean": {
       "url": "https://docusign-prod-be.glean.com/mcp/default",
-      "exposure": "codemode-deferred"
+      "exposure": "codemode-deferred",
+      "oauth": {
+        "callbackUrl": "http://localhost:19876/callback"
+      }
     },
     "heimdall": {
       "url": "https://services.dev.docusign.net/heimdall/v1.0/api/mcp/heimdall/mcp",
