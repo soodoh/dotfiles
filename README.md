@@ -151,15 +151,12 @@ bootstrap can install it.
     az account set --subscription "$AZURE_SUBSCRIPTION_ID"
   ```
 
-  Verify that the profiles remain separate:
+- Install ACM ([Agent Capability Manager CLI](https://github.docusignhq.com/FrontEndShared/agent-capabilities#installation)) on the work Mac, then explicitly install or refresh the 1DS plugin:
 
-  ```bash
-  az account show --query '{user:user.name, tenant:tenantId, subscription:name}' -o table
-  AZURE_CONFIG_DIR="$HOME/.azure/prod/.azure" \
-    az account show --query '{user:user.name, tenant:tenantId, subscription:name}' -o table
-  ```
+```bash
+mise --env work-macos run update:acm
+```
 
-  The first command must report the development identity and the second the production identity. Restart Pi after changing either profile so its MCP server receives the current login. Query Integration telemetry through `azure-test` at `docusigntestfollower.westus` / `KazMonTestDb`; query Stage, Demo, and Prod through `azure` at `docusign1.westus` / `KazMonDb`. Both Azure MCP servers start with `--read-only`; both expose the configured Kusto, subscription/resource discovery, Resource Health, and Azure Monitor tools. The Mixpanel MCP surface similarly allowlists read-oriented query and metadata tools. Do not put Azure CLI state directly under `~/.azure`; only `dev/` and `prod/` should live there.
 - Authenticate gcloud:
 
   ```bash
@@ -185,16 +182,6 @@ bootstrap can install it.
   msf-cli login --resource keyvault --system-name ipg-engagements
   ```
 
-## Pi MCP
-
-Both profiles use Pi's built-in MCP client and codemode, configured in `dotfiles/<profile>/pi/agent/mcp.json` and linked to `~/.pi/agent/mcp.json`. Large tool catalogs stay deferred; discover tools with `tool_search` or codemode's `searchTools()`, then batch/filter results with `codemode`. Native MCP returns the full `{ content, structuredContent?, isError? }` result to scripts, even when the displayed text is truncated. Scripts must check `isError`; tool names use the `mcp__<server>__<tool>` prefix, with hyphens normalized to underscores inside codemode.
-
-Read-oriented tool allowlists use native `toolExposure`. Playwright operations and Glean writes remain callable without per-call approval prompts, including calls nested in codemode. Native MCP does not advertise model sampling.
-
-Stdio servers inherit Pi's environment, including Node/CA settings, proxies, and unrelated credential variables. Server-specific `env` entries still override it. Azure production and Grafana select the production CLI profile; `azure-test` explicitly removes the inherited production subscription variable before starting with the development profile. This is intentional broader environment inheritance, not the old environment allowlist.
-
-When upgrading an existing workstation, reconcile the Pi package with `bun ci --cwd pi-extensions`, then link the active profile's new `mcp.json` (or let its normal bootstrap reconcile the link). Stop the old Pi session before starting a fresh one. The obsolete `mcp-adapter.json` is ignored by native Pi and can be removed manually. Use `/mcp` to inspect connection errors; enabled servers now connect at session startup rather than through the adapter's lazy lifecycle. Native OAuth uses a separate credential store; for the work profile, sign in again with `/mcp login glean` and `/mcp login mixpanel`. No old adapter credentials are deleted or copied automatically.
-
 ## Validation
 
 Run fast syntax, policy, and unit checks during normal iteration, or the full suite before merging:
@@ -204,53 +191,6 @@ mise run validate:fast
 mise run validate:integration
 mise run validate
 ```
-
-The full suite parses and plans both profiles, validates GitHub Actions with actionlint, checks shell syntax, runs the Pi package suite, exercises isolated Fish autostart and Herdr integration tests, validates the Herdr config natively, runs Neovim in an isolated environment, and executes colocated macOS configuration tests. CI never runs a workstation bootstrap.
-
-CI restores tools explicitly and always runs `mise install --locked` and the full validation suite, including on exact cache hits. Successful PR and main jobs save misses and compatible fallback generations. Both CI workflows read their mise release from `min_version` in `mise.toml`, so updating that single declaration also updates CI installation. A Renovate custom manager keeps the declaration current from mise's GitHub releases; mise's `auto_update` setting handles interactive workstations but is intentionally skipped in CI. `.github/workflows/mise-cache-key.py` keys the shared CI tool declarations, task tools, install options, and current-platform lock state—not profile-only tools, task descriptions, or ordinary environment values. OS, architecture, runner image family, mise version, and installation policy bound fallback reuse; new options invalidate the whole boundary. A cached fingerprint manifest forces reinstallation of new or replaced lock artifacts, including same-version changes, while retaining unchanged installs. Review the projection and bump its schema when changing installation/provenance policy or introducing environment-dependent tool inputs. Neither the manifest nor locked installation is an integrity scan of cached executable contents.
-
-The tool archive retains mise's data directory and CI-owned Cargo proxies. Rustup lives inside mise's data directory, so Rust symlinks and their toolchains travel together without archiving runner-preinstalled toolchains. Mise configuration, credentials, Cargo registries, and unrelated HOME state are excluded. Neovim archives only the active validation namespace, keyed by the actual Neovim version, OS/architecture, plugin lock, parser list, and runner image family; there is no cross-namespace fallback. Plugin restore, parser/executable assertions, and copied-lock checks still execute. Main cannot reuse PR merge-ref caches, so successful main runs must seed their own generations. No cache cleanup or retention automation is configured here.
-
-`mise run validate:agents:integration` validates resources declared in `pi-extensions/package.json` and loads each extension, then the combined manifest, through the actual mise-managed Pi loader. These checks use mise's Node LTS in temporary, credential-free processes with subprocesses, native addons, and external writes denied; no extension exception list is maintained. Network access is not blocked: `PI_OFFLINE` is best-effort, and the checks do not start sessions, invoke tools, or prompt models. They cover imports, factory registration, resource diagnostics, and registration conflicts—not session lifecycle, tool execution, or native background completion, which still needs a manual smoke test after relevant upgrades.
-
-The same integration task runs `pi-extensions/native-mcp-host.test.mjs` against local stdio fixtures with synthetic credentials. It exercises native config parsing, tool-exposure restrictions, environment routing and subscription exclusion, disabled sampling, and codemode batching/filtering of full results and tool errors. No live MCP services or OAuth login are exercised.
-
-The work LiteLLM endpoint intentionally remains on cleartext HTTP until the coordinated home-server HTTPS change is ready. The test suite does not treat that temporary deployment choice as either a passing security assertion or an expected failure.
-
-## Herdr terminal workspaces
-
-Both profiles use Herdr 0.8.2 in interactive Fish shells, with Tokyo Night and
-native workspace/agent navigation. Only `~/.config/herdr/config.toml` is linked
-into Git; session snapshots, sockets, plugins, and history remain local.
-`ha` launches/attaches Herdr; prefix **Ctrl+Space**, then **d**, detaches back to
-Fish. Existing tmux panes and editor terminals are excluded from autostart.
-
-The locally maintained [`pi-extensions/packages/agent-state`](pi-extensions/packages/agent-state/README.md)
-is enabled by both profile filters. One state owner combines parent lifecycle,
-native prompts, subagent work and pending completion delivery, then reports to
-Herdr and Moshi. Moshi also works outside Herdr; neither adapter treats the parent
-yielding to children as task completion. An ownership-safe adapter uses upstream's
-versioned host-liveness protocol without patching pi-subagents. Only the parent's
-native prompts request human attention; legacy blocker events are ignored. Both
-generated standalone hooks are excluded without deleting them.
-Reconcile with `bun install --cwd pi-extensions --frozen-lockfile`, then `/reload`;
-no bootstrap, daemon update or pairing change is needed. See the package README
-for protocol tests, upstream attribution and manual notification acceptance.
-Pi now uses its regular rendering default. `pi --tui-mode fullscreen` remains a
-per-launch rendering fallback; the state reporter does not alter Pi rendering.
-
-See [Herdr migration and acceptance](dotfiles/common/herdr/README.md) for the
-keymap, accepted differences, outstanding GUI/SSH checks, and safe rollback.
-Alerter is declared in the shared, macOS-only `[bootstrap.packages]` entries.
-`bootstrap:herdr-plugins` reconciles Sesh (Linux/macOS) and
-`herdr-focus-notify` (macOS only) to their exact committed pins, installing missing
-plugins and applying changed pins to healthy managed installations.
-`update:herdr-plugins` has the same behavior. Both refuse to replace/re-enable
-disabled or modified installations. Applying a changed pin executes upstream build
-code and can upgrade or roll back a plugin; matching pins are no-ops. **Alt+E** opens Sesh; mise also supplies its `eza`
-preview dependency alongside the existing zoxide and fzf. See
-[plugin provisioning](dotfiles/common/herdr/README.md#notification-plugin-provisioning)
-for prerequisites, notification-delivery policy and routing limitations.
 
 ## Updates
 
@@ -266,42 +206,6 @@ After changing tools in any mise configuration, refresh every committed lockfile
 ```bash
 mise run lock
 ```
-
-This generates both explicit environments in isolated temporary roots, verifies that they produce the same shared `mise.lock`, and only then atomically publishes changed lockfiles. Mise writes profile-only tools to `mise.personal-macos.lock` or `mise.work-macos.lock`, so both environments cover all three committed locks without mutating the tracked configuration during generation.
-
-The task updates mise tools, refreshes all shared and profile-specific mise lockfiles, refreshes the Docker Compose plugin link, updates Pi dependencies, the active profile's skills, Neovim plugins, native bootstrap packages (including third-party Homebrew taps), and applies committed Herdr plugin pins. The work profile resolves TWG releases and cross-platform checksums from its upstream manifest, so TWG is updated through the same mise tool flow.
-
-SketchyBar's usage refresh resolves the existing profile-specific `~/.config/fish/conf.d/10-mise-profile.fish` symlink without sourcing Fish. It runs only the usage CLI under `mise --env <profile> exec`, so the work profile supplies GOST proxy and CA variables along with the encrypted CLIProxyAPI management key; SketchyBar itself never needs those secrets. If no profile symlink is installed, direct-provider usage continues but proxy usage is skipped.
-
-SketchyBar, Borders, Moshi and alerter are declared in `mise.toml` under `[bootstrap.packages]` for both macOS profiles. The minimum supported mise release resolves their ordinary tap Ruby definitions without the Homebrew CLI. Bootstrap installs missing packages without broadly upgrading or pruning; `update:packages` explicitly upgrades declared installed packages. Source formulae need Xcode Command Line Tools. Package declarations do not change the tool lockfiles or enable Homebrew services.
-
-AeroSpace is declared as the third-party `brew-cask:nikitabobko/tap/aerospace` package. The minimum mise release includes both structured cask flight-step extraction ([jdx/mise#13060](https://github.com/jdx/mise/pull/13060)) and the `staged_path` support AeroSpace needs ([jdx/mise#13369](https://github.com/jdx/mise/pull/13369)), so new installs are mise-owned without a custom Homebrew task. An existing Homebrew-owned cask satisfies the declaration without transferring ownership; mise reports it as installed but leaves its upgrades and removal to Homebrew. To migrate an existing workstation once, unload the AeroSpace launch agent, run `brew uninstall --cask aerospace`, and rerun the profile bootstrap.
-
-After updating Moshi or mise-managed tools used by the daemon, run `launchctl kickstart -k "gui/$(id -u)/dev.mise.moshi-hook"` on paired Macs. Bootstrap skips already-loaded agents whose plist is unchanged; updating a binary or tool version does not change this agent's declaration. Restarting refreshes the running binary and mise environment; no need to pair or install hooks again.
-
-A weekly GitHub Actions workflow refreshes the repository-managed assets that Renovate does not cover: TWG metadata, both profile skill catalogs, the Neovim plugin lock, and Herdr plugin commit pins. It runs configuration/lock validation and opens or refreshes a single update pull request when tracked files change. Herdr pin refresh resolves upstream main without building or executing plugin code. Review the upstream changes before merging; after pulling, run `MISE_ENV=<profile> mise bootstrap` to apply the committed pins, or use `mise --env <profile> run update:herdr-plugins` for plugins only. Neither plugin reconciliation task resolves newer upstream versions.
-
-### Work ACM plugin
-
-Install the [Agent Capability Manager CLI](https://github.docusignhq.com/FrontEndShared/agent-capabilities#installation) on the work Mac, then explicitly install or refresh the 1DS plugin:
-
-```bash
-mise --env work-macos run update:acm
-```
-
-This task runs ACM outside the checkout to avoid generating project hooks or instructions in dotfiles. ACM owns `~/.acm/plugins/1ds` and Claude's registration in `~/.claude/settings.json`; neither is symlinked into this repo. Work Pi loads only the three plugin entrypoints (`ds-ui`, `ds-tokens`, `1ds-heimdall-usage`) through its settings, and its native Heimdall MCP connection supplies `mcp__heimdall__heimdall-query`. The nested offline fallback documents remain available to the routing skill without becoming separate Pi skills. Restart agent sessions after refreshing the plugin.
-
-The task is intentionally separate from bootstrap, the grouped `update`, and `update:skills` (which updates the dotfiles-managed `~/.agents` catalog using the `skills` CLI).
-
-### Matt Pocock skills
-
-Both `dotfiles/personal/agents/` and `dotfiles/work/agents/` include the 25 published engineering and productivity skills from [mattpocock/skills](https://github.com/mattpocock/skills), with their reference files, templates, and `.skill-lock.json` entries. The initial full-set import matches upstream commit `3cca18b368ae95cdbdebbff572ccafa662551015`; `in-progress/` and `misc/` skills are excluded. Keep the vendored files unchanged so normal skill updates remain straightforward.
-
-In a new Pi session, invoke `/skill:ask-matt` for workflow selection or `/skill:wayfinder` for multi-session planning. Upstream's `/name` commands are `/skill:name` in Pi. When upstream says to "Call the Skill tool", instruct Pi to read and follow the named skill's `SKILL.md` using its available file-reading tool; Pi does not expose that native tool. Follow Pi's existing delegation rules for subagent work. This is prompt-level compatibility guidance, not an installed runtime adapter.
-
-Installing the catalog does not configure a project's issue tracker or create project docs. Run `/skill:setup-matt-pocock-skills` separately in a target repository when needed; notably, unmodified `code-review` expects `docs/agents/issue-tracker.md`. Review each workflow before invoking it: `to-spec` publishes to the configured tracker and `implement` ends by committing.
-
-The existing update tasks refresh installed skills, not newly published or renamed ones. Reconcile those explicitly with the pinned `vars.skills_cli_version`, selecting only the intended skills. For repository-only installs, use temporary homes whose `.agents` links point to each profile catalog; never repoint the workstation's live `~/.agents` link. Preserve unrelated skills and lock metadata, and review both profile diffs.
 
 ## Changing encrypted environment variables
 
