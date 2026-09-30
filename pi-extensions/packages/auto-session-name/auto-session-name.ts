@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	clampThinkingLevel,
@@ -7,11 +6,11 @@ import {
 	type Model,
 	type UserMessage,
 } from "@earendil-works/pi-ai";
-import { complete, completeSimple } from "@earendil-works/pi-ai/compat";
 import {
 	type AgentSettledEvent,
 	type ExtensionAPI,
 	type ExtensionContext,
+	getAgentDir,
 	type InputEvent,
 	type SessionEntry,
 	type SessionInfoChangedEvent,
@@ -23,10 +22,14 @@ import {
 } from "@earendil-works/pi-coding-agent";
 
 type AutoSessionNameContext = Pick<ExtensionContext, "model" | "signal"> & {
-	modelRegistry: Pick<
-		ExtensionContext["modelRegistry"],
-		"getAll" | "getApiKeyAndHeaders"
-	>;
+	modelRegistry: Pick<ExtensionContext["modelRegistry"], "getAll"> & {
+		streamSimple(
+			...args: Parameters<ExtensionContext["modelRegistry"]["streamSimple"]>
+		): Pick<
+			ReturnType<ExtensionContext["modelRegistry"]["streamSimple"]>,
+			"result"
+		>;
+	};
 	sessionManager: Pick<
 		ExtensionContext["sessionManager"],
 		"getBranch" | "getSessionFile"
@@ -68,6 +71,8 @@ export type AutoTitleState = {
 	phase: "initial" | "refinement";
 	refinementAttempted: boolean;
 	initialFallback: boolean;
+	/** Explicit user ownership survives reload, even if the old title is restored. */
+	ownershipReleased?: boolean;
 };
 
 type RefinementEligibilityInput = {
@@ -307,7 +312,9 @@ const isAutoTitleState = (value: unknown): value is AutoTitleState =>
 	typeof value.originalRequest === "string" &&
 	(value.phase === "initial" || value.phase === "refinement") &&
 	typeof value.refinementAttempted === "boolean" &&
-	typeof value.initialFallback === "boolean";
+	typeof value.initialFallback === "boolean" &&
+	(value.ownershipReleased === undefined ||
+		typeof value.ownershipReleased === "boolean");
 
 export const reconstructAutoTitleState = (
 	entries: SessionEntry[],
@@ -320,6 +327,14 @@ export const reconstructAutoTitleState = (
 			isAutoTitleState(entry.data)
 		) {
 			state = { ...entry.data };
+		} else if (
+			entry.type === "session_info" &&
+			state &&
+			entry.name !== state.title
+		) {
+			// Also recover explicit choices recorded before ownership markers existed
+			// or made by another process while this runtime was not observing events.
+			state.ownershipReleased = true;
 		}
 	}
 	return state;
@@ -374,7 +389,7 @@ const isValidTitleModel = (value: unknown): value is string[] =>
 const readSettings = async (): Promise<AutoSessionNameSettings> => {
 	try {
 		const content = await readFile(
-			join(homedir(), ".pi", "agent", "settings.json"),
+			join(getAgentDir(), "settings.json"),
 			"utf8",
 		);
 		const parsed: unknown = JSON.parse(content);
@@ -453,36 +468,22 @@ const generateTitle = async (
 		ctx.model,
 		ctx.modelRegistry.getAll(),
 	);
-	const auth = await awaitWithAbort(
-		ctx.modelRegistry.getApiKeyAndHeaders(model),
+	const reasoningLevel = clampThinkingLevel(model, "off");
+	// Pi's configured runtime owns provider dispatch, auth (including endpoint
+	// overrides), virtual routing and cancellation. No compatibility/global API.
+	const response = await awaitWithAbort(
+		ctx.modelRegistry
+			.streamSimple(model, prompt, {
+				maxTokens: MAX_TITLE_OUTPUT_TOKENS,
+				temperature: TITLE_TEMPERATURE,
+				timeoutMs: TITLE_TIMEOUT_MS,
+				maxRetries: TITLE_PROVIDER_RETRIES,
+				...(reasoningLevel === "off" ? {} : { reasoning: reasoningLevel }),
+				signal,
+			})
+			.result(),
 		signal,
 	);
-	if (!auth.ok) throw new Error(auth.error);
-
-	const baseOptions = {
-		apiKey: auth.apiKey,
-		headers: auth.headers,
-		env: auth.env,
-		maxTokens: MAX_TITLE_OUTPUT_TOKENS,
-		temperature: TITLE_TEMPERATURE,
-		timeoutMs: TITLE_TIMEOUT_MS,
-		maxRetries: TITLE_PROVIDER_RETRIES,
-		signal,
-	};
-	const reasoningLevel = clampThinkingLevel(model, "off");
-	const response =
-		model.api === "openai-codex-responses"
-			? await complete(model, prompt, {
-					...baseOptions,
-					reasoningEffort: reasoningLevel === "off" ? "none" : reasoningLevel,
-				})
-			: await completeSimple(
-					model,
-					prompt,
-					reasoningLevel === "off"
-						? baseOptions
-						: { ...baseOptions, reasoning: reasoningLevel },
-				);
 	if (
 		response.stopReason === "error" ||
 		response.stopReason === "aborted" ||
@@ -541,9 +542,14 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 		inFlight = undefined;
 		autoTitleState = reconstructAutoTitleState(ctx.sessionManager.getBranch());
 		const currentName = sessionName(pi);
-		ownsTitle = Boolean(autoTitleState && currentName === autoTitleState.title);
+		ownsTitle = Boolean(
+			autoTitleState &&
+				!autoTitleState.ownershipReleased &&
+				currentName === autoTitleState.title,
+		);
 		manualOverride = Boolean(
-			(autoTitleState && currentName !== autoTitleState.title) ||
+			autoTitleState?.ownershipReleased ||
+				(autoTitleState && currentName !== autoTitleState.title) ||
 				(!autoTitleState && currentName),
 		);
 		initialEligible =
@@ -775,9 +781,15 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 		if (autoTitleState && event.name !== autoTitleState.title) {
 			ownsTitle = false;
 			manualOverride = true;
+			abortRequest();
+			if (!autoTitleState.ownershipReleased)
+				appendState({ ...autoTitleState, ownershipReleased: true });
 			return;
 		}
-		if (!autoTitleState && event.name?.trim()) manualOverride = true;
+		if (!autoTitleState && event.name?.trim()) {
+			manualOverride = true;
+			abortRequest();
+		}
 	});
 
 	pi.on("session_shutdown", () => {

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { Model } from "@earendil-works/pi-ai";
 import type {
 	AgentSettledEvent,
+	ExtensionContext,
 	InputEvent,
 	SessionEntry,
 	SessionInfoChangedEvent,
@@ -24,15 +25,8 @@ import autoSessionName, {
 	truncateHeadAndTail,
 } from "./auto-session-name";
 
-const mocks = vi.hoisted(() => ({
-	complete: vi.fn(),
-	completeSimple: vi.fn(),
-}));
-
-vi.mock("@earendil-works/pi-ai/compat", () => ({
-	complete: mocks.complete,
-	completeSimple: mocks.completeSimple,
-}));
+// Deterministic completion results behind the context's runtime stream API.
+const mocks = { completeSimple: vi.fn() };
 
 const skillPrefixedPrompt = `<skill name="brainstorming" location="/tmp/brainstorming/SKILL.md">
 # Brainstorming Ideas Into Designs
@@ -46,6 +40,7 @@ const plainPrompt =
 	"Help me design a reliable backup strategy for my laptop and home server.";
 
 let originalHome: string | undefined;
+let originalAgentDir: string | undefined;
 let isolatedHome: string | undefined;
 let entrySequence = 0;
 
@@ -55,12 +50,12 @@ type TestContext = {
 	model: TestModel | undefined;
 	modelRegistry: {
 		getAll(): TestModel[];
-		getApiKeyAndHeaders(model: TestModel): Promise<{
-			ok: true;
-			apiKey: string;
-			headers: Record<string, string>;
-			env: Record<string, string>;
-		}>;
+		streamSimple(
+			...args: Parameters<ExtensionContext["modelRegistry"]["streamSimple"]>
+		): Pick<
+			ReturnType<ExtensionContext["modelRegistry"]["streamSimple"]>,
+			"result"
+		>;
 	};
 	sessionManager: {
 		getBranch(): SessionEntry[];
@@ -199,11 +194,8 @@ const createContext = (
 	model,
 	modelRegistry: {
 		getAll: () => models,
-		getApiKeyAndHeaders: async () => ({
-			ok: true,
-			apiKey: "test-api-key",
-			headers: { "x-test": "header" },
-			env: { TEST_PROVIDER_ENV: "value" },
+		streamSimple: (...args) => ({
+			result: () => mocks.completeSimple(...args),
 		}),
 	},
 	sessionManager: {
@@ -554,6 +546,45 @@ describe("first-turn initial naming and raw input", () => {
 });
 
 describe("bounded model generation", () => {
+	test("manual ownership surrender survives restoring the automatic title and reloading", async () => {
+		const { harness, branch, ctx } = await nameInitialSession();
+		await harness.manualName("User title", ctx);
+		await harness.manualName("Reliable Backup Strategy", ctx);
+		expect(reconstructAutoTitleState(branch)?.ownershipReleased).toBe(true);
+		const reloaded = createHarness(branch, "Reliable Backup Strategy");
+		await reloaded.sessionStart(ctx, "reload");
+		branch.push(userMessageEntry("Actually use borg instead of restic"));
+		await reloaded.agentSettled(ctx);
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
+		expect(reloaded.pi.setSessionName).not.toHaveBeenCalled();
+	});
+
+	test("global configuration honors PI_CODING_AGENT_DIR instead of HOME", async () => {
+		const agentDir = await mkdtemp(join(tmpdir(), "title-config-dir-"));
+		try {
+			const home = process.env.HOME;
+			if (!home) throw new Error("Missing isolated test HOME");
+			await writeSettings(home, {
+				autoSessionName: { titleModel: ["default-model"] },
+			});
+			await writeFile(
+				join(agentDir, "settings.json"),
+				JSON.stringify({
+					autoSessionName: { titleModel: ["configured-model"] },
+				}),
+			);
+			process.env.PI_CODING_AGENT_DIR = agentDir;
+			mocks.completeSimple.mockResolvedValue({
+				content: "Custom Config Title",
+			});
+			const branch = [userMessageEntry(plainPrompt)];
+			const harness = createHarness(branch);
+			await harness.turnEnd(createContext(branch));
+			expect(mocks.completeSimple.mock.calls[0]?.[0]).toBe(configuredModel);
+		} finally {
+			await rm(agentDir, { recursive: true, force: true });
+		}
+	});
 	test("uses bounded output, timeout, no retries, deterministic temperature, and no reasoning", async () => {
 		mocks.completeSimple.mockResolvedValue({
 			content: "Bounded Model Request",
@@ -566,9 +597,6 @@ describe("bounded model generation", () => {
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
 		expect(mocks.completeSimple.mock.calls[0]?.[2]).toMatchObject({
-			apiKey: "test-api-key",
-			headers: { "x-test": "header" },
-			env: { TEST_PROVIDER_ENV: "value" },
 			maxTokens: 128,
 			maxRetries: 0,
 			temperature: 0,
@@ -582,7 +610,7 @@ describe("bounded model generation", () => {
 		);
 	});
 
-	test("an abort bounds stalled authentication and falls back safely", async () => {
+	test("an abort bounds a stalled runtime stream and falls back safely", async () => {
 		const controller = new AbortController();
 		const branch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(branch);
@@ -592,14 +620,10 @@ describe("bounded model generation", () => {
 			defaultModel,
 			controller.signal,
 		);
-		const authStarted = vi.fn();
-		ctx.modelRegistry.getApiKeyAndHeaders = () => {
-			authStarted();
-			return new Promise(() => undefined);
-		};
+		mocks.completeSimple.mockImplementation(() => new Promise(() => undefined));
 
 		const naming = harness.turnEnd(ctx);
-		await vi.waitFor(() => expect(authStarted).toHaveBeenCalled());
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 		controller.abort();
 		await naming;
 		await waitForName(harness, "Help me design a reliable backup strategy for");
@@ -607,18 +631,17 @@ describe("bounded model generation", () => {
 
 	test("explicitly disables reasoning for OpenAI Codex Responses", async () => {
 		const codexModel = makeTestModel("codex-model", "openai-codex-responses");
-		mocks.complete.mockResolvedValue({ content: "No Reasoning Title" });
+		mocks.completeSimple.mockResolvedValue({ content: "No Reasoning Title" });
 		const branch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(branch);
 		const ctx = createContext(branch, [codexModel], codexModel);
 
 		await harness.turnEnd(ctx);
-		await vi.waitFor(() => expect(mocks.complete).toHaveBeenCalled());
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
-		expect(mocks.complete.mock.calls[0]?.[2]).toMatchObject({
+		expect(mocks.completeSimple.mock.calls[0]?.[2]).toMatchObject({
 			maxTokens: 128,
 			maxRetries: 0,
-			reasoningEffort: "none",
 			temperature: 0,
 			timeoutMs: 8_000,
 		});
@@ -630,15 +653,15 @@ describe("bounded model generation", () => {
 			reasoning: true,
 			thinkingLevelMap: { off: null, minimal: null },
 		};
-		mocks.complete.mockResolvedValue({ content: "Low Reasoning Title" });
+		mocks.completeSimple.mockResolvedValue({ content: "Low Reasoning Title" });
 		const branch = [userMessageEntry(plainPrompt)];
 		const harness = createHarness(branch);
 
 		await harness.turnEnd(createContext(branch, [codexModel], codexModel));
-		await vi.waitFor(() => expect(mocks.complete).toHaveBeenCalled());
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 
-		expect(mocks.complete.mock.calls[0]?.[2]).toMatchObject({
-			reasoningEffort: "low",
+		expect(mocks.completeSimple.mock.calls[0]?.[2]).toMatchObject({
+			reasoning: "low",
 		});
 	});
 
@@ -1252,15 +1275,18 @@ describe("fallbacks, settings, and no backfill", () => {
 });
 
 beforeEach(async () => {
-	mocks.complete.mockReset();
 	mocks.completeSimple.mockReset();
 	entrySequence = 0;
 	originalHome = process.env.HOME;
+	originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+	delete process.env.PI_CODING_AGENT_DIR;
 	isolatedHome = await mkdtemp(join(tmpdir(), "auto-session-name-home-"));
 	process.env.HOME = isolatedHome;
 });
 
 afterEach(async () => {
+	if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+	else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
 	vi.useRealTimers();
 	vi.restoreAllMocks();
 	if (originalHome === undefined) delete process.env.HOME;

@@ -12,7 +12,12 @@
 - Limits title input to 1,600 characters using head-and-tail truncation, output to 128 tokens, provider retries to zero, and generation time to about eight seconds. Requests use deterministic temperature and the model's lowest supported reasoning level.
 - Normalizes titles to plain text with no more than 8 words and 60 characters.
 - Falls back to a deterministic prefix of the initial request if model resolution, authentication, timeout, provider generation, truncation, or output validation fails.
+- Generates through `ctx.modelRegistry.streamSimple(...).result()` so the native
+  runtime owns provider adapters, virtual-model routing, resolved auth headers and
+  endpoint overrides, and cancellation.
 - Persists branch-aware ownership state in Pi custom entries, which do not enter LLM context.
+  Manual surrender remains durable even if the old automatic text is restored
+  before `/reload`; historical explicit renames on the branch also surrender it.
 - Never overwrites a startup/CLI name, `/name`, a session-picker rename, an RPC rename, or another extension's name. Changing or clearing an automatic title permanently gives ownership to that explicit choice.
 - Does not scan, schedule, or backfill historical sessions. A resumed historical unnamed session remains unnamed, while a new fork with copied history is eligible for naming from its first post-fork request.
 
@@ -56,7 +61,11 @@ Restart Pi or run `/reload` after installing.
 
 ## Configuration
 
-Only two settings are configurable. Global settings are read from `~/.pi/agent/settings.json`:
+Only two settings are configurable. Global settings are read from
+`join(getAgentDir(), "settings.json")`: normally `~/.pi/agent/settings.json`, or
+`$PI_CODING_AGENT_DIR/settings.json` when overridden. This remains intentionally
+global-only; project settings can load the package but do not override its naming
+policy.
 
 ```json
 {
@@ -87,6 +96,7 @@ The workspace exposes validation scripts from `pi-extensions`. From the reposito
 
 ```bash
 bun run --cwd pi-extensions test -- packages/auto-session-name/auto-session-name.test.ts
+node pi-extensions/packages/auto-session-name/integration-host.test.mjs "$(mise which pi)"
 bun run --cwd pi-extensions typecheck
 bun run --cwd pi-extensions check
 ```
