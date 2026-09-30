@@ -1,15 +1,7 @@
 ---
 name: open-pr
-description: >
-  Prepare and open a GitHub pull request for the current repository, preserving
-  an existing non-default branch as the PR head and creating a Jira-named branch
-  only from the default branch or detached HEAD. Includes Jira-ticket discovery
-  or creation, safe synchronization with the real default branch,
-  repository-specific validation, PR-template completion, and evidence-based
-  reviewer selection. Use this skill whenever the user asks to open, create,
-  raise, submit, or prepare a PR on GitHub, even when they only say "PR my
-  changes", "push this branch", or "get this ready for review". Also use it when
-  Jira linkage, branch cleanup, or PR metadata is only implied by the request.
+description: Prepare and open a GitHub pull request with Jira linkage, validation, and reviewers.
+disable-model-invocation: true
 compatibility: Requires git and an authenticated GitHub CLI (`gh`). Jira fallback requires the installed `jira` skill and its authenticated TWG CLI.
 ---
 
