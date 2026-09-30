@@ -11,25 +11,25 @@
       "url": "https://mcp.mixpanel.com/mcp",
       "exposure": "hidden",
       "toolExposure": {
-        "Get-*": "codemode-deferred",
-        "List-*": "codemode-deferred",
-        "Search-*": "codemode-deferred",
-        "Describe-*": "codemode-deferred",
-        "Explain-*": "codemode-deferred",
-        "Run-Query": "codemode-deferred",
-        "Display-Query": "codemode-deferred",
-        "Run-Experiment-Pre-Launch-Checks": "codemode-deferred",
-        "Find-Duplicate-Groups": "codemode-deferred"
+        "Get-*": "codemode",
+        "List-*": "codemode",
+        "Search-*": "codemode",
+        "Describe-*": "codemode",
+        "Explain-*": "codemode",
+        "Run-Query": "codemode",
+        "Display-Query": "codemode",
+        "Run-Experiment-Pre-Launch-Checks": "codemode",
+        "Find-Duplicate-Groups": "codemode"
       }
     },
     "playwright": {
       "command": "playwright-mcp",
       "args": ["--extension"],
-      "exposure": "codemode-deferred"
+      "exposure": "deferred"
     },
     "glean": {
       "url": "https://docusign-prod-be.glean.com/mcp/default",
-      "exposure": "codemode-deferred",
+      "exposure": "deferred",
       "oauth": {
         "callbackUrl": "http://localhost:19876/callback"
       }
@@ -38,7 +38,7 @@
       "url": "https://services.dev.docusign.net/heimdall/v1.0/api/mcp/heimdall/mcp",
       "exposure": "hidden",
       "toolExposure": {
-        "heimdall-query": "codemode"
+        "heimdall-query": "deferred"
       }
     },
     "azure": {
@@ -51,12 +51,12 @@
       },
       "exposure": "hidden",
       "toolExposure": {
-        "kusto": "codemode-deferred",
-        "subscription_list": "codemode-deferred",
-        "group_list": "codemode-deferred",
-        "group_resource_list": "codemode-deferred",
-        "resourcehealth": "codemode-deferred",
-        "monitor": "codemode-deferred"
+        "kusto": "codemode",
+        "subscription_list": "codemode",
+        "group_list": "codemode",
+        "group_resource_list": "codemode",
+        "resourcehealth": "codemode",
+        "monitor": "codemode"
       }
     },
     "azure-test": {
@@ -69,12 +69,12 @@
       },
       "exposure": "hidden",
       "toolExposure": {
-        "kusto": "codemode-deferred",
-        "subscription_list": "codemode-deferred",
-        "group_list": "codemode-deferred",
-        "group_resource_list": "codemode-deferred",
-        "resourcehealth": "codemode-deferred",
-        "monitor": "codemode-deferred"
+        "kusto": "codemode",
+        "subscription_list": "codemode",
+        "group_list": "codemode",
+        "group_resource_list": "codemode",
+        "resourcehealth": "codemode",
+        "monitor": "codemode"
       }
     },
     "grafana-prod": {
@@ -88,7 +88,7 @@
         "AZURE_CONFIG_DIR": "${HOME}/.azure/prod/.azure",
         "GRAFANA_URL": "https://prod-obs-grafana-d6aubrhpbjc7etee.eus2.grafana.azure.com/"
       },
-      "exposure": "codemode-deferred"
+      "exposure": "codemode"
     },
     "azure-devops": {
       "command": "mcp-server-azuredevops",
@@ -110,7 +110,7 @@
     "figma": {
       "command": "figma-developer-mcp",
       "args": ["--stdio"],
-      "exposure": "codemode-deferred"
+      "exposure": "deferred"
     }
   }
 }
