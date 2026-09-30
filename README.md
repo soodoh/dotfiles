@@ -123,11 +123,7 @@ bootstrap can install it.
 
 ### Manual steps for Work macOS
 
-- (Optional) enable system-wide PACs
-```sh
-mise --env work-macos run proxy:pac:enable
-```
-
+- In Zen/Firefox, open **Settings > Network Settings > Settings**, select **Automatic proxy configuration URL**, and enter `http://127.0.0.1:1056/cli-proxy.pac`. Click **Reload** and save.
 - Authenticate TWG: `twg login`
 - Create isolated Azure CLI profiles. Bare `az` and the read-only `azure-test` Pi MCP use the development profile; the read-only `azure` Pi MCP uses the production profile. Run these after bootstrap from a fresh work-profile shell so mise has decrypted `AZURE_DEV_TENANT_ID`, `AZURE_PROD_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`:
 

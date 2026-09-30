@@ -87,7 +87,7 @@ environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr
 stdout_path = "~/Library/Logs/tailscale-control-proxy.log"
 stderr_path = "~/Library/Logs/tailscale-control-proxy.error.log"
 
-# Serves only the public routing rule on loopback; system PAC activation is opt-in.
+# Serves the public routing rule on loopback for browser-specific PAC settings.
 [bootstrap.macos.launchd.agents.cli-proxy-pac]
 program = "~/.local/bin/mise"
 args = [
@@ -145,14 +145,3 @@ scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 (cd "$scratch" && acm plugin install 1ds --force --non-interactive)
 '''
-
-# macOS PAC is per network service. Do not enable automatically at bootstrap.
-[tasks."proxy:pac:enable"]
-description = "Enable the work-only PAC for the allow-listed network services"
-interactive = true
-run = 'bash dotfiles/work/pac/configure.sh'
-
-[tasks."proxy:pac:disable"]
-description = "Disable the PAC URL managed by this work profile"
-interactive = true
-run = 'bash dotfiles/work/pac/configure.sh disable'
