@@ -1,4 +1,4 @@
-min_version = "2026.9.17"
+min_version = "2026.9.18"
 
 [settings]
 experimental = true
@@ -78,7 +78,7 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:JohnnyMorganz/StyLua" = "2.5.2"
-"aqua:docker/cli" = "29.8.1"
+"aqua:docker/cli" = "29.8.2"
 "aqua:docker/compose" = "5.5.1"
 # Upstream does not publish macOS binaries; Cargo works on all shared platforms.
 "cargo:eza" = "0.23.5"
@@ -87,12 +87,12 @@ rust = { version = "1.98.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "cargo:taplo-cli" = "0.10.0"
 "go:golang.org/x/tools/gopls" = "0.23.0"
 "pipx:yamllint" = "1.38.0"
-"npm:@earendil-works/pi-coding-agent" = "0.99.1"
+"npm:@earendil-works/pi-coding-agent" = "0.99.2"
 "npm:@playwright/mcp" = { version = "0.0.83", trust_policy_excludes = ["@playwright/mcp@0.0.80", "playwright@1.63.0-alpha-2026-08-31", "playwright-core@1.63.0-alpha-2026-08-31"] }
 "npm:@googleworkspace/cli" = "0.22.5"
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.8.1", trust_policy_excludes = ["fastq@1.20.2"] }
-"npm:@biomejs/biome" = "2.5.14"
+"npm:@biomejs/biome" = "2.5.15"
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:oxlint" = "1.86.0"

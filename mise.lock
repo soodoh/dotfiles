@@ -573,35 +573,35 @@ url_api = "https://api.github.com/repos/cli/cli/releases/assets/599854716"
 provenance = "github-attestations"
 
 [[tools."aqua:docker/cli"]]
-version = "29.8.1"
+version = "29.8.2"
 backend = "aqua:docker/cli"
 
 [tools."aqua:docker/cli"."platforms.linux-arm64"]
-url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.8.1.tgz"
+url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.8.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-arm64-musl"]
-url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.8.1.tgz"
+url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.8.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64"]
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.8.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64-baseline"]
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.8.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64-musl"]
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.8.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64-musl-baseline"]
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.8.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-arm64"]
-url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.8.1.tgz"
+url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.8.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-x64"]
-url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.8.1.tgz"
+url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.8.2.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-x64-baseline"]
-url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.8.1.tgz"
+url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.8.2.tgz"
 
 [[tools."aqua:docker/compose"]]
 version = "5.5.1"
@@ -1524,11 +1524,11 @@ checksum = "sha256:1462cb3b3046b815cf8ea436d3da450ec1a9f11dac7e5a46b0ada5305d7e8
 url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-x64.tar.gz"
 
 [[tools."npm:@biomejs/biome"]]
-version = "2.5.14"
+version = "2.5.15"
 backend = "npm:@biomejs/biome"
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
-version = "0.99.1"
+version = "0.99.2"
 backend = "npm:@earendil-works/pi-coding-agent"
 
 [[tools."npm:@googleworkspace/cli"]]

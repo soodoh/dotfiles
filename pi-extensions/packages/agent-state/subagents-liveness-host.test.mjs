@@ -79,8 +79,30 @@ try {
 			session,
 			{},
 		);
+		// Upstream selects tools on session_start; bind the loaded registry rather
+		// than returning an empty list that would skip its activation behavior.
+		const tools = loaded.extensions.flatMap((extension) =>
+			[...extension.tools.values()].map(({ definition }) => definition),
+		);
+		let activeTools = tools
+			.filter((tool) =>
+				["direct", "model-only"].includes(tool.exposure ?? "direct"),
+			)
+			.map((tool) => tool.name);
 		runner.bindCore(
-			{ getThinkingLevel: () => "off", refreshTools() {} },
+			{
+				getThinkingLevel: () => "off",
+				refreshTools() {},
+				getAllTools: () => tools,
+				getActiveTools: () => [...activeTools],
+				setActiveTools: (names) => {
+					activeTools = [...new Set(names)].filter((name) =>
+						tools.some(
+							(tool) => tool.name === name && tool.exposure !== "hidden",
+						),
+					);
+				},
+			},
 			{
 				getModel: () => undefined,
 				getScopedModels: () => [],
