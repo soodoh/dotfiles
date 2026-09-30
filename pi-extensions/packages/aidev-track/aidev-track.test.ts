@@ -1,6 +1,8 @@
 import type {
 	AgentSettledEvent,
+	AgentStartEvent,
 	BeforeAgentStartEvent,
+	SessionShutdownEvent,
 	ToolCallEvent,
 	ToolResultEvent,
 } from "@earendil-works/pi-coding-agent";
@@ -16,15 +18,21 @@ class FakeChild {
 	stdinChunks: string[] = [];
 	stdinEnded = false;
 	killed = false;
+	killSignal: string | undefined;
+	private stdinErrorListeners: ErrorListener[] = [];
 	private errorListeners: ErrorListener[] = [];
 	private closeListeners: CloseListener[] = [];
 
 	stdin = {
+		on: (_event: "error", listener: ErrorListener) => {
+			this.stdinErrorListeners.push(listener);
+		},
 		write: (chunk: string): unknown => {
 			this.stdinChunks.push(chunk);
 			return true;
 		},
-		end: (): unknown => {
+		end: (chunk?: string): unknown => {
+			if (chunk) this.stdinChunks.push(chunk);
 			this.stdinEnded = true;
 			return this;
 		},
@@ -43,9 +51,14 @@ class FakeChild {
 		return this;
 	}
 
-	kill(): unknown {
+	kill(signal: "SIGKILL"): unknown {
 		this.killed = true;
+		this.killSignal = signal;
 		return true;
+	}
+
+	emitStdinError(error: NodeJS.ErrnoException): void {
+		for (const listener of this.stdinErrorListeners) listener(error);
 	}
 
 	emitError(error: NodeJS.ErrnoException): void {
@@ -142,6 +155,14 @@ const toolResult = (toolName: string, path: string): ToolResultEvent => ({
 const agentSettled: AgentSettledEvent = { type: "agent_settled" };
 
 type Handlers = {
+	agent_start?: (
+		event: AgentStartEvent,
+		context: typeof ctx,
+	) => void | Promise<void>;
+	session_shutdown?: (
+		event: SessionShutdownEvent,
+		context: typeof ctx,
+	) => void | Promise<void>;
 	before_agent_start?: (
 		event: BeforeAgentStartEvent,
 		context: typeof ctx,
@@ -165,6 +186,14 @@ function createHarness(behavior: SpawnBehavior = "close") {
 	const handlers: Handlers = {};
 
 	function on(
+		event: "agent_start",
+		handler: NonNullable<Handlers["agent_start"]>,
+	): void;
+	function on(
+		event: "session_shutdown",
+		handler: NonNullable<Handlers["session_shutdown"]>,
+	): void;
+	function on(
 		event: "before_agent_start",
 		handler: NonNullable<Handlers["before_agent_start"]>,
 	): void;
@@ -182,6 +211,11 @@ function createHarness(behavior: SpawnBehavior = "close") {
 	): void;
 	function on(
 		...args:
+			| [event: "agent_start", handler: NonNullable<Handlers["agent_start"]>]
+			| [
+					event: "session_shutdown",
+					handler: NonNullable<Handlers["session_shutdown"]>,
+			  ]
 			| [
 					event: "before_agent_start",
 					handler: NonNullable<Handlers["before_agent_start"]>,
@@ -195,6 +229,12 @@ function createHarness(behavior: SpawnBehavior = "close") {
 	): void {
 		const [event, handler] = args;
 		switch (event) {
+			case "agent_start":
+				handlers.agent_start = handler;
+				break;
+			case "session_shutdown":
+				handlers.session_shutdown = handler;
+				break;
 			case "before_agent_start":
 				handlers.before_agent_start = handler;
 				break;
@@ -216,6 +256,59 @@ function createHarness(behavior: SpawnBehavior = "close") {
 }
 
 describe("runAidevTrack", () => {
+	test.each([7, null])("reports unsuccessful exit %s", async (code) => {
+		const { spawn, calls } = createFakeSpawn("hang");
+		const result = runAidevTrack(
+			{ spawn, timeoutMs: 1000 },
+			"checkpoint",
+			{},
+			"/repo",
+		);
+		calls[0].child.emitClose(code);
+		expect(await result).toBe("error");
+	});
+
+	test("absorbs asynchronous stdin errors and terminates the writer", async () => {
+		const { spawn, calls } = createFakeSpawn("hang");
+		const result = runAidevTrack(
+			{ spawn, timeoutMs: 1000 },
+			"checkpoint",
+			{},
+			"/repo",
+		);
+		calls[0].child.emitStdinError(
+			Object.assign(new Error("pipe closed"), { code: "EPIPE" }),
+		);
+		expect(calls[0].child.killSignal).toBe("SIGKILL");
+		calls[0].child.emitClose(0);
+		expect(await result).toBe("error");
+	});
+
+	test("cancellation terminates an active hook and skips cancelled launches", async () => {
+		const { spawn, calls } = createFakeSpawn("hang");
+		const controller = new AbortController();
+		const result = runAidevTrack(
+			{ spawn, timeoutMs: 1000 },
+			"checkpoint",
+			{},
+			"/repo",
+			controller.signal,
+		);
+		controller.abort();
+		expect(calls[0].child.killSignal).toBe("SIGKILL");
+		calls[0].child.emitClose(null);
+		expect(await result).toBe("cancelled");
+		expect(
+			await runAidevTrack(
+				{ spawn, timeoutMs: 1000 },
+				"checkpoint",
+				{},
+				"/repo",
+				controller.signal,
+			),
+		).toBe("cancelled");
+		expect(calls).toHaveLength(1);
+	});
 	test("resolves ok, writes JSON payload to stdin, and passes correct args", async () => {
 		const { spawn, calls } = createFakeSpawn("close");
 		const status = await runAidevTrack(
@@ -303,7 +396,7 @@ describe("runAidevTrack", () => {
 				{},
 				"/repo",
 			);
-			await vi.advanceTimersByTimeAsync(500);
+			await vi.advanceTimersByTimeAsync(750);
 			const status = await promise;
 			expect(status).toBe("timeout");
 			expect(calls[0].child.killed).toBe(true);
@@ -314,6 +407,78 @@ describe("runAidevTrack", () => {
 });
 
 describe("createAidevTrackExtension", () => {
+	test("extension-triggered runs get a baseline reused across automatic continuations", async () => {
+		const { calls, handlers } = createHarness();
+		await handlers.agent_start?.({ type: "agent_start" }, ctx);
+		await handlers.tool_call?.(
+			{ ...toolCall("edit", "a.ts"), parentToolCallId: "codemode-1" },
+			ctx,
+		);
+		await handlers.tool_result?.(
+			{ ...toolResult("edit", "a.ts"), parentToolCallId: "codemode-1" },
+			ctx,
+		);
+		await handlers.agent_start?.({ type: "agent_start" }, ctx);
+		await handlers.agent_settled?.(agentSettled, ctx);
+		await handlers.agent_settled?.(agentSettled, ctx);
+		expect(calls.map((call) => call.args[0])).toEqual([
+			"turn-start",
+			"checkpoint",
+			"checkpoint",
+			"turn-end",
+		]);
+		await handlers.agent_start?.({ type: "agent_start" }, ctx);
+		expect(calls.at(-1)?.args[0]).toBe("turn-start");
+	});
+
+	test("parallel same-file nested hooks serialize and block mutations until the pristine snapshot", async () => {
+		const { calls, handlers } = createHarness("hang");
+		const first = handlers.tool_call?.(
+			{ ...toolCall("edit", "a.ts"), parentToolCallId: "outer" },
+			ctx,
+		);
+		const second = handlers.tool_call?.(
+			{
+				...toolCall("write", "a.ts"),
+				toolCallId: "call-2",
+				parentToolCallId: "outer",
+			},
+			ctx,
+		);
+		let released = false;
+		void Promise.resolve(first).then(() => {
+			released = true;
+		});
+		await vi.waitFor(() => expect(calls).toHaveLength(1));
+		expect(released).toBe(false);
+		calls[0].child.emitClose();
+		await vi.waitFor(() => expect(calls).toHaveLength(2));
+		expect(released).toBe(false);
+		calls[1].child.emitClose();
+		await first;
+		await vi.waitFor(() => expect(calls).toHaveLength(3));
+		calls[2].child.emitClose();
+		await second;
+		expect(calls.map((call) => call.args[0])).toEqual([
+			"turn-start",
+			"checkpoint",
+			"checkpoint",
+		]);
+	});
+
+	test("shutdown cancels the active hook and drains without launching queued hooks", async () => {
+		const { calls, handlers } = createHarness("hang");
+		const starting = handlers.agent_start?.({ type: "agent_start" }, ctx);
+		const queued = handlers.tool_call?.(toolCall("write", "a.ts"), ctx);
+		await vi.waitFor(() => expect(calls).toHaveLength(1));
+		const shutdown = handlers.session_shutdown?.(
+			{ type: "session_shutdown", reason: "reload" },
+			ctx,
+		);
+		calls[0].child.emitClose(null);
+		await Promise.all([starting, queued, shutdown]);
+		expect(calls).toHaveLength(1);
+	});
 	afterEach(() => {
 		vi.useRealTimers();
 	});
@@ -334,6 +499,8 @@ describe("createAidevTrackExtension", () => {
 
 	test("tool_call for edit maps to a PreToolUse checkpoint", async () => {
 		const { calls, handlers } = createHarness();
+		await handlers.before_agent_start?.(beforeAgentStart("edit"), ctx);
+		calls.length = 0;
 		await handlers.tool_call?.(toolCall("edit", "src/a.ts"), ctx);
 
 		expect(calls).toHaveLength(1);
@@ -349,6 +516,8 @@ describe("createAidevTrackExtension", () => {
 
 	test("tool_call for write maps to a PreToolUse checkpoint", async () => {
 		const { calls, handlers } = createHarness();
+		await handlers.before_agent_start?.(beforeAgentStart("write"), ctx);
+		calls.length = 0;
 		await handlers.tool_call?.(toolCall("write", "src/b.ts"), ctx);
 
 		expect(calls).toHaveLength(1);
@@ -383,6 +552,8 @@ describe("createAidevTrackExtension", () => {
 
 	test("agent_settled maps to turn-end", async () => {
 		const { calls, handlers } = createHarness();
+		await handlers.agent_start?.({ type: "agent_start" }, ctx);
+		calls.length = 0;
 		await handlers.agent_settled?.(agentSettled, ctx);
 
 		expect(calls).toHaveLength(1);
@@ -413,6 +584,6 @@ describe("createAidevTrackExtension", () => {
 			input: {},
 		};
 		await handlers.tool_call?.(event, ctx);
-		expect(lastPayload(calls[0]).tool_input).toEqual({});
+		expect(lastPayload(calls[calls.length - 1]).tool_input).toEqual({});
 	});
 });

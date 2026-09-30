@@ -20,7 +20,7 @@ this extension records into git notes at commit/push time.
 
 | Pi event | aidev-track call | Claude equivalent |
 | --- | --- | --- |
-| `before_agent_start` | `turn-start pi` | `UserPromptSubmit` |
+| `before_agent_start`, or `agent_start` without it | `turn-start pi` once per settled run | `UserPromptSubmit` |
 | `tool_call` (`edit`/`write`) | `checkpoint pi` | `PreToolUse` (pristine snapshot) |
 | `tool_result` (`edit`/`write`) | `checkpoint pi` | `PostToolUse` (edited snapshot) |
 | `agent_settled` | `turn-end pi` | `Stop` (reconcile) |
@@ -36,11 +36,21 @@ falls back to 100% human.
 
 ## Behavior and safety
 
-- **Never blocks a turn.** All invocations swallow failures and resolve to a
-  status; a missing or hung binary can never break Pi.
+- **Never prevents a turn.** Hooks are awaited and may delay execution, but
+  failures resolve to a status instead of throwing. Nonzero exits and stdin
+  errors are failures, not successful attribution.
+- **One baseline per settled run.** Completion messages and commands starting
+  a run without `before_agent_start` also get a baseline. Automatic retries and
+  continuations reuse it; only `agent_settled` reconciles and releases it.
+- **Serialized hook processes.** Parallel and codemode-nested `edit`/`write`
+  checkpoints share one runtime queue. Pi still owns file mutation ordering;
+  this does not lock other sessions or replace the CLI's cross-process safety.
 - **No-op when `aidev-track` is absent.** The first `ENOENT` disables further
   spawning for the session, mirroring the `|| true` guard in the git hooks.
-- **Timeout guarded.** A stuck process is killed after 5s.
+- **Timeout/cancellation guarded.** A stuck process is hard-killed after 5s.
+  Turn cancellation stops active snapshots; reconciliation can still run after
+  an abort. Session shutdown cancels active hooks and drains/skips queued work.
+  Waiting for termination adds at most 250ms if the OS does not report close.
 - **Tool label.** Pi reports as agent `pi`, which the current CLI records with
   a `tool: "unknown"` label. Attribution still counts fully as AI (AI% is
   correct); only the per-tool breakdown is unlabeled. If the `aidev-track`
@@ -48,6 +58,17 @@ falls back to 100% human.
   the label appearing.
 
 ## Verifying
+
+```sh
+bun run --cwd pi-extensions test -- packages/aidev-track
+node pi-extensions/packages/aidev-track/integration-host.test.mjs "$(mise which pi)"
+```
+
+The actual-host test uses a deterministic model and captured attribution CLI,
+plus real subprocess failure probes. It exercises native codemode concurrency
+and extension-triggered continuations without credentials or workstation hooks.
+It does not claim end-to-end git-note attribution by the proprietary CLI.
+
 
 ```sh
 git notes --ref=aidev-track show HEAD   # inspect the raw authorship note

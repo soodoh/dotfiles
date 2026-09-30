@@ -384,6 +384,7 @@ run = [
   'node pi-extensions/native-mcp-host.test.mjs "$(mise which pi)"',
   'bun run --cwd pi-extensions test:host -- "$(mise which pi)"',
   'python3 pi-extensions/packages/agent-state/integration.test.py "$(mise which pi)"',
+  'node pi-extensions/packages/aidev-track/integration-host.test.mjs "$(mise which pi)"',
 ]
 
 [tasks."validate:neovim"]

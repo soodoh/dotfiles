@@ -1,8 +1,10 @@
 import { spawn as nodeSpawn } from "node:child_process";
 import type {
 	AgentSettledEvent,
+	AgentStartEvent,
 	BeforeAgentStartEvent,
 	ExtensionContext,
+	SessionShutdownEvent,
 	ToolCallEvent,
 	ToolResultEvent,
 } from "@earendil-works/pi-coding-agent";
@@ -21,17 +23,21 @@ const DEFAULT_TIMEOUT_MS = 5_000;
 /** Pi built-in tools that mutate files on disk. Mirrors Claude's Edit|Write matcher. */
 const TRACKED_TOOLS = new Set(["edit", "write"]);
 
-type RunStatus = "ok" | "missing" | "timeout" | "error";
+type RunStatus = "ok" | "missing" | "timeout" | "error" | "cancelled";
 
 /** Minimal shape of the child process this extension relies on. */
 interface SpawnedProcess {
 	stdin: {
+		on(
+			event: "error",
+			listener: (error: NodeJS.ErrnoException) => void,
+		): unknown;
 		write(chunk: string): unknown;
-		end(): unknown;
+		end(chunk?: string): unknown;
 	} | null;
 	on(event: "error", listener: (error: NodeJS.ErrnoException) => void): unknown;
 	on(event: "close", listener: (code: number | null) => void): unknown;
-	kill(): unknown;
+	kill(signal: "SIGKILL"): unknown;
 }
 
 type SpawnFn = (
@@ -62,13 +68,34 @@ export function runAidevTrack(
 	command: string,
 	payload: Record<string, unknown>,
 	cwd: string,
+	signal?: AbortSignal,
 ): Promise<RunStatus> {
+	if (signal?.aborted) return Promise.resolve("cancelled");
 	return new Promise((resolve) => {
 		let settled = false;
+		let terminalStatus: RunStatus | undefined;
+		let timer: ReturnType<typeof setTimeout> | undefined;
 		const finish = (status: RunStatus) => {
 			if (settled) return;
 			settled = true;
+			clearTimeout(timer);
+			signal?.removeEventListener("abort", abort);
 			resolve(status);
+		};
+		const abort = () => terminate("cancelled");
+		const terminate = (status: RunStatus) => {
+			if (settled || terminalStatus) return;
+			terminalStatus = status;
+			clearTimeout(timer);
+			// Hard termination: a hook that ignores SIGTERM must not keep writing
+			// attribution state after Pi has proceeded. Wait for close when possible.
+			try {
+				child.kill("SIGKILL");
+			} catch {
+				// Still bound the wait if the OS cannot deliver the signal.
+			}
+			timer = setTimeout(() => finish(status), 250);
+			timer.unref();
 		};
 
 		let child: SpawnedProcess;
@@ -82,30 +109,26 @@ export function runAidevTrack(
 			return;
 		}
 
-		const timer = setTimeout(() => {
-			try {
-				child.kill();
-			} catch {
-				// ignore
-			}
-			finish("timeout");
-		}, deps.timeoutMs);
-		if (typeof timer.unref === "function") timer.unref();
-
+		timer = setTimeout(() => terminate("timeout"), deps.timeoutMs);
+		timer.unref();
 		child.on("error", (error) => {
-			clearTimeout(timer);
 			finish(isMissingBinary(error) ? "missing" : "error");
 		});
-		child.on("close", () => {
-			clearTimeout(timer);
-			finish("ok");
+		child.on("close", (code) => {
+			finish(terminalStatus ?? (code === 0 ? "ok" : "error"));
 		});
-
+		// write()/end() failures are normally asynchronous stream events, not
+		// exceptions. Keep this listener even after close to absorb late EPIPEs.
+		child.stdin?.on("error", () => terminate("error"));
+		signal?.addEventListener("abort", abort, { once: true });
+		if (signal?.aborted) {
+			abort();
+			return;
+		}
 		try {
-			child.stdin?.write(`${JSON.stringify(payload)}\n`);
-			child.stdin?.end();
+			child.stdin?.end(`${JSON.stringify(payload)}\n`);
 		} catch {
-			// stdin may already be closed if the process errored immediately.
+			terminate("error");
 		}
 	});
 }
@@ -132,6 +155,7 @@ type EventHandler<Event> = (
 ) => void | Promise<void>;
 
 type AidevTrackContext = {
+	signal?: ExtensionContext["signal"];
 	cwd: ExtensionContext["cwd"];
 	sessionManager: Pick<ExtensionContext["sessionManager"], "getSessionId">;
 };
@@ -144,6 +168,11 @@ type AidevTrackAPI = {
 	on(event: "tool_call", handler: EventHandler<ToolCallEvent>): void;
 	on(event: "tool_result", handler: EventHandler<ToolResultEvent>): void;
 	on(event: "agent_settled", handler: EventHandler<AgentSettledEvent>): void;
+	on(event: "agent_start", handler: EventHandler<AgentStartEvent>): void;
+	on(
+		event: "session_shutdown",
+		handler: EventHandler<SessionShutdownEvent>,
+	): void;
 };
 
 /**
@@ -159,15 +188,23 @@ export function createAidevTrackExtension(
 	deps: AidevTrackDeps = defaultDeps,
 ): (pi: AidevTrackAPI) => void {
 	return (pi) => {
-		// Cached availability: once we learn the binary is missing, stop spawning.
-		const state = { available: true };
+		// One baseline per settled run; automatic continuations reuse it. Commands
+		// and subagent completion messages may start a run without before_agent_start.
+		const state = { available: true, started: false, closed: false };
+		const lifetime = new AbortController();
+		let queue = Promise.resolve();
+		const enqueue = (work: () => Promise<void>): Promise<void> => {
+			queue = queue.then(work, work);
+			return queue;
+		};
 
 		const track = async (
 			command: string,
 			ctx: AidevTrackContext,
 			payload: Record<string, unknown>,
+			useTurnSignal = true,
 		): Promise<void> => {
-			if (!state.available) return;
+			if (!state.available || state.closed) return;
 			const status = await runAidevTrack(
 				deps,
 				command,
@@ -177,37 +214,60 @@ export function createAidevTrackExtension(
 					...payload,
 				},
 				ctx.cwd,
+				useTurnSignal && ctx.signal
+					? AbortSignal.any([lifetime.signal, ctx.signal])
+					: lifetime.signal,
 			);
 			if (status === "missing") state.available = false;
 		};
-
-		pi.on("before_agent_start", async (event, ctx) => {
+		const ensureStarted = async (ctx: AidevTrackContext, prompt?: string) => {
+			if (state.started || state.closed) return;
+			state.started = true;
 			await track("turn-start", ctx, {
 				hook_event_name: "UserPromptSubmit",
-				prompt: event.prompt,
+				...(prompt === undefined ? {} : { prompt }),
 			});
-		});
+		};
+
+		pi.on("before_agent_start", (event, ctx) =>
+			enqueue(() => ensureStarted(ctx, event.prompt)),
+		);
+		pi.on("agent_start", (_event, ctx) => enqueue(() => ensureStarted(ctx)));
 
 		pi.on("tool_call", async (event, ctx) => {
 			if (!TRACKED_TOOLS.has(event.toolName)) return;
-			await track("checkpoint", ctx, {
-				hook_event_name: "PreToolUse",
-				tool_name: event.toolName,
-				tool_input: extractFilePath(event.input),
+			await enqueue(async () => {
+				await ensureStarted(ctx);
+				await track("checkpoint", ctx, {
+					hook_event_name: "PreToolUse",
+					tool_name: event.toolName,
+					tool_input: extractFilePath(event.input),
+				});
 			});
 		});
 
 		pi.on("tool_result", async (event, ctx) => {
 			if (!TRACKED_TOOLS.has(event.toolName)) return;
-			await track("checkpoint", ctx, {
-				hook_event_name: "PostToolUse",
-				tool_name: event.toolName,
-				tool_input: extractFilePath(event.input),
-			});
+			await enqueue(() =>
+				track("checkpoint", ctx, {
+					hook_event_name: "PostToolUse",
+					tool_name: event.toolName,
+					tool_input: extractFilePath(event.input),
+				}),
+			);
 		});
 
-		pi.on("agent_settled", async (_event, ctx) => {
-			await track("turn-end", ctx, { hook_event_name: "Stop" });
+		pi.on("agent_settled", (_event, ctx) =>
+			enqueue(async () => {
+				if (!state.started) return;
+				await track("turn-end", ctx, { hook_event_name: "Stop" }, false);
+				state.started = false;
+			}),
+		);
+		pi.on("session_shutdown", async () => {
+			state.closed = true;
+			lifetime.abort();
+			await queue;
 		});
 	};
 }
