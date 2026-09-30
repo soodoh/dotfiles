@@ -3,12 +3,12 @@ import { appendFile, chmod, mkdir, open } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { lock } from "proper-lockfile";
 
 const HISTORY_FILE_NAME = "prompt-history.jsonl";
 const TAIL_READ_CHUNK_SIZE = 8192;
 const DEFAULT_HISTORY_PROMPT_LIMIT = 200;
 const DEFAULT_HISTORY_TAIL_BYTES = 512 * 1024;
-const lastPersistedPromptByPath = new Map<string, string>();
 
 export interface PromptHistoryPathOptions {
 	home?: string;
@@ -61,39 +61,33 @@ async function ensurePrivateDirectory(path: string): Promise<void> {
 	await chmodIfPossible(path, 0o700);
 }
 
-async function readLastPrompt(
+async function readTailLines(
 	historyPath: string,
 	maxBytes = DEFAULT_HISTORY_TAIL_BYTES,
-): Promise<string | undefined> {
+): Promise<string[]> {
 	let file: Awaited<ReturnType<typeof open>>;
 	try {
 		file = await open(historyPath, "r");
 	} catch (error) {
-		if (isNotFoundError(error)) return undefined;
+		if (isNotFoundError(error)) return [];
 		throw error;
 	}
 
 	try {
 		const { size } = await file.stat();
-		let position = size;
-		let remainingBytes = Math.max(TAIL_READ_CHUNK_SIZE, Math.floor(maxBytes));
-		let text = "";
-		while (position > 0 && remainingBytes > 0) {
-			const length = Math.min(TAIL_READ_CHUNK_SIZE, position, remainingBytes);
-			position -= length;
-			remainingBytes -= length;
-			const buffer = Buffer.alloc(length);
-			const { bytesRead } = await file.read(buffer, 0, length, position);
-			text = `${buffer.subarray(0, bytesRead).toString("utf8")}${text}`;
-			const lines = text.split("\n");
-			const completeLines = position === 0 ? lines : lines.slice(1);
-			for (let index = completeLines.length - 1; index >= 0; index -= 1) {
-				const prompt = parsePromptLine(completeLines[index]);
-				if (prompt) return prompt;
-			}
-			text = position === 0 ? "" : (lines[0] ?? "");
-		}
-		return undefined;
+		const length = Math.min(
+			size,
+			Math.max(TAIL_READ_CHUNK_SIZE, Math.floor(maxBytes)),
+		);
+		const position = size - length;
+		const buffer = Buffer.alloc(length);
+		const { bytesRead } = await file.read(buffer, 0, length, position);
+		const bytes = buffer.subarray(0, bytesRead);
+		// Discard a partial first record as bytes, then decode complete UTF-8 lines
+		// once. Independent chunk decoding corrupts split multibyte characters.
+		const start = position === 0 ? 0 : bytes.indexOf(10) + 1;
+		if (position > 0 && start === 0) return [];
+		return bytes.subarray(start).toString("utf8").split("\n");
 	} finally {
 		await file.close();
 	}
@@ -139,76 +133,60 @@ export async function readPromptHistory(
 		TAIL_READ_CHUNK_SIZE,
 		Math.floor(options.maxBytes ?? DEFAULT_HISTORY_TAIL_BYTES),
 	);
-	let file: Awaited<ReturnType<typeof open>>;
-	try {
-		file = await open(historyPath, "r");
-	} catch (error) {
-		if (isNotFoundError(error)) return [];
-		throw error;
+	const lines = await readTailLines(historyPath, maxBytes);
+	const prompts: string[] = [];
+	for (
+		let index = lines.length - 1;
+		index >= 0 && prompts.length < maxPrompts;
+		index--
+	) {
+		const prompt = parsePromptLine(lines[index]);
+		if (prompt) prompts.push(prompt);
 	}
-
-	try {
-		const { size } = await file.stat();
-		let position = size;
-		let remainingBytes = maxBytes;
-		let text = "";
-		const prompts: string[] = [];
-
-		while (position > 0 && remainingBytes > 0 && prompts.length < maxPrompts) {
-			const length = Math.min(TAIL_READ_CHUNK_SIZE, position, remainingBytes);
-			position -= length;
-			remainingBytes -= length;
-			const buffer = Buffer.alloc(length);
-			const { bytesRead } = await file.read(buffer, 0, length, position);
-			text = `${buffer.subarray(0, bytesRead).toString("utf8")}${text}`;
-			const lines = text.split("\n");
-			const completeLines = position === 0 ? lines : lines.slice(1);
-			for (let index = completeLines.length - 1; index >= 0; index -= 1) {
-				const parsed = parsePromptLine(completeLines[index]);
-				if (parsed) prompts.push(parsed);
-				if (prompts.length >= maxPrompts) break;
-			}
-			text = position === 0 ? "" : (lines[0] ?? "");
-		}
-
-		const orderedPrompts = prompts.reverse();
-		const lastPrompt = orderedPrompts.at(-1);
-		if (lastPrompt) lastPersistedPromptByPath.set(historyPath, lastPrompt);
-		return orderedPrompts;
-	} finally {
-		await file.close();
-	}
-}
-
-export interface AppendPromptOptions {
-	lastPersistedPrompt?: string;
+	return prompts.reverse();
 }
 
 export async function appendPrompt(
 	prompt: string,
 	historyPath = getPromptHistoryPath(),
-	options: AppendPromptOptions = {},
 ): Promise<boolean> {
 	const trimmed = prompt.trim();
 	if (!trimmed) return false;
 
-	const cachedLastPrompt = lastPersistedPromptByPath.get(historyPath);
-	const suppliedLastPrompt = options.lastPersistedPrompt;
-	if (cachedLastPrompt === trimmed || suppliedLastPrompt === trimmed) {
-		return false;
-	}
-
-	const lastPrompt = await readLastPrompt(historyPath);
-	if (lastPrompt) lastPersistedPromptByPath.set(historyPath, lastPrompt);
-	if (lastPrompt === trimmed) return false;
-
 	await ensurePrivateDirectory(dirname(historyPath));
-	await appendFile(
-		historyPath,
-		`${JSON.stringify({ ts: new Date().toISOString(), prompt: trimmed })}\n`,
-		{ encoding: "utf8", mode: 0o600 },
-	);
+	const file = await open(historyPath, "a", 0o600);
+	await file.close();
 	await chmodIfPossible(historyPath, 0o600);
-	lastPersistedPromptByPath.set(historyPath, trimmed);
-	return true;
+	// Check-and-append is one cross-process critical section. Session-local
+	// caches cannot identify the global last prompt after another session writes.
+	const release = await lock(historyPath, {
+		realpath: false,
+		retries: { retries: 5, factor: 1, minTimeout: 10, maxTimeout: 10 },
+	});
+	try {
+		const [lastPrompt] = await readPromptHistory(historyPath, {
+			maxPrompts: 1,
+		});
+		if (lastPrompt === trimmed) return false;
+		const reader = await open(historyPath, "r");
+		let separator = "";
+		try {
+			const { size } = await reader.stat();
+			if (size > 0) {
+				const lastByte = Buffer.alloc(1);
+				await reader.read(lastByte, 0, 1, size - 1);
+				if (lastByte[0] !== 10) separator = "\n";
+			}
+		} finally {
+			await reader.close();
+		}
+		await appendFile(
+			historyPath,
+			`${separator}${JSON.stringify({ ts: new Date().toISOString(), prompt: trimmed })}\n`,
+			"utf8",
+		);
+		return true;
+	} finally {
+		await release();
+	}
 }

@@ -75,7 +75,15 @@ export function hostImportPath(hostRoot, name) {
 
 export async function createSessionFixture(
 	hostRoot,
-	{ paths = [], factories = [], settings = {}, respond, tools = [] } = {},
+	{
+		paths = [],
+		factories = [],
+		settings = {},
+		respond,
+		tools = [],
+		uiContext,
+		mode,
+	} = {},
 ) {
 	const pi = await import(pathToFileURL(join(hostRoot, "dist/index.js")).href);
 	const ai = await import(
@@ -196,6 +204,10 @@ export async function createSessionFixture(
 		tools,
 	});
 	const errors = [];
-	await session.bindExtensions({ onError: (error) => errors.push(error) });
+	await session.bindExtensions({
+		uiContext,
+		mode,
+		onError: (error) => errors.push(error),
+	});
 	return { pi, ai, session, modelRuntime, errors };
 }

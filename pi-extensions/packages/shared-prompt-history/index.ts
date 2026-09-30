@@ -1,4 +1,7 @@
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
@@ -27,139 +30,14 @@ type EditorInstance = ReturnType<EditorFactory>;
 
 type SubmitHandler = (text: string) => void | Promise<void>;
 
-interface SharedPromptHistoryState {
-	loaded: boolean;
-	lastPersistedPrompt: string | undefined;
-	persistQueue: Promise<void>;
-	wrappedSubmit: SubmitHandler | undefined;
-}
-
 interface SharedPromptHistoryOptions {
 	historyPath?: string;
 	home?: string;
 }
 
-type SharedPromptHistoryContext = {
-	ui: Pick<ExtensionContext["ui"], "setEditorComponent">;
-};
-
-type SharedPromptHistoryCommandContext = Pick<ExtensionContext, "hasUI"> & {
+type SharedPromptHistoryCommandContext = Pick<ExtensionContext, "mode"> & {
 	ui: Pick<ExtensionContext["ui"], "custom" | "notify" | "setEditorText">;
 };
-
-type SharedPromptHistoryApi = {
-	on(
-		event: "session_start",
-		handler: (
-			event: unknown,
-			ctx: SharedPromptHistoryContext,
-		) => void | Promise<void>,
-	): void;
-	registerCommand(
-		name: string,
-		options: {
-			description?: string;
-			handler: (
-				args: string,
-				ctx: SharedPromptHistoryCommandContext,
-			) => Promise<void>;
-		},
-	): void;
-};
-
-class SharedPromptHistoryEditor extends CustomEditor {}
-
-const editorStates = new WeakMap<object, SharedPromptHistoryState>();
-
-function getState(editor: EditorInstance): SharedPromptHistoryState {
-	const state = editorStates.get(editor);
-	if (state) return state;
-
-	const nextState: SharedPromptHistoryState = {
-		loaded: false,
-		lastPersistedPrompt: undefined,
-		persistQueue: Promise.resolve(),
-		wrappedSubmit: undefined,
-	};
-	editorStates.set(editor, nextState);
-	return nextState;
-}
-
-function getSubmitHandler(editor: EditorInstance): SubmitHandler | undefined {
-	const value = Reflect.get(editor, "onSubmit");
-	return typeof value === "function" ? value.bind(editor) : undefined;
-}
-
-function setSubmitHandler(
-	editor: EditorInstance,
-	handler: SubmitHandler,
-): void {
-	Reflect.set(editor, "onSubmit", handler);
-}
-
-function loadHistory(editor: EditorInstance, prompts: string[]): void {
-	const state = getState(editor);
-	const addToHistory = Reflect.get(editor, "addToHistory");
-	if (state.loaded || typeof addToHistory !== "function") return;
-
-	for (const prompt of prompts) {
-		addToHistory.call(editor, prompt);
-		state.lastPersistedPrompt = prompt.trim();
-	}
-	state.loaded = true;
-}
-
-async function persistPrompt(
-	editor: EditorInstance,
-	text: string,
-	historyPath: string,
-): Promise<void> {
-	const state = getState(editor);
-	const trimmed = text.trim();
-	if (!trimmed || trimmed === state.lastPersistedPrompt) return;
-
-	const previousPrompt = state.lastPersistedPrompt;
-	state.lastPersistedPrompt = trimmed;
-	try {
-		await appendPrompt(trimmed, historyPath, {
-			lastPersistedPrompt: previousPrompt,
-		});
-	} catch {
-		if (state.lastPersistedPrompt === trimmed) {
-			state.lastPersistedPrompt = previousPrompt;
-		}
-		// Prompt history should never interfere with submitting a message.
-	}
-}
-
-function wrapOnSubmit(editor: EditorInstance, historyPath: string): void {
-	const state = getState(editor);
-	const original = getSubmitHandler(editor);
-	if (!original || original === state.wrappedSubmit) return;
-
-	state.wrappedSubmit = (text: string) => {
-		state.persistQueue = state.persistQueue.then(
-			() => persistPrompt(editor, text, historyPath),
-			() => persistPrompt(editor, text, historyPath),
-		);
-		void state.persistQueue;
-		return original(text);
-	};
-	setSubmitHandler(editor, state.wrappedSubmit);
-}
-
-function enhanceEditor(
-	editor: EditorInstance,
-	prompts: string[],
-	historyPath: string,
-): void {
-	loadHistory(editor, prompts);
-
-	// pi wires onSubmit immediately after an editor factory returns. Wrap it on the
-	// next microtask so built-in slash commands are persisted too, not only paths
-	// where pi later calls addToHistory().
-	queueMicrotask(() => wrapOnSubmit(editor, historyPath));
-}
 
 interface HistoryPickerTheme {
 	title(text: string): string;
@@ -169,6 +47,7 @@ interface HistoryPickerTheme {
 }
 
 interface HistoryPickerEntry extends PromptHistoryEntry {
+	searchText: string;
 	id: string;
 }
 
@@ -179,6 +58,8 @@ class PromptHistoryPicker implements Component, Focusable {
 	private list: SelectList;
 	private matchingCount: number;
 	private _focused = false;
+	private filter = "";
+	private matches: HistoryPickerEntry[] = [];
 
 	constructor(
 		entries: PromptHistoryEntry[],
@@ -189,10 +70,12 @@ class PromptHistoryPicker implements Component, Focusable {
 		const newestFirst = [...entries].reverse().map((entry, index) => ({
 			...entry,
 			id: String(index),
+			searchText: `${entry.prompt}\n${entry.ts ?? ""}`.toLowerCase(),
 		}));
 		for (const entry of newestFirst) {
 			this.entriesById.set(entry.id, entry);
 		}
+		this.matches = newestFirst;
 		this.totalCount = newestFirst.length;
 		this.list = this.createList(newestFirst);
 		this.matchingCount = newestFirst.length;
@@ -264,13 +147,16 @@ class PromptHistoryPicker implements Component, Focusable {
 	private applyFilter(): void {
 		const filter = this.input.getValue().trim().toLowerCase();
 		const matchingEntries: HistoryPickerEntry[] = [];
-		for (const entry of this.entriesById.values()) {
-			const timestamp = entry.ts ?? "";
-			const haystack = `${entry.prompt}\n${timestamp}`.toLowerCase();
-			if (!filter || haystack.includes(filter)) {
+		const candidates = filter.startsWith(this.filter)
+			? this.matches
+			: this.entriesById.values();
+		for (const entry of candidates) {
+			if (!filter || entry.searchText.includes(filter)) {
 				matchingEntries.push(entry);
 			}
 		}
+		this.filter = filter;
+		this.matches = matchingEntries;
 		this.matchingCount = matchingEntries.length;
 		this.list = this.createList(matchingEntries);
 	}
@@ -311,7 +197,7 @@ async function runHistoryCommand(
 	ctx: SharedPromptHistoryCommandContext,
 	historyPath: string,
 ): Promise<void> {
-	if (!ctx.hasUI) {
+	if (ctx.mode !== "tui") {
 		ctx.ui.notify("/history is only available in interactive mode.", "warning");
 		return;
 	}
@@ -360,7 +246,7 @@ async function runHistoryCommand(
 }
 
 export default function sharedPromptHistory(
-	pi: SharedPromptHistoryApi,
+	pi: Pick<ExtensionAPI, "on" | "registerCommand">,
 	options: SharedPromptHistoryOptions = {},
 ) {
 	const historyPath =
@@ -371,31 +257,86 @@ export default function sharedPromptHistory(
 		handler: async (_args, ctx) => runHistoryCommand(ctx, historyPath),
 	});
 
+	let closed = false;
+	let persistQueue = Promise.resolve();
+	let restoreEditor: (() => void) | undefined;
+	const persist = (text: string) => {
+		if (closed || !text.trim()) return;
+		persistQueue = persistQueue.then(async () => {
+			try {
+				await appendPrompt(text, historyPath);
+			} catch {
+				/* never prevent submission */
+			}
+		});
+	};
+	pi.on("input", (event, ctx) => {
+		if (ctx.mode === "tui" && event.source === "interactive")
+			persist(event.text);
+	});
 	pi.on("session_start", async (_event, ctx) => {
+		if (closed || ctx.mode !== "tui") return;
+		restoreEditor?.();
 		let history: string[] = [];
 		try {
 			history = await readPromptHistory(historyPath);
 		} catch {
-			// Shared history should never prevent editor installation.
+			/* best effort */
 		}
-
-		const originalSetEditorComponent = ctx.ui.setEditorComponent.bind(ctx.ui);
-		ctx.ui.setEditorComponent = (factory) => {
-			originalSetEditorComponent(
-				factory
-					? (tui, theme, keybindings) => {
-							const editor = factory(tui, theme, keybindings);
-							enhanceEditor(editor, history, historyPath);
-							return editor;
-						}
-					: undefined,
-			);
+		const editorStates = new WeakMap<
+			EditorInstance,
+			{ loaded: boolean; wrapped?: SubmitHandler }
+		>();
+		const wrappers = new WeakMap<EditorFactory, EditorFactory>();
+		const originalSet = ctx.ui.setEditorComponent;
+		const fallback: EditorFactory = (tui, theme, kb) =>
+			new CustomEditor(tui, theme, kb, { embedWorkingStatus: true });
+		const install: typeof originalSet = (factory) => {
+			const base = factory ?? fallback;
+			let wrapped = wrappers.get(base);
+			if (!wrapped) {
+				wrapped = (tui, theme, kb) => {
+					const editor = base(tui, theme, kb);
+					let state = editorStates.get(editor);
+					if (!state) {
+						state = { loaded: false };
+						editorStates.set(editor, state);
+					}
+					if (!state.loaded && editor.addToHistory) {
+						for (const prompt of history) editor.addToHistory(prompt);
+						state.loaded = true;
+					}
+					// Pi wires onSubmit after factory return. Only command submissions
+					// bypassing input need interception; queued prompts use native input.
+					const editorState = state;
+					queueMicrotask(() => {
+						if (closed) return;
+						const original = editor.onSubmit;
+						if (!original || original === editorState.wrapped) return;
+						editorState.wrapped = (text) => {
+							if (/^\s*[/!]/.test(text)) persist(text);
+							return original.call(editor, text);
+						};
+						editor.onSubmit = editorState.wrapped;
+					});
+					return editor;
+				};
+				wrappers.set(base, wrapped);
+				wrappers.set(wrapped, wrapped);
+			}
+			originalSet.call(ctx.ui, wrapped);
 		};
-
-		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
-			const editor = new SharedPromptHistoryEditor(tui, theme, keybindings);
-			enhanceEditor(editor, history, historyPath);
-			return editor;
-		});
+		const existing = ctx.ui.getEditorComponent();
+		ctx.ui.setEditorComponent = install;
+		restoreEditor = () => {
+			if (ctx.ui.setEditorComponent === install)
+				ctx.ui.setEditorComponent = originalSet;
+		};
+		install(existing);
+	});
+	pi.on("session_shutdown", async () => {
+		closed = true;
+		restoreEditor?.();
+		await persistQueue;
 	});
 }

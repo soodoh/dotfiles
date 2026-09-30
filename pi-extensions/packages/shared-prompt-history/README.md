@@ -5,10 +5,13 @@
 ## Highlights
 
 - Loads previous prompts into the interactive editor history when a session starts.
-- Persists submitted prompts to one global JSONL history file.
-- Wraps Pi editor components so later custom editors can still receive shared history.
+- Persists native interactive input, including queued steering/follow-up prompts,
+  to one global JSONL history file. RPC and extension-generated input are excluded.
+- Composes existing and later Pi editor components so custom editors retain shared
+  history; command/shell submissions bypassing native input are intercepted once.
 - Adds `/history` to search all saved prompts and restore one into the editor.
-- Avoids writing empty prompts or immediate duplicate submissions.
+- Avoids empty prompts and global consecutive duplicates with a cross-process
+  check-and-append lock; another session's intervening prompt is never ignored.
 - Fails quietly if history persistence has an issue, so prompt submission is never blocked.
 
 ## Install
@@ -71,7 +74,17 @@ Malformed lines are ignored on read, which keeps a partially written record from
 - Only non-empty trimmed prompts are persisted.
 - Consecutive duplicate prompts are skipped.
 - Startup editor history loads a bounded tail, but `/history` reads all valid records in the history file.
-- The extension installs a default `CustomEditor` and wraps later calls to `ctx.ui.setEditorComponent(...)` so other editor extensions can still participate.
+- The extension preserves `getEditorComponent()` when already configured and
+  wraps later factories. Resetting uses a history-enabled `CustomEditor` with
+  Pi's embedded working indicator. Submit wrappers are identity-checked.
+- Only TUI mode installs an editor or opens `/history`; `hasUI` alone is not
+  sufficient because RPC does not support custom terminal components.
+- Orderly shutdown drains pending writes and restores the owned UI setter.
+- Tail reads decode complete UTF-8 records once, preserving multibyte characters.
+- Search text is indexed once per picker; extending a query filters the previous
+  matches instead of repeatedly lowercasing/rescanning every prompt. History is
+  append-only: there is no automatic destructive retention/pruning policy.
+- Locks retry for at most five short waits; storage/lock failures remain best-effort.
 
 ## Development
 
@@ -80,4 +93,5 @@ From the repository root:
 ```bash
 bun run --cwd pi-extensions typecheck
 bun run --cwd pi-extensions test -- packages/shared-prompt-history
+node pi-extensions/packages/shared-prompt-history/integration-host.test.mjs "$(mise which pi)"
 ```

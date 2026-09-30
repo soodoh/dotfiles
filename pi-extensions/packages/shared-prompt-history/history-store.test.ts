@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
@@ -25,6 +27,56 @@ afterEach(async () => {
 });
 
 describe("shared prompt history store", () => {
+	test("independent processes serialize global duplicate appends", async () => {
+		const historyPath = join(await makeTempDir(), "history.jsonl");
+		const source = new URL("./history-store.ts", import.meta.url).href;
+		const code = `import { appendPrompt } from ${JSON.stringify(source)}; await appendPrompt("same", ${JSON.stringify(historyPath)});`;
+		await Promise.all(
+			[0, 1].map(() =>
+				promisify(execFile)(
+					process.execPath,
+					["--input-type=module", "-e", code],
+					{ timeout: 5000, env: {} },
+				),
+			),
+		);
+		expect(await readPromptHistory(historyPath)).toEqual(["same"]);
+	});
+	test("multibyte characters survive tail boundaries and duplicate detection", async () => {
+		const historyPath = join(await makeTempDir(), "history.jsonl");
+		const prompt = `${"a".repeat(20)}€${"b".repeat(8187)}`;
+		await appendPrompt(prompt, historyPath);
+		expect(await readPromptHistory(historyPath)).toEqual([prompt]);
+		expect(await appendPrompt(prompt, historyPath)).toBe(false);
+	});
+
+	test("another session writing Y does not suppress a later X", async () => {
+		const historyPath = join(await makeTempDir(), "history.jsonl");
+		await appendPrompt("X", historyPath);
+		await writeFile(historyPath, `${JSON.stringify({ prompt: "Y" })}\n`, {
+			flag: "a",
+		});
+		expect(await appendPrompt("X", historyPath)).toBe(true);
+		expect(await readPromptHistory(historyPath)).toEqual(["X", "Y", "X"]);
+	});
+
+	test("concurrent writers preserve records and serialize duplicate checks", async () => {
+		const historyPath = join(await makeTempDir(), "history.jsonl");
+		const results = await Promise.all([
+			appendPrompt("same", historyPath),
+			appendPrompt("same", historyPath),
+		]);
+		expect(results.sort()).toEqual([false, true]);
+		await Promise.all([
+			appendPrompt("one", historyPath),
+			appendPrompt("two", historyPath),
+		]);
+		expect((await readPromptHistory(historyPath)).sort()).toEqual([
+			"one",
+			"same",
+			"two",
+		]);
+	});
 	test("uses ~/.local/state/pi/prompt-history.jsonl by default", () => {
 		expect(getPromptHistoryPath({ home: "/home/alice" })).toBe(
 			"/home/alice/.local/state/pi/prompt-history.jsonl",
@@ -98,20 +150,16 @@ describe("shared prompt history store", () => {
 		);
 
 		await expect(appendPrompt("same", historyPath)).resolves.toBe(true);
+		await expect(readPromptHistory(historyPath)).resolves.toEqual(["same"]);
 	});
 
-	test("suppresses duplicates when multiple editor states supply stale previous prompts", async () => {
+	test("consecutive duplicate detection uses the latest disk record", async () => {
 		const dir = await makeTempDir();
 		const historyPath = join(dir, "prompt-history.jsonl");
 		await appendPrompt("old", historyPath);
 
-		const staleEditorState = { lastPersistedPrompt: "old" };
-		await expect(
-			appendPrompt("same", historyPath, staleEditorState),
-		).resolves.toBe(true);
-		await expect(
-			appendPrompt("same", historyPath, staleEditorState),
-		).resolves.toBe(false);
+		await expect(appendPrompt("same", historyPath)).resolves.toBe(true);
+		await expect(appendPrompt("same", historyPath)).resolves.toBe(false);
 
 		await expect(readPromptHistory(historyPath)).resolves.toEqual([
 			"old",
