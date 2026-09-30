@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 
 export type ReadonlyFooterDataProvider = {
 	getGitBranch(): string | null;
+	getExtensionStatuses(): ReadonlyMap<string, string>;
 	onBranchChange(callback: () => void): () => void;
 };
 
@@ -15,8 +16,9 @@ export type GitStatus = {
 type GitStatusCacheEntry = Omit<GitStatus, "branch"> & { timestamp: number };
 type GitBranchCacheEntry = { branch: string | null; timestamp: number };
 
-const STATUS_TTL_MS = 1000;
-const BRANCH_TTL_MS = 500;
+export const GIT_REFRESH_INTERVAL_MS = 5000;
+const STATUS_TTL_MS = GIT_REFRESH_INTERVAL_MS;
+const BRANCH_TTL_MS = GIT_REFRESH_INTERVAL_MS;
 export const MAX_GIT_STDOUT_BYTES = 64 * 1024;
 
 const cachedStatusByCwd = new Map<string, GitStatusCacheEntry>();
@@ -35,7 +37,7 @@ export function runGit(
 	return new Promise((resolve) => {
 		const proc = spawn("git", args, {
 			cwd,
-			stdio: ["ignore", "pipe", "pipe"],
+			stdio: ["ignore", "pipe", "ignore"],
 		});
 		const chunks: Buffer[] = [];
 		let stdoutBytes = 0;
@@ -64,7 +66,9 @@ export function runGit(
 			chunks.push(chunk);
 		});
 		proc.on("close", (code) =>
-			finish(code === 0 ? Buffer.concat(chunks).toString("utf8").trim() : null),
+			finish(
+				code === 0 ? Buffer.concat(chunks).toString("utf8").trimEnd() : null,
+			),
 		);
 		proc.on("error", () => finish(null));
 	});
@@ -119,9 +123,11 @@ function getCurrentBranch(
 					branch: result,
 					timestamp: Date.now(),
 				});
-				onUpdate();
 			}
-			pendingBranchFetchByCwd.delete(cwd);
+			if (pendingBranchFetchByCwd.get(cwd) === pending) {
+				pendingBranchFetchByCwd.delete(cwd);
+			}
+			onUpdate();
 		});
 		pendingBranchFetchByCwd.set(cwd, pending);
 	}
@@ -144,21 +150,26 @@ export function getGitStatus(
 
 	if (!pendingStatusFetchByCwd.has(cwd)) {
 		const fetchId = statusInvalidation;
-		const pending = runGit(cwd, ["status", "--porcelain"], 500).then(
-			(output) => {
-				if (fetchId === statusInvalidation) {
-					const parsed = output
+		const pending = runGit(
+			cwd,
+			["--no-optional-locks", "status", "--porcelain"],
+			500,
+		).then((output) => {
+			if (fetchId === statusInvalidation) {
+				const parsed =
+					output !== null
 						? parseGitStatus(output)
-						: { staged: 0, unstaged: 0, untracked: 0 };
-					cachedStatusByCwd.set(cwd, {
-						...parsed,
-						timestamp: Date.now(),
-					});
-					onUpdate();
-				}
+						: (cachedStatus ?? { staged: 0, unstaged: 0, untracked: 0 });
+				cachedStatusByCwd.set(cwd, {
+					...parsed,
+					timestamp: Date.now(),
+				});
+			}
+			if (pendingStatusFetchByCwd.get(cwd) === pending) {
 				pendingStatusFetchByCwd.delete(cwd);
-			},
-		);
+			}
+			onUpdate();
+		});
 		pendingStatusFetchByCwd.set(cwd, pending);
 	}
 

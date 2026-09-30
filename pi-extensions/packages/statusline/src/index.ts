@@ -1,6 +1,10 @@
 import { resolve } from "node:path";
 import { readStoredCredential } from "@earendil-works/pi-coding-agent";
-import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import {
+	truncateToWidth,
+	visibleWidth,
+	wrapTextWithAnsi,
+} from "@earendil-works/pi-tui";
 import {
 	FAST_CHANGED_EVENT,
 	FAST_READER_EVENT,
@@ -8,6 +12,7 @@ import {
 	isCliproxyFast,
 } from "./cliproxy-fast";
 import {
+	GIT_REFRESH_INTERVAL_MS,
 	type GitStatus,
 	getGitStatus,
 	invalidateGit,
@@ -19,9 +24,10 @@ import type {
 	ProviderUsageContext,
 } from "./pi-types";
 import {
-	discoverProviderUsageTargets,
+	discoverProviderUsageTargetsAsync,
 	invalidateProviderUsageDiscovery,
 	mappedProviderUsageFamily,
+	type ProviderUsageTarget,
 	refreshProviderUsage,
 	renderProviderUsage,
 } from "./provider-usage";
@@ -36,6 +42,7 @@ type TuiLike = {
 
 type ExtensionContext = {
 	hasUI: boolean;
+	mode?: string;
 	ui: {
 		setFooter(
 			factory:
@@ -46,23 +53,9 @@ type ExtensionContext = {
 				  ) => {
 						dispose?(): void;
 						invalidate?(): void;
-						render(width?: number): string[];
-				  })
-				| undefined,
-		): void;
-		setWidget(
-			key: string,
-			factory:
-				| ((
-						tui: TuiLike,
-						theme: Theme,
-				  ) => {
-						dispose?(): void;
-						invalidate?(): void;
 						render(width: number): string[];
 				  })
 				| undefined,
-			options?: { placement?: "aboveEditor" | "belowEditor" },
 		): void;
 	};
 	sessionManager?: {
@@ -113,6 +106,8 @@ type ExtensionEventName =
 	| "input"
 	| "tool_result"
 	| "session_compact"
+	| "session_tree"
+	| "message_end"
 	| "after_provider_response"
 	| "model_select"
 	| "thinking_level_select";
@@ -154,13 +149,6 @@ type SemanticColor =
 	| "contextWarn"
 	| "contextError";
 type ColorValue = ThemeColor | `#${string}`;
-
-type AssistantTokenUsage = {
-	input: number;
-	output: number;
-	cacheRead: number;
-	cacheWrite: number;
-};
 
 type StatuslineSection =
 	| "model"
@@ -269,12 +257,6 @@ function getStatuslineLayout(ctx: ExtensionContext): StatuslineLayout {
 	return DEFAULT_STATUSLINE_LAYOUT;
 }
 
-function hasProviderUsageSection(ctx: ExtensionContext): boolean {
-	return getStatuslineLayout(ctx).some((line) =>
-		line.includes("provider_usage"),
-	);
-}
-
 function toProviderUsageContext(ctx: ExtensionContext): ProviderUsageContext {
 	return {
 		model: ctx.model,
@@ -320,46 +302,6 @@ function formatTokens(n: number): string {
 
 function displayLength(text: string): number {
 	return visibleWidth(text);
-}
-
-function isAssistantMessageWithUsage(
-	value: unknown,
-): value is { usage: AssistantTokenUsage; stopReason?: string } {
-	if (!isRecord(value)) return false;
-	const usage = value.usage;
-	if (!isRecord(usage)) return false;
-	return (
-		value.role === "assistant" &&
-		typeof usage.input === "number" &&
-		typeof usage.output === "number" &&
-		typeof usage.cacheRead === "number" &&
-		typeof usage.cacheWrite === "number" &&
-		(value.stopReason === undefined || typeof value.stopReason === "string")
-	);
-}
-
-function collectContextTokens(ctx: ExtensionContext): number {
-	let lastAssistant: { usage: AssistantTokenUsage } | undefined;
-	const branch = ctx.sessionManager?.getBranch?.() ?? [];
-
-	for (const entry of branch) {
-		if (!isRecord(entry) || entry.type !== "message") continue;
-		const message = entry.message;
-		if (!isAssistantMessageWithUsage(message)) continue;
-		if (message.stopReason === "error" || message.stopReason === "aborted")
-			continue;
-
-		lastAssistant = message;
-	}
-
-	const contextTokens = lastAssistant
-		? lastAssistant.usage.input +
-			lastAssistant.usage.output +
-			lastAssistant.usage.cacheRead +
-			lastAssistant.usage.cacheWrite
-		: (ctx.getContextUsage?.()?.tokens ?? 0);
-
-	return contextTokens ?? 0;
 }
 
 function renderModel(
@@ -409,7 +351,6 @@ function renderGit(git: GitStatus, theme: Theme): string | undefined {
 
 function renderContext(
 	ctx: ExtensionContext,
-	contextTokens: number,
 	theme: Theme,
 ): string | undefined {
 	const contextUsage = ctx.getContextUsage?.();
@@ -417,13 +358,19 @@ function renderContext(
 		contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
 	if (!contextWindow) return undefined;
 
-	const pct = contextUsage?.percent ?? (contextTokens / contextWindow) * 100;
+	// null is intentional after compaction: pre-compaction usage is not valid.
+	const pct = contextUsage?.percent;
 	const autoCompactEnabled =
 		ctx.settingsManager?.getCompactionSettings?.()?.enabled ?? true;
 	const autoIcon = autoCompactEnabled ? ` ${ICONS.auto}` : "";
-	const text = `${pct.toFixed(1)}%/${formatTokens(contextWindow)}${autoIcon}`;
+	const percentage = pct == null ? "?" : `${pct.toFixed(1)}%`;
+	const text = `${percentage}/${formatTokens(contextWindow)}${autoIcon}`;
 	const semantic =
-		pct > 90 ? "contextError" : pct > 70 ? "contextWarn" : "context";
+		pct != null && pct > 90
+			? "contextError"
+			: pct != null && pct > 70
+				? "contextWarn"
+				: "context";
 	return withIcon(ICONS.context, color(theme, semantic, text));
 }
 
@@ -475,31 +422,18 @@ function sessionCwd(ctx: ExtensionContext): string {
 function buildStatusLines(
 	ctx: ExtensionContext,
 	theme: Theme,
-	footerData: ReadonlyFooterDataProvider | null,
-	onUpdate: () => void,
+	layout: StatuslineLayout,
+	git: GitStatus | undefined,
+	providerUsageTargets: ProviderUsageTarget[],
 	width: number,
 	thinkingLevel: ThinkingLevel,
 	fastReader: FastReader | undefined,
+	mcpStatus: string | undefined,
 ): string[] {
-	const layout = getStatuslineLayout(ctx);
-	const allSections = layout.flat();
-	const providerUsageEnabled = allSections.includes("provider_usage");
-	const providerUsageCtx = toProviderUsageContext(ctx);
-	const providerUsageTargets = providerUsageEnabled
-		? discoverProviderUsageTargets(providerUsageCtx)
-		: [];
-	if (providerUsageEnabled) {
-		refreshProviderUsage(providerUsageCtx, providerUsageTargets, onUpdate);
-	}
-
-	const contextTokens = allSections.includes("context")
-		? collectContextTokens(ctx)
-		: 0;
-	const providerBranch = footerData?.getGitBranch() ?? null;
-	const git = allSections.includes("git")
-		? getGitStatus(sessionCwd(ctx), providerBranch, onUpdate)
+	// Width fallback may render sections twice; query Pi's context estimate once.
+	const context = layout.some((row) => row.includes("context"))
+		? renderContext(ctx, theme)
 		: undefined;
-
 	const renderSectionParts = (
 		sections: StatuslineSection[],
 		providerMode: ProviderUsageRenderMode,
@@ -513,7 +447,6 @@ function buildStatusLines(
 				case "git":
 					return git ? renderGit(git, theme) : undefined;
 				case "provider_usage":
-					if (!providerUsageEnabled) return undefined;
 					return renderProviderUsage(
 						providerUsageTargets,
 						theme,
@@ -523,7 +456,7 @@ function buildStatusLines(
 						ctx.model?.provider === "cliproxyapi",
 					);
 				case "context":
-					return renderContext(ctx, contextTokens, theme);
+					return context;
 				default:
 					return undefined;
 			}
@@ -533,25 +466,45 @@ function buildStatusLines(
 	for (const lineSections of layout) {
 		const fullParts = renderSectionParts(lineSections, "full");
 		const fullLine = formatLine(fullParts);
-		if (!width || displayLength(fullLine) <= width) {
-			if (fullLine) lines.push(fullLine);
-			continue;
+		const rowLines =
+			displayLength(fullLine) <= width
+				? fullLine
+					? [fullLine]
+					: []
+				: wrapLineParts(renderSectionParts(lineSections, "active"), width);
+		if (lineSections.includes("provider_usage") && mcpStatus) {
+			const left = rowLines.at(-1) ?? "";
+			const gap = width - visibleWidth(left) - visibleWidth(mcpStatus);
+			// Never truncate provider badges or add an extra row for MCP status.
+			if (gap >= (left ? 2 : 0)) {
+				const line = `${left}${" ".repeat(gap)}${mcpStatus}`;
+				if (rowLines.length > 0) rowLines[rowLines.length - 1] = line;
+				else rowLines.push(line);
+			}
 		}
-
-		lines.push(
-			...wrapLineParts(renderSectionParts(lineSections, "active"), width),
-		);
+		lines.push(...rowLines);
 	}
 
 	return lines;
 }
 
+function sanitizeStatus(text: string): string {
+	return text
+		.replace(/[\r\n\t]/g, " ")
+		.replace(/ +/g, " ")
+		.trim();
+}
+
+const PROVIDER_DISCOVERY_INTERVAL_MS = 60_000;
+
 export default function statusline(pi: ExtensionAPI): void {
 	let currentCtx: ExtensionContext | null = null;
-	let footerData: ReadonlyFooterDataProvider | null = null;
-	let tuiRef: { requestRender?: () => void } | null = null;
+	let tuiRef: TuiLike | null = null;
 	let thinkingLevel: ThinkingLevel = "off";
 	let fastReader: FastReader | undefined;
+	let disposeFooter: (() => void) | undefined;
+	let refreshGit: (() => void) | undefined;
+	let refreshProviders: ((rediscover?: boolean) => void) | undefined;
 	const requestRender = () => tuiRef?.requestRender?.();
 	pi.events.on(FAST_READER_EVENT, (value) => {
 		fastReader =
@@ -559,112 +512,170 @@ export default function statusline(pi: ExtensionAPI): void {
 		requestRender();
 	});
 	pi.events.on(FAST_CHANGED_EVENT, requestRender);
-	const refreshCurrentProviderUsage = (ctx: ExtensionContext): void => {
-		currentCtx = ctx;
-		if (hasProviderUsageSection(ctx)) {
-			const providerUsageCtx = toProviderUsageContext(ctx);
-			refreshProviderUsage(
-				providerUsageCtx,
-				discoverProviderUsageTargets(providerUsageCtx),
-				requestRender,
-			);
-		}
-	};
 
 	function install(ctx: ExtensionContext): void {
-		if (!ctx.hasUI) return;
-		currentCtx = ctx;
+		disposeFooter?.();
+		currentCtx = null;
+		if (!ctx.hasUI || (ctx.mode !== undefined && ctx.mode !== "tui")) return;
 		thinkingLevel = pi.getThinkingLevel?.() ?? thinkingLevel;
-		if (hasProviderUsageSection(ctx)) {
-			const providerUsageCtx = toProviderUsageContext(ctx);
-			refreshProviderUsage(
-				providerUsageCtx,
-				discoverProviderUsageTargets(providerUsageCtx),
-				requestRender,
-			);
-		}
 
-		ctx.ui.setFooter((tui, _theme, data) => {
+		ctx.ui.setFooter((tui, theme, data) => {
+			currentCtx = ctx;
 			tuiRef = tui;
-			footerData = data;
+			const layout = getStatuslineLayout(ctx);
+			const sections = layout.flat();
+			let git: GitStatus | undefined;
+			let targets: ProviderUsageTarget[] = [];
+			let disposed = false;
+			let discoveryId = 0;
+			const onUpdate = () => {
+				if (!disposed) requestRender();
+			};
+			const updateGit = () => {
+				if (disposed || !currentCtx || !sections.includes("git")) return;
+				git = getGitStatus(sessionCwd(currentCtx), data.getGitBranch(), () => {
+					if (disposed) return;
+					updateGit();
+					onUpdate();
+				});
+			};
+			const updateProviders = (rediscover = false) => {
+				if (disposed || !currentCtx || !sections.includes("provider_usage"))
+					return;
+				const usageCtx = toProviderUsageContext(currentCtx);
+				if (rediscover) {
+					const id = ++discoveryId;
+					invalidateProviderUsageDiscovery();
+					void discoverProviderUsageTargetsAsync(usageCtx)
+						.then((discovered) => {
+							if (disposed || id !== discoveryId) return;
+							targets = discovered;
+							onUpdate();
+							return refreshProviderUsage(usageCtx, targets, onUpdate);
+						})
+						.catch(() => {});
+				} else {
+					void refreshProviderUsage(usageCtx, targets, onUpdate).catch(
+						() => {},
+					);
+				}
+			};
+			refreshGit = updateGit;
+			refreshProviders = updateProviders;
 			const unsubscribe = data.onBranchChange(() => {
+				if (disposed) return;
 				invalidateGit();
-				requestRender();
+				updateGit();
+				onUpdate();
 			});
-
+			updateGit();
+			updateProviders(true);
+			const gitTimer = sections.includes("git")
+				? setInterval(updateGit, GIT_REFRESH_INTERVAL_MS)
+				: undefined;
+			// Recheck model/auth discovery even while idle. Usage fetches retain their
+			// existing successful/failed-refresh TTLs and cross-process leases.
+			const providerTimer = sections.includes("provider_usage")
+				? setInterval(() => {
+						updateProviders(true);
+						onUpdate();
+					}, PROVIDER_DISCOVERY_INTERVAL_MS)
+				: undefined;
+			gitTimer?.unref();
+			providerTimer?.unref();
+			const dispose = () => {
+				if (disposed) return;
+				disposed = true;
+				if (gitTimer) clearInterval(gitTimer);
+				if (providerTimer) clearInterval(providerTimer);
+				unsubscribe();
+				if (disposeFooter === dispose) {
+					disposeFooter = undefined;
+					refreshGit = undefined;
+					refreshProviders = undefined;
+					tuiRef = null;
+					currentCtx = null;
+				}
+			};
+			disposeFooter = dispose;
 			return {
-				dispose: unsubscribe,
-				invalidate: requestRender,
-				render: () => [],
+				dispose,
+				// No cached themed strings; Pi owns scheduling after invalidation.
+				invalidate() {},
+				render(width: number): string[] {
+					if (disposed || !currentCtx || width <= 0) return [];
+					const extensionStatuses = data.getExtensionStatuses();
+					const mcp = sanitizeStatus(extensionStatuses.get("mcp") ?? "");
+					const lines = buildStatusLines(
+						currentCtx,
+						theme,
+						layout,
+						git,
+						targets,
+						width,
+						thinkingLevel,
+						fastReader,
+						mcp ? theme.fg("dim", mcp) : undefined,
+					);
+					const statuses = [...extensionStatuses.entries()]
+						.filter(([key]) => key !== "mcp")
+						.sort(([a], [b]) => a.localeCompare(b))
+						.map(([, text]) => sanitizeStatus(text))
+						.filter(Boolean);
+					if (statuses.length > 0) {
+						lines.push(
+							truncateToWidth(theme.fg("dim", statuses.join(" ")), width),
+						);
+					}
+					return lines;
+				},
 			};
 		});
-
-		ctx.ui.setWidget(
-			"pi-statusline",
-			(tui, theme) => {
-				tuiRef = tui;
-				return {
-					dispose() {},
-					invalidate: requestRender,
-					render(width: number): string[] {
-						if (!currentCtx) return [];
-						return buildStatusLines(
-							currentCtx,
-							theme,
-							footerData,
-							requestRender,
-							width,
-							thinkingLevel,
-							fastReader,
-						);
-					},
-				};
-			},
-			{ placement: "belowEditor" },
-		);
 	}
 
-	pi.on("session_start", (_event, ctx) => {
-		invalidateProviderUsageDiscovery();
-		install(ctx);
-	});
-	pi.on("session_shutdown", (_event, ctx) => {
-		if (currentCtx === ctx) currentCtx = null;
+	pi.on("session_start", (_event, ctx) => install(ctx));
+	pi.on("session_shutdown", () => {
+		disposeFooter?.();
+		currentCtx = null;
 		fastReader = undefined;
 	});
-	pi.on("agent_start", (_event, ctx) => {
+	const updateContext = (_event: ExtensionEvent, ctx: ExtensionContext) => {
+		if (!disposeFooter) return;
 		currentCtx = ctx;
 		requestRender();
-	});
-	pi.on("agent_end", (_event, ctx) => {
-		refreshCurrentProviderUsage(ctx);
-		requestRender();
-	});
-	pi.on("after_provider_response", (_event, ctx) => {
-		refreshCurrentProviderUsage(ctx);
-		requestRender();
-	});
-	pi.on("model_select", (_event, ctx) => {
-		invalidateProviderUsageDiscovery();
-		refreshCurrentProviderUsage(ctx);
-		requestRender();
+	};
+	for (const event of [
+		"agent_start",
+		"input",
+		"session_compact",
+		"session_tree",
+		"message_end",
+	] as const) {
+		pi.on(event, updateContext);
+	}
+	for (const event of ["agent_end", "after_provider_response"] as const) {
+		pi.on(event, (event, ctx) => {
+			updateContext(event, ctx);
+			refreshProviders?.();
+		});
+	}
+	pi.on("model_select", (event, ctx) => {
+		updateContext(event, ctx);
+		refreshProviders?.(true);
 	});
 	pi.on("thinking_level_select", (event, ctx) => {
-		currentCtx = ctx;
 		thinkingLevel = event.level ?? pi.getThinkingLevel?.() ?? thinkingLevel;
-		requestRender();
-	});
-	pi.on("input", (_event, ctx) => {
-		currentCtx = ctx;
-		requestRender();
+		updateContext(event, ctx);
 	});
 	pi.on("tool_result", (event, ctx) => {
-		currentCtx = ctx;
-		if (event.toolName === "bash") invalidateGit();
-		requestRender();
-	});
-	pi.on("session_compact", (_event, ctx) => {
-		currentCtx = ctx;
-		requestRender();
+		updateContext(event, ctx);
+		if (
+			event.toolName === "bash" ||
+			event.toolName === "write" ||
+			event.toolName === "edit"
+		) {
+			invalidateGit();
+			refreshGit?.();
+		}
 	});
 }

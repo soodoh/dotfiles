@@ -6,7 +6,7 @@ This package was created to provide similar statusline-focused functionality to 
 
 ## Highlights
 
-- Renders a compact statusline below the editor.
+- Replaces Pi's footer with a compact statusline below the editor, preserving status text published by other extensions.
 - Shows the active model name, with shorter display for Claude names, and a Fast bolt when CLIProxyAPI Fast is effective for that model.
 - Shows the current thinking level as a separately configurable, level-colored section.
 - Shows the current git branch plus staged and unstaged change counts.
@@ -45,7 +45,9 @@ Restart Pi or run `/reload` after installing.
 
 ## Usage
 
-The extension activates automatically for sessions with a UI. It installs a below-editor widget named `pi-statusline` and keeps it refreshed as Pi emits session, agent, provider, model, thinking-level, input, tool, and compaction events.
+The extension activates automatically in terminal UI sessions, including regular and fullscreen modes. It renders directly through `ctx.ui.setFooter()` and keeps it refreshed as Pi emits session, agent, provider, model, thinking-level, input, tool, and compaction events. RPC, JSON, and print modes do not install the footer or start usage/git refreshes.
+
+The custom footer replaces Pi's default cwd, token/cost totals, and model-routing display. The MCP adapter's status is right-aligned on the configured provider-usage row when there is enough space; it is hidden on narrow terminals or when no provider-usage row is configured, without truncating usage badges or adding a status row. Other status text published through `ctx.ui.setStatus()` is preserved on a separate, width-bounded row.
 
 There are no slash commands. The statusline is intentionally always-on once the extension is loaded.
 
@@ -59,7 +61,7 @@ The rendered line is width-aware: narrow terminals use active-only provider deta
 | Thinking       | Current Pi thinking level (`off` through `max`), using Pi's matching level color.                                   |
 | Git            | Branch name, staged `+n`, and unstaged `*n` markers. Untracked files still make the branch appear dirty.           |
 | Provider usage | Usage or balance information for all authenticated configured providers, with OpenAI window reset dates and reset-credit counts and the selected model's provider highlighted. |
-| Context        | Current context percentage and context window, colored normally below 70%, warning above 70%, and error above 90%. |
+| Context        | Pi's current context percentage and effective context window, colored normally below 70%, warning above 70%, and error above 90%. Unknown usage (including immediately after compaction) renders as `?` until Pi reports a new estimate. |
 
 ## Configuration
 
@@ -117,8 +119,9 @@ Or to put git on a separate line from the model:
 
 - CLIProxyAPI is loaded from the local `pi-extensions` package in both macOS profiles. Supply `CLIPROXYAPI_BASE_URL` in the environment before launching Pi; mise provides the encrypted `CLIPROXYAPI_API_KEY`. Existing default models remain unchanged. Use `/model` to select a CLIProxyAPI model and `/fast` to toggle the provider's Fast preference (off initially).
 - The local `packages/cliproxyapi/index.ts` adapter loads the installed provider unchanged and publishes a read-only Fast reader to this statusline; only the adapter knows the provider's controller type. The bolt reflects the current Pi process's effective priority tier for the selected model, not the shared `cliproxyapi.json` preference. It stays hidden until the provider has populated its model capabilities. `/fast` in another running Pi process does not change this bolt or this process's requests; each invocation still writes the last-used preference for future sessions. Keep the statusline extension before the adapter in the package extension list.
-- Git status is fetched asynchronously with short-lived caches so rendering stays responsive.
-- Running the `bash` tool invalidates git status so the line updates after filesystem changes.
+- Rendering reads cached git/provider state; it does not spawn git processes, discover providers, resolve credentials, or start network requests.
+- Git branch and status are fetched asynchronously, with five-second caches and a five-second idle refresh. Branch notifications and the `bash`, `write`, and `edit` tools invalidate git state immediately.
+- Provider targets are discovered at footer installation and model selection, then rediscovered once per minute to pick up model/auth changes and refresh countdown/staleness displays while idle. Agent/provider events also check cached targets for due usage refreshes. Existing usage TTLs and cross-process leases still govern actual network requests. Footer disposal and session shutdown stop polling and ignore late callbacks.
 - Provider usage is best-effort, only runs when the `provider_usage` section is configured, and reflects every supported provider Pi reports as authenticated—not just the active model's provider. Supported providers include LLM Hub, Anthropic (OAuth), OpenAI Codex (subscription), GitHub Copilot, and OpenRouter (API key). LLM Hub is treated as a normal authenticated Pi provider: its endpoint comes from Pi's configured model/provider data and its API key is resolved through Pi's provider-auth APIs.
 - When LiteLLM is active, model IDs whose first route segment is exactly `chatgpt` or `openai` highlight the existing OpenAI usage badge. Other LiteLLM routes do not map to a usage provider, and this mapping does not create targets or change provider requests.
 - Direct-provider requests make at most three attempts, retrying only network failures, throttling, and transient HTTP responses with capped exponential backoff and full jitter. `Retry-After` is honored up to the backoff cap; authentication and other non-transient failures fail immediately. All usage sources share a five-minute successful refresh, one-minute failed-refresh retry, and 15-minute maximum last-known-value display lifetime. Values past five minutes or following a failed refresh have a `!` stale marker. A missing value for an active direct provider still renders as `?`.

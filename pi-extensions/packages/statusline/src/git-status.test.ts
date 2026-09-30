@@ -30,6 +30,34 @@ describe("statusline git helpers", () => {
 		});
 	});
 
+	test("preserves the leading porcelain column for an unstaged first entry", async () => {
+		const dir = await tempDir();
+		await execFileAsync("git", ["init"], { cwd: dir });
+		await writeFile(join(dir, "tracked.txt"), "initial\n");
+		await execFileAsync("git", ["add", "tracked.txt"], { cwd: dir });
+		await execFileAsync(
+			"git",
+			[
+				"-c",
+				"user.email=test@example.com",
+				"-c",
+				"user.name=Test",
+				"commit",
+				"-m",
+				"initial",
+			],
+			{ cwd: dir },
+		);
+		await writeFile(join(dir, "tracked.txt"), "modified\n");
+		const output = await runGit(dir, ["status", "--porcelain"], 1000);
+		expect(output).toBe(" M tracked.txt");
+		expect(parseGitStatus(output ?? "")).toEqual({
+			staged: 0,
+			unstaged: 1,
+			untracked: 0,
+		});
+	});
+
 	test("bounds captured git stdout", async () => {
 		const dir = await tempDir();
 		await execFileAsync("git", ["init"], { cwd: dir });
