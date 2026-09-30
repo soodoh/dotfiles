@@ -428,7 +428,6 @@ function buildStatusLines(
 	width: number,
 	thinkingLevel: ThinkingLevel,
 	fastReader: FastReader | undefined,
-	mcpStatus: string | undefined,
 ): string[] {
 	// Width fallback may render sections twice; query Pi's context estimate once.
 	const context = layout.some((row) => row.includes("context"))
@@ -472,16 +471,6 @@ function buildStatusLines(
 					? [fullLine]
 					: []
 				: wrapLineParts(renderSectionParts(lineSections, "active"), width);
-		if (lineSections.includes("provider_usage") && mcpStatus) {
-			const left = rowLines.at(-1) ?? "";
-			const gap = width - visibleWidth(left) - visibleWidth(mcpStatus);
-			// Never truncate provider badges or add an extra row for MCP status.
-			if (gap >= (left ? 2 : 0)) {
-				const line = `${left}${" ".repeat(gap)}${mcpStatus}`;
-				if (rowLines.length > 0) rowLines[rowLines.length - 1] = line;
-				else rowLines.push(line);
-			}
-		}
 		lines.push(...rowLines);
 	}
 
@@ -605,7 +594,6 @@ export default function statusline(pi: ExtensionAPI): void {
 				render(width: number): string[] {
 					if (disposed || !currentCtx || width <= 0) return [];
 					const extensionStatuses = data.getExtensionStatuses();
-					const mcp = sanitizeStatus(extensionStatuses.get("mcp") ?? "");
 					const lines = buildStatusLines(
 						currentCtx,
 						theme,
@@ -615,10 +603,8 @@ export default function statusline(pi: ExtensionAPI): void {
 						width,
 						thinkingLevel,
 						fastReader,
-						mcp ? theme.fg("dim", mcp) : undefined,
 					);
 					const statuses = [...extensionStatuses.entries()]
-						.filter(([key]) => key !== "mcp")
 						.sort(([a], [b]) => a.localeCompare(b))
 						.map(([, text]) => sanitizeStatus(text))
 						.filter(Boolean);

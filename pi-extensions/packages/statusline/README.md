@@ -47,7 +47,7 @@ Restart Pi or run `/reload` after installing.
 
 The extension activates automatically in terminal UI sessions, including regular and fullscreen modes. It renders directly through `ctx.ui.setFooter()` and keeps it refreshed as Pi emits session, agent, provider, model, thinking-level, input, tool, and compaction events. RPC, JSON, and print modes do not install the footer or start usage/git refreshes.
 
-The custom footer replaces Pi's default cwd, token/cost totals, and model-routing display. The MCP adapter's status is right-aligned on the configured provider-usage row when there is enough space; it is hidden on narrow terminals or when no provider-usage row is configured, without truncating usage badges or adding a status row. Other status text published through `ctx.ui.setStatus()` is preserved on a separate, width-bounded row.
+The custom footer replaces Pi's default cwd, token/cost totals, and model-routing display. Status text published through `ctx.ui.setStatus()` is preserved on a separate, width-bounded row. Native Pi's MCP connection status is available through `/mcp`, not the footer.
 
 There are no slash commands. The statusline is intentionally always-on once the extension is loaded.
 

@@ -189,59 +189,6 @@ describe("statusline extension", () => {
 		expect(h.render()).not.toContain("first status");
 	});
 
-	test("right-aligns MCP status on the provider row without adding a footer row", async () => {
-		const h = harness({
-			settingsManager: settings([["model"], ["provider_usage"]]),
-		});
-		const mcp = "🔌 MCP: 2 servers enabled";
-		h.statuses.set("mcp", mcp);
-		await Promise.resolve();
-		const lines = h.footer().render(100);
-		expect(lines).toHaveLength(2);
-		expect(lines[1]).toContain(mcp);
-		expect(lines[1].endsWith(mcp)).toBe(true);
-		expect(visibleWidth(lines[1])).toBe(100);
-	});
-
-	test("keeps provider badges intact while aligning ANSI-styled MCP text or hiding it when crowded", () => {
-		vi.spyOn(providerUsage, "renderProviderUsage").mockReturnValue(
-			"\x1b[32mUsage 12%\x1b[0m",
-		);
-		const h = harness({
-			settingsManager: settings([["model"], ["provider_usage"]]),
-		});
-		h.statuses.set("mcp", "\x1b[33m🔌 MCP: 2 servers enabled\x1b[0m");
-		const lines = h.footer().render(100);
-		expect(lines).toHaveLength(2);
-		expect(lines[1]).toContain("Usage 12%");
-		expect(lines[1]).toContain("MCP:");
-		expect(visibleWidth(lines[1])).toBe(100);
-		const narrow = h.footer().render(35);
-		expect(narrow).toHaveLength(2);
-		expect(narrow[1]).toContain("Usage 12%");
-		expect(narrow.join("\n")).not.toContain("MCP:");
-		expect(narrow.every((line) => visibleWidth(line) <= 35)).toBe(true);
-	});
-
-	test("hides MCP status on narrow terminals or without a provider row, preserving other statuses", () => {
-		const h = harness({
-			settingsManager: settings([["model"], ["provider_usage"]]),
-		});
-		h.statuses.set("mcp", "🔌 MCP: 2 servers enabled");
-		h.statuses.set("other", "other status");
-		expect(h.render(15)).not.toContain("MCP:");
-		expect(h.render(15)).toContain("other status");
-		expect(
-			h
-				.footer()
-				.render(15)
-				.every((line) => visibleWidth(line) <= 15),
-		).toBe(true);
-		const noProvider = harness();
-		noProvider.statuses.set("mcp", "🔌 MCP: 2 servers enabled");
-		expect(noProvider.render()).not.toContain("MCP:");
-	});
-
 	test("renders unknown context after compaction instead of old assistant usage", () => {
 		const getBranch = vi.fn(() => [
 			{
