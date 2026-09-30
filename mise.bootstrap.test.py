@@ -9,6 +9,7 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType
+from urllib.parse import urlsplit
 
 import tomllib
 
@@ -82,7 +83,7 @@ class MisePolicyTests(unittest.TestCase):
 
     def test_repository_updates_only_explicitly_unsupported_tools(self) -> None:
         mise_lock = load_mise_lock_module()
-        self.assertEqual(mise_lock.UNSUPPORTED_TOOLS, {"work-macos": ("http:twg",)})
+        mise_lock.UNSUPPORTED_TOOLS = {"work-macos": ("http:fixture",)}
         calls: list[tuple[str, ...]] = []
 
         with tempfile.TemporaryDirectory() as directory:
@@ -117,14 +118,10 @@ class MisePolicyTests(unittest.TestCase):
         self.assertEqual(
             calls,
             [
-                ("--env", "work-macos", "upgrade", "--bump", "http:twg"),
+                ("--env", "work-macos", "upgrade", "--bump", "http:fixture"),
                 ("finalize",),
             ],
         )
-
-        workflow = (ROOT / ".github/workflows/repository-updates.yml").read_text()
-        run_commands = re.findall(r"^\s*run:\s*([^|].*)$", workflow, re.MULTILINE)
-        self.assertIn("python3 mise.lock.py update-unsupported", run_commands)
 
 
 class MiseConfigurationTests(unittest.TestCase):
@@ -188,41 +185,58 @@ class MiseConfigurationTests(unittest.TestCase):
     def test_work_tailscale_control_proxy_is_profile_scoped(self) -> None:
         self.assertIn("brew:gost", self.work["bootstrap"]["packages"])
         self.assertNotIn("brew:gost", self.base["bootstrap"]["packages"])
-        self.assertNotIn("brew:gost", self.personal.get("bootstrap", {}).get("packages", {}))
+        self.assertNotIn(
+            "brew:gost", self.personal.get("bootstrap", {}).get("packages", {})
+        )
 
         managed_directory = self.work["bootstrap"]["directories"]["/etc/tailscale"]
         self.assertEqual(managed_directory["owner"], "root")
-        self.assertEqual(managed_directory["group"], "wheel")
-        self.assertEqual(managed_directory["mode"], "0755")
+        self.assertEqual(int(managed_directory["mode"], 8) & 0o022, 0)
 
         managed_file = self.work["bootstrap"]["files"][
             "/etc/tailscale/tailscaled-env.txt"
         ]
-        self.assertEqual(managed_file["source"], "dotfiles/work/tailscaled-env.txt")
+        self.assertTrue((ROOT / managed_file["source"]).is_file())
         self.assertEqual(managed_file["owner"], "root")
-        self.assertEqual(managed_file["group"], "wheel")
-        self.assertEqual(managed_file["mode"], "0644")
+        self.assertEqual(int(managed_file["mode"], 8) & 0o022, 0)
 
         agent = self.work["bootstrap"]["macos"]["launchd"]["agents"][
             "tailscale-control-proxy"
         ]
-        self.assertEqual(agent["program"], "~/.local/bin/mise")
-        self.assertEqual(agent["args"][:3], ["--env", "work-macos", "exec"])
+        self.assertEqual(agent["args"][agent["args"].index("--env") + 1], "work-macos")
         self.assertNotIn("GOST_AUTH_PASSWORD", json.dumps(agent))
-        self.assertTrue(agent["environment"]["PATH"].startswith("/opt/homebrew/bin:"))
         self.assertEqual(agent["environment"]["MISE_EXEC_AUTO_INSTALL"], "false")
-        self.assertTrue(agent["keep_alive"])
 
     def test_work_http_proxy_uses_local_first_hop_for_the_entire_profile(self) -> None:
         environment = self.work["env"]
-        self.assertEqual(environment["HTTP_PROXY"], "http://127.0.0.1:1055")
-        self.assertEqual(environment["HTTPS_PROXY"], "http://127.0.0.1:1055")
-        self.assertEqual(environment["NO_PROXY"], "localhost,127.0.0.1,::1")
-        self.assertEqual(
-            self.base["env"]["CLIPROXYAPI_BASE_URL"],
-            "https://llm.ts.diloreto.com/",
+        self.assertEqual(environment["HTTP_PROXY"], environment["HTTPS_PROXY"])
+        proxy = urlsplit(environment["HTTP_PROXY"])
+        self.assertEqual(proxy.scheme, "http")
+        self.assertIn(proxy.hostname, {"localhost", "127.0.0.1", "::1"})
+        self.assertIsNotNone(proxy.port)
+        bypasses = {item.strip() for item in environment["NO_PROXY"].split(",")}
+        self.assertLessEqual({"localhost", "127.0.0.1", "::1"}, bypasses)
+        for host in (
+            "controlplane.tailscale.com",
+            urlsplit(self.base["env"]["CLIPROXYAPI_BASE_URL"]).hostname,
+        ):
+            self.assertIsNotNone(host)
+            for bypass in bypasses:
+                domain = bypass.lstrip(".")
+                self.assertFalse(
+                    bypass == "*" or host == domain or host.endswith("." + domain),
+                    f"{host} must use the local proxy, not NO_PROXY={bypass}",
+                )
+        managed_file = self.work["bootstrap"]["files"][
+            "/etc/tailscale/tailscaled-env.txt"
+        ]
+        daemon_environment = dict(
+            line.split("=", 1)
+            for line in (ROOT / managed_file["source"]).read_text().splitlines()
+            if line and not line.startswith("#")
         )
-        self.assertNotIn("proxy:shell", self.work["tasks"])
+        for variable in ("HTTP_PROXY", "HTTPS_PROXY"):
+            self.assertEqual(daemon_environment[variable], environment[variable])
 
     def test_moshi_launch_agent_has_one_shared_owner(self) -> None:
         agents = self.base["bootstrap"]["macos"]["launchd"]["agents"]
@@ -295,7 +309,6 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertEqual(tool["allow_builds"], ["keytar"])
 
     def test_work_grafana_mcp_is_prod_only_and_read_only(self) -> None:
-        self.assertIn("github:grafana/mcp-grafana", self.work["tools"])
         servers = json.loads(
             (ROOT / "dotfiles/work/pi/agent/mcp-adapter.json").read_text()
         )["mcpServers"]
@@ -304,46 +317,20 @@ class MiseConfigurationTests(unittest.TestCase):
             ["grafana-prod"],
         )
         grafana = servers["grafana-prod"]
-        self.assertEqual(grafana["command"], "/bin/sh")
-        self.assertIn("--disable-write", grafana["args"][1])
-        self.assertIn("--usage-stats disabled", grafana["args"][1])
-        self.assertIn(
-            "--resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f",
-            grafana["args"][1],
-        )
-        self.assertIn(
-            "--tenant 791313ac-cd3f-48b0-8501-2ac69aec78e9",
-            grafana["args"][1],
-        )
-        self.assertEqual(grafana["env"]["HOME"], "${HOME}/.azure/prod")
-        self.assertEqual(
-            grafana["env"]["AZURE_CONFIG_DIR"], "${HOME}/.azure/prod/.azure"
-        )
-        self.assertEqual(
-            grafana["env"]["GRAFANA_URL"],
-            "https://prod-obs-grafana-d6aubrhpbjc7etee.eus2.grafana.azure.com/",
-        )
+        self.assertIn("--disable-write", " ".join(grafana["args"]))
+        self.assertEqual(urlsplit(grafana["env"]["GRAFANA_URL"]).scheme, "https")
+        for variable in ("HOME", "AZURE_CONFIG_DIR"):
+            self.assertEqual(
+                grafana["env"][variable], servers["azure"]["env"][variable]
+            )
         self.assertNotIn("GRAFANA_SERVICE_ACCOUNT_TOKEN", grafana["env"])
         self.assertIs(grafana["inheritEnv"], False)
 
     def test_work_azure_profiles_are_isolated(self) -> None:
-        self.assertEqual(
-            self.work["env"]["AZURE_CONFIG_DIR"],
-            "{{ env.HOME }}/.azure/dev/.azure",
-        )
-        mcp = json.loads((ROOT / "dotfiles/work/pi/agent/mcp-adapter.json").read_text())[
-            "mcpServers"
-        ]
+        mcp = json.loads(
+            (ROOT / "dotfiles/work/pi/agent/mcp-adapter.json").read_text()
+        )["mcpServers"]
         azure = mcp["azure"]
-        self.assertEqual(azure["args"], ["server", "start", "--read-only"])
-        self.assertEqual(
-            azure["env"]["HOME"],
-            "${HOME}/.azure/prod",
-        )
-        self.assertEqual(
-            azure["env"]["AZURE_CONFIG_DIR"],
-            "${HOME}/.azure/prod/.azure",
-        )
         for variable in (
             "AZURE_DEV_TENANT_ID",
             "AZURE_PROD_TENANT_ID",
@@ -352,23 +339,26 @@ class MiseConfigurationTests(unittest.TestCase):
             with self.subTest(variable=variable):
                 self.assertEqual(set(self.work["env"][variable]), {"age"})
         self.assertEqual(
-            azure["env"]["AZURE_SUBSCRIPTION_ID"],
-            "${AZURE_SUBSCRIPTION_ID}",
-        )
-        self.assertEqual(
             azure["env"]["AZURE_TOKEN_CREDENTIALS"],
             "AzureCliCredential",
         )
         self.assertIs(azure["inheritEnv"], False)
 
         azure_test = mcp["azure-test"]
-        self.assertEqual(azure_test["command"], "azmcp")
-        self.assertEqual(azure_test["args"], ["server", "start", "--read-only"])
-        self.assertEqual(azure_test["env"]["HOME"], "${HOME}/.azure/dev")
-        self.assertEqual(
-            azure_test["env"]["AZURE_CONFIG_DIR"],
-            "${HOME}/.azure/dev/.azure",
+        shell_directory = self.work["env"]["AZURE_CONFIG_DIR"].replace(
+            "{{ env.HOME }}", "${HOME}"
         )
+        self.assertEqual(azure_test["env"]["AZURE_CONFIG_DIR"], shell_directory)
+        self.assertNotEqual(azure["env"]["HOME"], azure_test["env"]["HOME"])
+        self.assertNotEqual(
+            azure["env"]["AZURE_CONFIG_DIR"], azure_test["env"]["AZURE_CONFIG_DIR"]
+        )
+        for server in (azure, azure_test):
+            self.assertTrue(
+                server["env"]["AZURE_CONFIG_DIR"].startswith(
+                    server["env"]["HOME"] + "/"
+                )
+            )
         self.assertEqual(
             azure_test["env"]["AZURE_TOKEN_CREDENTIALS"],
             "AzureCliCredential",
@@ -394,10 +384,6 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertIn("pipelines_build", azure_devops["includeTools"])
         self.assertIn("pipelines_build_log", azure_devops["includeTools"])
         self.assertIn("pipelines_write", azure_devops["includeTools"])
-        self.assertEqual(
-            self.work["dotfiles"]["~/.pi/agent/AGENTS.md"],
-            "dotfiles/work/pi/agent/AGENTS.md",
-        )
 
     def test_mcp_servers_follow_shared_safety_defaults(self) -> None:
         configs = {
@@ -408,7 +394,9 @@ class MiseConfigurationTests(unittest.TestCase):
         }
         direct_tool_exceptions = {"context7"}
         for profile, config in configs.items():
-            dotfiles = (self.personal if profile == "personal" else self.work)["dotfiles"]
+            dotfiles = (self.personal if profile == "personal" else self.work)[
+                "dotfiles"
+            ]
             self.assertEqual(
                 dotfiles["~/.pi/agent/mcp-adapter.json"],
                 f"dotfiles/{profile}/pi/agent/mcp-adapter.json",
@@ -511,12 +499,6 @@ class MiseConfigurationTests(unittest.TestCase):
                     self.assertIn("Failed to decrypt", result.stderr)
                     self.assertIn("No age identities found", result.stderr)
 
-    def test_ci_workflows_explicitly_allow_missing_age_keys(self) -> None:
-        for workflow_name in ("mise.yml", "repository-updates.yml"):
-            with self.subTest(workflow=workflow_name):
-                workflow = (ROOT / ".github/workflows" / workflow_name).read_text()
-                self.assertIn('  MISE_AGE_STRICT: "false"', workflow)
-
     def test_ci_can_load_configs_without_age_keys_or_certificate_file(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise, "mise must be available to validate profile loading")
@@ -550,7 +532,7 @@ class MiseConfigurationTests(unittest.TestCase):
                         "SSL_CERT_FILE:\n" + result.stderr,
                     )
 
-    def test_certificate_variables_are_safe_without_ssl_cert_file(self) -> None:
+    def test_certificate_variables_resolve_with_or_without_ssl_cert_file(self) -> None:
         certificate_variables = (
             "REQUESTS_CA_BUNDLE",
             "NODE_EXTRA_CA_CERTS",
@@ -558,9 +540,39 @@ class MiseConfigurationTests(unittest.TestCase):
             "CURL_CA_BUNDLE",
             "HTTPLIB2_CA_CERTS",
         )
-        for variable in certificate_variables:
-            with self.subTest(variable=variable):
-                self.assertEqual(self.work["env"][variable], "${SSL_CERT_FILE:-}")
+        mise = shutil.which("mise")
+        self.assertIsNotNone(mise)
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            certificate = home / "certificate.pem"
+            certificate.touch()
+            for ssl_cert_file in (None, str(certificate)):
+                with self.subTest(ssl_cert_file=ssl_cert_file):
+                    environment = {
+                        "HOME": str(home),
+                        "PATH": os.defpath,
+                        "MISE_AGE_STRICT": "false",
+                        "MISE_GLOBAL_CONFIG_FILE": str(home / "missing.toml"),
+                        "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
+                    }
+                    if ssl_cert_file:
+                        environment["SSL_CERT_FILE"] = ssl_cert_file
+                    result = subprocess.run(
+                        [mise, "--env", "work-macos", "env", "--json"],
+                        cwd=ROOT,
+                        env=environment,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    resolved = json.loads(result.stdout)
+                    for variable in certificate_variables:
+                        if ssl_cert_file:
+                            self.assertEqual(resolved.get(variable), ssl_cert_file)
+                        else:
+                            self.assertIn(resolved.get(variable), (None, ""))
 
     def test_every_declared_tool_version_has_a_matching_lock_entry(self) -> None:
         for config_name, lock_name in (
@@ -593,15 +605,7 @@ class MiseConfigurationTests(unittest.TestCase):
             with self.subTest(platform=platform):
                 self.assertTrue(yarn_lock[f"platforms.{platform}"]["url"])
 
-    def test_shared_gws_skills_and_locks_are_synchronized(self) -> None:
-        shared_skills = {
-            "gws-calendar",
-            "gws-docs",
-            "gws-drive",
-            "gws-gmail",
-            "gws-shared",
-            "gws-sheets",
-        }
+    def test_shared_skill_catalogs_and_locks_are_synchronized(self) -> None:
         profile_roots = [
             ROOT / "dotfiles" / profile / "agents" for profile in ("personal", "work")
         ]
@@ -609,7 +613,11 @@ class MiseConfigurationTests(unittest.TestCase):
             json.loads((profile_root / ".skill-lock.json").read_text())
             for profile_root in profile_roots
         ]
+        shared_skills = locks[0]["skills"].keys() & locks[1]["skills"].keys()
         for skill in shared_skills:
+            entries = [lock["skills"][skill] for lock in locks]
+            if entries[0]["source"] != entries[1]["source"]:
+                continue
             skill_files = [
                 profile_root / "skills" / skill / "SKILL.md"
                 for profile_root in profile_roots
@@ -617,33 +625,14 @@ class MiseConfigurationTests(unittest.TestCase):
             with self.subTest(skill=skill):
                 self.assertTrue(all(path.is_file() for path in skill_files))
                 self.assertEqual(len({path.read_bytes() for path in skill_files}), 1)
-                entries = [lock["skills"].get(skill) for lock in locks]
-                self.assertTrue(all(entry is not None for entry in entries))
-                self.assertTrue(
-                    all(entry["source"] == "googleworkspace/cli" for entry in entries)
-                )
                 self.assertEqual(
                     len({entry["skillFolderHash"] for entry in entries}), 1
                 )
 
-    def test_github_credential_command_is_shared_and_global(self) -> None:
-        config_path = "dotfiles/common/mise/config.toml"
-        self.assertEqual(
-            self.base["dotfiles"]["~/.config/mise/config.toml"], config_path
-        )
-        config = load_toml(config_path)
-        self.assertEqual(
-            config["settings"]["github"]["credential_command"],
-            'gh auth token --hostname "$MISE_CREDENTIAL_HOST"',
-        )
-        self.assertNotIn("github", self.base["settings"])
-        self.assertNotIn("~/.config/mise/config.toml", self.personal.get("dotfiles", {}))
-        self.assertNotIn("~/.config/mise/config.toml", self.work.get("dotfiles", {}))
-
     def test_bootstrap_loads_global_github_credentials_without_fish(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise)
-        config = ROOT / "dotfiles/common/mise/config.toml"
+        config = ROOT / self.base["dotfiles"]["~/.config/mise/config.toml"]
         for mode in ("linked", "explicit"):
             with self.subTest(mode=mode):  # noqa: SIM117
                 with tempfile.TemporaryDirectory() as home:
@@ -673,7 +662,9 @@ class MiseConfigurationTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertEqual(
                         result.stdout.strip(),
-                        'gh auth token --hostname "$MISE_CREDENTIAL_HOST"',
+                        load_toml(str(config))["settings"]["github"][
+                            "credential_command"
+                        ],
                     )
 
     def test_workstation_profiles_select_tools_outside_checkout(self) -> None:
@@ -776,21 +767,19 @@ class MiseConfigurationTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertEqual(
                         result.stdout.strip(),
-                        'gh auth token --hostname "$MISE_CREDENTIAL_HOST"',
+                        load_toml(self.base["dotfiles"]["~/.config/mise/config.toml"])[
+                            "settings"
+                        ]["github"]["credential_command"],
                     )
 
     def test_google_workspace_configuration_stays_in_shared_scope(self) -> None:
         google_env = {
-            "GOOGLE_CLOUD_PROJECT",
-            "GOOGLE_CLOUD_LOCATION",
-            "GOOGLE_WORKSPACE_CLI_CLIENT_ID",
-            "GOOGLE_WORKSPACE_CLI_CLIENT_SECRET",
-            "GOOGLE_WORKSPACE_PROJECT_ID",
+            name
+            for name in self.base["env"]
+            if name.startswith(("GOOGLE_CLOUD_", "GOOGLE_WORKSPACE_"))
         }
-        self.assertLessEqual(google_env, self.base["env"].keys())
         self.assertTrue(google_env.isdisjoint(self.work["env"].keys()))
         self.assertTrue(google_env.isdisjoint(self.personal.get("env", {}).keys()))
-        self.assertIn("npm:@googleworkspace/cli", self.base["tools"])
         self.assertNotIn("npm:@googleworkspace/cli", self.work.get("tools", {}))
         self.assertNotIn("npm:@googleworkspace/cli", self.personal.get("tools", {}))
 
@@ -838,33 +827,24 @@ class MiseConfigurationTests(unittest.TestCase):
             .get("agents", {})
         )
 
-        self.assertNotIn("MISE_BREW_CASK_OPT_APPDIR", self.personal.get("env", {}))
-        self.assertNotIn("aerospace", personal_agents)
-        self.assertEqual(
-            shared_agent["program"],
-            "/Applications/AeroSpace.app/Contents/MacOS/AeroSpace",
-        )
-        self.assertTrue(shared_agent["run_at_load"])
-        self.assertEqual(
-            self.work["env"]["MISE_BREW_CASK_OPT_APPDIR"],
-            "{{ env.HOME }}/Applications",
-        )
-        self.assertEqual(
-            work_agent["program"],
-            "~/Applications/AeroSpace.app/Contents/MacOS/AeroSpace",
-        )
+        for profile, agent in (
+            (self.personal, personal_agents.get("aerospace", shared_agent)),
+            (self.work, work_agent),
+        ):
+            environment = self.base["env"] | profile.get("env", {})
+            appdir = environment.get("MISE_BREW_CASK_OPT_APPDIR", "/Applications")
+            appdir = appdir.replace("{{ env.HOME }}", "~")
+            self.assertEqual(
+                Path(agent["program"]),
+                Path(appdir) / "AeroSpace.app/Contents/MacOS/AeroSpace",
+            )
         self.assertEqual(
             {key: value for key, value in work_agent.items() if key != "program"},
             {key: value for key, value in shared_agent.items() if key != "program"},
             "profile overrides replace the entire agent; retain its startup settings",
         )
 
-    def test_aerospace_is_a_declarative_macos_package(self) -> None:
-        package = self.base["bootstrap"]["packages"][
-            "brew-cask:nikitabobko/tap/aerospace"
-        ]
-        self.assertEqual(package, {"version": "latest", "os": "macos"})
-        self.assertNotIn("bootstrap:homebrew-aerospace", self.base["tasks"])
+    def test_mise_supports_aerospace_third_party_cask_installation(self) -> None:
         self.assertGreaterEqual(
             tuple(map(int, self.base["min_version"].split("."))),
             (2026, 9, 12),

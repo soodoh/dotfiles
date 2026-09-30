@@ -612,15 +612,20 @@ describe("provider usage", () => {
 	});
 
 	test("honors Retry-After for throttled provider responses", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+		vi.spyOn(Math, "random").mockReturnValue(0);
+		const firstAttempt = deferredValue<void>();
 		let attempts = 0;
 		const { fetchMock } = fetchCalls(() => {
 			attempts++;
-			return attempts === 1
-				? new Response("throttled", {
-						status: 429,
-						headers: { "Retry-After": "0" },
-					})
-				: Response.json({ five_hour: { used_percent: 10 } });
+			if (attempts === 1) {
+				firstAttempt.resolve();
+				return new Response("throttled", {
+					status: 429,
+					headers: { "Retry-After": "2" },
+				});
+			}
+			return Response.json({ five_hour: { used_percent: 10 } });
 		});
 		const ctx: ProviderUsageContext = {
 			modelRegistry: {
@@ -633,10 +638,20 @@ describe("provider usage", () => {
 			{ providerId: "anthropic", authKind: "oauth", active: true },
 		];
 
-		await refreshAndWait(ctx, targets);
-
-		expect(fetchMock).toHaveBeenCalledTimes(2);
-		expect(render(targets)).toContain("Anthropic 10%");
+		try {
+			const refreshing = refreshAndWait(ctx, targets);
+			await firstAttempt.promise;
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			expect(fetchMock).toHaveBeenCalledOnce();
+			await vi.advanceTimersByTimeAsync(1_999);
+			expect(fetchMock).toHaveBeenCalledOnce();
+			await vi.advanceTimersByTimeAsync(1);
+			await refreshing;
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(render(targets)).toContain("Anthropic 10%");
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	test("uses stored Anthropic OAuth access and renders session and weekly percentages", async () => {

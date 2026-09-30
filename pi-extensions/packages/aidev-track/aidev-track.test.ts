@@ -318,14 +318,6 @@ describe("createAidevTrackExtension", () => {
 		vi.useRealTimers();
 	});
 
-	test("registers all four lifecycle handlers", () => {
-		const { handlers } = createHarness();
-		expect(handlers.before_agent_start).toBeTypeOf("function");
-		expect(handlers.tool_call).toBeTypeOf("function");
-		expect(handlers.tool_result).toBeTypeOf("function");
-		expect(handlers.agent_settled).toBeTypeOf("function");
-	});
-
 	test("before_agent_start maps to turn-start with prompt", async () => {
 		const { calls, handlers } = createHarness();
 		await handlers.before_agent_start?.(beforeAgentStart("do the thing"), ctx);

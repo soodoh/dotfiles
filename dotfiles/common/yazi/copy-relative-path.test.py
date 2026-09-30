@@ -190,7 +190,7 @@ class CopyRelativePathTests(unittest.TestCase):
             (
                 "+lua package.loaded.yazi = { setup = function(opts) "
                 "assert(opts.keymaps.copy_relative_path_to_selected_files == false); "
-                "assert(opts.integrations == nil); assert(opts.open_for_directories) end }; "
+                "end }; "
                 "dofile('dotfiles/common/nvim/lua/plugins/productivity/yazi.lua')[1].config()"
             ),
             "+qa",

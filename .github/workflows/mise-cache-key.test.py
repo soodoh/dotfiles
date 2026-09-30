@@ -1,7 +1,10 @@
 import importlib.util
+import json
 import os
+import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from argparse import Namespace
@@ -326,40 +329,166 @@ class NeovimCacheKeyTests(unittest.TestCase):
 class WorkflowSecurityPolicyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.workflow = (ROOT / ".github/workflows/mise.yml").read_text()
-        cls.update_workflow = (
-            ROOT / ".github/workflows/repository-updates.yml"
-        ).read_text()
+        # Bun's built-in YAML parser preserves GitHub's `on` key without adding
+        # a Python dependency or falling back to YAML 1.1 boolean coercion.
+        cls.workflows = {}
+        for name in ("mise.yml", "repository-updates.yml"):
+            result = subprocess.run(
+                [
+                    "bun",
+                    "-e",
+                    "console.log(JSON.stringify(Bun.YAML.parse(await Bun.stdin.text())))",
+                ],
+                input=(ROOT / ".github/workflows" / name).read_text(),
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=True,
+            )
+            cls.workflows[name] = json.loads(result.stdout)
+        cls.workflow = cls.workflows["mise.yml"]
+        cls.update_workflow = cls.workflows["repository-updates.yml"]
+
+    def test_ci_workflows_allow_missing_age_keys_at_every_step(self) -> None:
+        for name, workflow in self.workflows.items():
+            for job_name, job in workflow["jobs"].items():
+                for step in job["steps"]:
+                    environment = (
+                        workflow.get("env", {})
+                        | job.get("env", {})
+                        | step.get("env", {})
+                    )
+                    with self.subTest(
+                        workflow=name, job=job_name, step=step.get("name")
+                    ):
+                        self.assertEqual(environment.get("MISE_AGE_STRICT"), "false")
 
     def test_untrusted_pull_requests_cannot_receive_privileged_credentials(
         self,
     ) -> None:
-        for workflow in (self.workflow, self.update_workflow):
-            self.assertNotIn("pull_request_target", workflow)
-        self.assertNotIn("GH_TOKEN: ${{ github.token }}", self.update_workflow)
-        self.assertIn(
-            "GH_TOKEN: ${{ secrets.REPOSITORY_UPDATES_TOKEN }}",
-            self.update_workflow,
-        )
+        for workflow in self.workflows.values():
+            self.assertNotIn("pull_request_target", workflow["on"])
+        for job in self.workflow["jobs"].values():
+            permissions = job.get("permissions", self.workflow["permissions"])
+            if permissions != "read-all":
+                self.assertIsInstance(permissions, dict)
+                self.assertLessEqual(set(permissions.values()), {"read", "none"})
+            self.assertNotRegex(json.dumps(job), r"\$\{\{[^}]*\bsecrets(?:\.|\[)")
 
-    def test_cache_publication_happens_after_validation(self) -> None:
-        jobs = self.workflow.split("      - uses: actions/checkout@")[1:]
-        self.assertTrue(jobs)
-        for job in jobs:
-            if "Save mise tool cache" in job:
-                self.assertLess(
-                    job.index("Validate configuration and colocated tests"),
-                    job.index("Save mise tool cache"),
-                )
+        self.assertLessEqual(
+            set(self.update_workflow["on"]), {"schedule", "workflow_dispatch"}
+        )
+        publishing_steps = [
+            (job, step)
+            for job in self.update_workflow["jobs"].values()
+            for step in job["steps"]
+            if re.search(
+                r"\b(?:git\s+push|gh\s+pr\s+(?:create|merge))\b", step.get("run", "")
+            )
+        ]
+        self.assertTrue(publishing_steps)
+        for job, step in publishing_steps:
+            environment = (
+                self.update_workflow.get("env", {})
+                | job.get("env", {})
+                | step.get("env", {})
+            )
+            self.assertRegex(
+                environment.get("GH_TOKEN", ""),
+                r"^\$\{\{\s*secrets\.[A-Za-z_][A-Za-z_0-9]*\s*\}\}$",
+                "a trusted user token must publish updates so PR validation can run",
+            )
+
+    def test_cache_publication_happens_after_successful_validation(self) -> None:
+        for job_name, job in self.workflow["jobs"].items():
+            validation_indices = [
+                index
+                for index, step in enumerate(job["steps"])
+                if re.search(r"(?m)^\s*mise\s+run\s+validate\s*$", step.get("run", ""))
+            ]
+            for index, step in enumerate(job["steps"]):
+                if step.get("uses", "").startswith("actions/cache/save@"):
+                    with self.subTest(job=job_name, cache=step.get("id", index)):
+                        predecessors = [
+                            validation
+                            for validation in validation_indices
+                            if validation < index
+                        ]
+                        self.assertTrue(predecessors)
+                        for validation in predecessors:
+                            validation_step = job["steps"][validation]
+                            self.assertIn(
+                                validation_step.get("if"),
+                                (None, "success()", "${{ success() }}"),
+                            )
+                            self.assertFalse(
+                                validation_step.get("continue-on-error", False)
+                            )
+                        self.assertIn("success()", step.get("if", "success()"))
+                        self.assertNotRegex(
+                            step.get("if", ""), r"\b(?:always|failure|cancelled)\s*\("
+                        )
 
     def test_update_pull_requests_guard_auto_merge_with_the_head_commit(self) -> None:
-        self.assertIn('gh pr merge "$UPDATE_BRANCH"', self.update_workflow)
-        self.assertIn("--auto", self.update_workflow)
-        self.assertIn("--squash", self.update_workflow)
-        self.assertIn(
-            '--match-head-commit "$(git rev-parse HEAD)"',
-            self.update_workflow,
-        )
+        merge_scripts = [
+            step["run"]
+            for job in self.update_workflow["jobs"].values()
+            for step in job["steps"]
+            if re.search(r"\bgh\s+pr\s+merge\b", step.get("run", ""))
+        ]
+        self.assertTrue(merge_scripts)
+        for script in merge_scripts:
+            with tempfile.TemporaryDirectory() as directory:
+                home = Path(directory)
+                binaries = home / "bin"
+                binaries.mkdir()
+                gh = binaries / "gh"
+                gh.write_text(
+                    f"#!{sys.executable}\n"
+                    "import json, os, sys\n"
+                    "with open(os.environ['GH_CALLS'], 'a') as log:\n"
+                    "    log.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+                    "if sys.argv[1:3] == ['pr', 'list']: print('42')\n"
+                    "elif sys.argv[1:3] != ['pr', 'merge']: sys.exit(99)\n"
+                )
+                git = binaries / "git"
+                git.write_text(
+                    '#!/bin/sh\n[ "$*" = "rev-parse HEAD" ] || exit 99\n'
+                    'printf "%s\\n" "$FIXTURE_HEAD"\n'
+                )
+                for binary in (gh, git):
+                    binary.chmod(0o755)
+                calls_path = home / "gh-calls.jsonl"
+                head = "a" * 40
+                result = subprocess.run(
+                    ["bash", "-euo", "pipefail", "-c", script],
+                    cwd=home,
+                    env={
+                        "HOME": str(home),
+                        "PATH": str(binaries) + os.pathsep + os.defpath,
+                        "GH_CALLS": str(calls_path),
+                        "GH_TOKEN": "fixture-only",
+                        "FIXTURE_HEAD": head,
+                        "UPDATE_BRANCH": "fixture-updates",
+                        "BASE_BRANCH": "main",
+                    },
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                calls = [
+                    json.loads(line) for line in calls_path.read_text().splitlines()
+                ]
+                merges = [call for call in calls if call[:2] == ["pr", "merge"]]
+                self.assertEqual(len(merges), 1)
+                self.assertEqual(merges[0][2], "fixture-updates")
+                self.assertIn("--auto", merges[0])
+                self.assertIn("--match-head-commit", merges[0])
+                self.assertEqual(
+                    merges[0][merges[0].index("--match-head-commit") + 1], head
+                )
 
 
 if __name__ == "__main__":

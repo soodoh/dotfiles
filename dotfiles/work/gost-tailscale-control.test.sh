@@ -24,7 +24,17 @@ output=$(
 )
 expected=$(printf '%s' 'gost-proxy-user:test-app-password' | base64 | tr -d '\n')
 
-grep -Fq 'addr: "127.0.0.1:1055"' <<<"$output"
+listener=$(python3 - "$root/mise.work-macos.toml" <<'PY'
+import sys
+import tomllib
+from urllib.parse import urlsplit
+
+with open(sys.argv[1], "rb") as source:
+    proxy = urlsplit(tomllib.load(source)["env"]["HTTP_PROXY"])
+print(proxy.netloc)
+PY
+)
+grep -Fq "addr: \"$listener\"" <<<"$output"
 grep -Fq 'addr: "gost.diloreto.com:443"' <<<"$output"
 grep -Fq 'path: /tailscale-control' <<<"$output"
 grep -Fq 'host: gost.diloreto.com' <<<"$output"

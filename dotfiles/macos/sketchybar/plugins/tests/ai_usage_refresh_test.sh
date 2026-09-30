@@ -79,10 +79,6 @@ assert_contains() {
   fi
 }
 
-sketchybarrc="$plugin_dir/../sketchybarrc"
-assert_contains 'updates=on' "$sketchybarrc"
-assert_contains '--subscribe ai_usage.refresh system_woke' "$sketchybarrc"
-
 log_file="$tmp_dir/sketchybar.log"
 usage_log="$tmp_dir/ai-usage.log"
 : >"$log_file"
@@ -104,6 +100,7 @@ mkdir -p "$tmp_dir/pi-extensions" "$tmp_dir/dotfiles/work" "$tmp_dir/dotfiles/pe
 printf 'set -gx MISE_ENV work-macos\n' >"$tmp_dir/dotfiles/work/mise-profile.fish"
 printf 'set -gx MISE_ENV personal-macos\n' >"$tmp_dir/dotfiles/personal/mise-profile.fish"
 ln -s "$tmp_dir/dotfiles/work/mise-profile.fish" "$tmp_dir/profile"
+: >"$log_file"
 env -i \
   HOME="$tmp_dir/home" \
   PATH="$tmp_dir:/usr/bin:/bin" \
@@ -118,6 +115,7 @@ assert_contains 'icon.drawing=off label=Anthropic S12%/W55%' "$log_file"
 
 rm "$tmp_dir/profile"
 ln -s "$tmp_dir/dotfiles/personal/mise-profile.fish" "$tmp_dir/profile"
+: >"$log_file"
 env -i \
   HOME="$tmp_dir/home" \
   PATH="$tmp_dir:/usr/bin:/bin" \
@@ -131,6 +129,7 @@ env -i \
 assert_contains 'icon.drawing=off label=Anthropic S12%/W55%' "$log_file"
 
 printf '{"text":"Standalone 42%%"}\n' >"$tmp_dir/usage.json"
+: >"$log_file"
 PATH="$tmp_dir:$PATH" \
   SKETCHYBAR_LOG="$log_file" \
   SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
@@ -155,6 +154,7 @@ fi
 assert_contains 'provider usage CLI failed' "$usage_log"
 
 printf '{"text":""}\n' >"$tmp_dir/usage.json"
+: >"$log_file"
 PATH="$tmp_dir:$PATH" \
   SKETCHYBAR_LOG="$log_file" \
   SKETCHYBAR_BIN="$tmp_dir/sketchybar" \

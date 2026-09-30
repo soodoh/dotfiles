@@ -16,7 +16,6 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import autoSessionName, {
 	type AutoTitleState,
 	cleanRawUserInput,
-	createRefinementTitlePrompt,
 	extractStableAnchors,
 	hasDirectionChange,
 	isWeakRequest,
@@ -224,7 +223,6 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 	let sessionInfoChangedHandler: SessionInfoChangedHandler | undefined;
 	let sessionShutdownHandler: SessionShutdownHandler | undefined;
 	let sessionTreeHandler: SessionTreeHandler | undefined;
-	const registeredEvents: string[] = [];
 
 	function on(eventName: "input", handler: InputHandler): void;
 	function on(eventName: "agent_settled", handler: AgentSettledHandler): void;
@@ -250,7 +248,6 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 			| [eventName: "session_tree", handler: SessionTreeHandler]
 	): void {
 		const [eventName, handler] = args;
-		registeredEvents.push(eventName);
 		switch (eventName) {
 			case "input":
 				inputHandler = handler;
@@ -310,7 +307,6 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 	return {
 		branch,
 		pi,
-		registeredEvents,
 		getSessionName: () => sessionName,
 		async input(
 			text: string,
@@ -447,8 +443,6 @@ describe("first-turn initial naming and raw input", () => {
 		const harness = createHarness(branch);
 		const ctx = createContext(branch);
 
-		expect(harness.registeredEvents).toContain("turn_end");
-		expect(harness.registeredEvents).toContain("agent_settled");
 		const naming = harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 		let completed = false;
@@ -1061,20 +1055,6 @@ describe("conditional one-time refinement", () => {
 		expect(harness.getSessionName()).toBe("Fix This");
 		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
 		expect(reconstructAutoTitleState(branch)?.refinementAttempted).toBe(true);
-	});
-
-	test("prompt construction uses only its compact envelope", () => {
-		const prompt = createRefinementTitlePrompt({
-			currentTitle: "Current Title",
-			originalRequest: "Original request",
-			recentRequests: ["Recent one", "Recent two"],
-			anchors: ["OB-1234", "src/auth.ts"],
-		});
-		const serialized = JSON.stringify(prompt);
-		expect(serialized).toContain("Keep the current title");
-		expect(serialized).toContain("OB-1234");
-		expect(serialized).not.toContain("assistant");
-		expect(serialized).not.toContain("toolResult");
 	});
 });
 

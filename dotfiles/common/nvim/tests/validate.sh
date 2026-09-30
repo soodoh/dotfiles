@@ -81,7 +81,7 @@ export XDG_STATE_HOME="$work/state"
 
 nvim --headless '+Lazy! restore' +qa
 NVIM_VALIDATE_SCRIPT="$config_source/tests/validate.lua" \
-  nvim --headless '+lua dofile(vim.env.NVIM_VALIDATE_SCRIPT)' +qa
+  nvim --headless '+lua local ok, err = pcall(dofile, vim.env.NVIM_VALIDATE_SCRIPT); if not ok then vim.api.nvim_err_writeln(err); vim.cmd("cquit") end' +qa
 
 lock_after=$(hash_file "$copied_lock")
 [[ $lock_before == "$lock_after" ]] || {

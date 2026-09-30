@@ -36,15 +36,10 @@ if [[ -n $duplicate_destinations ]]; then
   exit 1
 fi
 
-projects_dir="$HOME/Projects"
-grep -Fx $'git@github.docusignhq.com:Core/1ds.git\t'"$projects_dir/1ds" "$GIT_LOG" >/dev/null
-grep -Fx $'git@github.docusignhq.com:Microservices/ipg-engagements-infra.git\t'"$projects_dir/ipg-engagements-infra" "$GIT_LOG" >/dev/null
-grep -Fx $'https://github.docusignhq.com/Microservices/msf-dev\t'"$projects_dir/msf-dev" "$GIT_LOG" >/dev/null
-
-test -d "$projects_dir/1ds/.git"
-test -d "$projects_dir/ipg-engagements-infra/.git"
-test -d "$projects_dir/msf-dev/.git"
-test -d "$projects_dir/widget-starter-kit/.git"
+while IFS=$'\t' read -r url destination; do
+  [[ -n $url && $destination == "$HOME/Projects/"* ]]
+  test -d "$destination/.git"
+done < "$GIT_LOG"
 
 cp "$GIT_LOG" "$tmp_dir/first-run.log"
 bash "$repository_root/dotfiles/work/bootstrap-repositories.sh" >/dev/null 2>&1
