@@ -14,6 +14,10 @@ type EditorFactory = NonNullable<
 >;
 type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
 const homes: string[] = [];
+const pickerTheme = {
+	fg: (_name: string, text: string) => text,
+	bold: (text: string) => text,
+};
 afterEach(async () => {
 	await Promise.all(
 		homes.splice(0).map((home) => rm(home, { recursive: true, force: true })),
@@ -32,6 +36,7 @@ async function fixture(
 	let factory = existing;
 	let editor: ReturnType<EditorFactory> | undefined;
 	const submit = vi.fn();
+	const custom = vi.fn();
 	const setEditorComponent = vi.fn((value: EditorFactory | undefined) => {
 		factory = value;
 		if (!value) return;
@@ -47,7 +52,7 @@ async function fixture(
 		ui: {
 			setEditorComponent,
 			getEditorComponent: () => factory,
-			custom: vi.fn(),
+			custom,
 			notify: vi.fn(),
 			setEditorText: vi.fn(),
 		},
@@ -68,6 +73,7 @@ async function fixture(
 		historyPath,
 		context,
 		submit,
+		custom,
 		setEditorComponent,
 		getEditor: () => editor,
 		dispatch: (type: string, event = {}) =>
@@ -166,6 +172,66 @@ test.each(["rpc", "json", "print"] as const)(
 		});
 	},
 );
+
+test("the picker searches beyond editor-tail limits and restores original multiline text", async () => {
+	const f = await fixture();
+	const chosen = "old prompt\nwith details €";
+	await writeFile(
+		f.historyPath,
+		[chosen, ...Array.from({ length: 220 }, (_, index) => `Recent ${index}`)]
+			.map((prompt) => JSON.stringify({ prompt }))
+			.join("\n"),
+	);
+	f.custom.mockImplementation(
+		(factory) =>
+			new Promise((resolve) => {
+				const picker = factory(
+					{ requestRender() {} },
+					pickerTheme,
+					{},
+					resolve,
+				);
+				picker.focused = true;
+				picker.handleInput("old prompt");
+				const output = picker.render(80).join("\n");
+				expect(output).toContain("Prompt History (1/221)");
+				picker.handleInput("\r");
+			}),
+	);
+	await f.command();
+	expect(f.context.ui.setEditorText).toHaveBeenCalledWith(chosen);
+});
+
+test("incremental narrowing restores matches when the query broadens and supports cancellation", async () => {
+	const f = await fixture();
+	await writeFile(
+		f.historyPath,
+		["alpha", "alpine", "beta"]
+			.map((prompt) => JSON.stringify({ prompt }))
+			.join("\n"),
+	);
+	f.custom.mockImplementation(
+		(factory) =>
+			new Promise((resolve) => {
+				const picker = factory(
+					{ requestRender() {} },
+					pickerTheme,
+					{},
+					resolve,
+				);
+				picker.focused = true;
+				picker.handleInput("alp");
+				expect(picker.render(80).join("\n")).toContain("Prompt History (2/3)");
+				picker.handleInput("h");
+				expect(picker.render(80).join("\n")).toContain("Prompt History (1/3)");
+				picker.handleInput("\x7f");
+				expect(picker.render(80).join("\n")).toContain("Prompt History (2/3)");
+				picker.handleInput("\x1b");
+			}),
+	);
+	await f.command();
+	expect(f.context.ui.setEditorText).not.toHaveBeenCalled();
+});
 
 test("failed persistence does not prevent command submission", async () => {
 	const f = await fixture();
