@@ -11,7 +11,8 @@ from typing import Any
 
 import tomllib
 
-SCHEMA = "mise-tools-v2"
+# v3 archives exclude the CLI binary, which is selected before tool restoration.
+SCHEMA = "mise-tools-v3"
 # Default to invalidating on new settings; these only govern workstation state.
 NON_INSTALL_SETTINGS = {"age", "dotfiles"}
 
@@ -28,11 +29,12 @@ def load_toml(path: Path) -> dict[str, Any]:
         return tomllib.load(stream)
 
 
-def configured_mise_version(root: Path) -> str:
-    version = load_toml(root / "mise.toml").get("min_version")
-    if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version):
-        raise ValueError("mise.toml min_version must be a semantic version")
-    return version
+def installed_mise_version() -> str:
+    output = subprocess.check_output(["mise", "--version"], text=True).strip()
+    match = re.match(r"^(\d+\.\d+\.\d+)(?:\s|$)", output)
+    if match is None:
+        raise ValueError(f"mise reported an invalid version: {output!r}")
+    return match[1]
 
 
 def requested_version(specification: Any) -> str:
@@ -242,9 +244,8 @@ def main() -> None:
     parser.add_argument("--os", default=os.environ.get("RUNNER_OS"))
     parser.add_argument("--arch", default=os.environ.get("RUNNER_ARCH"))
     parser.add_argument("--image", default=os.environ.get("ImageOS"))
-    parser.add_argument("--mise-version")
     parser.add_argument(
-        "--mode", choices=("key", "reconcile", "record", "version"), default="key"
+        "--mode", choices=("key", "reconcile", "record"), default="key"
     )
     parser.add_argument("--data-dir", type=Path, default=Path.home() / ".local/share/mise")
     arguments = parser.parse_args()
@@ -252,22 +253,14 @@ def main() -> None:
         reconcile_or_record(arguments)
         return
 
-    mise_version = arguments.mise_version or configured_mise_version(arguments.root)
-    if arguments.mode == "version":
-        emit_outputs({"mise-version": mise_version})
-        return
-
     emit_outputs(
-        {
-            "mise-version": mise_version,
-            **build_keys(
-                arguments.root,
-                arguments.os,
-                arguments.arch,
-                arguments.image,
-                mise_version,
-            ),
-        }
+        build_keys(
+            arguments.root,
+            arguments.os,
+            arguments.arch,
+            arguments.image,
+            installed_mise_version(),
+        )
     )
 
 

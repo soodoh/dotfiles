@@ -36,11 +36,20 @@ pbpaste > ~/.ssh/id_ed25519.pub
 
 ### Finish installation
 
-- Install the latest mise release using the [official instructions](https://mise.jdx.dev/getting-started.html). The repository's required version is declared once by `min_version` in `mise.toml`.
+- Install mise using the [official instructions](https://mise.jdx.dev/getting-started.html). The installer selects the newest stable release at least 24 hours old.
 
 ```bash
 curl https://mise.run | sh
 ```
+
+`min_version` in `mise.toml` is a compatibility floor, raised manually only when
+required features or fixes change. It is not a CLI pin and Renovate does not
+update it. The global `auto_update` setting keeps workstations current; both
+that setting and unpinned `mise self-update` honor mise's release-age policy.
+CI also uses mise-action's default selection of the newest stable release at
+least 24 hours old. Tool versions and lockfiles remain pinned, but rerunning
+a commit may use a newer mise CLI. Raise a minimum after the release cooldown
+when possible; an explicit version install intentionally bypasses it.
 
 - Clone this repo
 

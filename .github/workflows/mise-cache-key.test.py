@@ -1,10 +1,13 @@
+import glob
 import importlib.util
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from argparse import Namespace
@@ -81,16 +84,53 @@ class MiseCacheKeyTests(unittest.TestCase):
             self.root, os_name, architecture, image, mise_version
         )
 
-    def test_configured_mise_version_comes_from_min_version(self) -> None:
-        self.assertEqual(self.helper.configured_mise_version(self.root), "2026.8.6")
-        path = self.root / "mise.toml"
-        path.write_text(
-            path.read_text().replace(
-                'min_version = "2026.8.6"', 'min_version = "latest"'
-            )
+    def test_cli_keys_follow_the_installed_version_not_the_compatibility_floor(
+        self,
+    ) -> None:
+        binaries = self.root / "bin"
+        binaries.mkdir()
+        mise = binaries / "mise"
+        mise.write_text(
+            '#!/bin/sh\n[ "$*" = --version ] || exit 99\n'
+            'printf "%s\\n" "$TEST_MISE_VERSION"\n'
         )
-        with self.assertRaisesRegex(ValueError, "min_version"):
-            self.helper.configured_mise_version(self.root)
+        mise.chmod(0o755)
+
+        def keys(version: str) -> dict[str, str]:
+            output = subprocess.check_output(
+                [
+                    sys.executable, str(HELPER), "--root", str(self.root),
+                    "--os", "Linux", "--arch", "X64", "--image", "ubuntu24",
+                ],
+                env={
+                    "PATH": f"{binaries}:{os.defpath}",
+                    "TEST_MISE_VERSION": version,
+                },
+                text=True,
+            )
+            return dict(line.split("=", 1) for line in output.splitlines())
+
+        before = keys("2026.9.1 linux-x64 (2026-09-01)")
+        self.assertEqual(before, self.keys(mise_version="2026.9.1"))
+        path = self.root / "mise.toml"
+        path.write_text(path.read_text().replace("2026.8.6", "2026.8.7"))
+        self.assertEqual(keys("2026.9.1"), before)
+        after = keys("2026.9.2 linux-x64 (2026-09-02)")
+        self.assertNotEqual(after["restore-key"], before["restore-key"])
+
+    def test_invalid_or_failed_cli_version_cannot_produce_a_cache_key(self) -> None:
+        for output in ("", "unknown", "2026.9.1-beta linux-x64"):
+            with self.subTest(output=output), patch.object(
+                self.helper.subprocess, "check_output", return_value=output
+            ):
+                with self.assertRaisesRegex(ValueError, "invalid version"):
+                    self.helper.installed_mise_version()
+        with patch.object(
+            self.helper.subprocess, "check_output",
+            side_effect=subprocess.CalledProcessError(1, ["mise", "--version"]),
+        ):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.helper.installed_mise_version()
 
     def test_unchanged_inputs_are_stable(self) -> None:
         self.assertEqual(self.keys(), self.keys())
@@ -398,6 +438,65 @@ class WorkflowSecurityPolicyTests(unittest.TestCase):
                 r"^\$\{\{\s*secrets\.[A-Za-z_][A-Za-z_0-9]*\s*\}\}$",
                 "a trusted user token must publish updates so PR validation can run",
             )
+
+    def test_tool_cache_round_trip_preserves_the_selected_cli(self) -> None:
+        # Cache's glob resolver selects paths without implicit descendants, then
+        # tar recursively archives each match. Excluding bin is insufficient if
+        # the parent data directory is still one of those matches.
+        for job_name, job in self.workflow["jobs"].items():
+            steps = job["steps"]
+            setup_index = next(
+                i for i, step in enumerate(steps)
+                if step.get("uses", "").startswith("jdx/mise-action@")
+            )
+            key_index = next(
+                i for i, step in enumerate(steps) if step.get("id") == "mise-cache-key"
+            )
+            restore_index = next(
+                i for i, step in enumerate(steps) if step.get("id") == "mise-cache"
+            )
+            save = next(
+                step for step in steps if step.get("name") == "Save mise tool cache"
+            )
+            self.assertLess(setup_index, key_index)
+            self.assertLess(key_index, restore_index)
+            patterns = save["with"]["path"]
+            self.assertEqual(patterns, steps[restore_index]["with"]["path"])
+
+            with self.subTest(job=job_name), tempfile.TemporaryDirectory() as directory:
+                home = Path(directory)
+                data = home / ".local/share/mise"
+                binary = data / "bin/mise"
+                tool = data / "installs/node/24.0.0/bin/node"
+                manifest = data / ".dotfiles-ci-cache-inputs.json"
+                rust = data / "ci-rustup/toolchains/fixture/bin/rustc"
+                proxy = home / ".cache/dotfiles-ci-cargo/bin/rustc"
+                for path in (binary, tool, manifest, rust, proxy):
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("cached")
+
+                paths: set[str] = set()
+                for pattern in patterns.splitlines():
+                    exclude = pattern.startswith("!")
+                    expanded = pattern.lstrip("!").replace("~/", f"{home}/", 1)
+                    matches = set(glob.glob(expanded, include_hidden=True))
+                    if exclude:
+                        paths.difference_update(matches)
+                    else:
+                        paths.update(matches)
+                archive = io.BytesIO()
+                with tarfile.open(fileobj=archive, mode="w") as tar:
+                    for path in sorted(paths):
+                        tar.add(path, arcname=str(Path(path).relative_to(home)))
+                binary.write_text("selected CLI")
+                for path in (tool, manifest, rust, proxy):
+                    path.unlink()
+                archive.seek(0)
+                with tarfile.open(fileobj=archive) as tar:
+                    tar.extractall(home, filter="data")
+                self.assertEqual(binary.read_text(), "selected CLI")
+                for path in (tool, manifest, rust, proxy):
+                    self.assertEqual(path.read_text(), "cached")
 
     def test_cache_publication_happens_after_successful_validation(self) -> None:
         for job_name, job in self.workflow["jobs"].items():

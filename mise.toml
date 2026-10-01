@@ -1,3 +1,4 @@
+# Compatibility floor; raise only when configuration requires newer features or fixes.
 min_version = "2026.9.18"
 
 [settings]

@@ -51,22 +51,6 @@ class MisePolicyTests(unittest.TestCase):
         ]
         self.assertEqual(disabled_mise_rules, [])
 
-    def test_renovate_updates_the_repository_mise_version(self) -> None:
-        renovate = json.loads((ROOT / "renovate.json").read_text())
-        managers = [
-            manager
-            for manager in renovate["customManagers"]
-            if manager.get("packageNameTemplate") == "jdx/mise"
-        ]
-        self.assertEqual(len(managers), 1)
-        manager = managers[0]
-        self.assertEqual(manager["datasourceTemplate"], "github-releases")
-        self.assertIn("min_version", manager["matchStrings"][0])
-        pattern = manager["matchStrings"][0].replace(
-            "(?<currentValue>", "(?P<currentValue>"
-        )
-        self.assertRegex((ROOT / "mise.toml").read_text(), pattern)
-
     def test_renovate_strips_grafana_release_tag_prefix(self) -> None:
         renovate = json.loads((ROOT / "renovate.json").read_text())
         rules = [
