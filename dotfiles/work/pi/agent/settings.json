@@ -1,9 +1,10 @@
 {
-  "lastChangelogVersion": "0.99.2",
+  "lastChangelogVersion": "1.0.0",
   "defaultProvider": "cliproxyapi",
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
+  "tuiMode": "regular",
   "defaultTools": [
     "+codemode",
     "+tool_search"

@@ -4,6 +4,7 @@
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
+  "tuiMode": "regular",
   "defaultTools": ["+codemode", "+tool_search"],
   "compaction": {
     "enabled": true,

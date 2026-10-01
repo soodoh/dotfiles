@@ -1,5 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "automerge": false,
   "extends": [
     "config:recommended",
     "group:allNonMajor",
@@ -38,6 +39,19 @@
         "devDependencies"
       ],
       "rangeStrategy": "bump"
+    },
+    {
+      "description": "Upgrade the Pi host and development SDK together",
+      "matchPackageNames": [
+        "@earendil-works/pi-agent-core",
+        "@earendil-works/pi-ai",
+        "@earendil-works/pi-coding-agent",
+        "@earendil-works/pi-tui",
+        "npm:@earendil-works/pi-coding-agent"
+      ],
+      "groupName": "Pi host and SDK",
+      "groupSlug": "pi-host-and-sdk",
+      "separateMajorMinor": true
     },
     {
       "description": "Isolate Python updates and allow time for standalone binaries to be published",

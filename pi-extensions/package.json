@@ -59,9 +59,9 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.15",
 		"@earendil-works/pi-agent-core": "1.0.0",
-		"@earendil-works/pi-ai": "0.99.2",
-		"@earendil-works/pi-coding-agent": "0.99.2",
-		"@earendil-works/pi-tui": "0.99.2",
+		"@earendil-works/pi-ai": "1.0.0",
+		"@earendil-works/pi-coding-agent": "1.0.0",
+		"@earendil-works/pi-tui": "1.0.0",
 		"@types/node": "^26.6.3",
 		"@types/proper-lockfile": "4.1.4",
 		"@vitest/coverage-v8": "^5.0.3",
@@ -75,5 +75,8 @@
 		"pi-web-access",
 		"@juicesharp/rpiv-ask-user-question",
 		"pi-subagents"
-	]
+	],
+	"patchedDependencies": {
+		"pi-subagents@0.74.0": "patches/pi-subagents@0.74.0.patch"
+	}
 }

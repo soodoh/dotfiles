@@ -1,0 +1,12 @@
+diff --git a/src/runs/background/runner-aliases.js b/src/runs/background/runner-aliases.js
+index 7b101ec3e081f96de4ef8550b7bb1e6f3922711d..393515a146ac1da1a84ea967faa53e072106de8f 100644
+--- a/src/runs/background/runner-aliases.js
++++ b/src/runs/background/runner-aliases.js
+@@ -16,7 +16,6 @@ export const JITI_ALIAS_ENV = "JITI_ALIAS";
+ export const HOST_PEER_ALIASES = [
+     { specifier: "@earendil-works/pi-coding-agent", pkg: "@earendil-works/pi-coding-agent", subpath: "." },
+     { specifier: "@earendil-works/pi-agent-core", pkg: "@earendil-works/pi-agent-core", subpath: "." },
+-    { specifier: "@earendil-works/pi-agent-core/node", pkg: "@earendil-works/pi-agent-core", subpath: "./node" },
+     { specifier: "@earendil-works/pi-tui", pkg: "@earendil-works/pi-tui", subpath: "." },
+     { specifier: "@earendil-works/pi-ai", pkg: "@earendil-works/pi-ai", subpath: "./compat" },
+     { specifier: "@earendil-works/pi-ai/compat", pkg: "@earendil-works/pi-ai", subpath: "./compat" },

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
 	mkdirSync,
 	mkdtempSync,
@@ -34,7 +35,7 @@ const { HOST_PEER_ALIASES, resolveHostPeerAliases } = await jiti.import(
 const piName = "@earendil-works/pi-coding-agent";
 
 // Versions belong in declarations/locks, not compatibility assertions. This
-// covers imports and required APIs, not successful native background execution.
+// covers imports and a native runner session, not a complete delegated workflow.
 const requiredSpecifiers = HOST_PEER_ALIASES.map(({ specifier }) => specifier);
 
 function assertAliasResolution(
@@ -222,5 +223,75 @@ test("actual mise launcher: all required host aliases import as native ESM", {
 	const pi = await import(pathToFileURL(result.aliases[piName]).href);
 	assert.equal(typeof pi.createAgentSession, "function");
 	assert.equal(typeof pi.ModelRuntime?.create, "function");
+	await t.test(
+		"native runner preload preserves host identity and can complete a session",
+		() => {
+			const temporary = realpathSync(
+				mkdtempSync(join(tmpdir(), "pi-subagents-runner-")),
+			);
+			try {
+				for (const directory of ["home", "agent", "cache", "work/.git"])
+					mkdirSync(join(temporary, directory), { recursive: true });
+				const probe = spawnSync(
+					process.execPath,
+					[
+						"--import",
+						join(extensionRoot, "runner-peer-preload.mjs"),
+						"--input-type=module",
+						"--eval",
+						`
+						import assert from "node:assert/strict";
+						import { Agent } from "@earendil-works/pi-agent-core";
+						import * as pi from "@earendil-works/pi-coding-agent";
+						import { createSessionFixture } from ${JSON.stringify(new URL("./test-support/session-host.mjs", import.meta.url).href)};
+						const fixture = await createSessionFixture(process.argv[1], {
+							respond: async () => ({ content: [{ type: "text", text: "runner-ok" }] }),
+						});
+						try {
+							assert.equal(pi.createAgentSession, fixture.pi.createAgentSession);
+							assert.ok(fixture.session.agent instanceof Agent);
+							await fixture.session.prompt("Exercise the native runner session");
+							assert.equal(fixture.session.getLastAssistantText(), "runner-ok");
+							assert.deepEqual(fixture.errors, []);
+						} finally {
+							fixture.session.dispose();
+						}
+						console.log("PASS native runner host identity and session");
+					`,
+						root,
+					],
+					{
+						cwd: join(temporary, "work"),
+						env: {
+							HOME: join(temporary, "home"),
+							TMPDIR: temporary,
+							PI_CODING_AGENT_DIR: join(temporary, "agent"),
+							XDG_CONFIG_HOME: join(temporary, "home/.config"),
+							XDG_CACHE_HOME: join(temporary, "cache"),
+							JITI_ALIAS: JSON.stringify(result.aliases),
+							PI_ASYNC_NATIVE_RUNNER: "1",
+							PI_OFFLINE: "1",
+							PI_SKIP_VERSION_CHECK: "1",
+							PI_TELEMETRY: "0",
+							JITI_FS_CACHE: "false",
+							TERM: "dumb",
+							NO_COLOR: "1",
+						},
+						timeout: 15000,
+						killSignal: "SIGKILL",
+						encoding: "utf8",
+					},
+				);
+				assert.ifError(probe.error);
+				assert.equal(probe.status, 0, `${probe.stderr}\n${probe.stdout}`);
+				assert.match(
+					probe.stdout,
+					/PASS native runner host identity and session/,
+				);
+			} finally {
+				rmSync(temporary, { recursive: true, force: true });
+			}
+		},
+	);
 	t.diagnostic(`Node ${process.version}: ${process.execPath}; host: ${root}`);
 });

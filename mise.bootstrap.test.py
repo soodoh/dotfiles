@@ -288,6 +288,20 @@ class MiseConfigurationTests(unittest.TestCase):
             "Keep mise and fnm on the same Node LTS version",
         )
 
+    def test_pi_development_sdk_matches_the_installed_host_pin(self) -> None:
+        manifest = json.loads((ROOT / "pi-extensions/package.json").read_text())
+        host_version = tool_version(
+            self.base["tools"]["npm:@earendil-works/pi-coding-agent"]
+        )
+        for package in manifest["peerDependencies"]:
+            if package.startswith("@earendil-works/pi-"):
+                with self.subTest(package=package):
+                    self.assertEqual(
+                        manifest["devDependencies"][package],
+                        host_version,
+                        "Test extensions against the same Pi SDK as the mise host",
+                    )
+
     def test_azure_devops_mcp_allows_only_required_package_builds(self) -> None:
         tool = self.work["tools"]["npm:@azure-devops/mcp"]
         self.assertEqual(tool["allow_builds"], ["keytar"])
