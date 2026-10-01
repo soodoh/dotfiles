@@ -10,13 +10,17 @@ cat > "$tmp_dir/bin/git" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ${1:-} != clone || $# != 3 ]]; then
+if [[ ${1:-} != clone || ${2:-} != --quiet || $# != 4 ]]; then
   printf 'unexpected git command: %s\n' "$*" >&2
   exit 1
 fi
 
-printf '%s\t%s\n' "$2" "$3" >> "$GIT_LOG"
-mkdir -p "$3/.git"
+printf '%s\t%s\n' "$3" "$4" >> "$GIT_LOG"
+if [[ ${FAIL_REPO:-} == "${4##*/}" ]]; then
+  printf 'fatal: simulated clone failure for %s\n' "$FAIL_REPO" >&2
+  exit 23
+fi
+mkdir -p "$4/.git"
 EOF
 chmod +x "$tmp_dir/bin/git"
 
@@ -24,7 +28,7 @@ export HOME="$tmp_dir/home"
 export GIT_LOG="$tmp_dir/git-clones.log"
 export PATH="$tmp_dir/bin:$PATH"
 
-bash "$repository_root/dotfiles/work/bootstrap-repositories.sh" >/dev/null 2>&1
+output=$(bash "$repository_root/dotfiles/work/bootstrap-repositories.sh" 2>&1)
 if [[ ! -s "$GIT_LOG" ]]; then
   printf 'expected at least one repository clone\n' >&2
   exit 1
@@ -41,6 +45,45 @@ while IFS=$'\t' read -r url destination; do
   test -d "$destination/.git"
 done < "$GIT_LOG"
 
+# Derive expected folder names from actual clone calls, not the configured list.
+names=''
+count=0
+while IFS=$'\t' read -r url destination; do
+  names="${names:+$names, }${destination##*/}"
+  count=$((count + 1))
+done < "$GIT_LOG"
+[[ $output == "bootstrap-repositories: successfully cloned repos: $names" ]]
+
 cp "$GIT_LOG" "$tmp_dir/first-run.log"
-bash "$repository_root/dotfiles/work/bootstrap-repositories.sh" >/dev/null 2>&1
+output=$(bash "$repository_root/dotfiles/work/bootstrap-repositories.sh" 2>&1)
 cmp "$tmp_dir/first-run.log" "$GIT_LOG"
+[[ $output == "bootstrap-repositories: skipped $count repos because targets already exist" ]]
+
+# A mixed run reports only new clones and skips existing files as well as repos.
+{
+  IFS=$'\t' read -r url first_destination
+  IFS=$'\t' read -r url second_destination
+  IFS=$'\t' read -r url existing_destination
+} < "$tmp_dir/first-run.log"
+rm -rf "$first_destination" "$second_destination" "$existing_destination"
+printf 'user-owned file\n' > "$existing_destination"
+: > "$GIT_LOG"
+output=$(bash "$repository_root/dotfiles/work/bootstrap-repositories.sh" 2>&1)
+expected=$(printf 'bootstrap-repositories: skipped %d repos because targets already exist\nbootstrap-repositories: successfully cloned repos: %s, %s' \
+  "$((count - 2))" "${first_destination##*/}" "${second_destination##*/}")
+[[ $output == "$expected" ]]
+[[ $(wc -l < "$GIT_LOG") -eq 2 ]]
+[[ $(< "$existing_destination") == 'user-owned file' ]]
+
+# Fail fast without hiding diagnostics or losing the partial success summary.
+export HOME="$tmp_dir/failing-home"
+export FAIL_REPO="${second_destination##*/}"
+: > "$GIT_LOG"
+status=0
+output=$(bash "$repository_root/dotfiles/work/bootstrap-repositories.sh" 2>&1) || status=$?
+[[ $status -eq 23 ]]
+expected=$(printf 'fatal: simulated clone failure for %s\nbootstrap-repositories: successfully cloned repos: %s' \
+  "$FAIL_REPO" "${first_destination##*/}")
+[[ $output == "$expected" ]]
+[[ $(wc -l < "$GIT_LOG") -eq 2 ]]
+[[ ! -e "$HOME/Projects/$FAIL_REPO" ]]

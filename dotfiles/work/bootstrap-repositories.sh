@@ -4,15 +4,29 @@ set -euo pipefail
 projects_dir="$HOME/Projects"
 mkdir -p "$projects_dir"
 
+skipped=0
+cloned=''
+
+summarize() {
+  if (( skipped > 0 )); then
+    printf 'bootstrap-repositories: skipped %d repos because targets already exist\n' "$skipped" >&2
+  fi
+  if [[ -n $cloned ]]; then
+    printf 'bootstrap-repositories: successfully cloned repos: %s\n' "$cloned" >&2
+  fi
+}
+trap summarize EXIT
+
 while IFS='|' read -r name url; do
   target="$projects_dir/$name"
 
   if [[ -e $target ]]; then
-    printf 'bootstrap-repositories: target already exists; skipping: %s\n' "$target" >&2
+    skipped=$((skipped + 1))
     continue
   fi
 
-  git clone "$url" "$target"
+  git clone --quiet "$url" "$target"
+  cloned="${cloned:+$cloned, }${target##*/}"
 done <<'REPOSITORIES'
 1ds-app|git@github.docusignhq.com:Core/1ds-app.git
 1ds-docs|git@github.docusignhq.com:Core/1ds-docs.git
