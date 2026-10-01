@@ -21,7 +21,7 @@
           "contextWindow": 272000
         },
         "gpt-6-luna": {
-          "contextWindow": 200000
+          "contextWindow": 272000
         }
       }
     }
