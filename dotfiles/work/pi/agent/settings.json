@@ -58,7 +58,7 @@
     "github-copilot/gpt-6.1-sol",
     "github-copilot/gpt-6-luna",
     "github-copilot/claude-opus-5.5",
-    "github-copilot/claude-sonnet-5",
+    "github-copilot/claude-sonnet-5.5",
     "google-vertex/gemini-3.8-flash"
   ]
 }
