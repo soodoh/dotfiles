@@ -55,6 +55,14 @@
         "devDependencies"
       ],
       "rangeStrategy": "bump"
+    },
+    {
+      "description": "Isolate Python updates and allow time for standalone binaries to be published",
+      "matchManagers": ["mise"],
+      "matchDepNames": ["python"],
+      "groupName": "Python runtime",
+      "groupSlug": "python-runtime",
+      "minimumReleaseAge": "7 days"
     }
   ]
 }
