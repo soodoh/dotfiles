@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "context7": {
+      "description": "Look up current library and framework documentation and code examples.",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
@@ -8,6 +9,7 @@
       "exposure": "direct"
     },
     "playwright": {
+      "description": "Automate the connected browser to inspect, interact with, and test web pages.",
       "command": "playwright-mcp",
       "args": ["--extension"],
       "exposure": "deferred"
