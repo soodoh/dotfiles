@@ -138,4 +138,5 @@ From the repository root:
 ```bash
 bun run --cwd pi-extensions typecheck
 bun run --cwd pi-extensions test -- packages/statusline
+node pi-extensions/packages/statusline/integration-host.test.mjs "$(mise which pi)"
 ```

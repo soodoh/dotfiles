@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { appendFile, chmod, mkdir, open } from "node:fs/promises";
+import { chmod, mkdir, open, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -159,9 +159,15 @@ export async function appendPrompt(
 	await chmodIfPossible(historyPath, 0o600);
 	// Check-and-append is one cross-process critical section. Session-local
 	// caches cannot identify the global last prompt after another session writes.
+	let compromised: Error | undefined;
+	const controller = new AbortController();
 	const release = await lock(historyPath, {
 		realpath: false,
 		retries: { retries: 5, factor: 1, minTimeout: 10, maxTimeout: 10 },
+		onCompromised(error) {
+			compromised = error;
+			controller.abort(error);
+		},
 	});
 	try {
 		const [lastPrompt] = await readPromptHistory(historyPath, {
@@ -180,13 +186,16 @@ export async function appendPrompt(
 		} finally {
 			await reader.close();
 		}
-		await appendFile(
+		if (compromised) throw compromised;
+		await writeFile(
 			historyPath,
 			`${separator}${JSON.stringify({ ts: new Date().toISOString(), prompt: trimmed })}\n`,
-			"utf8",
+			{ encoding: "utf8", flag: "a", signal: controller.signal },
 		);
+		if (compromised) throw compromised;
 		return true;
 	} finally {
-		await release();
+		// The lock library already revoked ownership; never release another owner.
+		if (!compromised) await release();
 	}
 }

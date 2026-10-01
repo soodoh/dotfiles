@@ -93,11 +93,19 @@ if (process.argv[2] !== "worker") {
 		assert.equal(requests[0].options.apiKey, "fixture-key");
 		assert.equal(requests[0].options.reasoning, undefined);
 		assert.equal(requests[0].options.maxRetries, 0);
+		const namedLeaf = fixture.session.sessionManager.getLeafId();
 		api.setSessionName("User-owned title");
 		api.setSessionName("Repair OB-1234 Login Callback");
+		const oldLeaf = fixture.session.sessionManager.getLeafId();
+		fixture.session.sessionManager.branch(namedLeaf);
+		await fixture.session.extensionRunner.emit({
+			type: "session_tree",
+			oldLeafId: oldLeaf,
+			newLeafId: namedLeaf,
+		});
 		await fixture.session.reload();
 		const states = fixture.session.sessionManager
-			.getBranch()
+			.getEntries()
 			.filter(
 				(entry) =>
 					entry.type === "custom" &&

@@ -16,8 +16,9 @@
   runtime owns provider adapters, virtual-model routing, resolved auth headers and
   endpoint overrides, and cancellation.
 - Persists branch-aware ownership state in Pi custom entries, which do not enter LLM context.
-  Manual surrender remains durable even if the old automatic text is restored
-  before `/reload`; historical explicit renames on the branch also surrender it.
+  Manual surrender is session-wide and survives tree navigation, even if the old
+  automatic text is restored before `/reload`. Explicit renames on any branch
+  or recorded by the session picker also surrender it.
 - Never overwrites a startup/CLI name, `/name`, a session-picker rename, an RPC rename, or another extension's name. Changing or clearing an automatic title permanently gives ownership to that explicit choice.
 - Does not scan, schedule, or backfill historical sessions. A resumed historical unnamed session remains unnamed, while a new fork with copied history is eligible for naming from its first post-fork request.
 

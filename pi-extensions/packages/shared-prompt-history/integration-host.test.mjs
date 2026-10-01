@@ -89,6 +89,15 @@ if (process.argv[2] !== "worker") {
 		await mode.handleFollowUp();
 		finishFirst.resolve();
 		await running;
+		mode.flushPendingBashComponents = () => {};
+		let submitted;
+		mode.onInputCallback = (text) => {
+			submitted = fixture.session
+				.prompt("Intervening native request")
+				.then(() => fixture.session.prompt(text));
+		};
+		await mode.editor.onSubmit("/skill:planner implement the parser");
+		await submitted;
 		mode.editor.addToHistory("replayed expanded prompt");
 		await mode.editor.onSubmit("/session");
 		const runner = fixture.session.extensionRunner;
@@ -117,6 +126,8 @@ if (process.argv[2] !== "worker") {
 		assert.deepEqual(prompts(), [
 			"Initial user request",
 			"Queued with Alt+Enter",
+			"Intervening native request",
+			"/skill:planner implement the parser",
 			"/session",
 		]);
 		assert.deepEqual(fixture.errors, []);

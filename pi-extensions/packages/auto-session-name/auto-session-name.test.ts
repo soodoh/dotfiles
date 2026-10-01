@@ -59,6 +59,7 @@ type TestContext = {
 	};
 	sessionManager: {
 		getBranch(): SessionEntry[];
+		getEntries(): SessionEntry[];
 		getSessionFile(): string | undefined;
 	};
 	signal: AbortSignal | undefined;
@@ -200,6 +201,7 @@ const createContext = (
 	},
 	sessionManager: {
 		getBranch: () => branch,
+		getEntries: () => branch,
 		getSessionFile: () => sessionFile,
 	},
 	signal,
@@ -559,6 +561,57 @@ describe("bounded model generation", () => {
 		expect(reloaded.pi.setSessionName).not.toHaveBeenCalled();
 	});
 
+	test("manual ownership remains released when navigating before its branch marker", async () => {
+		const { harness, branch, ctx } = await nameInitialSession();
+		const beforeRename = branch.slice();
+		await harness.manualName("User title", ctx);
+		await harness.manualName("Reliable Backup Strategy", ctx);
+		ctx.sessionManager.getBranch = () => beforeRename;
+		await harness.sessionTree(ctx);
+		beforeRename.push(
+			userMessageEntry("Actually implement a database migration"),
+		);
+		await harness.agentSettled(ctx);
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
+		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
+		const reloaded = createHarness(branch, "Reliable Backup Strategy");
+		await reloaded.sessionStart(ctx, "reload");
+		await reloaded.agentSettled(ctx);
+		expect(reloaded.pi.setSessionName).not.toHaveBeenCalled();
+	});
+
+	test("picker rename history prevents refinement after restoring automatic text", async () => {
+		const { harness, branch, ctx } = await nameInitialSession();
+		if (!isolatedHome) throw new Error("Missing test HOME");
+		const file = join(isolatedHome, "session.jsonl");
+		await writeFile(
+			file,
+			`${[
+				{
+					type: "session",
+					version: 3,
+					id: "picker-session",
+					timestamp: new Date().toISOString(),
+					cwd: "/tmp",
+				},
+				...branch,
+				{ ...entryBase(), type: "session_info", name: "Manual picker title" },
+				{
+					...entryBase(),
+					type: "session_info",
+					name: "Reliable Backup Strategy",
+				},
+			]
+				.map((entry) => JSON.stringify(entry))
+				.join("\n")}\n`,
+		);
+		ctx.sessionManager.getSessionFile = () => file;
+		branch.push(userMessageEntry("Actually implement a database migration"));
+		await harness.agentSettled(ctx);
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
+		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
+	});
+
 	test("global configuration honors PI_CODING_AGENT_DIR instead of HOME", async () => {
 		const agentDir = await mkdtemp(join(tmpdir(), "title-config-dir-"));
 		try {
@@ -686,6 +739,23 @@ describe("bounded model generation", () => {
 		await Promise.all([firstTurn, secondTurn]);
 		await waitForName(harness, "Single Request Title");
 	});
+});
+
+test("names requests containing only non-Latin letters", async () => {
+	const prompt = "日本語の入力履歴を修正してください";
+	const branch: SessionEntry[] = [];
+	const harness = createHarness(branch);
+	const ctx = createContext(branch);
+	await harness.sessionStart(ctx);
+	branch.push(userMessageEntry(prompt));
+	await harness.input(prompt, ctx);
+	mocks.completeSimple.mockResolvedValue({
+		content: [{ type: "text", text: "入力履歴の修正" }],
+		stopReason: "stop",
+	});
+	await harness.turnEnd(ctx);
+	expect(mocks.completeSimple).toHaveBeenCalledOnce();
+	expect(harness.getSessionName()).toBe("入力履歴の修正");
 });
 
 describe("ownership and stale async results", () => {

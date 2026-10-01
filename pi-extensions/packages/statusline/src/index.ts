@@ -1,5 +1,12 @@
 import { resolve } from "node:path";
-import { readStoredCredential } from "@earendil-works/pi-coding-agent";
+import {
+	type ExtensionAPI,
+	type ExtensionContext,
+	readStoredCredential,
+} from "@earendil-works/pi-coding-agent";
+
+type ThinkingLevel = ReturnType<ExtensionAPI["getThinkingLevel"]>;
+
 import {
 	truncateToWidth,
 	visibleWidth,
@@ -16,13 +23,8 @@ import {
 	type GitStatus,
 	getGitStatus,
 	invalidateGit,
-	type ReadonlyFooterDataProvider,
 } from "./git-status";
-import type {
-	ModelLike,
-	ModelRegistryLike,
-	ProviderUsageContext,
-} from "./pi-types";
+import type { ProviderUsageContext } from "./pi-types";
 import {
 	discoverProviderUsageTargetsAsync,
 	invalidateProviderUsageDiscovery,
@@ -38,93 +40,6 @@ type Theme = {
 
 type TuiLike = {
 	requestRender?: () => void;
-};
-
-type ExtensionContext = {
-	hasUI: boolean;
-	mode?: string;
-	ui: {
-		setFooter(
-			factory:
-				| ((
-						tui: TuiLike,
-						theme: Theme,
-						footerData: ReadonlyFooterDataProvider,
-				  ) => {
-						dispose?(): void;
-						invalidate?(): void;
-						render(width: number): string[];
-				  })
-				| undefined,
-		): void;
-	};
-	sessionManager?: {
-		getBranch?(): unknown[];
-		getCwd?(): string;
-	};
-	model?: ModelLike;
-	modelRegistry?: ModelRegistryLike;
-	readStoredCredential?: typeof readStoredCredential;
-	settingsManager?: {
-		getCompactionSettings?(): { enabled?: boolean } | undefined;
-		getGlobalSettings?(): Record<string, unknown>;
-		getProjectSettings?(): Record<string, unknown>;
-	};
-	getContextUsage?():
-		| {
-				tokens: number | null;
-				contextWindow: number;
-				percent: number | null;
-		  }
-		| undefined;
-};
-
-type AfterProviderResponseEvent = {
-	status: number;
-	headers: Record<string, string>;
-};
-
-type ThinkingLevel =
-	| "off"
-	| "minimal"
-	| "low"
-	| "medium"
-	| "high"
-	| "xhigh"
-	| "max";
-
-type ExtensionEvent = Partial<AfterProviderResponseEvent> & {
-	toolName?: string;
-	level?: ThinkingLevel;
-};
-
-type ExtensionEventName =
-	| "session_start"
-	| "session_shutdown"
-	| "agent_start"
-	| "agent_end"
-	| "input"
-	| "tool_result"
-	| "session_compact"
-	| "session_tree"
-	| "message_end"
-	| "after_provider_response"
-	| "model_select"
-	| "thinking_level_select";
-
-type ExtensionAPI = {
-	events: Pick<
-		import("@earendil-works/pi-coding-agent").ExtensionAPI["events"],
-		"on"
-	>;
-	getThinkingLevel?(): ThinkingLevel;
-	on(
-		eventName: ExtensionEventName,
-		handler: (
-			event: ExtensionEvent,
-			ctx: ExtensionContext,
-		) => void | Promise<void>,
-	): void;
 };
 
 const ANSI_RESET = "\x1b[0m";
@@ -177,16 +92,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function configuredSectionsFromSettings(
-	settings: Record<string, unknown> | undefined,
-): { present: boolean; value?: unknown } {
-	if (!settings) return { present: false };
-	const statusline = settings.statusline;
-	if (!isRecord(statusline)) return { present: false };
-	if (!Object.hasOwn(statusline, "sections")) {
-		return { present: false };
-	}
-	return { present: true, value: statusline.sections };
+function configuredSectionsFromSettings(settings: unknown): unknown {
+	if (!isRecord(settings) || !isRecord(settings.statusline)) return undefined;
+	return settings.statusline.sections;
 }
 
 function isStatuslineSection(value: string): value is StatuslineSection {
@@ -235,33 +143,16 @@ function parseStatuslineLayout(value: unknown): StatuslineLayout | undefined {
 	return flat.length > 0 ? [flat] : undefined;
 }
 
-function getStatuslineLayout(ctx: ExtensionContext): StatuslineLayout {
-	const projectSetting = configuredSectionsFromSettings(
-		ctx.settingsManager?.getProjectSettings?.(),
-	);
-	if (projectSetting.present) {
-		return (
-			parseStatuslineLayout(projectSetting.value) ?? DEFAULT_STATUSLINE_LAYOUT
-		);
-	}
-
-	const globalSetting = configuredSectionsFromSettings(
-		ctx.settingsManager?.getGlobalSettings?.(),
-	);
-	if (globalSetting.present) {
-		return (
-			parseStatuslineLayout(globalSetting.value) ?? DEFAULT_STATUSLINE_LAYOUT
-		);
-	}
-
-	return DEFAULT_STATUSLINE_LAYOUT;
+function getStatuslineLayout(pi: ExtensionAPI): StatuslineLayout {
+	const setting = configuredSectionsFromSettings(pi.getSettings());
+	return parseStatuslineLayout(setting) ?? DEFAULT_STATUSLINE_LAYOUT;
 }
 
 function toProviderUsageContext(ctx: ExtensionContext): ProviderUsageContext {
 	return {
 		model: ctx.model,
 		modelRegistry: ctx.modelRegistry,
-		readStoredCredential: ctx.readStoredCredential ?? readStoredCredential,
+		readStoredCredential,
 	};
 }
 
@@ -352,6 +243,7 @@ function renderGit(git: GitStatus, theme: Theme): string | undefined {
 function renderContext(
 	ctx: ExtensionContext,
 	theme: Theme,
+	autoCompactEnabled: boolean,
 ): string | undefined {
 	const contextUsage = ctx.getContextUsage?.();
 	const contextWindow =
@@ -360,8 +252,6 @@ function renderContext(
 
 	// null is intentional after compaction: pre-compaction usage is not valid.
 	const pct = contextUsage?.percent;
-	const autoCompactEnabled =
-		ctx.settingsManager?.getCompactionSettings?.()?.enabled ?? true;
 	const autoIcon = autoCompactEnabled ? ` ${ICONS.auto}` : "";
 	const percentage = pct == null ? "?" : `${pct.toFixed(1)}%`;
 	const text = `${percentage}/${formatTokens(contextWindow)}${autoIcon}`;
@@ -428,10 +318,11 @@ function buildStatusLines(
 	width: number,
 	thinkingLevel: ThinkingLevel,
 	fastReader: FastReader | undefined,
+	autoCompactEnabled: boolean,
 ): string[] {
 	// Width fallback may render sections twice; query Pi's context estimate once.
 	const context = layout.some((row) => row.includes("context"))
-		? renderContext(ctx, theme)
+		? renderContext(ctx, theme, autoCompactEnabled)
 		: undefined;
 	const renderSectionParts = (
 		sections: StatuslineSection[],
@@ -511,7 +402,7 @@ export default function statusline(pi: ExtensionAPI): void {
 		ctx.ui.setFooter((tui, theme, data) => {
 			currentCtx = ctx;
 			tuiRef = tui;
-			const layout = getStatuslineLayout(ctx);
+			const layout = getStatuslineLayout(pi);
 			const sections = layout.flat();
 			let git: GitStatus | undefined;
 			let targets: ProviderUsageTarget[] = [];
@@ -603,6 +494,7 @@ export default function statusline(pi: ExtensionAPI): void {
 						width,
 						thinkingLevel,
 						fastReader,
+						pi.getSettings().compaction?.enabled ?? true,
 					);
 					const statuses = [...extensionStatuses.entries()]
 						.sort(([a], [b]) => a.localeCompare(b))
@@ -625,26 +517,22 @@ export default function statusline(pi: ExtensionAPI): void {
 		currentCtx = null;
 		fastReader = undefined;
 	});
-	const updateContext = (_event: ExtensionEvent, ctx: ExtensionContext) => {
+	const updateContext = (_event: unknown, ctx: ExtensionContext) => {
 		if (!disposeFooter) return;
 		currentCtx = ctx;
 		requestRender();
 	};
-	for (const event of [
-		"agent_start",
-		"input",
-		"session_compact",
-		"session_tree",
-		"message_end",
-	] as const) {
-		pi.on(event, updateContext);
-	}
-	for (const event of ["agent_end", "after_provider_response"] as const) {
-		pi.on(event, (event, ctx) => {
-			updateContext(event, ctx);
-			refreshProviders?.();
-		});
-	}
+	pi.on("agent_start", updateContext);
+	pi.on("input", updateContext);
+	pi.on("session_compact", updateContext);
+	pi.on("session_tree", updateContext);
+	pi.on("message_end", updateContext);
+	const updateUsage = (event: unknown, ctx: ExtensionContext) => {
+		updateContext(event, ctx);
+		refreshProviders?.();
+	};
+	pi.on("agent_end", updateUsage);
+	pi.on("after_provider_response", updateUsage);
 	pi.on("model_select", (event, ctx) => {
 		updateContext(event, ctx);
 		refreshProviders?.(true);

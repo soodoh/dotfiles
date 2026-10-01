@@ -223,7 +223,7 @@ function requestAuthFiles(url: string, key: string): Promise<unknown> {
 	return new Promise((resolve, reject) => {
 		const endpoint = new URL(
 			"v0/management/auth-files",
-			`${url.replace(/\/+$/, "")}/`,
+			`${url.replace(/\/+$/, "").replace(/\/(?:v1|backend-api)$/, "")}/`,
 		).toString();
 		// curl honors the work profile's HTTPS_PROXY, HTTP_PROXY and NO_PROXY. The key
 		// travels on stdin, not argv, and neither stderr nor the raw body is logged.

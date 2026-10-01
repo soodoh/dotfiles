@@ -654,7 +654,7 @@ describe("provider usage", () => {
 		}
 	});
 
-	test("uses stored Anthropic OAuth access and renders session and weekly percentages", async () => {
+	test("refreshes native Anthropic OAuth access before polling session and weekly percentages", async () => {
 		const { calls } = fetchCalls(() =>
 			Response.json({
 				five_hour: { utilization: 12.4 },
@@ -662,9 +662,11 @@ describe("provider usage", () => {
 				seven_day_opus: { used_percentage: 55.2 },
 			}),
 		);
-		const getApiKeyForProvider = vi.fn(async () => "provider-token");
+		const getProviderAuth = vi.fn(async () => ({
+			auth: { apiKey: "refreshed-anthropic-token" },
+		}));
 		const ctx: ProviderUsageContext = {
-			modelRegistry: { getApiKeyForProvider },
+			modelRegistry: { getProviderAuth },
 			readStoredCredential: (provider) =>
 				provider === "anthropic"
 					? { type: "oauth", access: "stored-anthropic-token" }
@@ -677,9 +679,9 @@ describe("provider usage", () => {
 		]);
 		await refreshAndWait(ctx, targets);
 
-		expect(getApiKeyForProvider).not.toHaveBeenCalled();
+		expect(getProviderAuth).toHaveBeenCalledWith("anthropic");
 		expect(headersRecord(calls[0].init.headers)).toMatchObject({
-			Authorization: "Bearer stored-anthropic-token",
+			Authorization: "Bearer refreshed-anthropic-token",
 		});
 		expect(render(targets)).toContain("Anthropic S12%/W55%");
 	});

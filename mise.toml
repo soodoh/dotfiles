@@ -387,6 +387,7 @@ run = [
   'node pi-extensions/packages/aidev-track/integration-host.test.mjs "$(mise which pi)"',
   'node pi-extensions/packages/shared-prompt-history/integration-host.test.mjs "$(mise which pi)"',
   'node pi-extensions/packages/auto-session-name/integration-host.test.mjs "$(mise which pi)"',
+  'node pi-extensions/packages/statusline/integration-host.test.mjs "$(mise which pi)"',
 ]
 
 [tasks."validate:neovim"]

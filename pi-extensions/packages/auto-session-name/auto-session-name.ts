@@ -32,7 +32,7 @@ type AutoSessionNameContext = Pick<ExtensionContext, "model" | "signal"> & {
 	};
 	sessionManager: Pick<
 		ExtensionContext["sessionManager"],
-		"getBranch" | "getSessionFile"
+		"getBranch" | "getEntries" | "getSessionFile"
 	>;
 };
 
@@ -164,7 +164,7 @@ export const truncateHeadAndTail = (
 const isMeaningfulUserRequest = (text: string): boolean => {
 	const request = compactWhitespace(text);
 	return Boolean(
-		request && /[A-Za-z0-9]/.test(request) && !COMMAND_RE.test(request),
+		request && /[\p{L}\p{N}]/u.test(request) && !COMMAND_RE.test(request),
 	);
 };
 
@@ -497,20 +497,60 @@ const generateTitle = async (
 const sessionName = (pi: AutoSessionNameAPI): string | undefined =>
 	pi.getSessionName()?.trim() || undefined;
 
-const authoritativeSessionName = (
+// Names are session-wide, unlike title-generation state on the active branch.
+const ownershipReleased = (entries: SessionEntry[]): boolean => {
+	let automaticTitle: string | undefined;
+	for (const [index, entry] of entries.entries()) {
+		if (
+			entry.type === "custom" &&
+			entry.customType === STATE_ENTRY_TYPE &&
+			isAutoTitleState(entry.data)
+		) {
+			if (entry.data.ownershipReleased) return true;
+			automaticTitle = entry.data.title;
+		} else if (
+			entry.type === "session_info" &&
+			automaticTitle &&
+			entry.name !== automaticTitle
+		) {
+			const next = entries[index + 1];
+			// An automatic rename is immediately paired with its persisted title state.
+			if (
+				!(
+					next?.type === "custom" &&
+					next.customType === STATE_ENTRY_TYPE &&
+					isAutoTitleState(next.data) &&
+					next.data.title === entry.name &&
+					!next.data.ownershipReleased
+				)
+			)
+				return true;
+		}
+	}
+	return false;
+};
+
+const authoritativeTitleInfo = (
 	pi: AutoSessionNameAPI,
 	ctx: AutoSessionNameContext,
-): string | undefined => {
+): { name: string | undefined; released: boolean } => {
+	const memoryEntries = ctx.sessionManager.getEntries();
+	let name = sessionName(pi);
+	let entries = memoryEntries;
 	const sessionFile = ctx.sessionManager.getSessionFile();
-	if (!sessionFile) return sessionName(pi);
-
-	try {
-		return (
-			SessionManager.open(sessionFile).getSessionName()?.trim() || undefined
-		);
-	} catch {
-		return sessionName(pi);
+	if (sessionFile) {
+		try {
+			const disk = SessionManager.open(sessionFile);
+			name = disk.getSessionName()?.trim() || undefined;
+			entries = disk.getEntries();
+		} catch {
+			/* In-memory/unflushed sessions use the live manager. */
+		}
 	}
+	return {
+		name,
+		released: ownershipReleased(memoryEntries) || ownershipReleased(entries),
+	};
 };
 
 export default function autoSessionName(pi: AutoSessionNameAPI) {
@@ -541,14 +581,16 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 		recentRawRequests = [];
 		inFlight = undefined;
 		autoTitleState = reconstructAutoTitleState(ctx.sessionManager.getBranch());
-		const currentName = sessionName(pi);
+		const { name: currentName, released } = authoritativeTitleInfo(pi, ctx);
 		ownsTitle = Boolean(
 			autoTitleState &&
+				!released &&
 				!autoTitleState.ownershipReleased &&
 				currentName === autoTitleState.title,
 		);
 		manualOverride = Boolean(
-			autoTitleState?.ownershipReleased ||
+			released ||
+				autoTitleState?.ownershipReleased ||
 				(autoTitleState && currentName !== autoTitleState.title) ||
 				(!autoTitleState && currentName),
 		);
@@ -598,24 +640,29 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 	const canApplyInitial = (
 		epoch: number,
 		ctx: AutoSessionNameContext,
-	): boolean =>
-		active &&
-		sessionEpoch === epoch &&
-		!manualOverride &&
-		!autoTitleState &&
-		!authoritativeSessionName(pi, ctx);
+	): boolean => {
+		if (!active || sessionEpoch !== epoch || manualOverride || autoTitleState)
+			return false;
+		const info = authoritativeTitleInfo(pi, ctx);
+		return !info.name && !info.released;
+	};
 
 	const canApplyRefinement = (
 		epoch: number,
 		currentTitle: string,
 		ctx: AutoSessionNameContext,
-	): boolean =>
-		active &&
-		sessionEpoch === epoch &&
-		ownsTitle &&
-		!manualOverride &&
-		autoTitleState?.title === currentTitle &&
-		authoritativeSessionName(pi, ctx) === currentTitle;
+	): boolean => {
+		if (
+			!active ||
+			sessionEpoch !== epoch ||
+			!ownsTitle ||
+			manualOverride ||
+			autoTitleState?.title !== currentTitle
+		)
+			return false;
+		const info = authoritativeTitleInfo(pi, ctx);
+		return info.name === currentTitle && !info.released;
+	};
 
 	const runInitialNaming = async (
 		ctx: AutoSessionNameContext,

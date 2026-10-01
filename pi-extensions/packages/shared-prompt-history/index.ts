@@ -6,9 +6,8 @@ import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
 	type Focusable,
+	getKeybindings,
 	Input,
-	Key,
-	matchesKey,
 	type SelectItem,
 	SelectList,
 	truncateToWidth,
@@ -91,16 +90,12 @@ class PromptHistoryPicker implements Component, Focusable {
 	}
 
 	handleInput(data: string): void {
-		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
-			this.done(null);
-			return;
-		}
-
+		const kb = getKeybindings();
 		if (
-			matchesKey(data, Key.up) ||
-			matchesKey(data, Key.down) ||
-			matchesKey(data, Key.enter) ||
-			matchesKey(data, Key.return)
+			kb.matches(data, "tui.select.up") ||
+			kb.matches(data, "tui.select.down") ||
+			kb.matches(data, "tui.select.confirm") ||
+			kb.matches(data, "tui.select.cancel")
 		) {
 			this.list.handleInput(data);
 			this.requestRender();
@@ -245,8 +240,19 @@ async function runHistoryCommand(
 	}
 }
 
+// Native TUI commands handled before AgentSession.prompt(), unlike templates
+// and skills. Pi does not expose its built-in command catalogue to extensions.
+const UI_COMMANDS = new Set(
+	"settings scoped-models share copy session changelog hotkeys fork clone tree trust logout new reload debug arminsayshi dementedelves resume quit".split(
+		" ",
+	),
+);
+const UI_COMMANDS_WITH_ARGS = new Set(
+	"model thinking export import bug name login compact".split(" "),
+);
+
 export default function sharedPromptHistory(
-	pi: Pick<ExtensionAPI, "on" | "registerCommand">,
+	pi: Pick<ExtensionAPI, "on" | "registerCommand" | "getCommands">,
 	options: SharedPromptHistoryOptions = {},
 ) {
 	const historyPath =
@@ -256,6 +262,23 @@ export default function sharedPromptHistory(
 		description: "Search and restore a saved prompt from shared history",
 		handler: async (_args, ctx) => runHistoryCommand(ctx, historyPath),
 	});
+
+	const bypassesInput = (text: string): boolean => {
+		const trimmed = text.trim();
+		if (trimmed.startsWith("!") && trimmed.replace(/^!!?/, "").trim())
+			return true;
+		if (!trimmed.startsWith("/")) return false;
+		const name = trimmed.slice(1).split(" ", 1)[0];
+		return (
+			UI_COMMANDS_WITH_ARGS.has(name) ||
+			(UI_COMMANDS.has(name) && trimmed === `/${name}`) ||
+			pi
+				.getCommands()
+				.some(
+					(command) => command.source === "extension" && command.name === name,
+				)
+		);
+	};
 
 	let closed = false;
 	let persistQueue = Promise.resolve();
@@ -314,7 +337,7 @@ export default function sharedPromptHistory(
 						const original = editor.onSubmit;
 						if (!original || original === editorState.wrapped) return;
 						editorState.wrapped = (text) => {
-							if (/^\s*[/!]/.test(text)) persist(text);
+							if (bypassesInput(text)) persist(text);
 							return original.call(editor, text);
 						};
 						editor.onSubmit = editorState.wrapped;

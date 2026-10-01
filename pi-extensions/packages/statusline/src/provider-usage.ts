@@ -732,8 +732,11 @@ async function getOAuthProviderToken(
 	ctx: ProviderUsageContext,
 	providerId: string,
 ): Promise<string | undefined> {
-	const credential = getStoredOAuthCredential(ctx, providerId);
-	return credential?.access ?? (await getProviderToken(ctx, providerId));
+	// Native auth resolution refreshes expired OAuth access before usage polling.
+	return (
+		(await getProviderToken(ctx, providerId)) ??
+		getStoredOAuthCredential(ctx, providerId)?.access
+	);
 }
 
 async function getGitHubCopilotUserToken(

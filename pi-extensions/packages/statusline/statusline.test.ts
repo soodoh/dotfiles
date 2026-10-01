@@ -3,7 +3,19 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import {
+	type ExtensionAPI,
+	type ExtensionContext,
+	readStoredCredential,
+} from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import type { ModelLike, ModelRegistryLike } from "./src/pi-types";
+
+vi.mock("@earendil-works/pi-coding-agent", async (original) => ({
+	...(await original<typeof import("@earendil-works/pi-coding-agent")>()),
+	readStoredCredential: vi.fn(),
+}));
+
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import statusline from "./index";
 import { FAST_CHANGED_EVENT, FAST_READER_EVENT } from "./src/cliproxy-fast";
@@ -13,10 +25,22 @@ import * as providerUsage from "./src/provider-usage";
 const execFileAsync = promisify(execFile);
 const tempDirs: string[] = [];
 const disposers: (() => void)[] = [];
-type API = Parameters<typeof statusline>[0];
-type Handler = Parameters<API["on"]>[1];
-type Context = Parameters<Handler>[1];
-type Event = Parameters<Handler>[0];
+type Settings = ReturnType<ExtensionAPI["getSettings"]> & {
+	statusline?: { sections: unknown };
+};
+type Event = { toolName?: string; level?: "off" | "high" | "xhigh" };
+type Handler = (event: Event, ctx: ExtensionContext) => unknown;
+type Context = {
+	hasUI: boolean;
+	mode?: string;
+	ui: Pick<ExtensionContext["ui"], "setFooter">;
+	model?: ModelLike;
+	modelRegistry?: ModelRegistryLike;
+	sessionManager?: { getBranch?(): unknown[]; getCwd?(): string };
+	getContextUsage?: ExtensionContext["getContextUsage"];
+	readStoredCredential?: typeof readStoredCredential;
+	settings?: Settings;
+};
 type FooterFactory = Exclude<
 	Parameters<Context["ui"]["setFooter"]>[0],
 	undefined
@@ -29,7 +53,10 @@ async function tempDir(name: string): Promise<string> {
 	return dir;
 }
 
-function createPi(thinkingLevel: "off" | "high" = "off") {
+function createPi(
+	thinkingLevel: "off" | "high" = "off",
+	effectiveSettings: Settings = {},
+) {
 	const handlers = new Map<string, Handler>();
 	const listeners = new Map<string, (data: unknown) => void>();
 	return {
@@ -43,6 +70,7 @@ function createPi(thinkingLevel: "off" | "high" = "off") {
 				listeners.get(name)?.(data);
 			},
 		},
+		getSettings: vi.fn(() => effectiveSettings),
 		getThinkingLevel: vi.fn(() => thinkingLevel),
 		on(eventName: string, handler: Handler) {
 			handlers.set(eventName, handler);
@@ -60,10 +88,20 @@ function harness(
 	const unsubscribe = vi.fn();
 	const requestRender = vi.fn();
 	const theme = { fg: (_color: string, text: string) => text };
-	const pi = createPi(thinking);
-	statusline(pi);
+	const pi = createPi(
+		thinking,
+		overrides.settings ?? {
+			statusline: { sections: ["model", "thinking", "context"] },
+			compaction: { enabled: true },
+		},
+	);
+	vi.mocked(readStoredCredential).mockImplementation(
+		overrides.readStoredCredential ?? (() => undefined),
+	);
+	statusline(pi as unknown as ExtensionAPI);
 	const data = {
 		getGitBranch: () => "main",
+		getAvailableProviderCount: () => 0,
 		getExtensionStatuses: () => statuses,
 		onBranchChange(cb: () => void) {
 			branchChange = cb;
@@ -73,7 +111,11 @@ function harness(
 	const setWidget = vi.fn();
 	const setFooter = vi.fn((factory: FooterFactory | undefined) => {
 		footer?.dispose?.();
-		footer = factory?.({ requestRender }, theme, data);
+		footer = factory?.(
+			{ requestRender } as unknown as Parameters<FooterFactory>[0],
+			theme as Parameters<FooterFactory>[1],
+			data,
+		);
 		if (footer?.dispose) disposers.push(footer.dispose);
 	});
 	const ui = { setFooter, setWidget };
@@ -93,17 +135,14 @@ function harness(
 		},
 		readStoredCredential: () => undefined,
 		sessionManager: { getBranch: () => [] },
-		settingsManager: {
-			getCompactionSettings: () => ({ enabled: true }),
-			getGlobalSettings: () => ({
-				statusline: { sections: ["model", "thinking", "context"] },
-			}),
-		},
 		getContextUsage: () => ({ tokens: 250, contextWindow: 1000, percent: 25 }),
 		...overrides,
 	};
 	function emit(name: string, event: Event = {}, context = ctx) {
-		return pi.handlers.get(name)?.(event, context);
+		return pi.handlers.get(name)?.(
+			event,
+			context as unknown as ExtensionContext,
+		);
 	}
 	emit("session_start");
 	return {
@@ -125,11 +164,8 @@ function harness(
 	};
 }
 
-function settings(sections: unknown) {
-	return {
-		getCompactionSettings: () => ({ enabled: true }),
-		getGlobalSettings: () => ({ statusline: { sections } }),
-	};
+function settings(sections: unknown): Settings {
+	return { compaction: { enabled: true }, statusline: { sections } };
 }
 
 beforeEach(async () => {
@@ -157,7 +193,7 @@ afterEach(async () => {
 describe("statusline extension", () => {
 	test("does not call runtime action methods while loading", () => {
 		const pi = createPi("high");
-		statusline(pi);
+		statusline(pi as unknown as ExtensionAPI);
 		expect(pi.getThinkingLevel).not.toHaveBeenCalled();
 	});
 
@@ -226,7 +262,7 @@ describe("statusline extension", () => {
 		}));
 		const h = harness({
 			getContextUsage,
-			settingsManager: settings(["context"]),
+			settings: settings(["context"]),
 		});
 		expect(h.render()).toContain("5.0%/2.0k");
 		expect(getContextUsage).toHaveBeenCalledOnce();
@@ -269,9 +305,23 @@ describe("statusline extension", () => {
 		expect(h.render()).not.toContain("\uF0E7");
 	});
 
+	test("reads native effective compaction settings without a context settings manager", () => {
+		const h = harness({
+			settings: {
+				statusline: { sections: ["context"] },
+				compaction: { enabled: false },
+			},
+		});
+		expect(h.render()).toContain("25.0%/1.0k");
+		expect(h.render()).not.toContain("Sonnet Test");
+		expect(h.render()).not.toContain("\u{F0068}");
+		h.pi.getSettings.mockReturnValue({ compaction: { enabled: true } });
+		expect(h.render()).toContain("\u{F0068}");
+	});
+
 	test("preserves configured section order and nested rows", () => {
 		const h = harness({
-			settingsManager: settings([["context"], ["model", "thinking"]]),
+			settings: settings([["context"], ["model", "thinking"]]),
 		});
 		const lines = h.footer().render(120);
 		expect(lines).toHaveLength(2);
@@ -281,7 +331,7 @@ describe("statusline extension", () => {
 		expect(lines[1]).toContain("off");
 	});
 
-	test("invalid project sections override global sections and fall back to defaults", () => {
+	test("invalid effective sections fall back to defaults", () => {
 		vi.spyOn(gitStatus, "getGitStatus").mockReturnValue({
 			branch: "main",
 			staged: 0,
@@ -289,9 +339,8 @@ describe("statusline extension", () => {
 			untracked: 0,
 		});
 		const h = harness({
-			settingsManager: {
-				...settings(["context"]),
-				getProjectSettings: () => ({ statusline: { sections: ["unknown"] } }),
+			settings: {
+				...settings(["unknown"]),
 			},
 		});
 		expect(h.render()).toContain("Sonnet Test");
@@ -308,7 +357,7 @@ describe("statusline extension", () => {
 		});
 		const h = harness({
 			model: { name: "GPT-5.5", contextWindow: 272000 },
-			settingsManager: settings(["model", "git", "context"]),
+			settings: settings(["model", "git", "context"]),
 			getContextUsage: () => ({
 				tokens: 21488,
 				contextWindow: 272000,
@@ -336,7 +385,7 @@ describe("statusline extension", () => {
 		);
 		vi.stubGlobal("fetch", fetchMock);
 		const h = harness({
-			settingsManager: { getCompactionSettings: () => ({ enabled: true }) },
+			settings: { compaction: { enabled: true } },
 			model: {
 				name: "Claude Sonnet Test",
 				id: "sonnet-test",
@@ -376,7 +425,7 @@ describe("statusline extension", () => {
 		);
 		vi.stubGlobal("fetch", fetchMock);
 		const h = harness({
-			settingsManager: settings(["provider_usage"]),
+			settings: settings(["provider_usage"]),
 			model: { id: "copilot", provider: "github-copilot" },
 			modelRegistry: {
 				getAvailable: () => [],
@@ -419,7 +468,7 @@ describe("statusline extension", () => {
 		const getAvailable = vi.fn(async () => []);
 		const getApiKeyForProvider = vi.fn(async () => undefined);
 		const h = harness({
-			settingsManager: settings(["model", "git", "provider_usage"]),
+			settings: settings(["model", "git", "provider_usage"]),
 			modelRegistry: { getAvailable, getApiKeyForProvider },
 		});
 		await vi.waitFor(() => expect(refresh).toHaveBeenCalled());
@@ -472,7 +521,7 @@ describe("statusline extension", () => {
 			const h = harness({
 				mode,
 				hasUI: mode === "rpc",
-				settingsManager: settings(["git", "provider_usage"]),
+				settings: settings(["git", "provider_usage"]),
 			});
 			h.emit("agent_end");
 			h.emit("model_select");
@@ -494,7 +543,7 @@ describe("statusline extension", () => {
 			.spyOn(providerUsage, "discoverProviderUsageTargetsAsync")
 			.mockResolvedValue([]);
 		vi.spyOn(providerUsage, "refreshProviderUsage").mockResolvedValue();
-		const h = harness({ settingsManager: settings(["git", "provider_usage"]) });
+		const h = harness({ settings: settings(["git", "provider_usage"]) });
 		await vi.advanceTimersByTimeAsync(60_000);
 		expect(discovery).toHaveBeenCalledTimes(2);
 		expect(git.mock.calls.length).toBeLessThanOrEqual(13);
@@ -529,7 +578,7 @@ describe("statusline extension", () => {
 		);
 		vi.stubGlobal("fetch", fetchMock);
 		const h = harness({
-			settingsManager: settings(["provider_usage"]),
+			settings: settings(["provider_usage"]),
 			modelRegistry: {
 				getAvailable: async () =>
 					authenticated ? [{ provider: "anthropic" }] : [],
@@ -567,7 +616,7 @@ describe("statusline extension", () => {
 				update = onUpdate;
 				return { branch: "main", staged: 0, unstaged: 0, untracked: 0 };
 			});
-		const h = harness({ settingsManager: settings(["git"]) });
+		const h = harness({ settings: settings(["git"]) });
 		h.footer().dispose?.();
 		git.mockClear();
 		h.requestRender.mockClear();
@@ -586,7 +635,7 @@ describe("statusline extension", () => {
 		const refresh = vi
 			.spyOn(providerUsage, "refreshProviderUsage")
 			.mockResolvedValue();
-		const h = harness({ settingsManager: settings(["provider_usage"]) });
+		const h = harness({ settings: settings(["provider_usage"]) });
 		h.emit("model_select");
 		pending[0]([]);
 		await Promise.resolve();
@@ -617,7 +666,7 @@ describe("statusline extension", () => {
 		}
 		await writeFile(join(repoOne, "tracked.txt"), "modified\n");
 		const h = harness({
-			settingsManager: settings(["model", "git"]),
+			settings: settings(["model", "git"]),
 			sessionManager: { getCwd: () => repoOne },
 		});
 		await vi.waitFor(() => expect(h.render()).toContain("*1"));

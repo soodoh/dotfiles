@@ -5,6 +5,12 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import {
+	getKeybindings,
+	KeybindingsManager,
+	setKeybindings,
+	TUI_KEYBINDINGS,
+} from "@earendil-works/pi-tui";
 import { afterEach, expect, test, vi } from "vitest";
 import { readPromptHistory } from "./history-store";
 import sharedPromptHistory from "./index";
@@ -63,6 +69,7 @@ async function fixture(
 				handlers.set(event, handler);
 				return () => {};
 			}) as ExtensionAPI["on"],
+			getCommands: () => [],
 			registerCommand: (_name, options) => {
 				command = options;
 			},
@@ -231,6 +238,69 @@ test("incremental narrowing restores matches when the query broadens and support
 	);
 	await f.command();
 	expect(f.context.ui.setEditorText).not.toHaveBeenCalled();
+});
+
+test("slash prompts use native input exactly once even with an intervening writer", async () => {
+	const f = await fixture();
+	await f.dispatch("session_start");
+	const prompt = "/skill:planner implement the parser";
+	f.getEditor()?.onSubmit?.(prompt);
+	await f.dispatch("input", { text: "other session", source: "interactive" });
+	await f.dispatch("input", { text: prompt, source: "interactive" });
+	await f.dispatch("session_shutdown");
+	expect(await readPromptHistory(f.historyPath)).toEqual([
+		"other session",
+		prompt,
+	]);
+});
+
+test("the picker respects remapped selection and cancellation actions", async () => {
+	const previous = getKeybindings();
+	setKeybindings(
+		new KeybindingsManager(TUI_KEYBINDINGS, {
+			"tui.select.confirm": "ctrl+y",
+			"tui.select.cancel": "ctrl+x",
+			"tui.select.down": "ctrl+n",
+		}),
+	);
+	try {
+		const f = await fixture();
+		await writeFile(
+			f.historyPath,
+			["older", "newer"].map((prompt) => JSON.stringify({ prompt })).join("\n"),
+		);
+		f.custom.mockImplementation(
+			(factory) =>
+				new Promise((resolve) => {
+					const picker = factory(
+						{ requestRender() {} },
+						pickerTheme,
+						{},
+						resolve,
+					);
+					picker.handleInput("\x0e");
+					picker.handleInput("\x19");
+				}),
+		);
+		await f.command();
+		expect(f.context.ui.setEditorText).toHaveBeenCalledWith("older");
+		f.custom.mockImplementation(
+			(factory) =>
+				new Promise((resolve) => {
+					const picker = factory(
+						{ requestRender() {} },
+						pickerTheme,
+						{},
+						resolve,
+					);
+					picker.handleInput("\x18");
+				}),
+		);
+		await f.command();
+		expect(f.context.ui.setEditorText).toHaveBeenCalledOnce();
+	} finally {
+		setKeybindings(previous);
+	}
 });
 
 test("failed persistence does not prevent command submission", async () => {

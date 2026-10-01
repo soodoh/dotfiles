@@ -42,6 +42,46 @@ describe("shared prompt history store", () => {
 		);
 		expect(await readPromptHistory(historyPath)).toEqual(["same"]);
 	});
+	test("a revoked cross-process lock fails quietly without appending under lost ownership", async () => {
+		const historyPath = join(await makeTempDir(), "history.jsonl");
+		await appendPrompt("baseline", historyPath);
+		const source = new URL("./history-store.ts", import.meta.url).href;
+		const code = `
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
+const originalOpen = fs.open;
+let intercept = true;
+fs.open = async (...args) => {
+ const file = await originalOpen(...args);
+ if (args[1] === "r" && intercept) {
+  intercept = false;
+  const read = file.read.bind(file);
+  file.read = async (...readArgs) => {
+   // Revoke a live lease while its owner is paused before the append.
+   await fs.rm(args[0] + ".lock", { recursive: true });
+   await new Promise(resolve => setTimeout(resolve, 5500));
+   return read(...readArgs);
+  };
+ }
+ return file;
+};
+syncBuiltinESMExports();
+const { appendPrompt } = await import(${JSON.stringify(source)});
+await assert.rejects(appendPrompt("lost owner", ${JSON.stringify(historyPath)}), { code: "ECOMPROMISED" });
+await appendPrompt("recovered", ${JSON.stringify(historyPath)});
+`;
+		await promisify(execFile)(
+			process.execPath,
+			["--input-type=module", "-e", code],
+			{ timeout: 12000, env: {} },
+		);
+		expect(await readPromptHistory(historyPath)).toEqual([
+			"baseline",
+			"recovered",
+		]);
+	}, 15000);
+
 	test("multibyte characters survive tail boundaries and duplicate detection", async () => {
 		const historyPath = join(await makeTempDir(), "history.jsonl");
 		const prompt = `${"a".repeat(20)}€${"b".repeat(8187)}`;

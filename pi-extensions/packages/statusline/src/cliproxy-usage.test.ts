@@ -24,7 +24,7 @@ const fixturePath = join(directory, "fixture.json");
 const curlPath = join(directory, "curl");
 writeFileSync(
 	curlPath,
-	'#!/bin/sh\ncat >/dev/null\ncat "$CLIPROXY_TEST_FIXTURE"\nprintf "\\n200"\n',
+	'#!/bin/sh\ncat >/dev/null\nif [ -n "$CLIPROXY_TEST_ENDPOINT" ]; then for arg in "$@"; do printf "%s\\n" "$arg" >"$CLIPROXY_TEST_ENDPOINT"; done; fi\ncat "$CLIPROXY_TEST_FIXTURE"\nprintf "\\n200"\n',
 );
 chmodSync(curlPath, 0o755);
 
@@ -82,6 +82,24 @@ test("keeps deterministic account identities, independent of response order or q
 			.sort((a, b) => (a ?? 0) - (b ?? 0)),
 	).toEqual([47, 100]);
 });
+
+test.each(["", "/", "/v1", "/v1/", "/backend-api", "/backend-api/"])(
+	"normalizes supported base URL suffix %s for management requests",
+	async (suffix) => {
+		process.env.CLIPROXYAPI_MANAGEMENT_KEY = "fixture-key";
+		process.env.CLIPROXYAPI_BASE_URL = `https://proxy.example.test/proxy${suffix}`;
+		process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+		process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+		process.env.CLIPROXY_TEST_ENDPOINT = join(directory, "endpoint.txt");
+		process.env.PATH = `${directory}:${originalEnv.PATH}`;
+		writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 12)] }));
+		await refreshProxyUsage(() => {});
+		expect(
+			readFileSync(process.env.CLIPROXY_TEST_ENDPOINT, "utf8").trim(),
+		).toBe("https://proxy.example.test/proxy/v0/management/auth-files");
+		expect(proxyUsageBadges()).toHaveLength(1);
+	},
+);
 
 test("groups proxy accounts under one icon and +N without caching credentials", async () => {
 	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "private-management-key";
