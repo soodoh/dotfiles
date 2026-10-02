@@ -95,6 +95,9 @@ env -i \
 assert_contains 'icon.drawing=off label=Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%' "$log_file"
 assert_contains '--set right_separator.ai drawing=on' "$log_file"
 assert_contains '--move ai_usage.providers after right_separator.ai' "$log_file"
+# Changed usage text must trigger reflow; timer-only updates can overlap stats.
+assert_contains '--trigger notch_usage_change' "$log_file"
+assert_contains '--set notch.ai_usage.providers drawing=on label=Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%' "$log_file"
 
 mkdir -p "$tmp_dir/pi-extensions" "$tmp_dir/dotfiles/work" "$tmp_dir/dotfiles/personal"
 printf 'set -gx MISE_ENV work-macos\n' >"$tmp_dir/dotfiles/work/mise-profile.fish"
@@ -163,3 +166,4 @@ PATH="$tmp_dir:$PATH" \
   bash "$plugin_dir/ai_usage_refresh.sh"
 
 assert_contains '--set ai_usage.providers drawing=off --set right_separator.ai drawing=off' "$log_file"
+assert_contains '--set notch.ai_usage.providers drawing=off' "$log_file"

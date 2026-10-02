@@ -101,13 +101,17 @@ sync_provider_usage() {
       icon.drawing=off \
       label="$text" \
       label.color="$ACCENT_COLOR" \
+      --set notch.ai_usage.providers drawing=on label="$text" label.color="$ACCENT_COLOR" \
       --set right_separator.ai drawing=on \
       --move right_separator.ai after ram \
-      --move ai_usage.providers after right_separator.ai >/dev/null 2>&1 || true
+      --move ai_usage.providers after right_separator.ai \
+      --trigger notch_usage_change >/dev/null 2>&1 || true
   else
     "$SKETCHYBAR_BIN" \
       --set ai_usage.providers drawing=off \
-      --set right_separator.ai drawing=off >/dev/null 2>&1 || true
+      --set right_separator.ai drawing=off \
+      --set notch.ai_usage.providers drawing=off \
+      --trigger notch_usage_change >/dev/null 2>&1 || true
   fi
 }
 

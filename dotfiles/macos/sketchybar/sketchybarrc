@@ -18,7 +18,7 @@ PLUGIN_DIR="$CONFIG_DIR/plugins"
 # If you are looking for other colors, see the color picker:
 # https://felixkratz.github.io/SketchyBar/config/tricks#color-picker
 
-sketchybar --bar position=top height=40 blur_radius=30 color="$BAR_COLOR"
+sketchybar --bar position=top height=40 padding_left=20 blur_radius=30 color="$BAR_COLOR"
 
 ##### Changing Defaults #####
 # We now change some default values, which are applied to all further items.
@@ -103,7 +103,7 @@ right_separator_style=(
 
 ##### Adding Right Items #####
 sketchybar --add item clock right \
-           --set clock update_freq=10 icon=  script="$PLUGIN_DIR/clock.sh" \
+           --set clock update_freq=10 icon.drawing=off script="$PLUGIN_DIR/clock.sh" \
            --add item right_separator.system right \
            --set right_separator.system "${right_separator_style[@]}" \
            --add item right_separator.ai right \
@@ -131,6 +131,21 @@ sketchybar --add item ai_usage.providers right \
            update_freq=60 \
            script="$PLUGIN_DIR/ai_usage_refresh.sh" \
            --subscribe ai_usage.refresh system_woke
+
+##### Shared right-section spacing (all displays) #####
+source "$PLUGIN_DIR/bar_sections.sh"
+style_right_sections
+
+##### Display-specific notch layout #####
+source "$PLUGIN_DIR/notch_layout.sh"
+create_notch_items
+create_bar_click_guard
+apply_notch_layout
+sketchybar --add event notch_usage_change \
+           --add item notch.layout left \
+           --set notch.layout drawing=off updates=on update_freq=30 \
+           script="/bin/bash -c 'source \"$PLUGIN_DIR/notch_layout.sh\"; apply_notch_layout'" \
+           --subscribe notch.layout display_change system_woke notch_usage_change
 
 ##### Force all scripts to run the first time (never do this in a script) #####
 sketchybar --update
