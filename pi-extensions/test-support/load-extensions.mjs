@@ -9,7 +9,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { hideDeniedExistenceChecks } from "./exists-sync.mjs";
 
-const [hostRoot, pathsJSON, asPackage] = process.argv.slice(2);
+const [hostRoot, pathsJSON, asPackage, packageFiltersJSON] =
+	process.argv.slice(2);
 const packageRoot = JSON.parse(pathsJSON)[0];
 assert.ok(
 	process.permission,
@@ -31,7 +32,10 @@ const loader = new pi.DefaultResourceLoader({
 	cwd: process.cwd(),
 	agentDir: process.env.PI_CODING_AGENT_DIR,
 	settingsManager: pi.SettingsManager.inMemory({
-		packages: asPackage === "package" ? [{ source: packageRoot }] : [],
+		packages:
+			asPackage === "package"
+				? [{ ...JSON.parse(packageFiltersJSON ?? "{}"), source: packageRoot }]
+				: [],
 	}),
 	noExtensions: asPackage !== "package",
 	noSkills: true,

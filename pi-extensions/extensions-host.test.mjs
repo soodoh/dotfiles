@@ -292,6 +292,42 @@ await test("local package declares host-provided dependencies as peers", () => {
 	}
 });
 
+await test("actual host: profile package filters expose Plannotator review", async (t) => {
+	for (const profile of ["personal", "work"]) {
+		await t.test(profile, () => {
+			const settings = JSON.parse(
+				readFileSync(
+					join(
+						packageRoot,
+						"..",
+						"dotfiles",
+						profile,
+						"pi/agent/settings.json",
+					),
+					"utf8",
+				),
+			);
+			const entry = settings.packages.find(
+				(pkg) => pkg.source === "./pi-extensions",
+			);
+			assert.ok(entry, `${profile}: missing local package declaration`);
+			const report = runExtensionProbe(host, packageRoot, [packageRoot], {
+				asPackage: true,
+				packageFilters: { extensions: entry.extensions },
+			});
+			assertLoaded(report, profile);
+			const commands = report.extensions.flatMap(
+				(extension) => extension.commands,
+			);
+			assert.equal(
+				commands.filter((command) => command === "plannotator-review").length,
+				1,
+				`${profile}: requires exactly one /plannotator-review command`,
+			);
+		});
+	}
+});
+
 await test("manifest resources load with the actual mise Pi", async (t) => {
 	t.diagnostic(`Node ${process.version}; Pi ${host.version}: ${host.root}`);
 	const resources = manifestResources(packageRoot);
