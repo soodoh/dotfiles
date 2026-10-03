@@ -103,7 +103,7 @@ sync_provider_usage() {
       label.color="$ACCENT_COLOR" \
       --set notch.ai_usage.providers drawing=on label="$text" label.color="$ACCENT_COLOR" \
       --set right_separator.ai drawing=on \
-      --move right_separator.ai after ram \
+      --move right_separator.ai after cpu \
       --move ai_usage.providers after right_separator.ai \
       --trigger notch_usage_change >/dev/null 2>&1 || true
   else

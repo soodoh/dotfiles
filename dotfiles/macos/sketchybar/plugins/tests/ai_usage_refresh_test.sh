@@ -99,6 +99,24 @@ assert_contains '--move ai_usage.providers after right_separator.ai' "$log_file"
 assert_contains '--trigger notch_usage_change' "$log_file"
 assert_contains '--set notch.ai_usage.providers drawing=on label=Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%' "$log_file"
 
+# Replay actual declarations and refresh moves: right-side items render in
+# reverse list order. Providers must stay outside the CPU/RAM section.
+python3 - "$plugin_dir/../sketchybarrc" "$log_file" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+items = re.findall(r'--add item (\S+) right', Path(sys.argv[1]).read_text())
+for item, direction, anchor in re.findall(
+    r'--move (\S+) (before|after) (\S+)', Path(sys.argv[2]).read_text()
+):
+    items.remove(item)
+    items.insert(items.index(anchor) + (direction == 'after'), item)
+section = {'ai_usage.providers', 'right_separator.ai', 'cpu', 'ram'}
+visible = [item for item in reversed(items) if item in section]
+assert visible == ['ai_usage.providers', 'right_separator.ai', 'cpu', 'ram'], visible
+PY
+
 mkdir -p "$tmp_dir/pi-extensions" "$tmp_dir/dotfiles/work" "$tmp_dir/dotfiles/personal"
 printf 'set -gx MISE_ENV work-macos\n' >"$tmp_dir/dotfiles/work/mise-profile.fish"
 printf 'set -gx MISE_ENV personal-macos\n' >"$tmp_dir/dotfiles/personal/mise-profile.fish"

@@ -111,14 +111,14 @@ create_notch_items() {
   done <<<"$items"
 
   sketchybar --add item notch.stats right \
-    --set notch.stats display=0 icon= \
+    --set notch.stats display=0 icon=󰻠 \
     icon.font="FiraCode Nerd Font:Bold:14.0" \
     script="/bin/sh \"$CONFIG_DIR/plugins/notch_popup.sh\"" \
     popup.align=center popup.height=30 popup.y_offset=-1 \
     popup.background.color="$BAR_COLOR" popup.background.corner_radius=5 \
     popup.background.border_color="$INACTIVE_BORDER_COLOR" popup.background.border_width=1 \
     --subscribe notch.stats mouse.entered mouse.exited mouse.exited.global \
-    --move notch.stats after notch.right_separator.system
+    --move notch.stats after notch.volume
 
   style_right_sections notch.
   style_bar_section notch.stats icon
@@ -129,7 +129,8 @@ create_notch_items() {
     --set notch.right_separator.ai drawing=off \
     --set notch.ai_usage.providers position=e padding_left=8 scroll_texts=off label.max_chars=0 label.scroll_duration=100 \
     --set notch.cpu position=popup.notch.stats icon=CPU width=100 \
-    --set notch.ram position=popup.notch.stats icon=RAM width=100
+    --set notch.ram position=popup.notch.stats icon=RAM width=100 \
+    --move notch.cpu before notch.ram
   notch_popup_row notch.cpu
   notch_popup_row notch.ram
 }

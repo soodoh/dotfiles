@@ -109,16 +109,16 @@ sketchybar --add item clock right \
            --set right_separator.system "${right_separator_style[@]}" \
            --add item right_separator.ai right \
            --set right_separator.ai "${right_separator_style[@]}" drawing=off \
-           --add item volume right \
-           --set volume script="$PLUGIN_DIR/volume.sh" \
-           --subscribe volume volume_change \
            --add item battery right \
            --set battery update_freq=120 script="$PLUGIN_DIR/battery.sh" \
            --subscribe battery system_woke power_source_change \
-           --add item cpu right \
-           --set cpu update_freq=10 icon="" script="$PLUGIN_DIR/cpu.sh" \
+           --add item volume right \
+           --set volume script="$PLUGIN_DIR/volume.sh" \
+           --subscribe volume volume_change \
            --add item ram right \
-           --set ram update_freq=120 icon="󰍛" script="$PLUGIN_DIR/ram.sh"
+           --set ram update_freq=120 icon="" script="$PLUGIN_DIR/ram.sh" \
+           --add item cpu right \
+           --set cpu update_freq=10 icon="󰻠" script="$PLUGIN_DIR/cpu.sh"
 
 ##### AI Usage #####
 sketchybar --add item ai_usage.providers right \
