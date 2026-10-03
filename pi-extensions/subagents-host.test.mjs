@@ -36,18 +36,21 @@ const piName = "@earendil-works/pi-coding-agent";
 
 // Versions belong in declarations/locks, not compatibility assertions. This
 // covers imports and a native runner session, not a complete delegated workflow.
-const requiredSpecifiers = HOST_PEER_ALIASES.map(({ specifier }) => specifier);
+const requiredSpecifiers = HOST_PEER_ALIASES.filter(
+	({ optional }) => !optional,
+).map(({ specifier }) => specifier);
 
 function assertAliasResolution(
 	result,
 	missing = [],
 	specifiers = requiredSpecifiers,
+	omitted = [],
 ) {
 	assert.deepEqual([...result.missing].sort(), [...missing].sort());
 	for (const specifier of specifiers) {
 		assert.equal(
 			Object.hasOwn(result.aliases, specifier),
-			!missing.includes(specifier),
+			!missing.includes(specifier) && !omitted.includes(specifier),
 			`${specifier}: required aliases must resolve, missing ones must not have fallback targets`,
 		);
 	}
@@ -175,10 +178,18 @@ test("historical isolated Pi layout: import-only exports resolve and missing dep
 				delete modified.exports[subpath];
 				writeFileSync(packagePath, JSON.stringify(modified));
 				try {
+					// An undeclared optional export is unreachable; a declared
+					// export with a missing file still fails closed above.
+					const omitted = missing.filter((specifier) =>
+						fixtureAliases.some(
+							(entry) => entry.specifier === specifier && entry.optional,
+						),
+					);
 					assertAliasResolution(
 						resolveHostPeerAliases(host),
-						missing,
+						missing.filter((specifier) => !omitted.includes(specifier)),
 						fixtureSpecifiers,
+						omitted,
 					);
 				} finally {
 					writeFileSync(packagePath, source);
