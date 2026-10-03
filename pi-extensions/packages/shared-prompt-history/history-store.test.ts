@@ -213,7 +213,7 @@ await appendPrompt("recovered", ${JSON.stringify(historyPath)});
 
 		await writeFile(
 			historyPath,
-			'{"prompt":"valid"}\nnot-json\n{"prompt":42}\n{"prompt":"also valid"}\n',
+			' {"prompt":"valid"}\nnot-json\n{broken\nnull\n[]\n42\n"text"\n{"prompt":42}\n{"prompt":"also valid"}\n',
 			"utf8",
 		);
 

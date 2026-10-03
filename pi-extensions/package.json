@@ -75,8 +75,5 @@
 		"pi-web-access",
 		"@juicesharp/rpiv-ask-user-question",
 		"pi-subagents"
-	],
-	"patchedDependencies": {
-		"pi-subagents@0.74.0": "patches/pi-subagents@0.74.0.patch"
-	}
+	]
 }

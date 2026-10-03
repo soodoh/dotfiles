@@ -27,9 +27,12 @@ export function getPromptHistoryPath(
 }
 
 function parsePromptEntry(line: string): PromptHistoryEntry | undefined {
-	if (!line.trim()) return undefined;
+	const trimmed = line.trim();
+	// History records are objects. Skip obvious garbage without throwing once
+	// per line when a bounded tail contains thousands of malformed records.
+	if (!trimmed.startsWith("{")) return undefined;
 	try {
-		const entry: unknown = JSON.parse(line);
+		const entry: unknown = JSON.parse(trimmed);
 		const prompt = entry ? Reflect.get(Object(entry), "prompt") : undefined;
 		if (typeof prompt !== "string" || !prompt.trim()) return undefined;
 
