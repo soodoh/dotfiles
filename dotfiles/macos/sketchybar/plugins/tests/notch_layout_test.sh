@@ -94,7 +94,7 @@ popup_script="$(properties | jq -r '."notch.stats".script')"
 : >"$SKETCHYBAR_LOG"
 NAME=notch.stats SENDER=mouse.entered /bin/sh -c "$popup_script"
 assert '."notch.stats"."popup.drawing" == "on"'
-[[ "$(wc -l <"$SKETCHYBAR_LOG" | tr -d ' ')" == 1 ]]
+jq -es 'length == 1' "$SKETCHYBAR_LOG" >/dev/null
 : >"$SKETCHYBAR_LOG"
 NAME=notch.stats SENDER=forced /bin/sh -c "$popup_script"
 NAME=notch.stats SENDER=routine /bin/sh -c "$popup_script"
