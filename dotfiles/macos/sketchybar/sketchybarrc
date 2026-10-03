@@ -18,7 +18,8 @@ PLUGIN_DIR="$CONFIG_DIR/plugins"
 # If you are looking for other colors, see the color picker:
 # https://felixkratz.github.io/SketchyBar/config/tricks#color-picker
 
-sketchybar --bar position=top height=40 padding_left=20 blur_radius=30 color="$BAR_COLOR"
+# Match the macOS menu-bar row so native vertical centering stays visible.
+sketchybar --bar position=top height=32 padding_left=20 blur_radius=30 color="$BAR_COLOR"
 
 ##### Changing Defaults #####
 # We now change some default values, which are applied to all further items.
