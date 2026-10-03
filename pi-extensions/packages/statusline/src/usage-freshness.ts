@@ -1,5 +1,6 @@
 export const USAGE_SUCCESS_TTL_MS = 5 * 60_000;
 export const USAGE_FAILURE_TTL_MS = 60_000;
+export const USAGE_STALE_GRACE_MS = 60_000;
 export const USAGE_STALE_MAX_MS = 15 * 60_000;
 
 export type UsageCacheTiming = {
@@ -21,7 +22,7 @@ export function isUsageCacheFresh(
 	return now - entry.lastAttemptAt < ttl;
 }
 
-/** A last-known value has the same display lifetime regardless of its source. */
+/** Routine refreshes get a warning grace period; failures warn immediately without extending expiry. */
 export function usageSnapshotFreshness(
 	entry: UsageCacheTiming | undefined,
 	now = Date.now(),
@@ -33,7 +34,7 @@ export function usageSnapshotFreshness(
 	if (
 		entry?.state === "error" ||
 		entry?.state === "unknown" ||
-		now - fetchedAt > USAGE_SUCCESS_TTL_MS
+		now - fetchedAt > USAGE_SUCCESS_TTL_MS + USAGE_STALE_GRACE_MS
 	)
 		return "stale";
 	return "fresh";

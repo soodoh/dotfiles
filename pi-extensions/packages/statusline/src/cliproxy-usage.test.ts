@@ -229,50 +229,56 @@ test("a fresh management snapshot does not mark an older, unexpired quota stale"
 	]);
 });
 
-test("shows a stale marker briefly, then hides expired cache; absent key disables proxy", () => {
-	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
-	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
-	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
-	const source = createHash("sha256")
-		.update("https://proxy.example.test\0test-key")
-		.digest("hex");
-	const now = Date.now();
-	const identity = createHash("sha256").update("id").digest("hex");
-	writeFileSync(
-		path,
-		JSON.stringify({
-			version: 3,
-			source,
-			fetchedAt: now - 6 * 60_000,
-			accounts: [
-				{
-					provider: "codex",
-					identity,
-					observedAt: now - 6 * 60_000,
-					scope: { weeklyPercentUsed: 90 },
-				},
-			],
-		}),
-	);
-	expect(proxyUsageBadges()[0]).toMatch(/90% !$/);
-	writeFileSync(
-		path,
-		JSON.stringify({
-			version: 3,
-			source,
-			fetchedAt: now - 16 * 60_000,
-			accounts: [
-				{
-					provider: "codex",
-					identity,
-					observedAt: now - 16 * 60_000,
-					scope: { weeklyPercentUsed: 90 },
-				},
-			],
-		}),
-	);
-	resetProxyUsageForTests();
-	expect(proxyUsageBadges()).toEqual([]);
-	delete process.env.CLIPROXYAPI_MANAGEMENT_KEY;
-	expect(proxyUsageBadges()).toEqual([]);
-});
+test.each([
+	[5.5, false],
+	[7, true],
+] as const)(
+	"warns after the grace period for a %s-minute proxy snapshot, then hides expired cache",
+	(ageMinutes, stale) => {
+		process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+		process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+		process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+		const source = createHash("sha256")
+			.update("https://proxy.example.test\0test-key")
+			.digest("hex");
+		const now = Date.now();
+		const identity = createHash("sha256").update("id").digest("hex");
+		writeFileSync(
+			path,
+			JSON.stringify({
+				version: 3,
+				source,
+				fetchedAt: now - ageMinutes * 60_000,
+				accounts: [
+					{
+						provider: "codex",
+						identity,
+						observedAt: now - ageMinutes * 60_000,
+						scope: { weeklyPercentUsed: 90 },
+					},
+				],
+			}),
+		);
+		expect(proxyUsageBadges()[0]).toMatch(stale ? /90% !$/ : /90%$/);
+		writeFileSync(
+			path,
+			JSON.stringify({
+				version: 3,
+				source,
+				fetchedAt: now - 16 * 60_000,
+				accounts: [
+					{
+						provider: "codex",
+						identity,
+						observedAt: now - 16 * 60_000,
+						scope: { weeklyPercentUsed: 90 },
+					},
+				],
+			}),
+		);
+		resetProxyUsageForTests();
+		expect(proxyUsageBadges()).toEqual([]);
+		delete process.env.CLIPROXYAPI_MANAGEMENT_KEY;
+		expect(proxyUsageBadges()).toEqual([]);
+	},
+);

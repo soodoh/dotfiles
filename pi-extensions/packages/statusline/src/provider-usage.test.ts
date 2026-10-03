@@ -532,6 +532,49 @@ describe("provider usage", () => {
 		expect(render(targets)).toContain("Anthropic ?");
 	});
 
+	test("keeps routine refreshes quiet but warns if a pending refresh outlasts the grace period", async () => {
+		const start = Date.now();
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(start);
+		const started = deferredValue<void>();
+		const response = deferredValue<Response>();
+		let attempts = 0;
+		fetchCalls(() => {
+			if (++attempts === 1)
+				return Response.json({ five_hour: { used_percent: 42 } });
+			started.resolve();
+			return response.promise;
+		});
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: (provider) =>
+				provider === "anthropic"
+					? { type: "oauth", access: "stable-anthropic-token" }
+					: undefined,
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "anthropic", authKind: "oauth", active: true },
+		];
+		let refreshing: Promise<void> | undefined;
+		try {
+			await refreshAndWait(ctx, targets);
+			vi.setSystemTime(start + 5 * 60_000 + 1);
+			expect(render(targets)).toBe("Anthropic 42%");
+			refreshing = refreshAndWait(ctx, targets);
+			await started.promise;
+			expect(render(targets)).toBe("Anthropic 42%");
+
+			vi.setSystemTime(start + 6 * 60_000 + 1);
+			expect(render(targets)).toBe("Anthropic 42% !");
+			response.resolve(Response.json({ five_hour: { used_percent: 43 } }));
+			await refreshing;
+			expect(render(targets)).toBe("Anthropic 43%");
+		} finally {
+			response.resolve(Response.json({ five_hour: { used_percent: 43 } }));
+			await refreshing;
+			vi.useRealTimers();
+		}
+	});
+
 	test("keeps last-known usage visible across failed and empty refreshes", async () => {
 		const start = Date.now();
 		vi.useFakeTimers({ toFake: ["Date"] });
