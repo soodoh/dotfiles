@@ -8,7 +8,7 @@
         "@juicesharp/rpiv-ask-user-question": "2.12.0",
         "@plannotator/pi-extension": "0.27.25",
         "@router-for-me/pi-cliproxyapi-provider": "1.4.21",
-        "pi-subagents": "0.74.0",
+        "pi-subagents": "0.75.0",
         "pi-vim": "0.14.2",
         "pi-web-access": "0.35.0",
         "proper-lockfile": "4.1.2",
@@ -33,9 +33,6 @@
         "typebox": "*",
       },
     },
-  },
-  "patchedDependencies": {
-    "pi-subagents@0.74.0": "patches/pi-subagents@0.74.0.patch",
   },
   "packages": {
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.124.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1", "standardwebhooks": "^1.0.0" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-cN5O8i9UVxHeOQAzj/XjshWXG8KiibJDw9OGpH2Z/eR3n/RBxdoLxDJOcfqAJWvjaMDFfHTBADU04hWRJVkDyA=="],
@@ -824,7 +821,7 @@
 
     "path-to-regexp": ["path-to-regexp@8.4.2", "", {}, "sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA=="],
 
-    "pi-subagents": ["pi-subagents@0.74.0", "", { "dependencies": { "acorn": "8.18.0", "jiti": "2.7.0", "undici": "8.10.2", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=0.86.1", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "typebox": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui", "typebox"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-7+67TCpQuYoW2kMu4Kmt4j90hiR8uX8ozg3F/eakApUU6PxK7NteO58ylOWPql7fh/uTIEfS00FT2LKVDTSicw=="],
+    "pi-subagents": ["pi-subagents@0.75.0", "", { "dependencies": { "acorn": "8.18.0", "jiti": "2.7.0", "undici": "8.10.2", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=0.86.1", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "typebox": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui", "typebox"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-RO4DiTJM6pnK8y9PnD7Y6TLeiX2c8Kh6QhmkecFo+ou5qtnz5qiM+vUKru48UmJG1nB9eJ6rALd1M04uBOR4XQ=="],
 
     "pi-vim": ["pi-vim@0.14.2", "", { "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": ">=0.74.0" } }, "sha512-CFSKJvOCNToueIMyBgsujT+gHa4sAlLOnT4VYZ6iCGKJ7M24eCVWFKKnnMt6tmP1rDE6T7k/AqBrb6LWzCzRaQ=="],
 
