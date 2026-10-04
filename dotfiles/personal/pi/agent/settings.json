@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.0.1",
+  "lastChangelogVersion": "1.0.2",
   "defaultProvider": "cliproxyapi",
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "high",
