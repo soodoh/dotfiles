@@ -104,9 +104,6 @@ NAME=notch.stats SENDER=mouse.clicked BUTTON=right /bin/sh -c "$popup_script"
 [[ ! -s "$SKETCHYBAR_LOG" ]]
 NAME=notch.stats SENDER=mouse.exited /bin/sh -c "$popup_script"
 assert '."notch.stats"."popup.drawing" == "off"'
-: >"$SKETCHYBAR_LOG"
-NAME=notch.stats SENDER=mouse.exited.global /bin/sh -c "$popup_script"
-assert '."notch.stats"."popup.drawing" == "off"'
 
 printf '%s\n' '[{"id":73,"width":1512,"notch_width":185}]' >"$NOTCH_DISPLAYS_FILE"
 export DISPLAYS_JSON='[{"arrangement-id":1,"DirectDisplayID":99,"frame":{"x":1512,"y":-200,"w":2560}},{"arrangement-id":2,"DirectDisplayID":73,"frame":{"x":0,"y":0,"w":1512}},{"arrangement-id":3,"DirectDisplayID":101,"frame":{"x":-1920,"y":0,"w":1920}}]'

@@ -156,7 +156,7 @@ with tempfile.TemporaryDirectory(prefix="sketchybar-popup-test-") as tmp:
                 print(f"Outside click {target}, popup initially {'open' if initially_open else 'closed'}: content remains above background")
         for cycle in range(6):
             # Hover opens without a click after the native menu has hidden.
-            # The popup remains open while traversing its combined hover region.
+            # The popup is a tooltip: only hovering the button keeps it open.
             mouse("hover", x, y)
             wait_for_popup("on")
             cpu = query("notch.cpu")
@@ -170,17 +170,20 @@ with tempfile.TemporaryDirectory(prefix="sketchybar-popup-test-") as tmp:
             row = cpu["bounding_rects"][key]
             assert row["origin"][0] > -9000, "Popup contents not rendered"
             assert abs(row["origin"][0] + row["size"][0] / 2 - x) <= 2, "Popup not centered beneath stats button"
-            mouse("move", x, row["origin"][1] + row["size"][1] / 2)
-            wait_for_popup("on")
             subprocess.run(["sketchybar", "--trigger", "notch_usage_change"], check=True)
             time.sleep(0.2)
             wait_for_popup("on")
             mouse("click", x, y)
             wait_for_popup("on")
+            # Move straight down into the rendered popup, not past it.
+            mouse("move", x, row["origin"][1] + row["size"][1] / 2)
+            wait_for_popup("off")
+            mouse("move", x, y)
+            wait_for_popup("on")
             mouse("move", x + rect["size"][0], y)
             wait_for_popup("off")
             assert query("bar")["drawing"] == "on", "Bar disappeared"
-            print(f"Cycle {cycle + 1}: hover-open, popup traversal, reflow, inert click, and hover-exit pass")
+            print(f"Cycle {cycle + 1}: hover-open, reflow, inert click, downward exit, re-entry, and sideways exit pass")
 
         mouse("move", x, y)
         wait_for_popup("on")

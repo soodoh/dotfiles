@@ -122,7 +122,7 @@ create_notch_items() {
     popup.align=center popup.height=30 popup.y_offset=-1 \
     popup.background.color="$BAR_COLOR" popup.background.corner_radius=5 \
     popup.background.border_color="$INACTIVE_BORDER_COLOR" popup.background.border_width=1 \
-    --subscribe notch.stats mouse.entered mouse.exited mouse.exited.global \
+    --subscribe notch.stats mouse.entered mouse.exited \
     --move notch.stats before "${popup_items[0]}"
 
   style_bar_section notch.stats icon
