@@ -15,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { hideDeniedExistenceChecks } from "./test-support/exists-sync.mjs";
 import {
 	resolvePiHost,
@@ -85,6 +85,52 @@ await test("host discovery handles npm symlinks and mise wrappers without fallba
 		/no development-package fallback/,
 	);
 	assert.throws(() => resolvePiHost(), /actual launcher/);
+});
+
+await test("actual host: profile-declared catalog skills load once and reach the prompt", async (t) => {
+	const root = fixture(t);
+	const { loadSkills, formatSkillsForPrompt } = await import(
+		pathToFileURL(join(host.root, "dist/core/skills.js")).href
+	);
+	for (const profile of ["personal", "work"]) {
+		const profileRoot = join(packageRoot, "..", "dotfiles", profile);
+		const settings = JSON.parse(
+			readFileSync(join(profileRoot, "pi/agent/settings.json"), "utf8"),
+		);
+		const declaredPaths = (settings.skills ?? []).filter((path) =>
+			path.startsWith("~/.agents/"),
+		);
+		assert.ok(
+			declaredPaths.length > 0,
+			`${profile}: no catalog skills declared`,
+		);
+		const catalog = join(profileRoot, "agents/skills");
+		const paths = declaredPaths.map((path) =>
+			join(profileRoot, "agents", path.slice("~/.agents/".length)),
+		);
+		const result = loadSkills({
+			cwd: root,
+			agentDir: join(root, ".pi/agent"),
+			skillPaths: [catalog, ...paths],
+			includeDefaults: true,
+		});
+		for (const path of paths) {
+			assert.deepEqual(
+				result.diagnostics.filter((diagnostic) => diagnostic.path === path),
+				[],
+			);
+			const skills = result.skills.filter(
+				(skill) => realpathSync(skill.filePath) === realpathSync(path),
+			);
+			assert.equal(skills.length, 1, `${profile}: skill missing or duplicated`);
+			assert.equal(skills[0].disableModelInvocation, false);
+			assert.ok(
+				formatSkillsForPrompt(result.skills).includes(
+					`<name>${skills[0].name}</name>`,
+				),
+			);
+		}
+	}
 });
 
 await test("resource discovery follows manifest edits and rejects missing resources", (t) => {

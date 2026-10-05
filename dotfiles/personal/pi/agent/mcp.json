@@ -7,12 +7,6 @@
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
       },
       "exposure": "direct"
-    },
-    "playwright": {
-      "description": "Automate the connected browser to inspect, interact with, and test web pages.",
-      "command": "playwright-mcp",
-      "args": ["--extension"],
-      "exposure": "deferred"
     }
   }
 }

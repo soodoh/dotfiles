@@ -1,5 +1,4 @@
-.playwright-mcp/
-.playwright-cli/
+.agent-browser/
 .serena/
 /.pi/
 .pi-subagents/

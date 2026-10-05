@@ -17,6 +17,9 @@
   "collapseChangelog": true,
   "quietStartup": true,
   "enableSkillCommands": true,
+  "skills": [
+    "~/.agents/skills/agent-browser/SKILL.md"
+  ],
   "extensions": [
     "extensions/*.ts",
     "-extensions/herdr-agent-state.ts",

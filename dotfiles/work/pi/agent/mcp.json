@@ -24,12 +24,6 @@
         "Find-Duplicate-Groups": "codemode"
       }
     },
-    "playwright": {
-      "description": "Automate the connected browser to inspect, interact with, and test web pages.",
-      "command": "playwright-mcp",
-      "args": ["--extension"],
-      "exposure": "deferred"
-    },
     "glean": {
       "description": "Search Docusign internal company knowledge across Glean-connected sources.",
       "url": "https://docusign-prod-be.glean.com/mcp/default",

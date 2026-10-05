@@ -1535,12 +1535,12 @@ backend = "npm:@earendil-works/pi-coding-agent"
 version = "0.22.5"
 backend = "npm:@googleworkspace/cli"
 
-[[tools."npm:@playwright/mcp"]]
-version = "0.0.83"
-backend = "npm:@playwright/mcp"
+[[tools."npm:agent-browser"]]
+version = "0.38.2"
+backend = "npm:agent-browser"
 
-[tools."npm:@playwright/mcp".options]
-trust_policy_excludes = '["@playwright/mcp@0.0.80", "playwright-core@1.63.0-alpha-2026-08-31", "playwright@1.63.0-alpha-2026-08-31"]'
+[tools."npm:agent-browser".options]
+allow_builds = '["agent-browser"]'
 
 [[tools."npm:awk-language-server"]]
 version = "0.10.6"
