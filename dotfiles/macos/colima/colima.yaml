@@ -170,6 +170,8 @@ vmType: vz
 portForwarder: ssh
 
 # Utilise rosetta for amd64 emulation (requires m1 mac and vmType `vz`)
+# Install on the host first: softwareupdate --install-rosetta
+# A previously provisioned guest can enter emergency mode if Rosetta is absent.
 # Default: false
 rosetta: true
 

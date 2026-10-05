@@ -222,6 +222,68 @@ class MiseConfigurationTests(unittest.TestCase):
         for variable in ("HTTP_PROXY", "HTTPS_PROXY"):
             self.assertEqual(daemon_environment[variable], environment[variable])
 
+    def test_colima_failed_start_is_cleaned_up_before_launchd_retries(self) -> None:
+        mise = shutil.which("mise")
+        self.assertIsNotNone(mise)
+        agent = self.base["bootstrap"]["macos"]["launchd"]["agents"][
+            "colima-default"
+        ]
+        # Colima can leave Lima alive after startup fails. A subsequent start
+        # then reports "already running" without ever making Docker available.
+        for startup_status, cleanup_status in ((0, 0), (1, 0), (7, 1)):
+            with self.subTest(start=startup_status, cleanup=cleanup_status):
+                with tempfile.TemporaryDirectory() as directory:
+                    stage = Path(directory)
+                    probe = stage / "colima"
+                    calls = stage / "calls"
+                    probe.write_text(
+                        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\n'
+                        'case "$1" in\n'
+                        'start) exit "$STARTUP_STATUS" ;;\n'
+                        'stop) exit "$CLEANUP_STATUS" ;;\n'
+                        '*) exit 64 ;;\nesac\n'
+                    )
+                    probe.chmod(0o755)
+                    (stage / "mise.toml").write_text("")
+                    arguments = [
+                        arg.replace("/opt/homebrew/bin/colima", str(probe))
+                        for arg in agent["args"]
+                    ]
+                    result = subprocess.run(
+                        [mise, *arguments],
+                        cwd=stage,
+                        env={
+                            "HOME": directory,
+                            "PATH": os.defpath,
+                            "MISE_TRUSTED_CONFIG_PATHS": directory,
+                            "CALLS": str(calls),
+                            "STARTUP_STATUS": str(startup_status),
+                            "CLEANUP_STATUS": str(cleanup_status),
+                        },
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, startup_status, result.stderr)
+                    commands = [
+                        line.split() for line in calls.read_text().splitlines()
+                    ]
+                    self.assertEqual(commands[0][0], "start")
+                    self.assertIn("--foreground", commands[0])
+                    self.assertEqual(len(commands), 1 if startup_status == 0 else 2)
+                    if startup_status:
+                        self.assertEqual(commands[1][0], "stop")
+                        self.assertIn("--force", commands[1])
+                        for command in commands:
+                            self.assertEqual(
+                                command[command.index("--profile") + 1], "default"
+                            )
+        # The native policy must retry failures, not successful no-op starts.
+        self.assertTrue(agent.get("keep_alive_on_failure"))
+        self.assertFalse(agent.get("keep_alive", False))
+        self.assertGreaterEqual(agent.get("throttle_interval", 0), 10)
+
     def test_moshi_launch_agent_has_one_shared_owner(self) -> None:
         agents = self.base["bootstrap"]["macos"]["launchd"]["agents"]
         self.assertIn("moshi-hook", agents)

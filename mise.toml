@@ -206,16 +206,18 @@ stderr_path = "~/Library/Logs/jankyborders.error.log"
 
 [bootstrap.macos.launchd.agents.colima-default]
 program = "~/.local/bin/mise"
-args = [
-  "exec",
-  "--",
-  "/opt/homebrew/bin/colima",
-  "start",
-  "--foreground",
-  "--profile",
-  "default",
-]
+# A failed start can leave Lima alive; clean it up before launchd retries.
+args = ["exec", "--", "/bin/sh", "-c", '''
+/opt/homebrew/bin/colima start --foreground --profile default --save-config=false
+status=$?
+if [ "$status" -ne 0 ]; then
+  /opt/homebrew/bin/colima stop --force --profile default
+fi
+exit "$status"
+''']
 run_at_load = true
+keep_alive_on_failure = true
+throttle_interval = 60
 working_directory = "~/.local/share/dotfiles"
 stdout_path = "~/Library/Logs/colima-default.log"
 stderr_path = "~/Library/Logs/colima-default.error.log"
