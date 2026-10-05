@@ -94,14 +94,15 @@ env -i \
 
 assert_contains 'icon.drawing=off label=Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%' "$log_file"
 assert_contains '--set right_separator.ai drawing=on' "$log_file"
-assert_contains '--move ai_usage.providers after right_separator.ai' "$log_file"
 # Changed usage text must trigger reflow; timer-only updates can overlap stats.
 assert_contains '--trigger notch_usage_change' "$log_file"
 assert_contains '--set notch.ai_usage.providers drawing=on label=Anthropic S12%/W55% · OpenAI 30% ·  20% · 󰊭 10%' "$log_file"
 
-# Replay actual declarations and refresh moves: right-side items render in
+# Replay actual creation and refresh commands: right-side items render in
 # reverse list order. Providers must stay outside the CPU/RAM section.
-python3 - "$plugin_dir/../sketchybarrc" "$log_file" <<'PY'
+PATH="$tmp_dir:$PATH" SKETCHYBAR_LOG="$tmp_dir/creation.log" \
+  PLUGIN_DIR="$plugin_dir" bash -c 'source "$PLUGIN_DIR/bar_sections.sh"; create_right_sections'
+python3 - "$tmp_dir/creation.log" "$log_file" <<'PY'
 import re
 import sys
 from pathlib import Path

@@ -18,6 +18,33 @@ def query(name):
     return json.loads(subprocess.check_output(["sketchybar", "--query", name]))
 
 
+def assert_section_spacing(prefix):
+    separator = query(prefix + "right_separator.system")
+    names = ("volume", "battery") if prefix else ("cpu", "ram", "volume", "battery")
+    metrics = [query(prefix + name) for name in names]
+    gutters = {(item["icon"]["padding_left"], item["label"]["padding_right"]) for item in metrics}
+    internal = {item["icon"]["padding_right"] + item["label"]["padding_left"] for item in metrics}
+    assert len(gutters) == len(internal) == 1, "Metric spacing differs between items"
+    left, right = next(iter(gutters))
+    assert left == right > 0 and next(iter(internal)) > 0, "Metric gutters are asymmetric"
+    assert all(item["geometry"]["width"] == -1 for item in metrics), "Percentages leave fixed-width gaps"
+    assert separator["geometry"]["background"]["drawing"] == "on", "Separator line is not drawn"
+    assert separator["geometry"]["background"]["height"] == query("bar")["height"], "Separator does not fill the row"
+    assert separator["icon"]["value"] == "", "Separator has font-dependent side bearings"
+    left = separator["geometry"]["padding_left"]
+    right = separator["geometry"]["padding_right"]
+    assert left == right > 0, "Separator gutters are asymmetric"
+    battery, clock = query(prefix + "battery"), query(prefix + "clock")
+    for display, line in separator["bounding_rects"].items():
+        if line["origin"][0] < -9000:
+            continue
+        before, after = battery["bounding_rects"][display], clock["bounding_rects"][display]
+        # Use native window positions: fixed item widths have special RTL
+        # padding semantics that a simple command-log mock cannot validate.
+        assert line["origin"][0] - sum((before["origin"][0], before["size"][0])) == left, "Separator's left gutter collapsed"
+        assert after["origin"][0] - sum((line["origin"][0], line["size"][0])) == right, "Separator's right gutter collapsed"
+
+
 def wait_for_popup(expected):
     for _ in range(40):
         actual = query("notch.stats")["popup"]["drawing"]
@@ -63,6 +90,8 @@ if mode == "click" {
 assert shutil.which("sketchybar"), "SketchyBar must already be installed/running"
 bar = query("bar")
 assert "notch.stats" in bar["items"], "Connect a notched display and reload the config"
+assert_section_spacing("")
+assert_section_spacing("notch.")
 with tempfile.TemporaryDirectory(prefix="sketchybar-popup-test-") as tmp:
     source = Path(tmp) / "mouse.swift"
     binary = Path(tmp) / "mouse"

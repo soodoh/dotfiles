@@ -96,20 +96,25 @@ notch_popup_row() {
 }
 
 create_notch_items() {
-  local item items
-  items="$(sketchybar --query bar | jq -r '.items[]')" || return 1
-  while IFS= read -r item; do
-    # Keep every left-side item exactly as configured, on every display.
-    case "$item" in
-      clock|right_separator.*|volume|battery|cpu|ram|ai_usage.providers) ;;
-      *) continue ;;
-    esac
+  local section item kind placement
+  local popup_items=()
+  # Only declared right items are cloned; left-side items remain untouched.
+  for section in "${RIGHT_SECTIONS[@]}"; do
+    IFS=: read -r item kind placement <<<"$section"
     sketchybar --clone "notch.$item" "$item" \
       --set "notch.$item" display=0 \
       icon.font="FiraCode Nerd Font:Bold:14.0" \
       label.font="FiraCode Nerd Font:Bold:12.0"
-  done <<<"$items"
+    style_bar_section "notch.$item" "$kind"
+    [[ "$kind" != metric ]] || sketchybar --set "notch.$item" label.max_chars=4
+    case "$placement" in
+      popup) popup_items+=("notch.$item") ;;
+      hidden) sketchybar --set "notch.$item" drawing=off ;;
+      e) sketchybar --set "notch.$item" position=e "padding_left=$BAR_NOTCH_INSET" scroll_texts=off label.max_chars=0 label.scroll_duration=100 ;;
+    esac
+  done
 
+  [[ ${#popup_items[@]} -gt 0 ]] || return 0
   sketchybar --add item notch.stats right \
     --set notch.stats display=0 icon= \
     icon.font="FiraCode Nerd Font:Bold:14.0" \
@@ -118,21 +123,18 @@ create_notch_items() {
     popup.background.color="$BAR_COLOR" popup.background.corner_radius=5 \
     popup.background.border_color="$INACTIVE_BORDER_COLOR" popup.background.border_width=1 \
     --subscribe notch.stats mouse.entered mouse.exited mouse.exited.global \
-    --move notch.stats after notch.volume
+    --move notch.stats before "${popup_items[0]}"
 
-  style_right_sections notch.
   style_bar_section notch.stats icon
-  for item in volume battery; do
-    sketchybar --set "notch.$item" label.max_chars=4
+  for item in "${popup_items[@]}"; do
+    sketchybar --set "$item" position=popup.notch.stats "icon=$(printf '%s' "${item#notch.}" | tr '[:lower:]' '[:upper:]')"
+    notch_popup_row "$item"
   done
-  sketchybar --set notch.clock label.max_chars=0 \
-    --set notch.right_separator.ai drawing=off \
-    --set notch.ai_usage.providers position=e padding_left=8 scroll_texts=off label.max_chars=0 label.scroll_duration=100 \
-    --set notch.cpu position=popup.notch.stats icon=CPU width=100 \
-    --set notch.ram position=popup.notch.stats icon=RAM width=100 \
-    --move notch.cpu before notch.ram
-  notch_popup_row notch.cpu
-  notch_popup_row notch.ram
+  # Popup rows run top-to-bottom, unlike the bar's right-to-left item order.
+  local index
+  for ((index=1; index<${#popup_items[@]}; index++)); do
+    sketchybar --move "${popup_items[index]}" before "${popup_items[index-1]}"
+  done
 }
 
 apply_notch_layout() {
@@ -160,13 +162,15 @@ apply_notch_layout() {
 
   # Keep sound and battery in the bar. Try full text at 12–9pt before enabling
   # SketchyBar's periodic scroll in a measured, bounded character viewport.
-  local available usage_text measurements font_size=12 max_chars=0 scroll=off
-  if [[ "$notch" != 0 ]]; then
+  local available usage_text measurements font_size=12 max_chars=0 scroll=off has_usage
+  has_usage="$(jq '.items | index("notch.ai_usage.providers") != null' <<<"$bar")"
+  if [[ "$notch" != 0 && "$has_usage" == true ]]; then
     usage_text="$(sketchybar --query notch.ai_usage.providers | jq -r 'if .geometry.drawing == "on" then .label.value else "" end')" || return 1
-    # Conservative item widths include the shared 6pt gutters: full clock,
-    # stats glyph, divider, and two four-character percentages. Also reserve
-    # the provider's 8pt notch inset + 12pt label padding and a 12pt item gap.
-    available=$(( half - edge - 140 - 24 - 14 - 60 - 60 - 20 - 12 ))
+    # Reserve the declared row, provider inset/gutters, and one shared group
+    # gap. Adding/removing a row item also updates this overflow budget.
+    local row_width
+    row_width="$(notch_right_sections_width)"
+    available=$((half - edge - row_width - BAR_NOTCH_INSET - 4 * BAR_SECTION_GUTTER))
     measurements="$(notch_usage_measurements "$usage_text" "$available")" || return 1
     font_size="$(jq -er --argjson available "$available" '[.[] | select(.width <= $available)] | max_by(.size) | .size // 0' <<<"$measurements")" || return 1
     if [[ "$font_size" == 0 ]]; then
@@ -179,7 +183,7 @@ apply_notch_layout() {
   # Native menus must remain mouse-accessible on every display. Let the
   # revealed menu cover the bar; empty-area click restacking uses the guards.
   # Only repair promotion when needed: changing topmost resets all windows.
-  local item args=(--bar "notch_width=$gap")
+  local item section kind placement args=(--bar "notch_width=$gap")
   if [[ "$(jq -r '.topmost' <<<"$bar")" != off ]]; then
     args+=(topmost=off)
   fi
@@ -187,16 +191,19 @@ apply_notch_layout() {
     case "$item" in
       notch.layout) continue ;;
       notch.*) args+=(--set "$item" "display=$notch") ;;
-      clock|right_separator.*|volume|battery|cpu|ram|ai_usage.providers)
-        args+=(--set "$item" "display=$regular") ;;
     esac
   done < <(jq -r '.items[]' <<<"$bar")
+  for section in "${RIGHT_SECTIONS[@]}"; do
+    IFS=: read -r item kind placement <<<"$section"
+    args+=(--set "$item" "display=$regular")
+    [[ -n "$placement" ]] || args+=(--set "notch.$item" position=right)
+  done
   sync_bar_click_guards "$displays" "$bar" || return 1
-  args+=(--set notch.volume position=right
-         --set notch.battery position=right
-         --set notch.ai_usage.providers position=e "label.font.size=$font_size"
-         "label.max_chars=$max_chars" "scroll_texts=$scroll")
-  if [[ "$notch" == 0 ]]; then
+  if [[ "$has_usage" == true ]]; then
+    args+=(--set notch.ai_usage.providers position=e "label.font.size=$font_size"
+           "label.max_chars=$max_chars" "scroll_texts=$scroll")
+  fi
+  if [[ "$notch" == 0 ]] && jq -e '.items | index("notch.stats") != null' <<<"$bar" >/dev/null; then
     args+=(--set notch.stats popup.drawing=off)
   fi
   sketchybar "${args[@]}"

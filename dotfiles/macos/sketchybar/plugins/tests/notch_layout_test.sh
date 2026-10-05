@@ -62,7 +62,8 @@ printf '%s\n' 'Mon 12/31 23:59'
 EOF
 chmod +x "$tmp_dir/date"
 : >"$SKETCHYBAR_LOG"
-style_right_sections
+PLUGIN_DIR="$plugin_dir"
+create_right_sections
 create_notch_items
 # Common and notched layouts share content gutters; every status item sizes to
 # its contents so percentages of different lengths do not create unequal gaps.
@@ -207,6 +208,24 @@ jq -es '. | any(. as $args | range(0; length) as $i | $args[$i] == "--add" and $
 run_layout
 assert_guards
 jq -es '[.[][]] | all(. != "--add" and . != "--remove")' "$SKETCHYBAR_LOG" >/dev/null
+
+# Removing the optional provider section must not query or reflow an absent
+# item, even on a notched display. Other sections still get their associations.
+(
+  sections=()
+  for section in "${RIGHT_SECTIONS[@]}"; do
+    case "$section" in
+      ai_usage.providers:*|right_separator.ai:*) continue ;;
+    esac
+    sections+=("$section")
+  done
+  RIGHT_SECTIONS=("${sections[@]}")
+  BAR_JSON="$(jq '.items |= map(select(. != "ai_usage.providers" and . != "notch.ai_usage.providers" and . != "right_separator.ai" and . != "notch.right_separator.ai"))' <<<"$BAR_JSON")"
+  printf '%s\n' '[{"id":99,"width":1920,"notch_width":185}]' >"$NOTCH_DISPLAYS_FILE"
+  printf '%s\n' 'invalid measurements' >"$NOTCH_MEASUREMENTS_FILE"
+  run_layout
+  assert '."notch.ai_usage.providers" == null and ."notch.clock".display == "4" and .clock.display == "0"'
+)
 
 # Detection failure must not rewrite associations or masquerade as clamshell.
 printf '%s\n' 'invalid JSON' >"$NOTCH_DISPLAYS_FILE"
