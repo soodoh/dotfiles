@@ -113,6 +113,7 @@ let runtime;
 let bridge;
 let releaseActivity;
 let notifier;
+let completionMessage;
 const activeRuns = new Map();
 const eventErrors = [];
 const pending = [];
@@ -131,6 +132,8 @@ const states = () =>
 		.map((r) => r.params.state);
 const lastState = () => states().at(-1);
 const dispatch = async (type, extra = {}) => {
+	// Match the full producer: accepted wakes stay live until message_start.
+	if (type === "message_start") notifier.messageStarted(extra.message);
 	await runner.emit({
 		type,
 		...(type === "agent_end" ? { messages: [] } : {}),
@@ -186,8 +189,11 @@ async function load() {
 	notifier = registerNotify(
 		{
 			events: bus,
-			sendMessage: (_message, options) => {
-				if (options.triggerTurn) pendingMessages = true;
+			sendMessage: (message, options) => {
+				if (options.triggerTurn) {
+					pendingMessages = true;
+					completionMessage = { role: "custom", ...message };
+				}
 			},
 		},
 		{ currentSessionId: "session-uuid", completionOwnerId: "fixture-owner" },
@@ -369,10 +375,13 @@ try {
 			]);
 			await tick();
 			assert.equal(pendingMessages, true);
+			assert.equal(notifier.hasPendingDelivery(), true);
 			assert.ok(!moshiRequests.some((r) => r.category === "task_complete"));
 			pendingMessages = false;
 			idle = false;
 			await dispatch("agent_start");
+			await dispatch("message_start", { message: completionMessage });
+			assert.equal(notifier.hasPendingDelivery(), false);
 			await dispatch("agent_end", {
 				messages: [{ role: "assistant", stopReason: "stop", content: [] }],
 			});
