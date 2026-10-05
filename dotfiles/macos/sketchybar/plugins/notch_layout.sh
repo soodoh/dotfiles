@@ -111,7 +111,7 @@ create_notch_items() {
   done <<<"$items"
 
   sketchybar --add item notch.stats right \
-    --set notch.stats display=0 icon=󰻠 \
+    --set notch.stats display=0 icon= \
     icon.font="FiraCode Nerd Font:Bold:14.0" \
     script="/bin/sh \"$CONFIG_DIR/plugins/notch_popup.sh\"" \
     popup.align=center popup.height=30 popup.y_offset=-1 \
