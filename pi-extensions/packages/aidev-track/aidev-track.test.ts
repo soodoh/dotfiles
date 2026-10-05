@@ -125,6 +125,7 @@ const beforeAgentStart = (prompt: string): BeforeAgentStartEvent => ({
 	systemPromptOptions: {
 		cwd: "/repo",
 		selectedTools: [],
+		hiddenTools: [],
 		toolSnippets: {},
 		toolGuidelines: {},
 		promptGuidelines: [],
