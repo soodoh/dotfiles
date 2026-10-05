@@ -23,7 +23,7 @@ GOST_AUTH_USERNAME = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBLbTJLck
 GOST_AUTH_PASSWORD = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAwY2llV3V3bUVncWFNZmZpbk5peVpaa21IK3Irek1yZWtuUXNYc1RsOXk4CnR0UXNLWWtEckZYOGRFakZ2bEZjQ0puZkZOc29WTkxHWDBlRlM4KzYwV0EKLT4gQGYjJlgtZ3JlYXNlIDQnIHYhbkUKZUNhYk1iSVY0c3lhdHBNCi0tLSAyWXFaRGdtRzlFdTljWUtiY0IyaVhibmJ2Vk9hT09GYUxBZzNXajYvNkJRCmvrZo67rJWzov80waKb8hGPw/16HyKhroo1pv8dPeDEStHqHUz24QYJpfhkGv0tTWjxStFFxCf7hQwRNwuZTNwi1jhryCe2kMXvNpkP1m2qVndqzXbNSsb9XF5M" }
 
 [tools]
-"pipx:azure-cli" = "2.90.0"
+"pipx:azure-cli" = "2.91.0"
 "pipx:snowflake-cli" = "3.28.0"
 # MSF TrueDev tooling. Docker/Compose and jq come from the shared profile;
 # Azure CLI is declared above; gcloud is shared.
