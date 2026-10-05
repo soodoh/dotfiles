@@ -9,6 +9,8 @@ permissions:
   contents: read
 
 env:
+  # mise-action keeps its token local; later installs and tap lookups need auth too.
+  MISE_GITHUB_TOKEN: ${{ github.token }}
   MISE_LOCKED_VERIFY_PROVENANCE: "1"
   MISE_AGE_STRICT: "false"
 
