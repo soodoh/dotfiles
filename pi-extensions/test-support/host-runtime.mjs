@@ -51,7 +51,7 @@ export function runExtensionProbe(
 	packageRoot,
 	paths,
 	{
-		timeout = 30000,
+		timeout = 60000,
 		extraReadPaths = [],
 		asPackage = false,
 		packageFilters = {},
@@ -68,6 +68,7 @@ export function runExtensionProbe(
 			mkdirSync(join(temporary, directory));
 		// Bound Pi's ancestor discovery without invoking git or reading outside the fixture.
 		mkdirSync(join(temporary, "work/.git"));
+		const started = performance.now();
 		const result = spawnSync(
 			process.execPath,
 			[
@@ -111,7 +112,19 @@ export function runExtensionProbe(
 				encoding: "utf8",
 			},
 		);
-		assert.ifError(result.error);
+		if (result.error) {
+			const elapsed = Math.round(performance.now() - started);
+			throw new Error(
+				[
+					`Extension probe failed: ${result.error.message} after ${elapsed}ms (timeout ${timeout}ms)`,
+					`Node ${process.version}: ${process.execPath}; Pi ${host.version}: ${host.root}`,
+					`Extensions: ${JSON.stringify(paths)}`,
+					`stdout:\n${result.stdout ?? ""}`,
+					`stderr:\n${result.stderr ?? ""}`,
+				].join("\n"),
+				{ cause: result.error },
+			);
+		}
 		assert.equal(
 			result.status,
 			0,

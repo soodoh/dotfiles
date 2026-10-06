@@ -273,6 +273,44 @@ await test("actual host reports malformed declared resources", (t) => {
 	);
 });
 
+await test("extension probe timeouts preserve loader output and context", (t) => {
+	const root = fixture(t);
+	const path = join(root, "slow-extension.mjs");
+	manifest(root, {});
+	mkdirSync(join(root, "dist"));
+	writeFileSync(
+		join(root, "dist/index.js"),
+		`export const SettingsManager = { inMemory: (settings) => settings };
+		export class DefaultResourceLoader {
+			async reload() {
+				console.log("fixture loader stdout");
+				console.error("fixture loader stderr");
+				setInterval(() => {}, 1000);
+				await new Promise(() => {});
+			}
+		}`,
+	);
+	assert.throws(
+		() =>
+			runExtensionProbe(
+				{ root, modules: root, version: "fixture-host" },
+				root,
+				[path],
+				{ timeout: 1000 },
+			),
+		(error) => {
+			assert.equal(error.cause?.code, "ETIMEDOUT");
+			assert.ok(error.message.includes("Pi fixture-host"));
+			assert.ok(error.message.includes(root));
+			assert.ok(error.message.includes(path));
+			assert.match(error.message, /after \d+ms \(timeout 1000ms\)/);
+			assert.ok(error.message.includes("fixture loader stdout"));
+			assert.ok(error.message.includes("fixture loader stderr"));
+			return true;
+		},
+	);
+});
+
 await test("unexpected persistent startup work is terminated, not reported as a pass", (t) => {
 	const root = fixture(t);
 	const path = join(root, "persistent.ts");
