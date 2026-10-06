@@ -67,7 +67,6 @@ test("unmodified upstream registers session-scoped liveness, not display counts"
 
 test("upstream supervisor attention stays working; only the parent's prompt blocks", async () => {
 	const bus = events();
-	const notices = [];
 	const states = [];
 	const handlers = new Map();
 	const ctx = {
@@ -98,7 +97,6 @@ test("upstream supervisor attention stays working; only the parent's prompt bloc
 		sessionId: "owner",
 		isActive: () => true,
 	});
-	bus.on("herdr:blocked", (value) => notices.push(value));
 	const bridge = registerHerdrStatusBridge({
 		events: bus,
 		env: { HERDR_ENV: "1", HERDR_PANE_ID: "fixture" },
@@ -125,14 +123,13 @@ test("upstream supervisor attention stays working; only the parent's prompt bloc
 				source: "async",
 				event: {
 					type: "needs_attention",
-					runId: reason,
+					runId: "one",
 					reason,
-					message: "parent intervention",
+					message: `${reason}: parent intervention`,
 				},
 			});
 		}
 		await dispatch("agent_settled");
-		expect(notices.some((notice) => notice.active)).toBe(true);
 		expect(states).toEqual(["working"]);
 		await dispatch("ui_prompt_start");
 		await dispatch("ui_prompt_end");

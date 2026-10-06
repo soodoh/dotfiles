@@ -109,6 +109,30 @@ class MisePolicyTests(unittest.TestCase):
 
 
 class MiseConfigurationTests(unittest.TestCase):
+    def test_agent_validation_has_a_dependency_install_prerequisite(self) -> None:
+        tasks = load_toml("mise.toml")["tasks"]
+        installers = {
+            name for name, task in tasks.items()
+            if "bun ci --cwd pi-extensions" in (
+                task["run"] if isinstance(task.get("run"), list)
+                else [task.get("run")]
+            )
+        }
+
+        def prerequisites(name: str, seen: set[str]) -> set[str]:
+            self.assertNotIn(name, seen, "task dependencies must be acyclic")
+            result = set(tasks[name].get("depends", []))
+            for dependency in tuple(result):
+                result.update(prerequisites(dependency, seen | {name}))
+            return result
+
+        for name in ("validate:agents:fast", "validate:agents:integration"):
+            with self.subTest(task=name):
+                self.assertTrue(
+                    prerequisites(name, set()) & installers,
+                    "runtime consumers must wait for installation, including standalone invocation",
+                )
+
     def test_profile_bootstrap_plans_only_run_on_macos(self) -> None:
         commands = load_toml("mise.toml")["tasks"]["validate:config"]["run"]
         script = commands[-1]

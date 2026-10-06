@@ -326,8 +326,8 @@ description = "Refresh shared and profile-specific mise lockfiles"
 run = "python3 mise.lock.py refresh"
 
 [tasks.validate]
-description = "Run fast checks and external-runtime integration tests"
-depends = ["validate:fast", "validate:integration"]
+description = "Run fast checks before external-runtime integration tests"
+run = [{ task = "validate:fast" }, { task = "validate:integration" }]
 
 [tasks."validate:fast"]
 description = "Run syntax, policy, unit, and repository checks"
@@ -380,13 +380,16 @@ HERDR_CONFIG_PATH="$PWD/dotfiles/common/herdr/config.toml" herdr config check
 [tasks."validate:dotfiles:integration"]
 run = "python3 dotfiles/common/yazi/copy-relative-path.test.py"
 
+[tasks."validate:agents:install"]
+description = "Install locked extension dependencies before either validation lane"
+run = "bun ci --cwd pi-extensions"
+
 [tasks."validate:agents:fast"]
-run = [
-  "bun ci --cwd pi-extensions",
-  "bun run --cwd pi-extensions ci:fast",
-]
+depends = ["validate:agents:install"]
+run = "bun run --cwd pi-extensions ci:fast"
 
 [tasks."validate:agents:integration"]
+depends = ["validate:agents:install"]
 run = [
   'node pi-extensions/extensions-host.test.mjs "$(mise which pi)"',
   'node pi-extensions/native-mcp-host.test.mjs "$(mise which pi)"',

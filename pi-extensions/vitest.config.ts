@@ -2,6 +2,8 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	test: {
+		// Leave CPU and I/O headroom for other repository checks on hosted runners.
+		maxWorkers: process.env.CI ? 2 : undefined,
 		coverage: {
 			exclude: [
 				"**/*.test.*",

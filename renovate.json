@@ -41,6 +41,15 @@
       "rangeStrategy": "bump"
     },
     {
+      "description": "Isolate Pi extension updates from unrelated tools and let new releases settle",
+      "matchFileNames": ["pi-extensions/package.json"],
+      "matchDepTypes": ["dependencies"],
+      "groupName": "Pi extensions",
+      "groupSlug": "pi-extensions",
+      "minimumReleaseAge": "2 days",
+      "separateMajorMinor": true
+    },
+    {
       "description": "Upgrade the Pi host and development SDK together",
       "matchPackageNames": [
         "@earendil-works/pi-agent-core",

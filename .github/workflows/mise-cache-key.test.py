@@ -403,6 +403,27 @@ class WorkflowSecurityPolicyTests(unittest.TestCase):
                     ):
                         self.assertEqual(environment.get("MISE_AGE_STRICT"), "false")
 
+    def test_mise_commands_have_authenticated_github_access(self) -> None:
+        for name, workflow in self.workflows.items():
+            for job_name, job in workflow["jobs"].items():
+                for step in job["steps"]:
+                    if not re.search(
+                        r"(?m)^\s*(?:mise\s|python3\s+mise\.lock\.py\b)|\$\(\s*mise\s",
+                        step.get("run", ""),
+                    ):
+                        continue
+                    environment = (
+                        workflow.get("env", {})
+                        | job.get("env", {})
+                        | step.get("env", {})
+                    )
+                    with self.subTest(workflow=name, job=job_name, step=step.get("name")):
+                        self.assertRegex(
+                            environment.get("MISE_GITHUB_TOKEN", ""),
+                            r"^\$\{\{\s*github\.token\s*\}\}$",
+                            "mise-action's private token does not authenticate later commands",
+                        )
+
     def test_untrusted_pull_requests_cannot_receive_privileged_credentials(
         self,
     ) -> None:

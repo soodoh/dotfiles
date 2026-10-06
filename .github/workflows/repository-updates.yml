@@ -10,6 +10,8 @@ permissions:
   pull-requests: write
 
 env:
+  # mise-action keeps its token local; later metadata and lock operations need auth.
+  MISE_GITHUB_TOKEN: ${{ github.token }}
   MISE_LOCKED_VERIFY_PROVENANCE: "1"
   MISE_AGE_STRICT: "false"
 
