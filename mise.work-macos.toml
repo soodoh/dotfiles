@@ -24,7 +24,7 @@ GOST_AUTH_PASSWORD = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAwY2llV3
 
 [tools]
 "pipx:azure-cli" = "2.91.0"
-"pipx:snowflake-cli" = "3.28.0"
+"pipx:snowflake-cli" = "3.29.0"
 # MSF TrueDev tooling. Docker/Compose and jq come from the shared profile;
 # Azure CLI is declared above; gcloud is shared.
 "aqua:Azure/kubelogin" = "0.2.20"
@@ -37,7 +37,7 @@ GOST_AUTH_PASSWORD = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAwY2llV3
 "npm:@azure/mcp" = "2.0.5"
 "npm:@azure-devops/mcp" = { version = "2.10.0", allow_builds = ["keytar"] }
 "npm:figma-developer-mcp" = "0.13.2"
-"github:grafana/mcp-grafana" = "2.0.1"
+"github:grafana/mcp-grafana" = "2.0.2"
 
 [tools."http:twg"]
 version = "1.3.3"
