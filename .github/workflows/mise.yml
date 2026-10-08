@@ -22,6 +22,9 @@ jobs:
   agents-fast:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    env:
+      # node-pty builds on Linux; node-gyp uses Ubuntu's system Python/gyp.
+      PYTHON: /usr/bin/python3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up mise
@@ -31,6 +34,8 @@ jobs:
           cache: false
       - name: Install only fast-check runtimes
         run: mise install --locked node bun
+      - name: Install native extension build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential node-gyp
       - name: Install locked extension dependencies
         run: bun ci --cwd pi-extensions
       - name: Lint Pi extensions
