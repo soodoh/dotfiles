@@ -54,7 +54,7 @@ python = "3.14.8"
 ruby = "4.0.7"
 gcloud = { version = "583.0.0", depends = ["python"] }
 bun = "1.4.2"
-go = "1.27.1"
+go = "1.27.2"
 rust = { version = "1.99.0", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
 "aqua:astral-sh/uv" = "0.12.23"
 "aqua:cli/cli" = "2.102.0"
@@ -83,7 +83,7 @@ rust = { version = "1.99.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:docker/compose" = "5.6.0"
 # Upstream does not publish macOS binaries; Cargo works on all shared platforms.
 "cargo:eza" = "0.23.5"
-"cargo:tree-sitter-cli" = "0.27.0"
+"cargo:tree-sitter-cli" = "0.27.1"
 "cargo:kdlfmt" = "0.1.7"
 "cargo:taplo-cli" = "0.10.0"
 "go:golang.org/x/tools/gopls" = "0.23.0"
