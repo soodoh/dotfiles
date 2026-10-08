@@ -24,7 +24,7 @@
 
 ## Conditional Refinement
 
-Most sessions keep their initial automatic title permanently. After later `agent_settled` events, the extension runs cheap local checks and allows one refinement attempt only when either:
+Most sessions keep their initial automatic title permanently. Cancelled runs do not launch or consume a refinement attempt. After later non-aborted `agent_settled` events, the extension runs cheap local checks and allows one refinement attempt only when either:
 
 - At least three meaningful user requests exist and the original request or current title is clearly weak/generic, or the initial model call used the deterministic fallback; or
 - A later request starts with a strong direction-change signal such as "Actually", "Instead", "Switch to", "New task", "Let's focus on", or "Now work on".
