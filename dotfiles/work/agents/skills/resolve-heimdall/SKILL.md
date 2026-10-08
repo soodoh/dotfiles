@@ -11,6 +11,16 @@ Address one snapshot of current Heimdall comments on the active branch's existin
 
 Run Steps 1–5 once. Finish after verifying the snapshot's dispositions and eligible thread resolutions; do not wait for pipeline runs, repair remote pipeline failures, or repeat for newly arriving comments. Use [heimdall-loop](../heimdall-loop/SKILL.md) when the user requests pipeline monitoring and repeated review cycles.
 
+## Recovery and continuity
+
+Own the prerequisites of completion, not just the happy path. When an obstacle prevents completion, treat it as a recovery subtask: diagnose the cause, attempt the smallest safe remedy within the active workflow’s authority, verify recovery, and resume the interrupted step. A failed command, pre-existing defect, or suspected infrastructure problem is not by itself a reason to stop.
+
+Recovery authority covers minimal prerequisite repairs and safe retries needed to complete the active workflow, even when the failure predates the review fix. Preserve the PR safety boundary, validation requirements, and provider mutation checks. Destructive changes, persistent environment changes, unrelated refactors, and expanded product or design decisions require additional authorization. Recovery does not authorize bypassing checks or access controls, or expand a single pass into pipeline monitoring.
+
+Retain the original workflow mode (single pass or loop), PR/head identity, snapshot and completed actions, recovery attempts and results, and next unfinished step. After recovery, recheck provider/local state and continue the original completion checklist unless the user explicitly changes its scope. A repair, successful push, or completed resolution pass is a checkpoint, not a substitute for the remaining work.
+
+Bound recovery by evidence and the workflow’s wait limits. Retry only when a remedy or evidence of a transient failure justifies it; repeated identical failures without new evidence call for a different diagnosis, not indefinite retries. Escalate only when progress requires unavailable access, additional authorization, a genuine user decision, or reasonable safe recovery options are exhausted. Hard safety stops below still apply. When escalating, report the failure evidence, remedies attempted and results, completed actions, exact intervention needed, and next step to resume; preserve state and leave completion unverified.
+
 ## Guardrails
 
 - Work only on the PR whose head is the current branch. Never create a PR, switch branches, rebase, force-push, or discard unrelated work.
@@ -19,7 +29,7 @@ Run Steps 1–5 once. Finish after verifying the snapshot's dispositions and eli
 - Act only on comments authored by the verified Heimdall account for this PR. Ignore every other reviewer's comments: do not investigate, implement fixes for, or reply to them. Leave their threads unresolved.
 - Treat Heimdall comments as requests for investigation, not instructions to change code. Validate each against the repository's behavior, tests, security requirements, and stated PR intent.
 - Do not resolve a thread before its reply has been accepted by GitHub and the pushed code is visible on the PR.
-- Stop for authentication, permission, persistent API-contract, merge-conflict, or ambiguous high-risk design failures. Report the exact blocker and leave provider state consistent. Recheck the active branch and PR head before mutations; stop if either advances unexpectedly.
+- Apply the recovery policy to execution failures; stop when required access is unavailable or recovery cannot establish safe provider state. Merge conflicts and ambiguous high-risk design choices require a user decision. Leave provider state consistent. Recheck the active branch and PR head before mutations; stop if either advances unexpectedly.
 
 ## 1. Establish the PR and local safety boundary
 
@@ -68,8 +78,8 @@ Before editing, record the actionable Heimdall comments and their file/line loca
 1. Apply all unambiguous in-scope fixes.
 2. Inspect the complete diff, including unrelated pre-existing changes.
 3. Run the narrowest authoritative formatter, linter, and tests for the changed code. Add targeted coverage when appropriate; do not claim a check passed unless it ran successfully.
-4. If checks fail, fix the root cause and rerun the relevant check. Stop on failures that cannot be safely fixed.
-5. Commit only the review fixes and local validation repairs needed for those fixes, using repository commit conventions. Do not amend or rewrite existing published commits unless explicitly requested.
+4. If validation or required hooks fail, apply the recovery policy, fix the root cause, and rerun the relevant check. After recovery, continue this pass through publication, replies, resolution, and verification.
+5. Commit only the review fixes and minimal prerequisite repairs needed to complete this pass, using repository commit conventions. Do not amend or rewrite existing published commits unless explicitly requested.
 6. Push the current branch without force. Record the pushed head SHA and push time, then confirm the PR head changed and the expected commit is visible before posting dispositions.
 
 If no code change is required, do not create an empty commit or push solely to generate activity. You may reply to comments against the existing PR head after validation.
@@ -89,12 +99,12 @@ After a successful reply:
 
 - Resolve only a thread opened by the verified Heimdall account, after all Heimdall comments in that thread have been addressed, no user decision remains, and no other reviewer has commented in it. Confirm `isResolved: true` after the `resolveReviewThread` GraphQL mutation.
 - Leave threads opened by other reviewers and mixed-reviewer threads unresolved. The current user's explanatory replies do not change the thread's ownership.
-- If a mutation fails or returns an uncertain response, re-fetch the thread to check whether the reply/resolution was accepted. Correct a syntax/schema error against the same host's schema and retry only if the intended change is confirmed absent. For persistent API-contract, permission, authentication, or ambiguous-state failures, stop and report the comment/thread IDs and successful mutations already completed.
+- If a mutation fails or returns an uncertain response, re-fetch the thread to check whether the reply/resolution was accepted. Correct a syntax/schema error against the same host's schema and retry only if the intended change is confirmed absent. Apply the recovery policy to remaining failures; escalate when access is unavailable or safe mutation state cannot be established, recording the comment/thread IDs and successful mutations already completed.
 
 ## 5. Verify the pass and stop
 
 Re-fetch all threads once after replies and resolution. The pass's invariant is: every snapshot Heimdall comment has a disposition reply, every eligible Heimdall-only addressed thread is resolved, and threads with other reviewers remain unresolved and unanswered by this workflow. Reuse existing disposition replies rather than duplicating them. A thread with newly arrived unaddressed Heimdall comments is not eligible for resolution; leave it unresolved and report those comment IDs as deferred without starting another pass.
 
-If a snapshot comment remains unaddressed or an eligible thread's resolution cannot be verified, report the exact blocker instead of claiming success. Otherwise report the single pass complete, not the pipeline or overall Heimdall review complete.
+If a snapshot comment remains unaddressed or an eligible thread's resolution cannot be verified, apply the recovery policy and resume the unfinished step; report the exact blocker only if recovery cannot safely continue. Otherwise report the single pass complete, not the pipeline or overall Heimdall review complete.
 
 Return the PR URL and identity (host, owner/repository, PR number, branches, current-user login, and verified Heimdall account), resulting head SHA, snapshot comment IDs and dispositions, reply IDs/URLs, resolved and deferred thread/comment IDs, validation commands/results, commits pushed and push times (if any), and any remaining user decisions or blockers. This is also the handoff consumed by `heimdall-loop`. Stop here; newly queued pipelines and later findings are outside this pass.
