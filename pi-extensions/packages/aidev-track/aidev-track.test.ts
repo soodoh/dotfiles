@@ -8,6 +8,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { agentSettledEvent } from "../../test-support/events";
 import { createAidevTrackExtension, runAidevTrack } from "./aidev-track";
 
 type SpawnOptions = { cwd: string; stdio: ["pipe", "ignore", "ignore"] };
@@ -153,7 +154,7 @@ const toolResult = (toolName: string, path: string): ToolResultEvent => ({
 	details: undefined,
 });
 
-const agentSettled: AgentSettledEvent = { type: "agent_settled" };
+const agentSettled = agentSettledEvent();
 
 type Handlers = {
 	agent_start?: (
@@ -551,20 +552,23 @@ describe("createAidevTrackExtension", () => {
 		expect(calls).toHaveLength(0);
 	});
 
-	test("agent_settled maps to turn-end", async () => {
-		const { calls, handlers } = createHarness();
-		await handlers.agent_start?.({ type: "agent_start" }, ctx);
-		calls.length = 0;
-		await handlers.agent_settled?.(agentSettled, ctx);
+	test.each([false, true])(
+		"agent_settled reconciles turn-end (aborted=%s)",
+		async (aborted) => {
+			const { calls, handlers } = createHarness();
+			await handlers.agent_start?.({ type: "agent_start" }, ctx);
+			calls.length = 0;
+			await handlers.agent_settled?.(agentSettledEvent(aborted), ctx);
 
-		expect(calls).toHaveLength(1);
-		expect(calls[0].args[0]).toBe("turn-end");
-		expect(lastPayload(calls[0])).toEqual({
-			session_id: "session-xyz",
-			cwd: "/repo",
-			hook_event_name: "Stop",
-		});
-	});
+			expect(calls).toHaveLength(1);
+			expect(calls[0].args[0]).toBe("turn-end");
+			expect(lastPayload(calls[0])).toEqual({
+				session_id: "session-xyz",
+				cwd: "/repo",
+				hook_event_name: "Stop",
+			});
+		},
+	);
 
 	test("stops spawning once the binary is detected missing", async () => {
 		const { calls, handlers } = createHarness("error-missing");

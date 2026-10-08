@@ -466,6 +466,8 @@ class WorkflowSecurityPolicyTests(unittest.TestCase):
         # the parent data directory is still one of those matches.
         for job_name, job in self.workflow["jobs"].items():
             steps = job["steps"]
+            if not any(step.get("id") == "mise-cache" for step in steps):
+                continue
             setup_index = next(
                 i for i, step in enumerate(steps)
                 if step.get("uses", "").startswith("jdx/mise-action@")
@@ -518,6 +520,30 @@ class WorkflowSecurityPolicyTests(unittest.TestCase):
                 self.assertEqual(binary.read_text(), "selected CLI")
                 for path in (tool, manifest, rust, proxy):
                     self.assertEqual(path.read_text(), "cached")
+
+    def test_required_platform_checks_fail_closed_on_fast_check_failure(self) -> None:
+        # GitHub accepts skipped required jobs as passing. These are the two
+        # required check contexts in the repository's branch ruleset.
+        for name in ("ubuntu", "macos"):
+            job = self.workflow["jobs"][name]
+            self.assertEqual(job["needs"], "agents-fast")
+            self.assertIn(job["if"], ("always()", "${{ always() }}"))
+            gate = job["steps"][0]
+            self.assertFalse(gate.get("continue-on-error", False))
+            self.assertNotIn("if", gate)
+            self.assertEqual(
+                gate["env"]["FAST_RESULT"], "${{ needs.agents-fast.result }}"
+            )
+            for outcome in ("success", "failure", "cancelled", "skipped"):
+                with self.subTest(job=name, fast_result=outcome):
+                    result = subprocess.run(
+                        ["bash", "-euo", "pipefail", "-c", gate["run"]],
+                        env={"PATH": os.defpath, "FAST_RESULT": outcome},
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    self.assertEqual(result.returncode == 0, outcome == "success")
 
     def test_cache_publication_happens_after_successful_validation(self) -> None:
         for job_name, job in self.workflow["jobs"].items():

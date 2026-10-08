@@ -128,7 +128,83 @@ if (process.argv[2] !== "worker") {
 	} finally {
 		fixture.session.dispose();
 	}
+	// Escape must not launch a title request or consume the one refinement.
+	writeFileSync(
+		join(process.env.PI_CODING_AGENT_DIR, "settings.json"),
+		JSON.stringify({ autoSessionName: { titleModel: ["fixture/fixture"] } }),
+	);
+	let titleRequests = 0;
+	let heldResponse;
+	const settlements = [];
+	const cancellation = await createSessionFixture(process.argv[3], {
+		paths: [fileURLToPath(new URL("./auto-session-name.ts", import.meta.url))],
+		factories: [
+			(pi) => {
+				pi.on("agent_settled", (event) => settlements.push(event.aborted));
+			},
+		],
+		respond: async (_model, _context, options) => {
+			if (options.maxTokens === 128) {
+				return {
+					content: [
+						{
+							type: "text",
+							text:
+								++titleRequests === 1
+									? "Reliable Backup Rotation"
+									: "Fix OB-1234 Login",
+						},
+					],
+				};
+			}
+			if (heldResponse) {
+				heldResponse.entered.resolve();
+				await heldResponse.release.promise;
+			}
+			return { content: [{ type: "text", text: "Done" }] };
+		},
+	});
+	try {
+		await cancellation.session.prompt(
+			"Implement reliable backup rotation for home servers",
+		);
+		assert.equal(titleRequests, 1);
+		heldResponse = {
+			entered: Promise.withResolvers(),
+			release: Promise.withResolvers(),
+		};
+		const pivot = "Actually, switch to fixing the OB-1234 login regression.";
+		const running = cancellation.session.prompt(pivot);
+		await heldResponse.entered.promise;
+		const aborting = cancellation.session.abort();
+		heldResponse.release.resolve();
+		await Promise.all([running, aborting]);
+		heldResponse = undefined;
+		assert.equal(
+			titleRequests,
+			1,
+			"Cancelled work launched a title refinement",
+		);
+		assert.equal(
+			cancellation.session.sessionManager.getSessionName(),
+			"Reliable Backup Rotation",
+		);
+		await cancellation.session.prompt(pivot);
+		assert.equal(
+			titleRequests,
+			2,
+			"Cancellation consumed the later refinement",
+		);
+		assert.equal(
+			cancellation.session.sessionManager.getSessionName(),
+			"Fix OB-1234 Login",
+		);
+		assert.deepEqual(settlements, [false, true, false]);
+		assert.deepEqual(cancellation.errors, []);
+	} finally {
+		cancellation.session.dispose();
+	}
 	console.log(
-		"PASS auto names: configured agent directory, virtual routing, resolved auth endpoint and durable manual ownership",
+		"PASS auto names: configured agent directory, virtual routing, resolved auth endpoint, durable manual ownership and cancellation",
 	);
 }

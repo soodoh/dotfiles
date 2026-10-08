@@ -802,8 +802,15 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 		await runInitialNaming(ctx, storedRequests).catch(() => undefined);
 	});
 
-	pi.on("agent_settled", async (_event, ctx) => {
-		if (!active || manualOverride || !autoTitleState || !ownsTitle) return;
+	pi.on("agent_settled", async (event, ctx) => {
+		if (
+			event.aborted ||
+			!active ||
+			manualOverride ||
+			!autoTitleState ||
+			!ownsTitle
+		)
+			return;
 		const storedRequests = extractUserRequests(ctx.sessionManager.getBranch());
 		if (
 			shouldRefineTitle({ state: autoTitleState, userRequests: storedRequests })

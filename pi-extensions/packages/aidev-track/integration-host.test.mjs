@@ -93,16 +93,29 @@ if (process.argv[2] !== "worker") {
 		},
 	});
 	let response = 0;
+	const cancelledResponse = Promise.withResolvers();
+	const responseEntered = Promise.withResolvers();
+	const settlements = [];
 	// SDK sessions do not load codemode implicitly. Use the host's builtin.
 	const { createCodemodeExtension } = await import(
 		pathToFileURL(join(hostRoot, "dist/index.js")).href
 	);
 	const fixture = await createSessionFixture(hostRoot, {
-		factories: [tracking, createCodemodeExtension()],
+		factories: [
+			tracking,
+			createCodemodeExtension(),
+			(pi) => {
+				pi.on("agent_settled", (event) => settlements.push(event.aborted));
+			},
+		],
 		tools: ["write", "edit", "codemode"],
-		respond: (_model, _context, options) => {
+		respond: async (_model, _context, options) => {
 			assert.ok(options.apiKey);
 			response++;
+			if (response === 5) {
+				responseEntered.resolve();
+				await cancelledResponse.promise;
+			}
 			if (response === 1)
 				return {
 					stopReason: "toolUse",
@@ -160,11 +173,30 @@ if (process.argv[2] !== "worker") {
 			calls.slice(boundary).map((call) => call.command),
 			["turn-start", "checkpoint", "checkpoint", "turn-end"],
 		);
+		const beforeCancel = calls.length;
+		const running = fixture.session.prompt("Cancel this work");
+		await responseEntered.promise;
+		const aborting = fixture.session.abort();
+		cancelledResponse.resolve();
+		await Promise.all([running, aborting]);
+		assert.deepEqual(
+			calls.slice(beforeCancel).map((call) => call.command),
+			["turn-start", "turn-end"],
+			"Cancelled work must still reconcile attribution",
+		);
+		const afterCancel = calls.length;
+		await fixture.session.prompt("Resume with fresh work");
+		assert.deepEqual(
+			calls.slice(afterCancel).map((call) => call.command),
+			["turn-start", "turn-end"],
+			"Cancellation must release the previous attribution baseline",
+		);
+		assert.deepEqual(settlements, [false, false, true, false]);
 		assert.deepEqual(fixture.errors, []);
 	} finally {
 		fixture.session.dispose();
 	}
 	console.log(
-		"PASS aidev-track: native codemode concurrency, continuation baselines and subprocess failures",
+		"PASS aidev-track: native codemode concurrency, continuation/cancellation baselines and subprocess failures",
 	);
 }

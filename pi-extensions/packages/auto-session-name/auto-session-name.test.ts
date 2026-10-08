@@ -14,6 +14,7 @@ import type {
 	TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { agentSettledEvent } from "../../test-support/events";
 import autoSessionName, {
 	type AutoTitleState,
 	cleanRawUserInput,
@@ -310,11 +311,11 @@ const createHarness = (branch: SessionEntry[] = [], initialName?: string) => {
 			lastContext = ctx;
 			await inputHandler?.({ type: "input", text, source }, ctx);
 		},
-		async agentSettled(ctx = lastContext) {
+		async agentSettled(ctx = lastContext, aborted = false) {
 			lastContext = ctx;
 			if (!agentSettledHandler)
 				throw new Error("agent_settled handler was not registered");
-			await agentSettledHandler({ type: "agent_settled" }, ctx);
+			await agentSettledHandler(agentSettledEvent(aborted), ctx);
 		},
 		async turnEnd(ctx = lastContext, turnIndex = 0) {
 			lastContext = ctx;
@@ -992,6 +993,28 @@ describe("conditional one-time refinement", () => {
 
 		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
 		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
+	});
+
+	test("cancelled work does not refine the title or consume its later refinement", async () => {
+		const { harness, branch, ctx } = await nameInitialSession({
+			initialRequest: "Implement reliable backup rotation for home servers",
+			initialTitle: "Reliable Backup Rotation",
+		});
+		const newTask = "Actually, switch to fixing the OB-1234 login regression.";
+		branch.push(userMessageEntry(newTask));
+		await harness.input(newTask, ctx);
+		await harness.agentSettled(ctx, true);
+
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
+		expect(harness.getSessionName()).toBe("Reliable Backup Rotation");
+		expect(reconstructAutoTitleState(branch)?.refinementAttempted).toBe(false);
+
+		mocks.completeSimple.mockResolvedValueOnce({
+			content: "Fix OB-1234 Login",
+		});
+		await harness.agentSettled(ctx);
+		await waitForName(harness, "Fix OB-1234 Login");
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(2);
 	});
 
 	test("a clear later direction change triggers refinement with newest anchors first", async () => {

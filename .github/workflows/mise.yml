@@ -19,13 +19,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  agents-fast:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Set up mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5
+        with:
+          install: false
+          cache: false
+      - name: Install only fast-check runtimes
+        run: mise install --locked node bun
+      - name: Install locked extension dependencies
+        run: bun ci --cwd pi-extensions
+      - name: Lint Pi extensions
+        run: bun run --cwd pi-extensions check
+      - name: Typecheck Pi host compatibility
+        run: bun run --cwd pi-extensions typecheck
+      - name: Test Pi extensions with coverage
+        run: bun run --cwd pi-extensions test:coverage
+
   ubuntu:
+    needs: agents-fast
+    # Required checks must fail, not skip (which GitHub accepts for merging).
+    if: ${{ always() }}
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       # Ubuntu's node-gyp installs gyp for system Python, not mise's Python.
       PYTHON: /usr/bin/python3
     steps:
+      - name: Require successful fast checks
+        env:
+          FAST_RESULT: ${{ needs.agents-fast.result }}
+        run: test "$FAST_RESULT" = success
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # Unpinned mise-action selects the newest stable CLI at least 24 hours old.
       - name: Set up mise
@@ -137,9 +165,15 @@ jobs:
           key: ${{ steps.mise-cache-key.outputs.primary-key }}
 
   macos:
+    needs: agents-fast
+    if: ${{ always() }}
     runs-on: macos-26
     timeout-minutes: 60
     steps:
+      - name: Require successful fast checks
+        env:
+          FAST_RESULT: ${{ needs.agents-fast.result }}
+        run: test "$FAST_RESULT" = success
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # Unpinned mise-action selects the newest stable CLI at least 24 hours old.
       - name: Set up mise
