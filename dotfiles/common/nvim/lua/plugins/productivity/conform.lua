@@ -38,6 +38,8 @@ return {
         sh = { "shfmt", "shellcheck" },
         lua = { "stylua" },
         python = { "ruff_format" },
+        terraform = { "tofu_fmt" },
+        ["terraform-vars"] = { "tofu_fmt" },
         -- rust = { "rstfmt" },
         kdl = { "kdlfmt" },
         javascript = web_formatters,

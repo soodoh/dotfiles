@@ -40,6 +40,10 @@ vim.opt.formatoptions = "qnj1"
 
 -- Filetypes
 vim.filetype.add({
+  extension = {
+    tf = "terraform", -- Treat empty/new .tf files as Terraform, not TinyFugue.
+    tofu = "terraform",
+  },
   pattern = {
     ["Caddyfile"] = "caddyfile", -- exact filename
     ["*.caddy"] = "caddyfile", -- optional, if you have any .caddy files

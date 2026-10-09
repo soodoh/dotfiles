@@ -71,6 +71,7 @@ rust = { version = "1.99.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:herdrdev/herdr" = "0.9.3"
 "aqua:sxyazi/yazi" = "26.9.1"
 "aqua:neovim/neovim" = "0.12.5"
+"aqua:opentofu/opentofu" = "1.13.1"
 "github:docker/docker-language-server" = "0.20.1"
 "aqua:LuaLS/lua-language-server" = "3.19.1"
 "aqua:artempyanykh/marksman" = "2026-02-08"
