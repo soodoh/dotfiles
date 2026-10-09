@@ -32,6 +32,52 @@
         "callbackUrl": "http://localhost:19876/callback"
       }
     },
+    "gws-calendar": {
+      "description": "Read and manage work Google Calendar events.",
+      "url": "https://calendarmcp.googleapis.com/mcp/v1",
+      "exposure": "codemode",
+      "oauth": {
+        "clientId": "105985112021-luu148b1ql78qaait7iqj4b28icltaka.apps.googleusercontent.com",
+        "clientSecret": "${GWS_MCP_CLIENT_SECRET}",
+        "callbackPort": 8080
+      }
+    },
+    "gws-gmail": {
+      "description": "Read work Gmail messages and threads with read-only mail access.",
+      "url": "https://gmailmcp.googleapis.com/mcp/v1",
+      "exposure": "hidden",
+      "toolExposure": {
+        "get_*": "codemode",
+        "list_*": "codemode",
+        "search_*": "codemode"
+      },
+      "oauth": {
+        "clientId": "105985112021-luu148b1ql78qaait7iqj4b28icltaka.apps.googleusercontent.com",
+        "clientSecret": "${GWS_MCP_CLIENT_SECRET}",
+        "callbackPort": 8080,
+        "scope": "https://www.googleapis.com/auth/gmail.readonly"
+      }
+    },
+    "gws-docs": {
+      "description": "Read and edit work Google Docs.",
+      "url": "https://docsmcp.googleapis.com/mcp/v1",
+      "exposure": "codemode",
+      "oauth": {
+        "clientId": "105985112021-luu148b1ql78qaait7iqj4b28icltaka.apps.googleusercontent.com",
+        "clientSecret": "${GWS_MCP_CLIENT_SECRET}",
+        "callbackPort": 8080
+      }
+    },
+    "gws-sheets": {
+      "description": "Read and edit work Google Sheets.",
+      "url": "https://sheetsmcp.googleapis.com/mcp/v1",
+      "exposure": "codemode",
+      "oauth": {
+        "clientId": "105985112021-luu148b1ql78qaait7iqj4b28icltaka.apps.googleusercontent.com",
+        "clientSecret": "${GWS_MCP_CLIENT_SECRET}",
+        "callbackPort": 8080
+      }
+    },
     "heimdall": {
       "description": "Search Docusign 1DS framework documentation and implementation guidance.",
       "url": "https://services.dev.docusign.net/heimdall/v1.0/api/mcp/heimdall/mcp",
@@ -43,7 +89,11 @@
     "azure": {
       "description": "Read-only Stage, Demo, and Prod Azure resources, monitoring, and Kusto diagnostics using the production profile.",
       "command": "azmcp",
-      "args": ["server", "start", "--read-only"],
+      "args": [
+        "server",
+        "start",
+        "--read-only"
+      ],
       "env": {
         "HOME": "${HOME}/.azure/prod",
         "AZURE_CONFIG_DIR": "${HOME}/.azure/prod/.azure",
@@ -62,7 +112,14 @@
     "azure-test": {
       "description": "Read-only Integration/Test Azure resources, monitoring, and Kusto diagnostics using the isolated development profile.",
       "command": "/usr/bin/env",
-      "args": ["-u", "AZURE_SUBSCRIPTION_ID", "azmcp", "server", "start", "--read-only"],
+      "args": [
+        "-u",
+        "AZURE_SUBSCRIPTION_ID",
+        "azmcp",
+        "server",
+        "start",
+        "--read-only"
+      ],
       "env": {
         "HOME": "${HOME}/.azure/dev",
         "AZURE_CONFIG_DIR": "${HOME}/.azure/dev/.azure",
@@ -95,7 +152,15 @@
     "azure-devops": {
       "description": "Inspect DocusignOrg projects, pipeline builds, logs, and artifacts, and manage pipeline runs and definitions.",
       "command": "mcp-server-azuredevops",
-      "args": ["DocusignOrg", "--authentication", "pat", "--domains", "core", "--domains", "pipelines"],
+      "args": [
+        "DocusignOrg",
+        "--authentication",
+        "pat",
+        "--domains",
+        "core",
+        "--domains",
+        "pipelines"
+      ],
       "env": {
         "PERSONAL_ACCESS_TOKEN": "${ADO_MCP_PAT_BASIC}"
       },
@@ -113,7 +178,9 @@
     "figma": {
       "description": "Read Figma design files, components, and layout information for UI implementation.",
       "command": "figma-developer-mcp",
-      "args": ["--stdio"],
+      "args": [
+        "--stdio"
+      ],
       "exposure": "deferred"
     }
   }

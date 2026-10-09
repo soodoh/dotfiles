@@ -409,6 +409,40 @@ class MiseConfigurationTests(unittest.TestCase):
             )
         self.assertNotIn("GRAFANA_SERVICE_ACCOUNT_TOKEN", grafana["env"])
 
+    def test_workspace_mcp_credentials_are_encrypted_and_work_only(self) -> None:
+        servers = json.loads(
+            (ROOT / "dotfiles/work/pi/agent/mcp.json").read_text()
+        )["mcpServers"]
+        personal_servers = json.loads(
+            (ROOT / "dotfiles/personal/pi/agent/mcp.json").read_text()
+        )["mcpServers"]
+        workspace = {
+            name: server for name, server in servers.items() if name.startswith("gws-")
+        }
+        self.assertTrue(workspace)
+        self.assertTrue(workspace.keys().isdisjoint(personal_servers))
+        for name, server in workspace.items():
+            with self.subTest(server=name):
+                url = urlsplit(server["url"])
+                self.assertEqual(url.scheme, "https")
+                self.assertTrue(url.hostname.endswith(".googleapis.com"))
+                self.assertRegex(
+                    server["oauth"]["clientId"],
+                    r"^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$",
+                )
+                reference = re.fullmatch(
+                    r"\$\{([A-Z_]+)\}", server["oauth"]["clientSecret"]
+                )
+                self.assertIsNotNone(reference)
+                variable = reference[1]
+                self.assertEqual(set(self.work["env"][variable]), {"age"})
+                self.assertNotIn(variable, self.base["env"])
+                self.assertNotIn(variable, self.personal.get("env", {}))
+        self.assertEqual(
+            servers["gws-gmail"]["oauth"]["scope"].split(),
+            ["https://www.googleapis.com/auth/gmail.readonly"],
+        )
+
     def test_work_azure_profiles_are_isolated(self) -> None:
         mcp = json.loads(
             (ROOT / "dotfiles/work/pi/agent/mcp.json").read_text()

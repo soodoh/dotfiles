@@ -38,6 +38,7 @@ if (process.argv[2] !== "--worker") {
 						AZURE_CONFIG_DIR: join(root, ".azure/dev/.azure"),
 						AZURE_SUBSCRIPTION_ID: "fixture-production-subscription",
 						ADO_MCP_PAT_BASIC: "fixture-pat",
+						GWS_MCP_CLIENT_SECRET: "fixture-google-oauth-secret",
 						HTTPS_PROXY: "http://127.0.0.1:1055",
 						INHERITED_SENTINEL: "fixture-inherited",
 					},
@@ -59,9 +60,11 @@ if (process.argv[2] !== "--worker") {
 		"extensions/mcp/config.js",
 	);
 	const { validateMcpServerConfig } = await load("core/mcp-servers.js");
-	const { createDefaultTransport, McpServerConnection } = await load(
-		"extensions/mcp/runtime.js",
-	);
+	const {
+		createDefaultTransport,
+		McpServerConnection,
+		McpOAuthCredentialStore,
+	} = await load("extensions/mcp/runtime.js");
 	const { createMcpToolDefinition, createMcpToolName } = await load(
 		"extensions/mcp/tools.js",
 	);
@@ -90,7 +93,38 @@ if (process.argv[2] !== "--worker") {
 
 	const personal = config("personal");
 	const work = config("work");
+	// Exercise the actual host resolver: a schema-valid OAuth config can still
+	// send an unresolved placeholder or silently ignore a misspelled scope key.
+	for (const [name, server] of Object.entries(work)) {
+		if (!name.startsWith("gws-")) continue;
+		const connection = new McpServerConnection({
+			entry: { name, config: server, source: "fixture", scope: "global" },
+			cwd: process.cwd(),
+			createTransport: createDefaultTransport,
+			credentials: new McpOAuthCredentialStore(),
+			onTools: () => {},
+		});
+		try {
+			const oauth = connection.oauthSettings();
+			assert.match(
+				oauth.clientId,
+				/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/,
+			);
+			assert.equal(oauth.clientSecret, process.env.GWS_MCP_CLIENT_SECRET);
+			assert.equal(oauth.callbackPort, 8080);
+			if (name === "gws-gmail")
+				assert.equal(
+					oauth.scope,
+					"https://www.googleapis.com/auth/gmail.readonly",
+				);
+		} finally {
+			await connection.close();
+		}
+	}
 	for (const [server, allowed, forbidden] of [
+		["gws-gmail", "get_message", "trash_message"],
+		["gws-gmail", "search_threads", "create_draft"],
+		["gws-gmail", "list_labels", "update_message_labels"],
 		["mixpanel", "Run-Query", "Delete-Dashboard"],
 		["mixpanel", "Get-Events", "Update-Business-Context"],
 		["azure", "kusto", "cosmos"],

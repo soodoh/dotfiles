@@ -180,6 +180,10 @@ mise --env work-macos run update:acm
     - `/login github-copilot`
     - `/mcp login glean`
     - `/mcp login mixpanel`
+    - `/mcp login gws-calendar`
+    - `/mcp login gws-gmail`
+    - `/mcp login gws-docs`
+    - `/mcp login gws-sheets`
 
 - Install the self-updating internal `msf-cli` if it is not already present, then authenticate it as needed:
 
