@@ -41,15 +41,30 @@
     },
     {
       "id": 4,
-      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The stable verified PR head is H4 and matching build B400 is running. After the initial resolution pass, bot-originated thread T40 appears with finding C40. Its ID has been mentioned in earlier context and the current user replied \"Thanks, I will investigate\", but no fix or disposition exists. T40 remains unresolved. The same poll sees a newly published bot finding C41 in separate bot-originated thread T41 while B400 is still running. Repository evidence shows C40 is a real percentage-discount bug and C41 is already satisfied. Independent safe fixes can be validated and pushed as H5; replies/resolutions succeed. Build B401 subsequently appears for H5 and completes required Heimdall and validation successfully with clean post-terminal scans and no superseding run. Give the ordered action trace.",
-      "expected_output": "Do not count the acknowledgement as completion. Immediately run a resolution pass for C40 and C41 without waiting for B400 to finish, publish the real fix as H5, post specific dispositions and resolve eligible threads, then monitor and finish against H5/B401 rather than H4/B400.",
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The stable verified PR head is H4 and matching build B400 is running. After the initial resolution pass, bot-originated thread T40 appears with finding C40. Its ID has been mentioned in earlier context and the current user replied \"Thanks, I will investigate\", but no fix or disposition exists. T40 remains unresolved. The same poll sees a newly published bot finding C41 in separate bot-originated thread T41 while B400 is still running. Repository evidence shows C40 is a real percentage-discount bug and C41 is already satisfied. Independent safe fixes can be validated and pushed as H5; replies/resolutions succeed. Build B401 subsequently appears for H5 and completes required Heimdall and validation successfully with clean post-terminal scans and no superseding run. Include any proposed sleep or delay in the ordered action trace, including between fixing, validating, pushing, replying, resolving, and resuming monitoring.",
+      "expected_output": "Do not count the acknowledgement as completion. Immediately run a resolution pass for C40 and C41 without waiting for B400 to finish or inserting polling sleeps between actionable steps, publish the real fix as H5, post specific dispositions and resolve eligible threads, then immediately scan Azure/threads for H5 and monitor and finish against H5/B401 rather than H4/B400.",
       "files": [],
       "expectations": [
         "Previously seen or acknowledged C40 is still actionable because it lacks a valid disposition.",
-        "C41 triggers a resolution pass while B400 is still running.",
+        "C41 triggers a resolution pass while B400 is still running, without first sleeping for the polling interval.",
+        "Fixing, validating, pushing, replying, resolving, and verification proceed without polling sleeps between steps; monitoring resumes with an immediate Azure/thread scan rather than an unconditional post-push quiet period.",
         "C40 is corrected, validated and published, while C41 needs only an evidence-based disposition.",
         "After the push the loop monitors H5/B401; the older-head B400 cannot establish completion.",
         "The final result requires B401 success, fresh thread scans and latest-run verification."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace and completion status, including where sleeps would or would not occur. Treat provider observations and elapsed times as fixtures; do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The initial resolution pass is complete for verified head H6. Matching build B600 is running with no Heimdall findings, but a lint step has already failed inside a continueOnError job. Logs and repository evidence identify a safe in-scope repair; diagnosis, repair, validation, commit, and push succeed as H7 while B600 remains running. The immediate Azure/thread scan for H7 finds B601 queued and no actionable comments or failures. At the next scheduled poll, all required Heimdall and validation jobs for H7/B601 have succeeded; the first post-terminal thread scan finds incorrect Heimdall finding C71 in bot-originated thread T71. Investigation, an evidence-based reply, resolution, and pass verification take three minutes after that scan, without changing H7. A fresh scan is clean; final discovery and timeline confirm no superseding run or attempt. Describe how to handle the lint failure, idle queued build, finding, and publication-lag interval.",
+      "expected_output": "Immediately triage and repair the lint failure without polling sleeps or waiting for B600 to finish. After pushing H7, scan immediately; a bounded idle delay before the next poll is appropriate while B601 is queued with nothing actionable. Address C71 immediately without sleeps between investigation, reply, resolution, or verification. Since the three minutes of work satisfy the publication-lag interval, perform the final clean scan and freshness check without an additional two-minute sleep, then finish against H7/B601.",
+      "files": [],
+      "expectations": [
+        "The continueOnError lint failure triggers immediate diagnosis and repair despite B600 still running; no polling sleeps are inserted into that work.",
+        "Monitoring H7 begins with an immediate Azure/thread scan after the push.",
+        "A bounded polling sleep is permitted only at the idle checkpoint where B601 is queued and no actionable work remains.",
+        "C71 interrupts the wait immediately and receives an evidence-based disposition and eligible thread resolution without sleeps between actionable steps.",
+        "The three minutes spent resolving C71 count toward publication lag; no additional sleep precedes the fresh clean scan and final freshness check.",
+        "Completion uses H7/B601's successful required review and validation, clean scans, and unchanged final run/attempt state."
       ]
     }
   ]

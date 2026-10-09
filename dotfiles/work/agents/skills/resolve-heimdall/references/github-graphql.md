@@ -23,7 +23,7 @@ gh api --hostname "$host" graphql \
   -f thread="$thread_id" -f cursor="$comment_end_cursor"
 ```
 
-Verify `errors` is absent and `data.repository.pullRequest.reviewThreads` (or `data.node.comments`) is present before using results. An HTTP-success response containing GraphQL `errors` is not success. Fully paginate before deciding thread ownership, deduplication, or resolution. `Actor` supports `login` and `__typename`, but not `id`; the saved queries use an inline `Bot` fragment for bot ID. GitHub App bots can exist as comment authors without a REST `/users/<login>` resource.
+Verify `errors` is absent and `data.repository.pullRequest.reviewThreads` (or `data.node.comments`) is present before using results. An HTTP-success response containing GraphQL `errors` is not success. Fully paginate before deciding thread ownership, deduplication, or resolution. `Actor` supports `login` and `__typename`, but not `id`; the saved queries use an inline `Bot` fragment for bot ID. GitHub App bots can exist as comment authors without a REST `/users/<login>` resource. Before extending a selection set, inspect the relevant types on the PR's host; assuming a field on an interface or mutation payload can invalidate the entire request.
 
 ## Write after checking PR head and existing replies
 
@@ -42,5 +42,7 @@ gh api --hostname "$host" graphql \
 ```
 
 Require the returned thread ID to match the requested ID and `isResolved` to be true; confirm in a fresh thread scan.
+
+If using REST for a reply instead, call `POST /repos/{owner}/{repo}/pulls/{number}/comments/{comment_id}/replies` on the same host, targeting the top-level review comment ID rather than a reply ID. Require the returned reply ID and URL, then re-fetch the thread as above.
 
 If the host rejects a field or syntax, introspect the input or payload type with `__type` on **that host**, adapt a temporary copy for that host rather than silently changing the shared recipe, and re-fetch the thread before any mutation attempt. After *any* mutation error or uncertain response, re-fetch the thread and inspect comment IDs/authors and resolution state before considering a retry: a write might have succeeded despite a client-side error. Retry only when the intended change is confirmed absent. Stop and report persistent schema, authentication, permission, or ambiguous-state errors.
