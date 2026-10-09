@@ -799,16 +799,14 @@ class MiseConfigurationTests(unittest.TestCase):
                         ]["github"]["credential_command"],
                     )
 
-    def test_google_workspace_configuration_stays_in_shared_scope(self) -> None:
+    def test_google_cloud_configuration_stays_in_shared_scope(self) -> None:
         google_env = {
             name
             for name in self.base["env"]
-            if name.startswith(("GOOGLE_CLOUD_", "GOOGLE_WORKSPACE_"))
+            if name.startswith("GOOGLE_CLOUD_")
         }
         self.assertTrue(google_env.isdisjoint(self.work["env"].keys()))
         self.assertTrue(google_env.isdisjoint(self.personal.get("env", {}).keys()))
-        self.assertNotIn("npm:@googleworkspace/cli", self.work.get("tools", {}))
-        self.assertNotIn("npm:@googleworkspace/cli", self.personal.get("tools", {}))
 
     def test_python_precedes_gcloud_installation(self) -> None:
         steps = [

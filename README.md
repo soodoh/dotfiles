@@ -127,7 +127,6 @@ bootstrap can install it.
 - Open `pi` for the first time:
     - `/login openai-codex`
     - `/login openrouter`
-- Authenticate `gws` CLI: `gws auth login`
 - Pair [Moshi hooks](https://getmoshi.app/docs/hooks) once per Mac:
     - mise installs the Homebrew formula; the shared `mise.toml` LaunchAgent runs it through `mise exec`, supplying mise's tool PATH without shell activation. Bootstrap registers and starts `dev.mise.moshi-hook`; do not also start the Homebrew service.
     - Copy the pairing token from **Settings > Hooks** in the Moshi app, then run the following locally (not over SSH):
