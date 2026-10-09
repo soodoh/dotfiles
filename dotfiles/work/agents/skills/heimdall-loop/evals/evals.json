@@ -1,0 +1,56 @@
+{
+  "skill_name": "heimdall-loop",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The verified current PR head is H1. Its latest matching build B100 has successfully completed all required Heimdall review jobs and all configured lint/unit/Playwright checks. It posted one incorrect finding C1 in bot-originated thread T1; existing implementation and tests disprove it. A human also participated in T1. Human-originated unresolved thread T2 has a Heimdall reply but is outside this workflow. Disposition posting and T1 resolution succeed without code changes. Fresh discovery before completion returns only B100 for H1, all review attempts are terminal-successful, and both post-terminal thread scans show no actionable unresolved bot-originated findings. Describe whether a new commit or review is needed.",
+      "expected_output": "Reply to C1 and resolve T1, leave T2 untouched, verify final freshness and successful review/validation, and finish without an empty commit or another review round.",
+      "files": [],
+      "expectations": [
+        "Human participation does not prevent resolving T1, while human-originated T2 is ignored.",
+        "A reply-only resolution satisfies the no-outstanding-findings condition even though B100 originally produced a finding.",
+        "No empty commit, push or gratuitous new review run is requested.",
+        "The final result records the latest build and successful review separately from findings dispositions."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The verified PR head remains H2 throughout. Discovery initially selects matching build B200 with triggerInfo pr.sourceSha H2 and queue time 10:00; its sourceVersion is synthetic merge M2. An older-head build B199 queued later at 10:01 has triggerInfo pr.sourceSha H0 and must not satisfy the wait. B200 completes Heimdall successfully and both thread scans are clean. Immediately before completion, refreshed discovery reveals B201 for H2 queued at 10:05 and still queued. It later starts, finishes all required Heimdall and validation jobs successfully, and its own terminal and publication-lag scans are clean. No code changes or review findings occur. Give the ordered monitoring and completion decisions.",
+      "expected_output": "Ignore B199 as completion evidence; do not finish against B200 when B201 appears. Follow B201 through successful required review and validation, obtain fresh scans and final discovery, and finish using B201.",
+      "files": [],
+      "expectations": [
+        "Build matching uses the PR source head H2, not synthetic merge sourceVersion M2 or queue time alone.",
+        "The final discovery catches B201 despite the unchanged PR head.",
+        "The loop remains pending while B201 is queued or running instead of completing against B200.",
+        "B200's terminal/thread-scan evidence is not reused as proof that B201 completed review.",
+        "Completion occurs only after B201's successful required checks, fresh post-terminal scans and final freshness check."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The stable verified PR head H3 has one matching build B300. Its Heimdall stage/job attempt 1 succeeds; the initial post-terminal thread scans are clean. During the final freshness check, the same build's authenticated timeline reports required Heimdall attempt 2 queued after a retry, with no new build ID. Attempt 2 later runs and publishes bot-originated finding C32 alleging missing whitespace trimming, disproved by the current implementation and passing tests. Attempt 2 ultimately succeeds. Replying and resolving C32 succeeds without a push; configured lint/unit/Playwright checks pass, fresh terminal/publication-lag scans are clean, and final discovery/timeline show no newer build or attempt. Describe the loop.",
+      "expected_output": "Treat attempt 2 as superseding attempt 1, wait for the retry while scanning threads, disposition and resolve C32 without code changes, then finish only with attempt 2 success and fresh scans.",
+      "files": [],
+      "expectations": [
+        "The unchanged build ID does not permit completion using attempt 1 while attempt 2 is pending.",
+        "Attempt 1's completed evidence and publication-lag scans are invalidated for the new review attempt.",
+        "C32 interrupts monitoring and receives a specific evidence-based disposition and thread resolution.",
+        "No empty commit or new run is manufactured after the reply-only pass.",
+        "The final report identifies B300 and attempt 2 as the observed successful review."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The stable verified PR head is H4 and matching build B400 is running. After the initial resolution pass, bot-originated thread T40 appears with finding C40. Its ID has been mentioned in earlier context and the current user replied \"Thanks, I will investigate\", but no fix or disposition exists. T40 remains unresolved. The same poll sees a newly published bot finding C41 in separate bot-originated thread T41 while B400 is still running. Repository evidence shows C40 is a real percentage-discount bug and C41 is already satisfied. Independent safe fixes can be validated and pushed as H5; replies/resolutions succeed. Build B401 subsequently appears for H5 and completes required Heimdall and validation successfully with clean post-terminal scans and no superseding run. Give the ordered action trace.",
+      "expected_output": "Do not count the acknowledgement as completion. Immediately run a resolution pass for C40 and C41 without waiting for B400 to finish, publish the real fix as H5, post specific dispositions and resolve eligible threads, then monitor and finish against H5/B401 rather than H4/B400.",
+      "files": [],
+      "expectations": [
+        "Previously seen or acknowledged C40 is still actionable because it lacks a valid disposition.",
+        "C41 triggers a resolution pass while B400 is still running.",
+        "C40 is corrected, validated and published, while C41 needs only an evidence-based disposition.",
+        "After the push the loop monitors H5/B401; the older-head B400 cannot establish completion.",
+        "The final result requires B401 success, fresh thread scans and latest-run verification."
+      ]
+    }
+  ]
+}

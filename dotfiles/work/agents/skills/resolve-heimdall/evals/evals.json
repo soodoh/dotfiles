@@ -1,0 +1,56 @@
+{
+  "skill_name": "resolve-heimdall",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. Resolve Heimdall for a verified current-branch PR: host github.example, repo example/app, PR 42, head H1, current user author, verified bot heimdall[bot]. The clean worktree matches H1. Thread T1 was opened by bot comment C1: discount(100, 10) currently returns 90, but discount(200, 10) returns 190 because implementation subtracts the percentage as a flat amount. The documented contract is a percentage discount, so 180 is required. Reviewer reviewer later replied in T1 requesting an unrelated rounding redesign. Thread T2 was opened by reviewer comment C2 requesting a separate API redesign, and Heimdall added comment C3 in that thread agreeing. All threads are unresolved. Focused validation, commit, normal push, PR visibility, reply writes and resolution verification will succeed. No new comments arrive. Describe the pass.",
+      "expected_output": "Fix and validate the percentage calculation, publish it, reply specifically to C1, and resolve T1 despite human participation. Leave T2 and its comments untouched. Report a completed single pass without pipeline monitoring.",
+      "files": [],
+      "expectations": [
+        "Only C1 is in the actionable snapshot; neither C2 nor C3 is assessed or answered.",
+        "The percentage defect is corrected and validated, and its commit is visible on the PR before the fixed disposition is posted.",
+        "C1 maps to its own disposition, accepted reply and supporting commit/evidence.",
+        "T1 is resolved despite the later human reply; T2 is unchanged.",
+        "The workflow stops after final pass verification without waiting for a pipeline."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The PR, branch, head H2, current user author and Heimdall bot are verified and stable. Unresolved bot-originated thread T10 has three bot findings: C10 says normalize() fails to trim whitespace, but the current implementation and passing test prove it calls trim(); C11 asks for a 20-character limit, but the documented contract explicitly permits unlimited length; C12 identifies the real percentage-discount defect where discount(200, 10) returns 190 instead of the documented 180. Current-user replies are R10, asking C10 which input reproduces the issue; R11, explicitly linking C11 and explaining the unlimited-length contract accurately; and R12, explicitly linking C12 and claiming it was fixed in commit OLD, which is not on the PR and whose supposed fix is absent from H2. No new comments arrive. Narrow validation and publication can succeed. Determine which replies can be reused and what must happen before resolution.",
+      "expected_output": "Reuse only R11 for C11. Correct and publish C12, then post an evidenced C12 disposition. Post an already-satisfied C10 disposition rather than counting R10 as completion. Map each finding separately and resolve T10 after verification.",
+      "files": [],
+      "expectations": [
+        "R10 is not accepted as a disposition merely because the current user replied.",
+        "R11 is reused for C11 without a duplicate reply.",
+        "R12 does not count as proof that C12 is fixed; the live PR code is corrected and validated before a new fixed disposition.",
+        "Exactly two new disposition replies are needed, one explicitly associated with C10 and one with C12.",
+        "T10 is resolved only after all three findings have valid dispositions."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. PR identity, bot identity, head H3 and access are verified; there is no hard safety stop. Bot-originated unresolved thread T20 contains C20 requesting rounding to cents and C21 requesting preservation of fractional cents for the same public calculation. Neither requirements, tests nor callers decide the rounding contract, so changing it requires a user decision. Independent bot thread T22 contains C22 identifying discount(200, 10) returning 190 rather than the documented 180. Independent bot thread T23 contains C23 alleging missing whitespace normalization, already disproved by implementation and a passing test. Validation, commit, publication and provider mutations for the independent work are safe and succeed. Describe what happens before asking the user.",
+      "expected_output": "Defer the conflicting contract change while completing the independent discount fix and already-satisfied disposition. Reply individually to C20 and C21 with the pending decision and question. Resolve T22 and T23, leave T20 unresolved, verify the partial pass, then ask the user which rounding contract to adopt.",
+      "files": [],
+      "expectations": [
+        "The ambiguous rounding contract is not changed without a decision.",
+        "The independent C22 fix is validated and published, and C23 receives an evidence-based already-satisfied reply.",
+        "Both C20 and C21 have explanatory replies identifying their original comments and the unresolved contract choice.",
+        "T22 and T23 are resolved while T20 remains unresolved.",
+        "The report asks a concrete rounding-contract question and labels the pass partial rather than successful or fully resolved."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The verified stable PR has unresolved bot-originated thread T30 with initial finding C30 that is incorrect according to an existing passing test. The pass snapshots C30 and posts an accepted evidence-based disposition for it. During the fresh thread read before resolution, a new bot finding C31 arrives in T30 identifying a different defect that has not been assessed. No hard safety stop exists. Describe the remaining single-pass actions.",
+      "expected_output": "Keep C30's disposition, leave T30 unresolved, record C31 as deferred and stop after snapshot verification. Do not silently resolve over the new finding or turn the single pass into repeated review cycles.",
+      "files": [],
+      "expectations": [
+        "C30 retains its valid disposition and reply mapping.",
+        "T30 is not resolved while C31 is unaddressed.",
+        "C31 is reported as deferred, not silently counted as handled.",
+        "No second resolution pass, code change for C31 or pipeline wait is started."
+      ]
+    }
+  ]
+}

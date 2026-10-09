@@ -15,6 +15,12 @@ __pycache__/
 **/.pi-subagents/
 **/coverage/
 **/evals/
+# Keep Heimdall evaluation definitions; generated outputs remain ignored.
+!dotfiles/work/agents/skills/resolve-heimdall/evals/
+!dotfiles/work/agents/skills/heimdall-loop/evals/
+dotfiles/work/agents/skills/*/evals/*
+!dotfiles/work/agents/skills/resolve-heimdall/evals/evals.json
+!dotfiles/work/agents/skills/heimdall-loop/evals/evals.json
 **/iteration-*/
 **/*.pid
 **/*.log
