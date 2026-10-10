@@ -94,7 +94,7 @@ rust = { version = "1.99.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:oxlint" = "1.87.0"
-"npm:prettier" = "3.9.9"
+"npm:prettier" = "3.9.10"
 "npm:pyright" = "1.1.414"
 "npm:typescript-language-server" = "6.0.2"
 "npm:vim-language-server" = "2.3.1"
