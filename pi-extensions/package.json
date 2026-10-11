@@ -46,7 +46,7 @@
 		"@router-for-me/pi-cliproxyapi-provider": "1.4.21",
 		"pi-subagents": "0.76.1",
 		"pi-vim": "0.14.2",
-		"pi-web-access": "0.37.0",
+		"pi-web-access": "0.38.0",
 		"proper-lockfile": "4.1.2"
 	},
 	"peerDependencies": {
