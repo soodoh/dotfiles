@@ -36,7 +36,7 @@ jobs:
       - name: Install native build and test dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential fish
 
-      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5
+      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5
         with:
           install: true
           install_args: "aqua:neovim/neovim aqua:rhysd/actionlint bun"
