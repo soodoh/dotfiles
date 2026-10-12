@@ -39,8 +39,8 @@ _.path = [
 [vars]
 skills_cli_version = "1.5.22"
 # Refreshed from upstream main by the repository-updates PR workflow.
-herdr_focus_notify_ref = "ed73afc2af6a943ee1f2b205d8df671dd042d3de"
-herdr_sesh_ref = "2c9a57c88ee89bfe9171c6161001559f1a757e1c"
+herdr_focus_notify_ref = "94e8e1394e1bdbaa3dd55d4d83e0e3f98ecab743"
+herdr_sesh_ref = "1d1bcc518347b468e438b05ef806102c97414348"
 
 [tools]
 node = "24.21.0" # LTS; keep aligned with .nvmrc

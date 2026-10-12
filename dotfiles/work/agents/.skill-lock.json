@@ -52,9 +52,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
-      "skillFolderHash": "de4236cf34757c4e9ea7afe78d46c023213ff254",
+      "skillFolderHash": "5fdd6cc53385395441910b026c72d71768e993d4",
       "installedAt": "2026-09-06T06:22:28.292Z",
-      "updatedAt": "2026-10-05T22:00:46.487Z"
+      "updatedAt": "2026-10-12T22:29:58.977Z"
     },
     "domain-modeling": {
       "source": "mattpocock/skills",
@@ -79,30 +79,27 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/wizard/SKILL.md",
-      "skillFolderHash": "0a163daf092c6f361158ca9627e81f2cb5230574",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "e396d3ba97c723a78ffd350fb14a3c409137b306",
       "installedAt": "2026-09-06T06:22:28.295Z",
-      "updatedAt": "2026-09-06T06:22:28.295Z"
+      "updatedAt": "2026-10-12T22:29:59.847Z"
     },
     "grilling": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/productivity/grilling/SKILL.md",
-      "skillFolderHash": "f0732035b8b1b60ae39454e4191caef32fa91903",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "28aceb4c9567b985cb47f7db88cf23c9f33af8b8",
       "installedAt": "2026-09-06T06:22:28.295Z",
-      "updatedAt": "2026-09-06T06:22:28.295Z"
+      "updatedAt": "2026-10-12T22:30:00.720Z"
     },
     "teach": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/productivity/teach/SKILL.md",
-      "skillFolderHash": "2ab11f2f51f3c29771edb5d4258d807a49462491",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "3fd617b610e59acbb99644de1ef37e394ff53cd1",
       "installedAt": "2026-09-06T06:22:28.295Z",
-      "updatedAt": "2026-09-06T06:22:28.295Z"
+      "updatedAt": "2026-10-12T22:30:01.733Z"
     },
     "wait-what": {
       "source": "mattpocock/skills",

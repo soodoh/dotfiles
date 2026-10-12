@@ -181,24 +181,24 @@ url = "https://github.com/grafana/mcp-grafana/releases/download/v2.0.2/mcp-grafa
 url_api = "https://api.github.com/repos/grafana/mcp-grafana/releases/assets/619710962"
 
 [[tools."http:twg"]]
-version = "1.3.3"
+version = "1.3.5"
 backend = "http:twg"
 
 [tools."http:twg"."platforms.linux-arm64"]
-checksum = "sha256:a18bc47d8cb445fbf7e40e3dbbbf049efad4dc455b627dad26505caad4f21705"
-url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v1.3.3"
+checksum = "sha256:b226f6e52f8137a2a3562c172d3a8b608a72bbb9078af845c3618468ea1170f0"
+url = "https://teamwork-graph.atlassian.com/cli/twg-linux-arm64-v1.3.5"
 
 [tools."http:twg"."platforms.linux-x64"]
-checksum = "sha256:f2b27de35e2b70ca533dc544b6d41df3013743d7e4a1dcf113498528f9a38401"
-url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.3.3"
+checksum = "sha256:d66d93220f440f006279c6687274ed4c924835da4ec205cc818bc17f6dd91c08"
+url = "https://teamwork-graph.atlassian.com/cli/twg-linux-x64-v1.3.5"
 
 [tools."http:twg"."platforms.macos-arm64"]
-checksum = "sha256:7623885dffa27e85882c4e7dfeff1667538f0899dccd8f1180ca64c58fc1ad67"
-url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v1.3.3"
+checksum = "sha256:bc8d9e07ba9275c2dffeda555f301828782c4972a9387dc221fe3cd3e9e33098"
+url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-arm64-v1.3.5"
 
 [tools."http:twg"."platforms.macos-x64"]
-checksum = "sha256:36a81f378065d7f2fe7a19082b7ab3cd9d23d543b7a462ce93e4ef299ec6ff6e"
-url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.3.3"
+checksum = "sha256:11e7d286ebb2734ec2f4452b42b13754c5eb65b2fbaa8afe9c8a06cb1e9da08a"
+url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.3.5"
 
 [[tools."npm:@azure-devops/mcp"]]
 version = "2.10.0"
