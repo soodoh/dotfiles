@@ -1,7 +1,7 @@
 [tools]
 "aqua:aws/aws-cli" = "2.37.12"
 "pipx:ansible-core" = "2.21.5"
-"pipx:ansible-lint" = "26.9.0"
+"pipx:ansible-lint" = "26.10.0"
 
 [bootstrap.packages]
 "brew-cask:discord" = { version = "latest", os = "macos" }
