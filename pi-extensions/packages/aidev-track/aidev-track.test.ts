@@ -121,6 +121,7 @@ const ctx = {
 
 const beforeAgentStart = (prompt: string): BeforeAgentStartEvent => ({
 	type: "before_agent_start",
+	messageType: "user",
 	prompt,
 	systemPrompt: "",
 	systemPromptOptions: {
@@ -497,6 +498,42 @@ describe("createAidevTrackExtension", () => {
 			hook_event_name: "UserPromptSubmit",
 			prompt: "do the thing",
 		});
+	});
+
+	test("custom-message starts get one attribution baseline without a user prompt", async () => {
+		const { calls, handlers } = createHarness();
+		const { systemPrompt, systemPromptOptions } = beforeAgentStart("");
+		const event: BeforeAgentStartEvent = {
+			type: "before_agent_start",
+			messageType: "custom",
+			message: {
+				role: "custom",
+				timestamp: 0,
+				customType: "completion",
+				content: "Background work finished",
+				display: false,
+			},
+			systemPrompt,
+			systemPromptOptions,
+		};
+		await handlers.before_agent_start?.(event, ctx);
+		expect(calls).toHaveLength(1);
+		expect(lastPayload(calls[0])).toEqual({
+			session_id: "session-xyz",
+			cwd: "/repo",
+			hook_event_name: "UserPromptSubmit",
+		});
+
+		await handlers.agent_start?.({ type: "agent_start" }, ctx);
+		await handlers.tool_call?.(toolCall("edit", "src/a.ts"), ctx);
+		await handlers.tool_result?.(toolResult("edit", "src/a.ts"), ctx);
+		await handlers.agent_settled?.(agentSettled, ctx);
+		expect(calls.map((call) => call.args[0])).toEqual([
+			"turn-start",
+			"checkpoint",
+			"checkpoint",
+			"turn-end",
+		]);
 	});
 
 	test("tool_call for edit maps to a PreToolUse checkpoint", async () => {

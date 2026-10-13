@@ -189,7 +189,7 @@ export function createAidevTrackExtension(
 ): (pi: AidevTrackAPI) => void {
 	return (pi) => {
 		// One baseline per settled run; automatic continuations reuse it. Commands
-		// and subagent completion messages may start a run without before_agent_start.
+		// may start a run without before_agent_start; custom messages have no prompt.
 		const state = { available: true, started: false, closed: false };
 		const lifetime = new AbortController();
 		let queue = Promise.resolve();
@@ -230,7 +230,12 @@ export function createAidevTrackExtension(
 		};
 
 		pi.on("before_agent_start", (event, ctx) =>
-			enqueue(() => ensureStarted(ctx, event.prompt)),
+			enqueue(() =>
+				ensureStarted(
+					ctx,
+					event.messageType === "user" ? event.prompt : undefined,
+				),
+			),
 		);
 		pi.on("agent_start", (_event, ctx) => enqueue(() => ensureStarted(ctx)));
 
