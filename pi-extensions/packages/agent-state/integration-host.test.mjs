@@ -189,6 +189,8 @@ async function load() {
 	notifier = registerNotify(
 		{
 			events: bus,
+			// This fixture models normal delivery, not a user-stopped parent turn.
+			isHeld: () => false,
 			sendMessage: (message, options) => {
 				if (options.triggerTurn) {
 					pendingMessages = true;
