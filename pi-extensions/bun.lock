@@ -5,7 +5,7 @@
     "": {
       "name": "pi-extensions",
       "dependencies": {
-        "@juicesharp/rpiv-ask-user-question": "2.13.0",
+        "@juicesharp/rpiv-ask-user-question": "2.13.1",
         "@plannotator/pi-extension": "0.28.14",
         "@router-for-me/pi-cliproxyapi-provider": "1.4.22",
         "pi-subagents": "0.77.0",
@@ -187,7 +187,7 @@
 
     "@js-temporal/polyfill": ["@js-temporal/polyfill@0.5.1", "", { "dependencies": { "jsbi": "^4.3.0" } }, "sha512-hloP58zRVCRSpgDxmqCWJNlizAlUgJFqG2ypq79DCvyv9tHjRYMDOcPFjzfl/A1/YxDvRCZz8wvZvmapQnKwFQ=="],
 
-    "@juicesharp/rpiv-ask-user-question": ["@juicesharp/rpiv-ask-user-question@2.13.0", "", { "dependencies": { "@juicesharp/rpiv-config": "^2.13.0" }, "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "@juicesharp/rpiv-i18n": "*", "typebox": "*" }, "optionalPeers": ["@juicesharp/rpiv-i18n"] }, "sha512-XZriCji5FohDy66m+Fyd1Kmt7KTuATj6HMDmO7m+AqFe99Lzy4tqTkW/OqQWXqCCRph+EogqRxe0o6DKZqkxLw=="],
+    "@juicesharp/rpiv-ask-user-question": ["@juicesharp/rpiv-ask-user-question@2.13.1", "", { "dependencies": { "@juicesharp/rpiv-config": "^2.13.1" }, "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "@juicesharp/rpiv-i18n": "*", "typebox": "*" }, "optionalPeers": ["@juicesharp/rpiv-i18n"] }, "sha512-ZzboBl44ScnWPltVDnJNuOBtubrCq2WkFkMJxqOgdbun1mYR/S9Ly3R9+nK/WYwCB4O+R15D5JmqbtdUj60RAA=="],
 
     "@juicesharp/rpiv-config": ["@juicesharp/rpiv-config@2.13.5", "", { "peerDependencies": { "typebox": "*" } }, "sha512-TDXhRomYM3PdBxiWkLoaLHhQP+qerr/OxZ7DQt4k2GHeMDPW7z9RT92tXOFjMJHgxRV3Lk86UyY4b8KmGjjDNw=="],
 
