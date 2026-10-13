@@ -42,12 +42,11 @@
       "rangeStrategy": "bump"
     },
     {
-      "description": "Isolate Pi extension updates from unrelated tools and let new releases settle",
+      "description": "Isolate Pi extension updates from unrelated tools",
       "matchFileNames": ["pi-extensions/package.json"],
       "matchDepTypes": ["dependencies"],
       "groupName": "Pi extensions",
       "groupSlug": "pi-extensions",
-      "minimumReleaseAge": "2 days",
       "separateMajorMinor": true
     },
     {
@@ -61,7 +60,6 @@
       ],
       "groupName": "Pi host and SDK",
       "groupSlug": "pi-host-and-sdk",
-      "minimumReleaseAge": "2 days",
       "separateMajorMinor": true
     },
     {
