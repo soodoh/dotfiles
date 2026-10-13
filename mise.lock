@@ -715,53 +715,53 @@ url = "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.da
 url_api = "https://api.github.com/repos/getsops/sops/releases/assets/486808228"
 
 [[tools."aqua:herdrdev/herdr"]]
-version = "0.9.3"
+version = "0.9.4"
 backend = "aqua:herdrdev/herdr"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-arm64"]
-checksum = "sha256:4de7aa3e25678812e92960de64f7c2aaa1bca1f0f80a3c5e559837e231e1f5c0"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-aarch64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036386"
+checksum = "sha256:9511cb70982c1ef115f232058e7ed7cf9640aa5a2c0ca78934cefda3aeb093fd"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.4/herdr-linux-aarch64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/637474390"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-arm64-musl"]
-checksum = "sha256:4de7aa3e25678812e92960de64f7c2aaa1bca1f0f80a3c5e559837e231e1f5c0"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-aarch64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036386"
+checksum = "sha256:9511cb70982c1ef115f232058e7ed7cf9640aa5a2c0ca78934cefda3aeb093fd"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.4/herdr-linux-aarch64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/637474390"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-x64"]
-checksum = "sha256:18a8dc65f1c2fa485884344356dea1cfd911c6f06cf46fa78e193f4087f4dba7"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036383"
+checksum = "sha256:493304fbefb0ed0ea0455f373b47f48d24e8774bc7974f4c916ad2e937675b23"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.4/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/637474400"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-x64-baseline"]
-checksum = "sha256:18a8dc65f1c2fa485884344356dea1cfd911c6f06cf46fa78e193f4087f4dba7"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036383"
+checksum = "sha256:493304fbefb0ed0ea0455f373b47f48d24e8774bc7974f4c916ad2e937675b23"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.4/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/637474400"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-x64-musl"]
-checksum = "sha256:18a8dc65f1c2fa485884344356dea1cfd911c6f06cf46fa78e193f4087f4dba7"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036383"
+checksum = "sha256:493304fbefb0ed0ea0455f373b47f48d24e8774bc7974f4c916ad2e937675b23"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.4/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/637474400"
 
 [tools."aqua:herdrdev/herdr"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:18a8dc65f1c2fa485884344356dea1cfd911c6f06cf46fa78e193f4087f4dba7"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036383"
+checksum = "sha256:493304fbefb0ed0ea0455f373b47f48d24e8774bc7974f4c916ad2e937675b23"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.4/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/637474400"
 
 [tools."aqua:herdrdev/herdr"."platforms.macos-arm64"]
-checksum = "sha256:5173a3e0ae42d5d1ab7ebfa5d5e6329f7c3d23f8e1a3677c7ce3231da2884157"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-macos-aarch64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036381"
+checksum = "sha256:ea20bfff9cb8c83a996081c926e6ff9370de8e543baa859bca48d19175d895ff"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.4/herdr-macos-aarch64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/637474389"
 
 [tools."aqua:herdrdev/herdr"."platforms.macos-x64"]
-checksum = "sha256:db62d548ff3e832b087a96b1894a08d26be3905f1830309cd556783f215d4054"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-macos-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036385"
+checksum = "sha256:2015ca1de3e93b84cdcccbfd94fbbd65dd56338cea4d3e57a8660e977a3bd700"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.4/herdr-macos-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/637474391"
 
 [tools."aqua:herdrdev/herdr"."platforms.macos-x64-baseline"]
-checksum = "sha256:db62d548ff3e832b087a96b1894a08d26be3905f1830309cd556783f215d4054"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-macos-x86_64"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036385"
+checksum = "sha256:2015ca1de3e93b84cdcccbfd94fbbd65dd56338cea4d3e57a8660e977a3bd700"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.4/herdr-macos-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/637474391"
 
 [[tools."aqua:jdx/usage"]]
 version = "6.12.1"
@@ -1610,7 +1610,7 @@ backend = "npm:graphql-language-service-cli"
 trust_policy_excludes = '["fastq@1.20.2"]'
 
 [[tools."npm:oxlint"]]
-version = "1.87.0"
+version = "1.88.0"
 backend = "npm:oxlint"
 
 [[tools."npm:prettier"]]
