@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The verified current PR head is H1. Its latest matching build B100 has successfully completed all required Heimdall review jobs and all configured lint/unit/Playwright checks. It posted one incorrect finding C1 in bot-originated thread T1; existing implementation and tests disprove it. A human also participated in T1. Human-originated unresolved thread T2 has a Heimdall reply but is outside this workflow. Disposition posting and T1 resolution succeed without code changes. Fresh discovery before completion returns only B100 for H1, all review attempts are terminal-successful, and both post-terminal thread scans show no actionable unresolved bot-originated findings. Describe whether a new commit or review is needed.",
-      "expected_output": "Reply to C1 and resolve T1, leave T2 untouched, verify final freshness and successful review/validation, and finish without an empty commit or another review round.",
+      "expected_output": "Reply to C1 and resolve T1, leave T2 untouched, verify final freshness and successful review, report observed CI separately, and finish without an empty commit or another review round.",
       "files": [],
       "expectations": [
         "Human participation does not prevent resolving T1, while human-originated T2 is ignored.",
@@ -16,14 +16,14 @@
     {
       "id": 2,
       "prompt": "Offline simulation only: read the skill and return an ordered action trace, reply/disposition mappings, thread states, and completion status. Treat the supplied repository and provider observations as fixtures. Do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The verified PR head remains H2 throughout. Discovery initially selects matching build B200 with triggerInfo pr.sourceSha H2 and queue time 10:00; its sourceVersion is synthetic merge M2. An older-head build B199 queued later at 10:01 has triggerInfo pr.sourceSha H0 and must not satisfy the wait. B200 completes Heimdall successfully and both thread scans are clean. Immediately before completion, refreshed discovery reveals B201 for H2 queued at 10:05 and still queued. It later starts, finishes all required Heimdall and validation jobs successfully, and its own terminal and publication-lag scans are clean. No code changes or review findings occur. Give the ordered monitoring and completion decisions.",
-      "expected_output": "Ignore B199 as completion evidence; do not finish against B200 when B201 appears. Follow B201 through successful required review and validation, obtain fresh scans and final discovery, and finish using B201.",
+      "expected_output": "Ignore B199 as completion evidence; do not finish against B200 when B201 appears. Follow all applicable Heimdall jobs in B201 through successful review, obtain fresh publication-grace scans and final discovery, report CI separately, and finish using B201.",
       "files": [],
       "expectations": [
         "Build matching uses the PR source head H2, not synthetic merge sourceVersion M2 or queue time alone.",
         "The final discovery catches B201 despite the unchanged PR head.",
         "The loop remains pending while B201 is queued or running instead of completing against B200.",
         "B200's terminal/thread-scan evidence is not reused as proof that B201 completed review.",
-        "Completion occurs only after B201's successful required checks, fresh post-terminal scans and final freshness check."
+        "Completion uses B201's successful applicable review jobs, fresh publication-grace scans and final freshness check; other CI results are reported separately."
       ]
     },
     {
@@ -50,21 +50,69 @@
         "Fixing, validating, pushing, replying, resolving, and verification proceed without polling sleeps between steps; monitoring resumes with an immediate Azure/thread scan rather than an unconditional post-push quiet period.",
         "C40 is corrected, validated and published, while C41 needs only an evidence-based disposition.",
         "After the push the loop monitors H5/B401; the older-head B400 cannot establish completion.",
-        "The final result requires B401 success, fresh thread scans and latest-run verification."
+        "The final result requires successful applicable Heimdall jobs in H5/B401, publication-grace scans and latest-run verification, not completion of unrelated CI."
       ]
     },
     {
       "id": 5,
-      "prompt": "Offline simulation only: read the skill and return an ordered action trace and completion status, including where sleeps would or would not occur. Treat provider observations and elapsed times as fixtures; do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The initial resolution pass is complete for verified head H6. Matching build B600 is running with no Heimdall findings, but a lint step has already failed inside a continueOnError job. Logs and repository evidence identify a safe in-scope repair; diagnosis, repair, validation, commit, and push succeed as H7 while B600 remains running. The immediate Azure/thread scan for H7 finds B601 queued and no actionable comments or failures. At the next scheduled poll, all required Heimdall and validation jobs for H7/B601 have succeeded; the first post-terminal thread scan finds incorrect Heimdall finding C71 in bot-originated thread T71. Investigation, an evidence-based reply, resolution, and pass verification take three minutes after that scan, without changing H7. A fresh scan is clean; final discovery and timeline confirm no superseding run or attempt. Describe how to handle the lint failure, idle queued build, finding, and publication-lag interval.",
-      "expected_output": "Immediately triage and repair the lint failure without polling sleeps or waiting for B600 to finish. After pushing H7, scan immediately; a bounded idle delay before the next poll is appropriate while B601 is queued with nothing actionable. Address C71 immediately without sleeps between investigation, reply, resolution, or verification. Since the three minutes of work satisfy the publication-lag interval, perform the final clean scan and freshness check without an additional two-minute sleep, then finish against H7/B601.",
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace and completion status, including where sleeps would or would not occur. Treat provider observations and elapsed times as fixtures; do not call live GitHub/Azure, edit a real checkout, push, or wait in real time. The initial resolution pass is complete for verified head H6. Matching B600 has a failed lint prerequisite. Pipeline dependsOn/condition evidence confirms this prevents both applicable Heimdall jobs from running. A minimal safe repair, local validation, commit, and push succeed as H7. The immediate Azure/thread scan finds B601 queued and nothing actionable. At the next scheduled poll, all applicable Heimdall jobs succeeded, with the latest finishing at 10:00. Other lint/unit/component/Playwright checks and a containing stage remain running or pending. The immediate post-success thread scan at 10:00:30 finds incorrect finding C71 in bot-originated T71. Investigation, an evidence-based reply, resolution, and pass verification take three minutes without changing H7. A fresh scan is clean; final discovery/timeline confirm no superseding run or attempt. Describe repair authority, idle waits, findings, publication grace, and remaining CI.",
+      "expected_output": "Repair the lint prerequisite immediately because it demonstrably blocks review. Scan immediately after pushing H7; an idle queued-build delay is appropriate. Address C71 without polling sleeps between actionable steps. The publication deadline is 10:02; three minutes of work satisfy it. Take the final clean scan/freshness check without another sleep, finish review against H7/B601, and report other checks and the parent stage as running/pending.",
       "files": [],
       "expectations": [
-        "The continueOnError lint failure triggers immediate diagnosis and repair despite B600 still running; no polling sleeps are inserted into that work.",
-        "Monitoring H7 begins with an immediate Azure/thread scan after the push.",
-        "A bounded polling sleep is permitted only at the idle checkpoint where B601 is queued and no actionable work remains.",
-        "C71 interrupts the wait immediately and receives an evidence-based disposition and eligible thread resolution without sleeps between actionable steps.",
-        "The three minutes spent resolving C71 count toward publication lag; no additional sleep precedes the fresh clean scan and final freshness check.",
-        "Completion uses H7/B601's successful required review and validation, clean scans, and unchanged final run/attempt state."
+        "The lint repair is justified by evidence it prevents applicable Heimdall jobs from running, not a blanket policy of repairing CI failures.",
+        "Monitoring H7 starts with an immediate Azure/thread scan after pushing.",
+        "A bounded polling sleep is appropriate only at the idle queued-build checkpoint, not between actionable repair or disposition steps.",
+        "C71 receives an immediate evidence-based disposition and eligible thread resolution.",
+        "Publication grace is anchored to the latest job finish at 10:00; three minutes of work satisfy the 10:02 deadline without another sleep.",
+        "Review completion uses H7/B601's successful applicable jobs and final freshness, independently of the running parent stage and pending CI; overall CI success is not claimed."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace and completion status, including sleeps and final reporting. Treat observations as fixtures; do not call live providers, edit a real checkout, push, or wait in real time. Verified H8 has latest matching B800. Pipeline configuration identifies exactly one applicable Heimdall job J8 in mixed-purpose Build stage. J8 attempt 1 succeeded and finished at 10:00. Its parent stage remains running on packaging/FOSSA. At 10:03 the immediate thread scan finds no actionable findings. Lint is pending, unit tests are running, and an optional Playwright job failed. Timeline/condition evidence confirms none prevents or supersedes J8. The final clean scan and discovery/timeline show unchanged H8/B800/J8 attempt 1. What should happen?",
+      "expected_output": "Finish Heimdall review after final scans/freshness without waiting for the parent stage, other CI or aggregate pipeline and without repairing the non-review-blocking Playwright failure. Report other CI states separately.",
+      "files": [],
+      "expectations": [
+        "J8 job success establishes review execution despite its mixed-purpose parent stage running.",
+        "Pending/running CI and a non-review-blocking Playwright failure cause neither further monitoring nor unsolicited repair/push.",
+        "The 10:02 grace deadline has passed, so final scanning adds no sleep.",
+        "The report separates successful Heimdall review from pending/failed CI and does not claim merge readiness."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace and completion status, including sleeps and final reporting. Treat observations as fixtures; do not call live providers, edit a real checkout, push, or wait in real time. Verified H9 matches latest B900. All applicable Heimdall jobs finished successfully at 09:10. Monitoring starts at 10:00, verifies their identities/attempts, and finds three incorrect findings. Investigation, focused validation, replies, resolution and pass verification take three minutes without a push. Fresh threads and final head/build/attempt discovery are clean and unchanged. Other CI remains running. Describe publication-grace handling before and after the reply-only pass.",
+      "expected_output": "The 09:12 grace deadline already elapsed. Resolve findings, then take the final clean scan/freshness check without a sleep or resetting the deadline. Finish review and report other CI running.",
+      "files": [],
+      "expectations": [
+        "The actual latest job finish, 09:10, anchors grace rather than monitoring start, first scan or reply completion.",
+        "The reply-only pass preserves run/attempt evidence and the publication anchor.",
+        "Once grace elapsed, scans need not be two minutes apart and no unconditional post-reply sleep occurs.",
+        "Final thread/head/build/attempt freshness checks still occur; running CI is reported independently."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace and completion status, including sleeps and final reporting. Treat observations as fixtures; do not call live providers, edit a real checkout, push, or wait in real time. Verified H10 matches B1000. Configuration identifies two applicable review jobs: early J100 and later J101. At 10:00 J100 attempt 1 succeeded but J101 is pending. At 10:02 J101 is running. At 10:03 its review task succeeds and publishes finding C101, but J101 itself remains running during finalization. Investigation disproves C101; reply/resolution take one minute without a push. J101 finishes successfully at 10:04. At 10:06 both applicable latest attempts remain successful, findings have valid dispositions, final threads/freshness are clean, and a sibling stage and CI tests remain pending. Give the pending, running, task-success and completion decisions.",
+      "expected_output": "Wait for both applicable jobs, polling idle pending review about every two minutes and running review every 30–60 seconds. Successful task execution does not establish J101 completion. Investigate/disposition C101 immediately. Finish at/after the 10:06 publication deadline with fresh evidence, independently of other stages/CI.",
+      "files": [],
+      "expectations": [
+        "Early job success does not permit completion while the distinct later applicable job is pending/running.",
+        "A successful review task is not a substitute for its job's successful terminal result.",
+        "Any running Heimdall job shortens idle polling to 30–60 seconds; pending review uses about two minutes, elapsed work counts, and findings interrupt immediately.",
+        "Grace uses the latest applicable job finish at 10:04; final scanning at/after 10:06 does not wait for unrelated CI."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Offline simulation only: read the skill and return an ordered action trace and completion status, including sleeps and final reporting. Treat observations as fixtures; do not call live providers, edit a real checkout, push, or wait in real time. For verified H11/latest B1100, the MCP cannot expose Heimdall job/attempt state. The authenticated timeline/log fallback is also inaccessible after reasonable safe recovery; trustworthy applicable-job results and retry identity remain unavailable. The aggregate build is running and later green; threads have no findings. Contrast separate H12/B1200, where both applicable latest attempts are verified successful at 10:00 but finish timestamps are absent. First observed success is recorded at 10:00. A reply-only pass takes three minutes, then final threads/freshness confirm the same successful attempts. Explain both outcomes.",
+      "expected_output": "H11 stops with review unverified and the specific evidence/access blocker; aggregate green is no substitute or reason to wait. H12 uses first observed success at 10:00 as a conservative grace anchor, reports missing timestamps, and finishes after the three-minute pass and fresh checks without another sleep.",
+      "files": [],
+      "expectations": [
+        "Unavailable job/attempt evidence is escalated after fallback/recovery rather than triggering aggregate-pipeline waiting.",
+        "Green aggregate and clean threads alone do not prove H11 review execution or attempt success.",
+        "H12 uses recorded first observed success and preserves that anchor through the reply-only pass.",
+        "Three minutes of work satisfy H12 grace; final checks occur without another sleep and the timestamp limitation is reported."
       ]
     }
   ]
