@@ -97,21 +97,8 @@ credential command available to Fish, other shells, and services alike. Task pat
 use `vars.dotfiles_root`, resolved from the actual declaring file, so commands run
 in the checkout whether it is discovered locally or through its global folder link.
 
-To migrate an existing workstation without rerunning a full bootstrap, run from
-this checkout, choosing the profile explicitly:
-
-```fish
-mise --env work-macos dot apply --yes
-# Or: mise --env personal-macos dot apply --yes
-set -e MISE_CONFIG_DIR MISE_GLOBAL_CONFIG_FILE MISE_GITHUB_CREDENTIAL_COMMAND MISE_ENV MISE_AGE_STRICT
-exec fish
-```
-
-Dotfile application removes only the old repository-owned
-`~/.config/fish/conf.d/10-mise-profile.fish` symlink; user-owned files and unrelated
-links are preserved. Clear the inherited variables in other existing shells too;
-new processes use the TOML configuration. Verify with
-`mise settings get self_update.auto` and `mise config ls` from outside the checkout.
+Verify the installed global configuration with `mise settings get self_update.auto`
+and `mise config ls` from outside the checkout.
 
 If a machine is already rate-limited **before** the global-config link exists,
 install/authenticate `gh` first, then make the credentials config available for the

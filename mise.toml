@@ -249,16 +249,6 @@ if [ "$(uname -s)" = Darwin ]; then
   mise bootstrap packages apply brew:mas --yes
 fi
 '''
-post-dotfiles = '''
-# Remove only our obsolete Fish selector, including a now-dangling link.
-repo="{{ vars.dotfiles_root }}"
-legacy="$HOME/.config/fish/conf.d/10-mise-profile.fish"
-if [ -L "$legacy" ]; then
-  case "$(readlink "$legacy")" in
-    "$repo/dotfiles/personal/mise-profile.fish"|"$repo/dotfiles/work/mise-profile.fish") rm "$legacy" ;;
-  esac
-fi
-'''
 post-defaults = '''
 defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Projects/"
 '''

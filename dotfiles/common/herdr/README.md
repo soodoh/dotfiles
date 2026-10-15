@@ -1,4 +1,4 @@
-# Herdr migration and acceptance
+# Herdr configuration and operation
 
 ## Installation and ownership
 
@@ -7,11 +7,8 @@ mise install aqua:herdrdev/herdr
 mise run bootstrap:pi
 ```
 
-The declared Aqua registry backend is `aqua:herdrdev/herdr`, pinned to **0.8.2**.
-`mise run lock` generated release-asset checksums for Linux/macOS x64/arm64.
-Only Herdr/tmux/sesh tool entries changed; both profile locks and all unrelated
-versions stayed unchanged. No checksum was hand-authored, grouped update or
-workstation bootstrap was run, or old binary uninstalled.
+The declared Aqua registry backend is `aqua:herdrdev/herdr`; `mise.toml` owns its
+version and `mise.lock` owns release-asset checksums for Linux/macOS x64/arm64.
 
 Only `~/.config/herdr/config.toml` links into this checkout. Never link the
 whole directory: sockets, session snapshots, logs, plugins, and optional history
@@ -75,21 +72,11 @@ upstream build still lacks `--locked`. `--yes` approves executing pinned build c
 Applying a changed pin during bootstrap or update therefore runs upstream build
 code and can upgrade or roll back the plugin, including after reverting a pin.
 
-This implementation did not install a workstation plugin or configure macOS
-notification permissions. Start with a supervised single-window trial: clicks
-activate an app and focus a Herdr pane, not necessarily the originating Ghostty
-window/client. To avoid duplicate native desktop notifications, choose
-`[ui.toast] delivery = "herdr"` (internal-only) or `"off"` when enabling the plugin;
-the shared config's existing delivery policy is left unchanged. See the
-[notification audit](notification-research.md) and
-[mise plugin-management research](plugin-management-research.md) for provenance,
-installer semantics and routing limitations.
-
-The local authorized setup installed Herdr, created the config-file link, and
-installed the official extension after confirming those destinations were absent.
-Both profile settings were unchanged by installer execution. Fish/Pi checkout
-links make repository edits visible to **new** shells/sessions; existing tmux/Pi
-processes were not stopped or reloaded.
+Test notification routing in a single window: clicks activate an app and focus
+a Herdr pane, not necessarily the originating Ghostty window/client. To avoid
+duplicate native desktop notifications, choose `[ui.toast] delivery = "herdr"`
+(internal-only) or `"off"` when enabling the plugin. macOS notification permissions
+require manual configuration.
 
 ## Sesh workspace picker
 
@@ -98,8 +85,7 @@ Alt+E opens `fullerzz/herdr-plugin-sesh` as a 90% session-modal popup through
 workspace selection cannot leave native `last_pane` pointing at a pane that has
 already exited. `$HERDR_BIN_PATH` ensures the detached custom command uses the
 same Herdr binary and socket. Native `goto` is unbound.
-The initial managed pin is the commit behind v0.11.0. Provision on macOS through
-mise (substitute `work-macos` as appropriate):
+Provision on macOS through mise (substitute `work-macos` as appropriate):
 
 ```sh
 mise install cargo:eza
@@ -204,107 +190,40 @@ dependency. This corrects the handoff's JSON description. The plugin, its mappin
 and lazy lock remain unchanged. Auto-session-name, statusline, all independent
 packages, and work-only aidev-track remain.
 
-## Migration baseline evidence (2026-09-06, before reporter consolidation)
+## Manual validation
 
-| Check | Result |
-| --- | --- |
-| Baseline and post-migration `mise run validate` | Passed, including isolated Neovim, Pi package/host suites and exact work HTTP expected-failure |
-| `mise run lock`; `mise run validate:locks` | Passed on this Mac; four-platform generated entries reviewed; Linux CI execution not run locally |
-| Both explicit `mise --env … bootstrap plan` commands | Passed; plans only, no apply/bootstrap |
-| Native `herdr config check` | Repository config validates via explicit `HERDR_CONFIG_PATH`; no preference snapshots or tests of Herdr's validator |
-| Fish `config.test.py` | 6 tests passed, with nested/editor marker subcases, isolated HOME/PATH, fake executables, secret sentinel, one launch and shell return |
-| Pi-package `integration.test.py "$(mise which pi)"` | 3 tests; bundled-byte equality, four profile/legacy loader cases and six mode/lifecycle cases; no profile × mode cross-product |
-| Native Pi loader/runner/UI wrappers + captured socket fixture | Reporter and companion loaded once; mode guards, prompt answer/cancel/error, overlapping spans, independent attention, identity and simulated shutdown/start cleanup passed |
-| Pi extension package CI | 146 tests passed, including 9 prompt-bridge unit cases; Bun frozen install passed without changing its lock |
-| `git diff --check`; scoped reference/lock audit | Passed; no runtime state or unrelated lock/config changes |
+Automated fixtures do not establish rendered keyboard behavior, GUI notification
+routing, or live session restoration. After relevant changes:
 
-Current custom-reporter coverage replaces bundled-byte equality with full report
-sequence assertions. The host suite checks four profile/legacy loading cases,
-seven execution modes, real native prompt wrappers, the pi-subagents Herdr bridge,
-and fresh runtime reloads with busy restoration on either side of reporter startup.
-The consolidated extension also participates in the normal lint/type/coverage suite.
+- Open a fresh Ghostty window and use P ? to review the map. In scratch splits
+  and tabs, check cwd following, Alt navigation, pane cycling, last-pane focus,
+  popups, and physical Ctrl+Space delivery. Check double-prefix completion in
+  Neovim insert mode and key delivery in Blink when used.
+- Test copy/search/clipboard, single g/G, v/y, Ctrl+U/D outside copy mode, and
+  history while output continues.
+- Run a regular Pi session; check streaming, tool output, resizing, and supported
+  agent state transitions and notification focus. Compare rendering with
+  `pi --tui-mode fullscreen` if needed; prior fixtures do not prove flashing fixed.
+- Detach and reattach with a harmless job. Test server restoration only in a
+  separately named scratch runtime, never by stopping the user's server.
+- On an explicitly authorized SSH host, check keys, clipboard/OSC52 limitations,
+  connection loss and reattach. This checklist does not authorize provisioning.
 
-The host fixtures use the **installed** Pi loader, event runner and prompt wrappers.
-Agent/session hooks, dialog outcomes and transport are fixture-driven; a full
-interactive `/reload`, rendered keyboard/abort behavior, notifications and live
-agent focus remain manual acceptance. Installed Pi
-settings, extensions, packages, keybindings, TUI, session, RPC, SDK docs and
-applicable examples were read completely during the integration audit.
+## Unmanaged legacy state
 
-A disposable PTY trial with temporary HOME/config, named `trial` server, no secrets,
-and update checks disabled passed: Fish startup creates one pane; prefix help,
-side-by-side/stacked splits and new tab work; all four panes follow the source
-shell's changed project cwd and inherit `HERDR_ENV=1`. A scratch-only popup
-reported `HERDR_ENV=1` without a pane ID, and sourced Fish without autostart.
-Injected Alt/prefix tab and pane navigation, wrapping pane cycling, and
-Alt+Tab/P Tab last-pane passed. Detach returns to the outer Fish; reattach
-retains terminal IDs and four harmless sleep jobs. Scratch-only server
-stop/restart restored the two-tab, four-pane layout with **new** terminal IDs.
-All scratch servers/jobs/clients ended. Initial trial failures were harness
-assumptions: missing controlling PTY, a new-tab dialog needing Enter, and popup
-keys being forwarded to the popup rather than detaching Herdr. The final trial
-closed only its own popup via the native API before testing detach.
-Successful local artifacts: `/private/tmp/hdr-2g51t_rl/`;
-disposable driver: `/tmp/herdr-scratch-trial.py`.
-These paths are ephemeral evidence, not dependencies.
-
-### Remaining human acceptance
-
-| Handoff trial | Status / next check |
-| --- | --- |
-| 1. Fresh Ghostty/Fish, splits/tabs/popups | Isolated PTY startup/splits/tabs/popups and changed-cwd following passed; actual Ghostty **not run** |
-| 2. Physical keys, Blink, Alt/cycle/last-pane | Injected Ctrl+Space/help/split/tab/detach, Alt navigation, wrapping cycles and last-pane passed; physical keys and double-prefix Blink **not run** |
-| 3. Copy/search/clipboard/pinned history | **Not run**; test single g/G, /?, v/y, Ctrl+U/D outside copy mode, and history while output continues |
-| 4. Regular Pi streaming/output/resize/flashing | **Not run**; compare identical runs with `pi --tui-mode fullscreen`; original flashing bug is not claimed fixed |
-| 5. Visible official agent lifecycle/focus/notifications | Fixtures passed; real active/needs-input/completed agent and navigator focus **not run** |
-| 6. Detach/reattach and restoration | Passed in isolated PTY scratch runtime only; no live user process survival/restoration trial |
-| 7. SSH/thin client | **Not run**; no remote host was authorized or provisioned |
-
-For GUI acceptance, open a fresh Ghostty window, use P ? to review the map, then
-create scratch splits/tabs. Run a harmless output loop and a regular Pi session;
-test navigation, copy/search/clipboard, streaming, tool output, resizing and
-returning to current output. In Neovim insert mode, check double-prefix completion.
-Use native goto to focus another agent and observe supported state transitions.
-Detach and reattach rather than closing the scratch job. Do not stop the user's
-server to test restoration; use a separately named scratch runtime only.
-
-For an explicitly authorized SSH host: verify versions first; test Ctrl+Space,
-Alt navigation/last-pane, copy/search, available clipboard/OSC52 behavior, detach,
-connection loss and reattach with a harmless job. Document client/remote clipboard
-limitations. No remote installation or provisioning is implied by this checklist.
-
-## Reference audit, rollback and optional cleanup
-
-No surviving managed consumer needs sesh, the custom tmux package, retired picker/
-focus helpers, or terminal-notifier. Remaining first-party mentions are this
-migration history, the intentional Fish coexistence guard/tests, a negative
-retired-resource assertion, and the preserved `tmux` commit scope in `AGENTS.md`
-and `commitlint.config.ts`. Dependencies/caches and vendored third-party material
-are outside the active configuration audit; they are not pruned for word matches.
-
-Local `~/.config/tmux` and `~/.config/sesh` still point to their now-retired checkout
-directories. They were deliberately left alone. After all old sessions are no
-longer needed, inspect `ls -ld`/`readlink` and optionally unlink **only those exact
-stale symlinks**, never recursively remove a directory. Installed binaries and
-`${XDG_STATE_HOME:-~/.local/state}/pi/tmux-sessions/` historical state remain.
-Stopping sessions, deleting that state, or uninstalling binaries requires a
-separate explicit cleanup decision.
-
-For rendering problems, use the per-launch fullscreen fallback above. For a full
-migration rollback, first preserve the current diff (including new untracked files)
-and review it against the baseline commit. Restore **only migration-owned hunks**
-and retired files from Git; do not reset the worktree or revert unrelated work.
-Restoring the Fish config affects new shells; it does not stop existing Herdr or
-tmux processes. For package rollback, restore the package manifest/profile filters
-together; review the legacy standalone exclusion before enabling any old copy.
-Unlink the new config-file link only after verifying ownership; keep Herdr runtime
-state intact.
-Do not invoke the upstream uninstaller blindly: it removes the destination without
-an ownership check. No commit was made by this implementation.
+Bootstrap does not prune old tmux/sesh links, installed binaries, running sessions,
+or `${XDG_STATE_HOME:-~/.local/state}/pi/tmux-sessions/` history. If
+`~/.config/tmux` or `~/.config/sesh` still links to a retired checkout directory,
+inspect ownership and wait until old sessions are no longer needed before
+unlinking only that exact stale symlink. Never recursively delete a directory.
+Stopping sessions, deleting history, or uninstalling binaries requires a separate
+explicit decision. Keep Herdr runtime state intact; the upstream uninstaller
+removes its destination without an ownership check.
 
 ## Sources
 
-Release-scoped source takes precedence over advancing public docs:
+The v0.8.2 references below underpin the version-specific behavior notes above.
+Check the release declared in `mise.toml` before relying on those details:
 
 - [Herdr v0.8.2 release](https://github.com/herdrdev/herdr/releases/tag/v0.8.2), annotated tag resolving to commit `9eb521456ac0d19d3ab3d9d7cea3cca10baa8a4c`.
 - [Config model/defaults](https://github.com/herdrdev/herdr/blob/v0.8.2/src/config/model.rs) and [binding resolution](https://github.com/herdrdev/herdr/blob/v0.8.2/src/config/keybinds.rs).

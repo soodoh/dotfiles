@@ -553,16 +553,12 @@ class MiseConfigurationTests(unittest.TestCase):
                 "MISE_YES": "1",
             }
 
-    def test_native_dotfiles_apply_installs_mise_layout_and_safely_retires_fish_selector(self) -> None:
+    def test_native_dotfiles_apply_installs_mise_layout_and_reapplies_from_both_discovery_paths(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise)
         for profile in ("personal", "work"):
             with tempfile.TemporaryDirectory() as directory:
                 home = Path(directory).resolve()
-                legacy = home / ".config/fish/conf.d/10-mise-profile.fish"
-                legacy.parent.mkdir(parents=True)
-                # The old source is gone, so migration must handle dangling links.
-                legacy.symlink_to(ROOT / "dotfiles" / profile / "mise-profile.fish")
                 environment = {
                     "HOME": str(home), "PATH": os.defpath,
                     "MISE_AGE_STRICT": "false",
@@ -580,7 +576,6 @@ class MiseConfigurationTests(unittest.TestCase):
                         timeout=30, check=False,
                     )
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertFalse(legacy.is_symlink())
                     config = home / ".config/mise"
                     self.assertEqual(
                         (config / "miserc.toml").resolve(),
@@ -604,27 +599,6 @@ class MiseConfigurationTests(unittest.TestCase):
                         ).items():
                             target = home / destination.removeprefix("~/")
                             self.assertEqual(target.resolve(), (ROOT / source).resolve())
-                    # The cleanup hook must not delete a user-owned file or link,
-                    # and must be safe to rerun when nothing remains to remove.
-                    hook = self.base["bootstrap"]["hooks"]["post-dotfiles"].replace(
-                        "{{ vars.dotfiles_root }}", str(ROOT)
-                    )
-                    for kind in ("file", "foreign-link", "absent"):
-                        if kind == "file":
-                            legacy.write_text("# user-owned selector\n")
-                        elif kind == "foreign-link":
-                            legacy.symlink_to(home / "user-owned.fish")
-                        result = subprocess.run(
-                            ["bash", "-c", hook], cwd=ROOT, env=environment,
-                            capture_output=True, text=True, timeout=10, check=False,
-                        )
-                        self.assertEqual(result.returncode, 0, result.stderr)
-                        if kind == "file":
-                            self.assertEqual(legacy.read_text(), "# user-owned selector\n")
-                            legacy.unlink()
-                        elif kind == "foreign-link":
-                            self.assertTrue(legacy.is_symlink())
-                            legacy.unlink()
 
     def test_workstation_profiles_require_age_keys(self) -> None:
         mise = shutil.which("mise")
