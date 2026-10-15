@@ -50,20 +50,6 @@ class MisePolicyTests(unittest.TestCase):
         ]
         self.assertEqual(disabled_mise_rules, [])
 
-    def test_renovate_strips_grafana_release_tag_prefix(self) -> None:
-        renovate = json.loads((ROOT / "renovate.json").read_text())
-        rules = [
-            rule
-            for rule in renovate["packageRules"]
-            if "grafana/mcp-grafana" in rule.get("matchPackageNames", [])
-            and "github-releases" in rule.get("matchDatasources", [])
-        ]
-        self.assertEqual(len(rules), 1)
-        pattern = rules[0]["extractVersion"].replace("(?<version>", "(?P<version>")
-        release = re.fullmatch(pattern, "v1.6.2")
-        self.assertIsNotNone(release)
-        self.assertEqual(release.group("version"), "1.6.2")
-
     def test_repository_updates_only_explicitly_unsupported_tools(self) -> None:
         mise_lock = load_mise_lock_module()
         mise_lock.UNSUPPORTED_TOOLS = {"work-macos": ("http:fixture",)}
@@ -696,23 +682,39 @@ class MiseConfigurationTests(unittest.TestCase):
                             self.assertIn(resolved.get(variable), (None, ""))
 
     def test_every_declared_tool_version_has_a_matching_lock_entry(self) -> None:
-        for config_name, lock_name in (
-            ("mise.toml", "mise.lock"),
-            ("mise.personal-macos.toml", "mise.personal-macos.lock"),
-            ("mise.work-macos.toml", "mise.work-macos.lock"),
-        ):
-            config_tools = load_toml(config_name).get("tools", {})
-            lock_tools = load_toml(lock_name).get("tools", {})
+        mise = shutil.which("mise")
+        self.assertIsNotNone(mise)
+        environment = load_mise_lock_module().mise_environment(ROOT)
+        for profile in (None, "personal-macos", "work-macos"):
+            arguments = [mise]
+            config_tools = dict(self.base["tools"])
+            lock_tools = dict(load_toml("mise.lock")["tools"])
+            if profile:
+                arguments.extend(["--env", profile])
+                config_tools.update(load_toml(f"mise.{profile}.toml").get("tools", {}))
+                lock_tools.update(load_toml(f"mise.{profile}.lock").get("tools", {}))
+            result = subprocess.run(
+                [*arguments, "ls", "--current", "--offline", "--json"],
+                cwd=ROOT, env=environment, capture_output=True, text=True,
+                timeout=30, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("Failed to resolve", result.stderr)
+            resolved = json.loads(result.stdout)
+            self.assertEqual(set(resolved), set(config_tools))
             for tool, specification in config_tools.items():
-                version = tool_version(specification)
-                with self.subTest(config=config_name, tool=tool, version=version):
-                    self.assertTrue(
-                        any(
-                            entry["version"] == version
-                            for entry in lock_tools.get(tool, [])
-                        ),
-                        f"{config_name}: {tool}@{version} is missing from {lock_name}",
+                with self.subTest(profile=profile, tool=tool):
+                    records = resolved[tool]
+                    self.assertEqual(
+                        [record["requested_version"] for record in records],
+                        [tool_version(specification)],
                     )
+                    for record in records:
+                        self.assertIn(
+                            record["version"],
+                            [entry["version"] for entry in lock_tools.get(tool, [])],
+                            f"{profile}: {tool}@{record['version']} is missing from the lock",
+                        )
 
     def test_yarn_lock_covers_every_supported_platform(self) -> None:
         yarn_tool = "aqua:yarnpkg/berry"
@@ -823,7 +825,7 @@ class MiseConfigurationTests(unittest.TestCase):
                         self.assertEqual(result.returncode, 0, result.stderr)
                         self.assertNotIn("Failed to resolve", result.stderr)
                         selected = {
-                            tool: [record["version"] for record in records]
+                            tool: [record["requested_version"] for record in records]
                             for tool, records in json.loads(result.stdout).items()
                         }
                         self.assertEqual(
@@ -848,7 +850,7 @@ class MiseConfigurationTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertNotIn("Failed to resolve", result.stderr)
                 selected = {
-                    tool: [record["version"] for record in records]
+                    tool: [record["requested_version"] for record in records]
                     for tool, records in json.loads(result.stdout).items()
                 }
                 other_config = self.personal if other == "personal" else self.work

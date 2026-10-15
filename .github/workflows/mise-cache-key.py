@@ -6,10 +6,10 @@ import json
 import os
 import re
 import subprocess
+import tempfile
+import tomllib
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 # v3 archives exclude the CLI binary, which is selected before tool restoration.
 SCHEMA = "mise-tools-v3"
@@ -83,6 +83,82 @@ def relevant_lock_entry(entry: dict[str, Any], platform: str) -> dict[str, Any]:
     return selected
 
 
+def toml_value(value: Any) -> str:
+    # The resolver projection uses only TOML's JSON-compatible configuration
+    # values. Keep backend options intact instead of inventing version rules.
+    if isinstance(value, dict):
+        return "{ " + ", ".join(
+            f"{toml_value(key)} = {toml_value(item)}" for key, item in value.items()
+        ) + " }"
+    if isinstance(value, list):
+        return "[" + ", ".join(toml_value(item) for item in value) + "]"
+    return json.dumps(value, ensure_ascii=False, allow_nan=False)
+
+
+def resolved_versions(
+    root: Path, config: dict[str, Any], declarations: dict[str, dict[str, Any]]
+) -> dict[tuple[str, str], str]:
+    # `mise ls` does not include task tools. Project every distinct declaration
+    # into [tools] so root and task requests use the same native resolver, even
+    # when they request different versions of one tool. Never modify the checkout.
+    tools: dict[str, list[Any]] = {}
+    for source_tools in declarations.values():
+        for tool, specification in source_tools.items():
+            versions = tools.setdefault(tool, [])
+            if specification not in versions:
+                versions.append(specification)
+    projection = {
+        key: config[key] for key in ("settings", "tool_config", "alias", "plugins")
+        if key in config
+    }
+    # This is a read-only resolution, not an install. Let mise report a stale
+    # request's canonical version too; the caller still requires a matching lock.
+    projection["settings"] = {
+        **projection.get("settings", {}), "lockfile": True, "locked": False,
+    }
+    projection["tool_config"] = {**projection.get("tool_config", {}), "locked": False}
+    projection["tools"] = tools
+    with tempfile.TemporaryDirectory(prefix="mise-cache-resolve-") as directory:
+        stage = Path(directory)
+        (stage / "mise.toml").write_text("\n".join(
+            f"{toml_value(key)} = {toml_value(value)}"
+            for key, value in projection.items()
+        ) + "\n")
+        (stage / "mise.lock").write_bytes((root / "mise.lock").read_bytes())
+        # Workstation globals, profiles and per-tool environment overrides must
+        # not affect the identity of this repository's CI cache.
+        environment = {
+            key: value for key, value in os.environ.items()
+            if not key.startswith("MISE_")
+        }
+        environment.update({
+            "MISE_CONFIG_DIR": str(stage / ".global"),
+            "MISE_GLOBAL_CONFIG_FILE": str(stage / ".empty.toml"),
+            "MISE_SYSTEM_CONFIG_FILE": str(stage / ".empty.toml"),
+            "MISE_OVERRIDE_CONFIG_FILENAMES": "mise.toml",
+            "MISE_ENV": "",
+            "MISE_SAFE": "1",
+            "MISE_TRUSTED_CONFIG_PATHS": str(stage),
+        })
+        output = subprocess.check_output(
+            ["mise", "--cd", str(stage), "--no-env", "--no-hooks",
+             "ls", "--current", "--offline", "--json"],
+            cwd=stage, env=environment, text=True, timeout=30,
+        )
+    resolved: dict[tuple[str, str], str] = {}
+    for tool, records in json.loads(output).items():
+        for record in records:
+            request = record.get("requested_version")
+            version = record.get("version")
+            if not isinstance(request, str) or not isinstance(version, str):
+                raise TypeError(f"mise returned no version identity for {tool}")
+            key = (tool, request)
+            if key in resolved and resolved[key] != version:
+                raise ValueError(f"mise returned ambiguous versions for {tool}@{request}")
+            resolved[key] = version
+    return resolved
+
+
 def matching_lock_entries(
     locks: dict[str, Any], tool: str, version: str, platform: str
 ) -> list[dict[str, Any]]:
@@ -106,13 +182,17 @@ def cache_inputs(
     if "{{" in json.dumps(declarations):
         raise ValueError("templated tool inputs require a cache-key policy review")
 
+    versions = resolved_versions(root, config, declarations)
     policy_tools: dict[str, Any] = {}
     identity_tools: dict[str, Any] = {}
     for source, tools in sorted(declarations.items()):
         policy_tools[source] = {}
         identity_tools[source] = {}
         for tool, specification in sorted(tools.items()):
-            version = requested_version(specification)
+            request = requested_version(specification)
+            version = versions.get((tool, request))
+            if version is None:
+                raise ValueError(f"mise did not resolve {tool}@{request}")
             entries = matching_lock_entries(locks, tool, version, platform)
             if source == "root" and not entries:
                 raise ValueError(f"{tool}@{version} has no matching mise.lock entry")

@@ -13,7 +13,7 @@ import unittest
 from argparse import Namespace
 from pathlib import Path
 from types import ModuleType
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = Path(__file__).with_name("mise-cache-key.py")
@@ -91,8 +91,9 @@ class MiseCacheKeyTests(unittest.TestCase):
         binaries.mkdir()
         mise = binaries / "mise"
         mise.write_text(
-            '#!/bin/sh\n[ "$*" = --version ] || exit 99\n'
-            'printf "%s\\n" "$TEST_MISE_VERSION"\n'
+            '#!/bin/sh\nif [ "$*" = --version ]; then\n'
+            'printf "%s\\n" "$TEST_MISE_VERSION"\nelse\n'
+            f'exec "{shutil.which("mise")}" "$@"\nfi\n'
         )
         mise.chmod(0o755)
 
@@ -160,6 +161,141 @@ class MiseCacheKeyTests(unittest.TestCase):
         after = self.keys()
         self.assertNotEqual(after["primary-key"], before["primary-key"])
         self.assertEqual(after["restore-key"], before["restore-key"])
+
+    def test_native_version_spelling_does_not_change_keys_or_reconciliation(self) -> None:
+        # Exercise the real resolver: these backends accept upstream v-prefixed
+        # requests but store numeric versions in mise.lock. Start with no tools
+        # installed, as CI computes the key before restoring its tool cache.
+        home = self.root / "empty-home"
+        home.mkdir()
+        environment = patch.dict(os.environ, {"HOME": str(home)})
+        environment.start()
+        self.addCleanup(environment.stop)
+        config = self.root / "mise.toml"
+        lock = self.root / "mise.lock"
+        config.write_text(
+            '[settings]\nlockfile = true\n[tools]\n'
+            '"go:golang.org/x/tools/gopls" = "0.23.0"\n'
+            '"github:grafana/mcp-grafana" = "2.0.2"\n'
+            '"github:docker/docker-language-server" = "0.20.1"\n'
+            '[tasks.check.tools]\nnode = "24.22.0"\n'
+        )
+        lock.write_text(
+            '[[tools."go:golang.org/x/tools/gopls"]]\n'
+            'version = "0.23.0"\nbackend = "go:golang.org/x/tools/gopls"\n'
+            '[[tools."github:grafana/mcp-grafana"]]\n'
+            'version = "2.0.2"\nbackend = "github:grafana/mcp-grafana"\n'
+            '"platforms.linux-x64" = { url = "https://example.test/grafana", '
+            'checksum = "sha256:original", provenance = "github-attestations" }\n'
+            '[[tools."github:docker/docker-language-server"]]\n'
+            'version = "0.20.1"\nbackend = "github:docker/docker-language-server"\n'
+            '[[tools.node]]\nversion = "24.22.0"\nbackend = "core:node"\n'
+        )
+        platforms = (("Linux", "X64", "ubuntu26"), ("macOS", "ARM64", "macos26"))
+        before = {
+            os_name: (
+                self.keys(os_name=os_name, architecture=arch, image=image),
+                self.helper.snapshot(self.root, os_name, arch),
+            )
+            for os_name, arch, image in platforms
+        }
+        original = config.read_text()
+        config.write_text(re.sub(r'= "(?=\d)', '= "v', original))
+        for os_name, arch, image in platforms:
+            with self.subTest(platform=os_name):
+                keys, old = before[os_name]
+                self.assertEqual(
+                    self.keys(os_name=os_name, architecture=arch, image=image), keys
+                )
+                current = self.helper.snapshot(self.root, os_name, arch)
+                self.assertEqual(self.helper.reinstall_tools(old, current), [])
+                self.assertIn("go:golang.org/x/tools/gopls@0.23.0", current["tools"])
+                self.assertIn("node@24.22.0", current["tools"])
+
+        # Prefix equivalence must not hide changes to trusted lock artifacts.
+        for field, replacement in (
+            ("https://example.test/grafana", "https://example.test/replaced"),
+            ("sha256:original", "sha256:replacement"),
+            (', provenance = "github-attestations"', ""),
+        ):
+            original_lock = lock.read_text()
+            lock.write_text(original_lock.replace(field, replacement))
+            with self.subTest(artifact=field):
+                self.assertEqual(
+                    self.helper.reinstall_tools(
+                        before["Linux"][1],
+                        self.helper.snapshot(self.root, "Linux", "X64"),
+                    ),
+                    ["github:grafana/mcp-grafana@2.0.2"],
+                )
+            lock.write_text(original_lock)
+        self.assertEqual(list(home.glob(".local/share/mise/installs/*")), [])
+
+    def test_native_resolution_keeps_distinct_root_and_task_versions(self) -> None:
+        config = self.root / "mise.toml"
+        lock = self.root / "mise.lock"
+        config.write_text(
+            '[tools]\nnode = "v24.0.0"\n'
+            '[tasks.check.tools]\nnode = "v24.1.0"\n'
+        )
+        lock.write_text(
+            '[[tools.node]]\nversion = "24.0.0"\nbackend = "core:node"\n'
+            '[[tools.node]]\nversion = "24.1.0"\nbackend = "core:node"\n'
+        )
+        _, identity = self.helper.cache_inputs(self.root, "Linux", "X64")
+        for source, expected in (("root", "24.0.0"), ("task:check", "24.1.0")):
+            with self.subTest(source=source):
+                node = identity["declarations"][source]["node"]
+                self.assertEqual(node["version"], expected)
+                self.assertEqual([entry["version"] for entry in node["lock"]], [expected])
+
+    def test_native_resolution_ignores_workstation_configs_and_overrides(self) -> None:
+        before = self.keys()
+        original = {
+            name: (self.root / name).read_bytes() for name in ("mise.toml", "mise.lock")
+        }
+        foreign = self.root / "foreign.toml"
+        foreign.write_text('[tools]\nnode = "99.0.0"\n')
+        (self.root / "mise.work-macos.toml").write_bytes(foreign.read_bytes())
+        with patch.dict(os.environ, {
+            "MISE_ENV": "work-macos",
+            "MISE_CONFIG_DIR": str(self.root),
+            "MISE_CONFIG_FILE": str(foreign),
+            "MISE_GLOBAL_CONFIG_FILE": str(foreign),
+            "MISE_SYSTEM_CONFIG_FILE": str(foreign),
+            "MISE_OVERRIDE_CONFIG_FILENAMES": str(foreign),
+            "MISE_NODE_VERSION": "99.0.0",
+            "MISE_LOCKED": "true",
+        }):
+            self.assertEqual(self.keys(), before)
+        self.assertEqual(
+            {name: (self.root / name).read_bytes() for name in original}, original
+        )
+
+    def test_native_literal_versions_are_not_stripped_by_the_helper(self) -> None:
+        config = self.root / "mise.toml"
+        lock = self.root / "mise.lock"
+        config.write_text('[tools]\n"asdf:example" = "v1.2.3"\n')
+        lock.write_text(
+            '[[tools."asdf:example"]]\nversion = "1.2.3"\nbackend = "asdf:example"\n'
+            '[[tools."asdf:example"]]\nversion = "v1.2.3"\nbackend = "asdf:example"\n'
+        )
+        # A plugin may distinguish literal v-prefixed versions. The adapter must
+        # trust native identities verbatim, not apply its own semver rules.
+        output = json.dumps({"asdf:example": [{
+            "requested_version": "v1.2.3", "version": "v1.2.3",
+        }]})
+        with patch.object(self.helper.subprocess, "check_output", return_value=output):
+            _, identity = self.helper.cache_inputs(self.root, "Linux", "X64")
+        selected = identity["declarations"]["root"]["asdf:example"]
+        self.assertEqual(selected["version"], "v1.2.3")
+        self.assertEqual([entry["version"] for entry in selected["lock"]], ["v1.2.3"])
+
+    def test_genuinely_stale_lock_fails_closed_with_a_prefixed_request(self) -> None:
+        config = self.root / "mise.toml"
+        config.write_text(config.read_text().replace('node = "24.0.0"', 'node = "v24.1.0"'))
+        with self.assertRaisesRegex(ValueError, "no matching mise.lock entry"):
+            self.keys()
 
     def test_install_option_change_invalidates_fallback(self) -> None:
         before = self.keys()
@@ -270,27 +406,35 @@ class MiseCacheKeyTests(unittest.TestCase):
         args = Namespace(
             root=self.root, os="Linux", arch="X64", data_dir=data, mode="reconcile"
         )
-        with patch.object(self.helper.subprocess, "run") as run:
+        real_run = subprocess.run
+        install = Mock()
+        with patch.object(
+            self.helper.subprocess, "run",
+            side_effect=lambda command, **kwargs: (
+                install(command, **kwargs) if command[:2] == ["mise", "install"]
+                else real_run(command, **kwargs)
+            ),
+        ):
             self.helper.reconcile_or_record(args)
-            run.assert_not_called()
+            install.assert_not_called()
             args.mode = "record"
             self.helper.reconcile_or_record(args)
             (data / "installs").mkdir()
             args.mode = "reconcile"
             self.helper.reconcile_or_record(args)
-            run.assert_not_called()
+            install.assert_not_called()
             lock = self.root / "mise.lock"
             lock.write_text(lock.read_text().replace("node-linux", "replacement"))
             self.helper.reconcile_or_record(args)
-            run.assert_called_once_with(
+            install.assert_called_once_with(
                 ["mise", "install", "--locked", "--force", "node@24.0.0"], check=True
             )
-            run.reset_mock()
+            install.reset_mock()
             args.mode = "record"
             self.helper.reconcile_or_record(args)
             args.mode = "reconcile"
             self.helper.reconcile_or_record(args)
-            run.assert_not_called()
+            install.assert_not_called()
 
 
 class NeovimCacheKeyTests(unittest.TestCase):

@@ -39,7 +39,7 @@ GWS_MCP_CLIENT_SECRET = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBXVmd
 "npm:@azure/mcp" = "3.0.0"
 "npm:@azure-devops/mcp" = { version = "2.10.0", allow_builds = ["keytar"] }
 "npm:figma-developer-mcp" = "0.13.2"
-"github:grafana/mcp-grafana" = "2.0.2"
+"github:grafana/mcp-grafana" = "v2.0.2"
 
 [tools."http:twg"]
 version = "1.3.5"
