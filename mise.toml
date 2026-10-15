@@ -75,7 +75,7 @@ rust = { version = "1.99.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "github:docker/docker-language-server" = "v0.20.1"
 "aqua:LuaLS/lua-language-server" = "3.19.2"
 "aqua:artempyanykh/marksman" = "2026-02-08"
-"aqua:astral-sh/ruff" = "0.17.0"
+"aqua:astral-sh/ruff" = "0.17.1"
 "aqua:rhysd/actionlint" = "1.7.12"
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"
@@ -87,7 +87,7 @@ rust = { version = "1.99.0", components = ["clippy", "rustfmt", "rust-src", "rus
 "cargo:tree-sitter-cli" = "0.27.1"
 "cargo:kdlfmt" = "0.1.7"
 "cargo:taplo-cli" = "0.10.0"
-"go:golang.org/x/tools/gopls" = "v0.23.0"
+"go:golang.org/x/tools/gopls" = "v0.24.0"
 "pipx:yamllint" = "1.38.0"
 "npm:@earendil-works/pi-coding-agent" = "1.2.0"
 "npm:agent-browser" = { version = "0.39.1", allow_builds = ["agent-browser"] }
