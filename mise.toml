@@ -1,18 +1,19 @@
 # Compatibility floor; raise only when configuration requires newer features or fixes.
-min_version = "2026.9.18"
+min_version = "2026.10.10"
 
 [settings]
 experimental = true
 lockfile = true
 locked = true
 age.key_file = "~/.config/mise/age.txt"
-# Renovate has no age identity; workstation Fish profiles explicitly enable strict mode.
-age.strict = false
+# Workstations fail closed; credential-free CI explicitly opts out.
+age.strict = true
 dotfiles.default_mode = "symlink"
 task.run_auto_install = false
 
 [task_config]
-dir = "{{ env.MISE_CONFIG_DIR | default(value=config_root) }}"
+# Stable through the global folder alias; safe mode deliberately skips vars.
+dir = "{{ vars.dotfiles_root | default(value=config_root) }}"
 
 [tool_config]
 locked = true
@@ -37,6 +38,8 @@ _.path = [
 ]
 
 [vars]
+# Resolve once from the declaring file, not the invocation directory or $HOME.
+dotfiles_root = "{{ config_source | canonicalize | dirname }}"
 skills_cli_version = "1.5.22"
 # Refreshed from upstream main by the repository-updates PR workflow.
 herdr_focus_notify_ref = "94e8e1394e1bdbaa3dd55d4d83e0e3f98ecab743"
@@ -246,6 +249,16 @@ if [ "$(uname -s)" = Darwin ]; then
   mise bootstrap packages apply brew:mas --yes
 fi
 '''
+post-dotfiles = '''
+# Remove only our obsolete Fish selector, including a now-dangling link.
+repo="{{ vars.dotfiles_root }}"
+legacy="$HOME/.config/fish/conf.d/10-mise-profile.fish"
+if [ -L "$legacy" ]; then
+  case "$(readlink "$legacy")" in
+    "$repo/dotfiles/personal/mise-profile.fish"|"$repo/dotfiles/work/mise-profile.fish") rm "$legacy" ;;
+  esac
+fi
+'''
 post-defaults = '''
 defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Projects/"
 '''
@@ -254,7 +267,13 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 # Stable runtime anchor for services that need this checkout's mise configuration.
 "~/.local/share/dotfiles" = "."
 "~/.config/.gitignore_global" = "dotfiles/common/gitignore_global"
+# Expose the checkout through native global folder-fragment discovery.
 "~/.config/mise/config.toml" = "dotfiles/common/mise/config.toml"
+"~/.config/mise/conf.d/dotfiles" = "."
+# Folder fragments share the enclosing global directory's lockfiles.
+"~/.config/mise/mise.lock" = "mise.lock"
+"~/.config/mise/mise.personal-macos.lock" = "mise.personal-macos.lock"
+"~/.config/mise/mise.work-macos.lock" = "mise.work-macos.lock"
 "~/.config/atuin" = "dotfiles/common/atuin"
 "~/.config/fish/config.fish" = "dotfiles/common/fish/config.fish"
 "~/.config/fish/custom" = "dotfiles/common/fish/custom"

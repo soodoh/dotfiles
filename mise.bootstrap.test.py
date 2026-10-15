@@ -5,13 +5,12 @@ import re
 import shutil
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType
 from urllib.parse import urlsplit
-
-import tomllib
 
 ROOT = Path(__file__).resolve().parent
 
@@ -482,7 +481,7 @@ class MiseConfigurationTests(unittest.TestCase):
         for server in (azure, azure_test):
             self.assertIn("--read-only", server["args"])
 
-    def test_renovate_can_generate_locks_without_age_keys_or_overrides(self) -> None:
+    def test_automation_can_generate_locks_without_age_keys(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise)
         tool = "npm:@earendil-works/pi-coding-agent"
@@ -504,7 +503,11 @@ class MiseConfigurationTests(unittest.TestCase):
                             "MISE_YES": "1",
                         }
                         if safe:
+                            # Renovate's default path never evaluates project env.
                             environment["MISE_SAFE"] = "1"
+                        else:
+                            # Trusted automation, like our CI, opts out explicitly.
+                            environment["MISE_AGE_STRICT"] = "false"
                         arguments = [mise]
                         if profile:
                             arguments.extend(["--env", profile])
@@ -525,40 +528,123 @@ class MiseConfigurationTests(unittest.TestCase):
                             tool_version(self.base["tools"][tool]),
                         )
 
-    def test_workstation_profiles_require_age_keys(self) -> None:
-        fish = shutil.which("fish")
+    @contextmanager
+    def workstation_home(self, profile: str):
+        # Reproduce only the declared mise links, never workstation bootstrap.
+        # Isolate all state and start without inherited shell configuration.
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory).resolve()
+            profile_config = self.personal if profile == "personal" else self.work
+            for destination, source in (
+                self.base["dotfiles"] | profile_config["dotfiles"]
+            ).items():
+                if not destination.startswith("~/.config/mise/"):
+                    continue
+                target = home / destination.removeprefix("~/")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.symlink_to(ROOT / source)
+            yield home, {
+                "HOME": str(home),
+                "PATH": os.defpath,
+                "MISE_DATA_DIR": str(home / "data"),
+                "MISE_CACHE_DIR": str(home / "cache"),
+                "MISE_STATE_DIR": str(home / "state"),
+                "MISE_TRUSTED_CONFIG_PATHS": f"{ROOT}:{home}",
+                "MISE_YES": "1",
+            }
+
+    def test_native_dotfiles_apply_installs_mise_layout_and_safely_retires_fish_selector(self) -> None:
         mise = shutil.which("mise")
-        self.assertIsNotNone(fish)
         self.assertIsNotNone(mise)
         for profile in ("personal", "work"):
-            with self.subTest(profile=profile):  # noqa: SIM117
-                with tempfile.TemporaryDirectory() as home:
+            with tempfile.TemporaryDirectory() as directory:
+                home = Path(directory).resolve()
+                legacy = home / ".config/fish/conf.d/10-mise-profile.fish"
+                legacy.parent.mkdir(parents=True)
+                # The old source is gone, so migration must handle dangling links.
+                legacy.symlink_to(ROOT / "dotfiles" / profile / "mise-profile.fish")
+                environment = {
+                    "HOME": str(home), "PATH": os.defpath,
+                    "MISE_AGE_STRICT": "false",
+                    "MISE_DATA_DIR": str(home / "data"),
+                    "MISE_CACHE_DIR": str(home / "cache"),
+                    "MISE_STATE_DIR": str(home / "state"),
+                    "MISE_TRUSTED_CONFIG_PATHS": f"{ROOT}:{home}",
+                }
+                with self.subTest(profile=profile):
+                    # Dotfiles only, in a disposable home: no bootstrap, packages,
+                    # shell changes, macOS defaults, services, or application tasks.
                     result = subprocess.run(
-                        [
-                            fish,
-                            "--no-config",
-                            "-c",
-                            'source "$argv[1]"; "$argv[2]" env --json',
-                            str(ROOT / "dotfiles" / profile / "mise-profile.fish"),
-                            mise,
-                        ],
-                        cwd=ROOT,
-                        env={
-                            "HOME": home,
-                            "PATH": os.defpath,
-                            # The profile must override even an inherited CI setting.
-                            "MISE_AGE_STRICT": "false",
-                            "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
-                            "MISE_YES": "1",
-                        },
-                        capture_output=True,
-                        text=True,
-                        timeout=60,
-                        check=False,
+                        [mise, "--env", f"{profile}-macos", "dot", "apply", "--yes"],
+                        cwd=ROOT, env=environment, capture_output=True, text=True,
+                        timeout=30, check=False,
                     )
-                    self.assertNotEqual(result.returncode, 0)
-                    self.assertIn("Failed to decrypt", result.stderr)
-                    self.assertIn("No age identities found", result.stderr)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertFalse(legacy.is_symlink())
+                    config = home / ".config/mise"
+                    self.assertEqual(
+                        (config / "miserc.toml").resolve(),
+                        ROOT / "dotfiles" / profile / "miserc.toml",
+                    )
+                    self.assertEqual((config / "conf.d/dotfiles").resolve(), ROOT)
+                    for name in load_mise_lock_module().LOCK_FILES:
+                        self.assertEqual((config / name).resolve(), ROOT / name)
+                    # Repeat from both discovery paths without --env: installed
+                    # miserc must select the same profile, with stable source paths.
+                    profile_config = self.personal if profile == "personal" else self.work
+                    for cwd in (ROOT, home):
+                        result = subprocess.run(
+                            [mise, "dot", "apply", "--yes"],
+                            cwd=cwd, env=environment, capture_output=True, text=True,
+                            timeout=30, check=False,
+                        )
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        for destination, source in (
+                            self.base["dotfiles"] | profile_config["dotfiles"]
+                        ).items():
+                            target = home / destination.removeprefix("~/")
+                            self.assertEqual(target.resolve(), (ROOT / source).resolve())
+                    # The cleanup hook must not delete a user-owned file or link,
+                    # and must be safe to rerun when nothing remains to remove.
+                    hook = self.base["bootstrap"]["hooks"]["post-dotfiles"].replace(
+                        "{{ vars.dotfiles_root }}", str(ROOT)
+                    )
+                    for kind in ("file", "foreign-link", "absent"):
+                        if kind == "file":
+                            legacy.write_text("# user-owned selector\n")
+                        elif kind == "foreign-link":
+                            legacy.symlink_to(home / "user-owned.fish")
+                        result = subprocess.run(
+                            ["bash", "-c", hook], cwd=ROOT, env=environment,
+                            capture_output=True, text=True, timeout=10, check=False,
+                        )
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        if kind == "file":
+                            self.assertEqual(legacy.read_text(), "# user-owned selector\n")
+                            legacy.unlink()
+                        elif kind == "foreign-link":
+                            self.assertTrue(legacy.is_symlink())
+                            legacy.unlink()
+
+    def test_workstation_profiles_require_age_keys(self) -> None:
+        mise = shutil.which("mise")
+        self.assertIsNotNone(mise)
+        for profile in ("personal", "work"):
+            with self.workstation_home(profile) as (home, environment):
+                for cwd in (home, ROOT):
+                    with self.subTest(profile=profile, cwd=cwd):
+                        result = subprocess.run(
+                            [mise, "env", "--json"],
+                            cwd=cwd,
+                            env=environment,
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                            check=False,
+                        )
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("Failed to decrypt", result.stderr)
+                        self.assertIn("No age identities found", result.stderr)
 
     def test_ci_can_load_configs_without_age_keys_or_certificate_file(self) -> None:
         mise = shutil.which("mise")
@@ -728,20 +814,20 @@ class MiseConfigurationTests(unittest.TestCase):
                         ],
                     )
 
-    def test_workstation_profiles_select_tools_outside_checkout(self) -> None:
-        fish = shutil.which("fish")
+    def test_workstation_profiles_select_locked_tools_and_allow_project_overrides(self) -> None:
         mise = shutil.which("mise")
-        self.assertIsNotNone(fish)
         self.assertIsNotNone(mise)
         for profile in ("personal", "work"):
             profile_config = self.personal if profile == "personal" else self.work
-            for project_override in (False, True):
-                with self.subTest(profile=profile, override=project_override):  # noqa: SIM117
-                    with tempfile.TemporaryDirectory() as home:
-                        project = Path(home) / "other-project"
-                        project.mkdir()
+            with self.workstation_home(profile) as (home, environment):
+                project = home / "other-project"
+                project.mkdir()
+                # Selection needs no secrets; strict decryption is tested separately.
+                environment["MISE_AGE_STRICT"] = "false"
+                for cwd in (home, ROOT, project):
+                    with self.subTest(profile=profile, cwd=cwd):
                         expected = self.base["tools"] | profile_config["tools"]
-                        if project_override:
+                        if cwd == project:
                             (project / "mise.toml").write_text(
                                 '[tools]\n"aqua:starship/starship" = "1.0.0"\n'
                             )
@@ -752,36 +838,16 @@ class MiseConfigurationTests(unittest.TestCase):
                             )
                             expected = expected | {"aqua:starship/starship": "1.0.0"}
                         result = subprocess.run(
-                            [
-                                fish,
-                                "--no-config",
-                                "-c",
-                                (
-                                    'source "$argv[1]"; set -gx MISE_AGE_STRICT false; '
-                                    '"$argv[2]" ls --current --json'
-                                ),
-                                str(ROOT / "dotfiles" / profile / "mise-profile.fish"),
-                                mise,
-                            ],
-                            cwd=project,
-                            env={
-                                "HOME": home,
-                                "PATH": os.defpath,
-                                # A new shell must clear the old exported override.
-                                "MISE_GLOBAL_CONFIG_FILE": str(
-                                    ROOT / "dotfiles/common/mise/config.toml"
-                                ),
-                                "MISE_TRUSTED_CONFIG_PATHS": f"{ROOT}:{project}",
-                            },
+                            [mise, "ls", "--current", "--json"],
+                            cwd=cwd,
+                            env=environment,
                             capture_output=True,
                             text=True,
                             timeout=30,
                             check=False,
                         )
                         self.assertEqual(result.returncode, 0, result.stderr)
-                        # Disable strict age only for this isolated selection probe.
-                        # The separate age test verifies that profiles enforce it.
-                        # No installs, downloads, or live GitHub credentials needed.
+                        self.assertNotIn("Failed to resolve", result.stderr)
                         selected = {
                             tool: [record["version"] for record in records]
                             for tool, records in json.loads(result.stdout).items()
@@ -794,44 +860,87 @@ class MiseConfigurationTests(unittest.TestCase):
                             },
                         )
 
-    def test_workstation_profiles_export_github_credentials(self) -> None:
-        fish = shutil.which("fish")
+    def test_workstation_profile_can_be_overridden_explicitly(self) -> None:
         mise = shutil.which("mise")
-        self.assertIsNotNone(fish)
+        self.assertIsNotNone(mise)
+        for profile, other in (("personal", "work"), ("work", "personal")):
+            with self.workstation_home(profile) as (home, environment):
+                environment["MISE_AGE_STRICT"] = "false"
+                result = subprocess.run(
+                    [mise, "--env", f"{other}-macos", "ls", "--current", "--json"],
+                    cwd=home, env=environment, capture_output=True, text=True,
+                    timeout=30, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn("Failed to resolve", result.stderr)
+                selected = {
+                    tool: [record["version"] for record in records]
+                    for tool, records in json.loads(result.stdout).items()
+                }
+                other_config = self.personal if other == "personal" else self.work
+                self.assertEqual(selected, {
+                    tool: [tool_version(specification)]
+                    for tool, specification in (self.base["tools"] | other_config["tools"]).items()
+                })
+
+    def test_workstation_global_settings_work_without_shell_exports(self) -> None:
+        mise = shutil.which("mise")
         self.assertIsNotNone(mise)
         for profile in ("personal", "work"):
-            with self.subTest(profile=profile):  # noqa: SIM117
-                with tempfile.TemporaryDirectory() as home:
-                    result = subprocess.run(
-                        [
-                            fish,
-                            "--no-config",
-                            "-c",
-                            'source "$argv[1]"; "$argv[2]" settings get github.credential_command',
-                            str(ROOT / "dotfiles" / profile / "mise-profile.fish"),
-                            mise,
-                        ],
-                        cwd=home,
-                        env={
-                            "HOME": home,
-                            "PATH": os.defpath,
-                            "MISE_GLOBAL_CONFIG_FILE": str(Path(home) / "missing.toml"),
-                            "MISE_GITHUB_CREDENTIAL_COMMAND": "inherited-command",
-                            "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
-                            "MISE_YES": "1",
-                        },
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                        check=False,
-                    )
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertEqual(
-                        result.stdout.strip(),
-                        load_toml(self.base["dotfiles"]["~/.config/mise/config.toml"])[
-                            "settings"
-                        ]["github"]["credential_command"],
-                    )
+            with self.workstation_home(profile) as (home, environment):
+                for cwd in (home, ROOT):
+                    for setting, expected in (
+                        ("self_update.auto", "true"),
+                        ("age.strict", "true"),
+                        ("github.credential_command", 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'),
+                    ):
+                        with self.subTest(profile=profile, cwd=cwd, setting=setting):
+                            result = subprocess.run(
+                                [mise, "settings", "get", setting],
+                                cwd=cwd,
+                                env=environment,
+                                capture_output=True,
+                                text=True,
+                                timeout=10,
+                                check=False,
+                            )
+                            self.assertEqual(result.returncode, 0, result.stderr)
+                            self.assertEqual(result.stdout.strip(), expected)
+
+    def test_workstation_global_tasks_run_in_the_checkout_with_selected_profile(self) -> None:
+        mise = shutil.which("mise")
+        self.assertIsNotNone(mise)
+        for profile in ("personal", "work"):
+            with self.workstation_home(profile) as (home, environment):
+                # Exercise native task loading with a harmless task beside the real
+                # config, without editing the checkout or executing a setup task.
+                fragment = home / ".config/mise/conf.d/task-probe"
+                fragment.mkdir(parents=True)
+                (fragment / "mise.toml").write_text(
+                    '[task_config]\ndir = "' + str(ROOT) + '"\n'
+                    '[tasks.profile-probe]\n'
+                    'run = \'printf "%s\\n%s\\n" "$PWD" "$MISE_ENV"\'\n'
+                )
+                environment["MISE_AGE_STRICT"] = "false"
+                # Metadata validates the real tasks' directory; executing the probe
+                # additionally checks native profile propagation to child processes.
+                for cwd in (home, ROOT):
+                    with self.subTest(profile=profile, cwd=cwd):
+                        result = subprocess.run(
+                            [mise, "tasks", "info", "validate:repository", "--json"],
+                            cwd=cwd, env=environment, capture_output=True, text=True,
+                            timeout=20, check=False,
+                        )
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        task = json.loads(result.stdout)
+                        self.assertEqual(Path(task["dir"]).resolve(), ROOT)
+                result = subprocess.run(
+                    [mise, "run", "profile-probe"],
+                    cwd=home, env=environment, capture_output=True, text=True,
+                    timeout=20, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.splitlines(), [str(ROOT), f"{profile}-macos"])
 
     def test_google_cloud_configuration_stays_in_shared_scope(self) -> None:
         google_env = {

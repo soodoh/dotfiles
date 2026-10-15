@@ -1,5 +1,5 @@
 [settings]
-auto_update = true
+self_update.auto = true
 
 # Credential commands are global-only in mise; keep this file linked from shared bootstrap.
 [settings.github]

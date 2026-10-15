@@ -44,8 +44,10 @@ curl https://mise.run | sh
 
 `min_version` in `mise.toml` is a compatibility floor, raised manually only when
 required features or fixes change. It is not a CLI pin and Renovate does not
-update it. The global `auto_update` setting keeps workstations current; both
-that setting and unpinned `mise self-update` honor mise's release-age policy.
+update it. The global `self_update.auto = true` setting keeps workstations current:
+mise checks before eligible interactive commands, at most once every seven days
+by default (not on shell activation or a background schedule). Both automatic
+updates and unpinned `mise self-update` honor mise's release-age policy.
 CI also uses mise-action's default selection of the newest stable release at
 least 24 hours old. Tool versions and lockfiles remain pinned, but rerunning
 a commit may use a newer mise CLI. Raise a minimum after the release cooldown
@@ -81,12 +83,35 @@ config so bootstrap can use the existing host-specific `gh` login, including
 tokens in the macOS Keychain. The credential command must be global: mise ignores
 it in a local project config for security reasons.
 
-Both Fish profiles set `MISE_CONFIG_DIR` to the checkout and select an explicit
-`MISE_ENV`, making shared and profile tools available outside this repository.
-They clear `MISE_GLOBAL_CONFIG_FILE` (including an inherited settings-only override)
-and export `MISE_GITHUB_CREDENTIAL_COMMAND` with the same host-aware `gh` command.
-This preserves authenticated downloads without replacing the global tool config.
-Open a new Fish shell after updating to load these changes.
+Mise uses its standard `~/.config/mise` directory, without Fish-specific configuration
+overrides. Shared bootstrap links this checkout as `conf.d/dotfiles`, plus the three
+committed `mise*.lock` files beside global `config.toml`: folder fragments share the
+enclosing global directory's lockfiles. Each explicit profile links its own
+`dotfiles/{personal,work}/miserc.toml` as global `miserc.toml`, selecting
+`personal-macos` or `work-macos` before config discovery. There is no default profile
+in the checkout. `--env` can override the installed choice, including outside this
+repository; project `.miserc.toml` files can override it too.
+
+This makes shared/profile tools, automatic self-updates, and the host-aware GitHub
+credential command available to Fish, other shells, and services alike. Task paths
+use `vars.dotfiles_root`, resolved from the actual declaring file, so commands run
+in the checkout whether it is discovered locally or through its global folder link.
+
+To migrate an existing workstation without rerunning a full bootstrap, run from
+this checkout, choosing the profile explicitly:
+
+```fish
+mise --env work-macos dot apply --yes
+# Or: mise --env personal-macos dot apply --yes
+set -e MISE_CONFIG_DIR MISE_GLOBAL_CONFIG_FILE MISE_GITHUB_CREDENTIAL_COMMAND MISE_ENV MISE_AGE_STRICT
+exec fish
+```
+
+Dotfile application removes only the old repository-owned
+`~/.config/fish/conf.d/10-mise-profile.fish` symlink; user-owned files and unrelated
+links are preserved. Clear the inherited variables in other existing shells too;
+new processes use the TOML configuration. Verify with
+`mise settings get self_update.auto` and `mise config ls` from outside the checkout.
 
 If a machine is already rate-limited **before** the global-config link exists,
 install/authenticate `gh` first, then make the credentials config available for the
@@ -223,7 +248,7 @@ mise run lock
 
 Ensure `~/.config/mise/age.txt` was setup, per the fresh install instructions.
 
-The shared configuration sets `age.strict = false` so credential-free automation, including Renovate's lockfile generation outside GitHub Actions, skips undecryptable values. Both workstation Fish profiles export `MISE_AGE_STRICT=true`, preserving fail-fast decryption in configured shells. Open a new Fish shell after updating to load this policy. Outside those shells, use `MISE_AGE_STRICT=true mise …` when secrets must be available; without that override, missing or invalid identities do not stop mise. The age identity remains local and is never needed by CI or Renovate.
+The shared TOML configuration sets `age.strict = true`: missing or invalid identities fail closed, inside and outside the checkout, without a Fish environment override. Credential-free GitHub Actions jobs explicitly set `MISE_AGE_STRICT=false`; ad hoc trusted automation without an identity must do the same. Renovate's normal `MISE_SAFE=1` lock generation does not evaluate the project environment or require the identity. If a Renovate administrator enables the trusted `allowedUnsafeExecutions` path for mise, that runner must explicitly set `MISE_AGE_STRICT=false` too. The repository lock helper isolates staged generation from workstation-global tools and profiles. The age identity stays local and is never needed by CI or safe-mode Renovate.
 
 Example command:
 

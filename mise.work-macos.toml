@@ -118,6 +118,7 @@ login_shell = "/opt/homebrew/bin/fish"
 
 [bootstrap.hooks]
 final = '''
+cd "{{ vars.dotfiles_root }}"
 repo="$(git rev-parse --show-toplevel)"
 personal_gitconfig="$repo/dotfiles/personal/gitconfig"
 git -C "$repo" config --local user.name "$(git config --file "$personal_gitconfig" --get user.name)"
@@ -126,7 +127,7 @@ bash "$repo/dotfiles/work/bootstrap-repositories.sh"
 '''
 
 [dotfiles]
-"~/.config/fish/conf.d/10-mise-profile.fish" = "dotfiles/work/mise-profile.fish"
+"~/.config/mise/miserc.toml" = "dotfiles/work/miserc.toml"
 "~/.gitconfig" = "dotfiles/work/gitconfig"
 "~/.pi/agent/settings.json" = "dotfiles/work/pi/agent/settings.json"
 "~/.pi/agent/mcp.json" = "dotfiles/work/pi/agent/mcp.json"

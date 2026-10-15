@@ -4,11 +4,10 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import tomllib
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
-
-import tomllib
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_FILES = (
@@ -46,6 +45,13 @@ def mise_environment(root: Path) -> dict[str, str]:
     environment = os.environ.copy()
     for name in MISE_CONFIG_ENVIRONMENT:
         environment.pop(name, None)
+    # Keep workstation tools/profiles out of staged generation, but retain the
+    # shared settings-only config so gh authentication still works without Fish.
+    environment["MISE_CONFIG_DIR"] = str(root / ".mise-global")
+    environment["MISE_GLOBAL_CONFIG_FILE"] = str(
+        ROOT / "dotfiles/common/mise/config.toml"
+    )
+    environment["MISE_ENV"] = ""
     environment["MISE_SAFE"] = "1"
     environment["MISE_TRUSTED_CONFIG_PATHS"] = str(root)
     environment["MISE_YES"] = "1"

@@ -47,18 +47,20 @@ if [ "$3" = "which" ] && [ "$4" = "bun" ]; then
   printf '%s\n' "$HOME/.local/share/mise/installs/bun/1.4.0/bin/bun"
   exit 0
 fi
-[ "$3" = "--env" ] && [ "$5" = "exec" ] && [ "$6" = "--" ] || exit 1
-[ "$MISE_AGE_STRICT" = true ] && [ "$MISE_EXEC_AUTO_INSTALL" = false ] || exit 1
-case "$4" in
+[ "$3" = "exec" ] && [ "$4" = "--" ] || exit 1
+[ "$MISE_EXEC_AUTO_INSTALL" = false ] || exit 1
+# Simulate native discovery from the installed TOML rather than a Fish selector.
+profile="$(awk -F '"' '/^env = / { print $2 }' "$HOME/.config/mise/miserc.toml")"
+case "$profile" in
   work-macos)
-    EXPECT_MISE_PROFILE="$4" CLIPROXYAPI_MANAGEMENT_KEY=fixture-only \
+    EXPECT_MISE_PROFILE="$profile" CLIPROXYAPI_MANAGEMENT_KEY=fixture-only \
       CLIPROXYAPI_BASE_URL=https://proxy.example.test/ \
       HTTP_PROXY=http://127.0.0.1:1055 HTTPS_PROXY=http://127.0.0.1:1055 \
-      NO_PROXY=localhost,127.0.0.1,::1 "$7" "$8"
+      NO_PROXY=localhost,127.0.0.1,::1 "$5" "$6"
     ;;
   personal-macos)
-    EXPECT_MISE_PROFILE="$4" CLIPROXYAPI_MANAGEMENT_KEY=fixture-only \
-      CLIPROXYAPI_BASE_URL=https://proxy.example.test/ "$7" "$8"
+    EXPECT_MISE_PROFILE="$profile" CLIPROXYAPI_MANAGEMENT_KEY=fixture-only \
+      CLIPROXYAPI_BASE_URL=https://proxy.example.test/ "$5" "$6"
     ;;
   *) exit 1 ;;
 esac
@@ -118,37 +120,21 @@ visible = [item for item in reversed(items) if item in section]
 assert visible == ['ai_usage.providers', 'right_separator.ai', 'cpu', 'ram'], visible
 PY
 
-mkdir -p "$tmp_dir/pi-extensions" "$tmp_dir/dotfiles/work" "$tmp_dir/dotfiles/personal"
-printf 'set -gx MISE_ENV work-macos\n' >"$tmp_dir/dotfiles/work/mise-profile.fish"
-printf 'set -gx MISE_ENV personal-macos\n' >"$tmp_dir/dotfiles/personal/mise-profile.fish"
-ln -s "$tmp_dir/dotfiles/work/mise-profile.fish" "$tmp_dir/profile"
-: >"$log_file"
-env -i \
-  HOME="$tmp_dir/home" \
-  PATH="$tmp_dir:/usr/bin:/bin" \
-  SKETCHYBAR_LOG="$log_file" \
-  SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
-  AI_USAGE_LOG_PATH="$usage_log" \
-  PI_EXTENSIONS_DIR="$tmp_dir/pi-extensions" \
-  PROVIDER_USAGE_CLI="$tmp_dir/provider-usage-cli.ts" \
-  AI_USAGE_MISE_PROFILE_FILE="$tmp_dir/profile" \
-  /bin/bash "$plugin_dir/ai_usage_refresh.sh"
-assert_contains 'icon.drawing=off label=Anthropic S12%/W55%' "$log_file"
-
-rm "$tmp_dir/profile"
-ln -s "$tmp_dir/dotfiles/personal/mise-profile.fish" "$tmp_dir/profile"
-: >"$log_file"
-env -i \
-  HOME="$tmp_dir/home" \
-  PATH="$tmp_dir:/usr/bin:/bin" \
-  SKETCHYBAR_LOG="$log_file" \
-  SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
-  AI_USAGE_LOG_PATH="$usage_log" \
-  PI_EXTENSIONS_DIR="$tmp_dir/pi-extensions" \
-  PROVIDER_USAGE_CLI="$tmp_dir/provider-usage-cli.ts" \
-  AI_USAGE_MISE_PROFILE_FILE="$tmp_dir/profile" \
-  /bin/bash "$plugin_dir/ai_usage_refresh.sh"
-assert_contains 'icon.drawing=off label=Anthropic S12%/W55%' "$log_file"
+mkdir -p "$tmp_dir/pi-extensions" "$tmp_dir/home/.config/mise"
+for profile in work-macos personal-macos; do
+  printf 'env = ["%s"]\n' "$profile" >"$tmp_dir/home/.config/mise/miserc.toml"
+  : >"$log_file"
+  env -i \
+    HOME="$tmp_dir/home" \
+    PATH="$tmp_dir:/usr/bin:/bin" \
+    SKETCHYBAR_LOG="$log_file" \
+    SKETCHYBAR_BIN="$tmp_dir/sketchybar" \
+    AI_USAGE_LOG_PATH="$usage_log" \
+    PI_EXTENSIONS_DIR="$tmp_dir/pi-extensions" \
+    PROVIDER_USAGE_CLI="$tmp_dir/provider-usage-cli.ts" \
+    /bin/bash "$plugin_dir/ai_usage_refresh.sh"
+  assert_contains 'icon.drawing=off label=Anthropic S12%/W55%' "$log_file"
+done
 
 printf '{"text":"Standalone 42%%"}\n' >"$tmp_dir/usage.json"
 : >"$log_file"
