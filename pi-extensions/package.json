@@ -64,9 +64,9 @@
 		"@earendil-works/pi-tui": "1.2.0",
 		"@types/node": "^26.6.5",
 		"@types/proper-lockfile": "4.1.4",
-		"@vitest/coverage-v8": "^5.0.4",
+		"@vitest/coverage-v8": "^5.0.5",
 		"typescript": "^7.0.2",
-		"vitest": "^5.0.4"
+		"vitest": "^5.0.5"
 	},
 	"bundleDependencies": [
 		"pi-vim",
