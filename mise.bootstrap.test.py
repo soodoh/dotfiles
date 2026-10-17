@@ -472,10 +472,10 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertIsNotNone(mise)
         tool = "npm:@earendil-works/pi-coding-agent"
         # An exactly pinned npm tool exercises real lock generation without downloads.
-        # Test both Renovate execution modes and every dependency configuration.
+        # Exercise safe Renovate, trusted Renovate, and CI without credentials.
         for profile in (None, "personal-macos", "work-macos"):
-            for safe in (False, True):
-                with self.subTest(profile=profile, safe=safe):  # noqa: SIM117
+            for mode in ("safe", "no-env", "ci"):
+                with self.subTest(profile=profile, mode=mode):  # noqa: SIM117
                     with tempfile.TemporaryDirectory() as directory:
                         stage = Path(directory)
                         home = stage / "home"
@@ -488,11 +488,14 @@ class MiseConfigurationTests(unittest.TestCase):
                             "MISE_TRUSTED_CONFIG_PATHS": str(stage),
                             "MISE_YES": "1",
                         }
-                        if safe:
+                        if mode == "safe":
                             # Renovate's default path never evaluates project env.
                             environment["MISE_SAFE"] = "1"
+                        elif mode == "no-env":
+                            # Trusted Renovate needs no workstation environment.
+                            environment["MISE_NO_ENV"] = "1"
                         else:
-                            # Trusted automation, like our CI, opts out explicitly.
+                            # CI still loads non-secret project environment values.
                             environment["MISE_AGE_STRICT"] = "false"
                         arguments = [mise]
                         if profile:

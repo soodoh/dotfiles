@@ -235,7 +235,11 @@ mise run lock
 
 Ensure `~/.config/mise/age.txt` was setup, per the fresh install instructions.
 
-The shared TOML configuration sets `age.strict = true`: missing or invalid identities fail closed, inside and outside the checkout, without a Fish environment override. Credential-free GitHub Actions jobs explicitly set `MISE_AGE_STRICT=false`; ad hoc trusted automation without an identity must do the same. Renovate's normal `MISE_SAFE=1` lock generation does not evaluate the project environment or require the identity. If a Renovate administrator enables the trusted `allowedUnsafeExecutions` path for mise, that runner must explicitly set `MISE_AGE_STRICT=false` too. The repository lock helper isolates staged generation from workstation-global tools and profiles. The age identity stays local and is never needed by CI or safe-mode Renovate.
+The shared TOML configuration sets `age.strict = true`: missing or invalid identities fail closed, inside and outside the checkout, without a Fish environment override. Credential-free GitHub Actions jobs explicitly set `MISE_AGE_STRICT=false` so they can load non-secret project environment values.
+
+Renovate's normal `MISE_SAFE=1` lock generation does not evaluate the project environment or require the identity. Trusted Renovate runners must instead set `MISE_NO_ENV=1` when invoking mise: lock generation does not need workstation environment values. `MISE_AGE_STRICT=false` is an alternative for trusted automation that needs those values. On Mend-hosted Renovate, these `MISE_*` overrides require administrator configuration; they are not in the hosted repository environment allowlist. Set them on the Renovate runner, not only in GitHub Actions. Never provide the age identity to Renovate or CI.
+
+The repository lock helper isolates staged generation from workstation-global tools and profiles. After correcting a Renovate runner, retry the affected PR so its artifact status and lockfiles are refreshed.
 
 Example command:
 
