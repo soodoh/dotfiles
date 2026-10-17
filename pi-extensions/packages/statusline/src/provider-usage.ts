@@ -18,8 +18,6 @@ import type {
 } from "./pi-types";
 import { isUsageCacheFresh, usageSnapshotFreshness } from "./usage-freshness";
 
-const PROVIDER_USAGE_CACHE_VERSION = 10;
-const PROVIDER_USAGE_MIN_CACHE_VERSION = 5;
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
 const PROVIDER_USAGE_REFRESH_LOCK_STALE_MS = 20 * 1000;
 const PROVIDER_USAGE_REFRESH_LOCK_UPDATE_MS = 5 * 1000;
@@ -204,15 +202,7 @@ function readSharedCache(): Map<string, ProviderUsageCacheEntry> {
 	const entries = new Map<string, ProviderUsageCacheEntry>();
 	try {
 		const parsed: unknown = JSON.parse(readFileSync(sharedCachePath(), "utf8"));
-		if (
-			!isRecord(parsed) ||
-			typeof parsed.version !== "number" ||
-			parsed.version < PROVIDER_USAGE_MIN_CACHE_VERSION ||
-			parsed.version > PROVIDER_USAGE_CACHE_VERSION
-		) {
-			return entries;
-		}
-		if (!isRecord(parsed.entries)) return entries;
+		if (!isRecord(parsed) || !isRecord(parsed.entries)) return entries;
 		for (const [key, value] of Object.entries(parsed.entries)) {
 			const entry = parseCacheEntry(value);
 			if (
@@ -220,13 +210,6 @@ function readSharedCache(): Map<string, ProviderUsageCacheEntry> {
 				!isProviderSupportedAuth(entry.providerId, entry.authKind)
 			) {
 				continue;
-			}
-			if (
-				parsed.version < PROVIDER_USAGE_CACHE_VERSION &&
-				providerFamily(entry.providerId) === OPENAI_USAGE_FAMILY
-			) {
-				// Refresh legacy OpenAI entries so newly added reset details appear immediately.
-				entry.lastAttemptAt = undefined;
 			}
 			entries.set(key, entry);
 		}
@@ -290,11 +273,9 @@ async function persistSharedCache(): Promise<void> {
 				},
 			]),
 		);
-		writeFileSync(
-			temporaryPath,
-			`${JSON.stringify({ version: PROVIDER_USAGE_CACHE_VERSION, entries })}\n`,
-			{ mode: 0o600 },
-		);
+		writeFileSync(temporaryPath, `${JSON.stringify({ entries })}\n`, {
+			mode: 0o600,
+		});
 		lease.assertOwned();
 		renameSync(temporaryPath, path);
 	} catch {

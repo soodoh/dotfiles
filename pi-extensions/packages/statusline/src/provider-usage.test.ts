@@ -180,7 +180,7 @@ afterEach(() => {
 });
 
 describe("provider usage", () => {
-	test("hydrates credential-scoped usage from a compatible legacy cache", async () => {
+	test("hydrates fresh credential-scoped usage without fetching", async () => {
 		const token = "stored-anthropic-token";
 		const targetKey = "anthropic:oauth";
 		const fingerprint = createHash("sha256")
@@ -190,7 +190,6 @@ describe("provider usage", () => {
 		writeFileSync(
 			sharedTestCachePath,
 			JSON.stringify({
-				version: 5,
 				entries: {
 					[`${targetKey}:${fingerprint}`]: {
 						providerId: "anthropic",
@@ -210,67 +209,100 @@ describe("provider usage", () => {
 				provider === "anthropic" ? { type: "oauth", access: token } : undefined,
 		};
 
+		const { fetchMock } = fetchCalls(() => Response.json({}));
 		await refreshAndWait(ctx, targets);
 
+		expect(fetchMock).not.toHaveBeenCalled();
 		expect(formatProviderUsage(targets)).toBe("Anthropic S12%/W55%");
 		expect(render(targets)).toBe(formatProviderUsage(targets));
 	});
 
-	test("refreshes legacy OpenAI cache entries for reset details", async () => {
-		const token = jwtWithPayload({
-			"https://api.openai.com/auth": { chatgpt_account_id: "account-123" },
-		});
-		const targetKey = "openai-codex:oauth";
-		const fingerprint = createHash("sha256")
-			.update(`${targetKey}\0${token}`)
-			.digest("hex")
-			.slice(0, 16);
-		writeFileSync(
-			sharedTestCachePath,
-			JSON.stringify({
-				version: 9,
-				entries: {
-					[`${targetKey}:${fingerprint}`]: {
-						providerId: "openai-codex",
-						authKind: "oauth",
-						state: "ready",
-						scope: { weeklyPercentUsed: 94 },
-						lastAttemptAt: Date.now(),
-					},
-				},
-			}),
-		);
-		const resetAt = new Date(2030, 8, 6).getTime();
-		const { fetchMock } = fetchCalls((url) =>
-			url.endsWith("/rate-limit-reset-credits")
-				? Response.json({ available_count: 3 })
-				: Response.json({
-						rate_limit: {
-							primary_window: {
-								used_percent: 95,
-								limit_window_seconds: 7 * 24 * 60 * 60,
-								reset_at: resetAt / 1000,
-							},
+	test.each([0, 6])(
+		"refreshes cached OpenAI usage only when its TTL expires (age: %s minutes)",
+		async (ageMinutes) => {
+			const token = jwtWithPayload({
+				"https://api.openai.com/auth": { chatgpt_account_id: "account-123" },
+			});
+			const targetKey = "openai-codex:oauth";
+			const fingerprint = createHash("sha256")
+				.update(`${targetKey}\0${token}`)
+				.digest("hex")
+				.slice(0, 16);
+			writeFileSync(
+				sharedTestCachePath,
+				JSON.stringify({
+					entries: {
+						[`${targetKey}:${fingerprint}`]: {
+							providerId: "openai-codex",
+							authKind: "oauth",
+							state: "ready",
+							scope: { weeklyPercentUsed: 94 },
+							lastAttemptAt: Date.now() - ageMinutes * 60_000,
 						},
+					},
+				}),
+			);
+			const resetAt = new Date(2030, 8, 6).getTime();
+			const { fetchMock } = fetchCalls((url) =>
+				url.endsWith("/rate-limit-reset-credits")
+					? Response.json({ available_count: 3 })
+					: Response.json({
+							rate_limit: {
+								primary_window: {
+									used_percent: 95,
+									limit_window_seconds: 7 * 24 * 60 * 60,
+									reset_at: resetAt / 1000,
+								},
+							},
+						}),
+			);
+			const ctx: ProviderUsageContext = {
+				readStoredCredential: (provider) =>
+					provider === "openai-codex"
+						? { type: "oauth", access: token }
+						: undefined,
+			};
+			const targets: ProviderUsageTarget[] = [
+				{ providerId: "openai-codex", authKind: "oauth", active: true },
+			];
+
+			await refreshAndWait(ctx, targets);
+
+			if (ageMinutes === 0) {
+				expect(fetchMock).not.toHaveBeenCalled();
+				expect(render(targets)).toBe(`${OPENAI_LOGO} 94%`);
+			} else {
+				expect(fetchMock).toHaveBeenCalledTimes(2);
+				expect(render(targets)).toContain(
+					`${OPENAI_LOGO} 95% (${Math.ceil((resetAt - Date.now()) / 86_400_000)}d ↻3)`,
+				);
+			}
+		},
+	);
+
+	test.each(["{", "null", '{"entries":[]}', '{"entries":{"invalid":null}}'])(
+		"refetches usage when the disk cache is malformed: %s",
+		async (cache) => {
+			writeFileSync(sharedTestCachePath, cache);
+			const { fetchMock } = fetchCalls(() =>
+				Response.json({ five_hour: { used_percent: 25 } }),
+			);
+			const targets: ProviderUsageTarget[] = [
+				{ providerId: "anthropic", authKind: "oauth", active: true },
+			];
+			await refreshAndWait(
+				{
+					readStoredCredential: () => ({
+						type: "oauth",
+						access: "cache-repair-token",
 					}),
-		);
-		const ctx: ProviderUsageContext = {
-			readStoredCredential: (provider) =>
-				provider === "openai-codex"
-					? { type: "oauth", access: token }
-					: undefined,
-		};
-		const targets: ProviderUsageTarget[] = [
-			{ providerId: "openai-codex", authKind: "oauth", active: true },
-		];
-
-		await refreshAndWait(ctx, targets);
-
-		expect(fetchMock).toHaveBeenCalledTimes(2);
-		expect(render(targets)).toContain(
-			`${OPENAI_LOGO} 95% (${Math.ceil((resetAt - Date.now()) / 86_400_000)}d ↻3)`,
-		);
-	});
+				},
+				targets,
+			);
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(render(targets)).toBe("Anthropic 25%");
+		},
+	);
 
 	test("does not reuse cached usage across different credentials", async () => {
 		let percentUsed = 10;

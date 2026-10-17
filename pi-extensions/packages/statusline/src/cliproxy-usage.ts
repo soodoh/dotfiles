@@ -22,8 +22,13 @@ type Account = {
 	scope: ProviderUsageScope;
 	observedAt: number;
 };
+// Request-only metadata: never written to the shared usage cache.
+type AccountEntry = {
+	account: Account;
+	authIndex: string;
+	accountId?: string;
+};
 type Snapshot = {
-	version: 3;
 	source: string;
 	fetchedAt: number;
 	accounts: Account[];
@@ -75,14 +80,13 @@ function readSnapshot(source: string): Snapshot | undefined {
 		if (
 			typeof value !== "object" ||
 			!value ||
-			!("version" in value) ||
-			value.version !== 3 ||
 			!("source" in value) ||
 			value.source !== source ||
 			!("accounts" in value) ||
 			!Array.isArray(value.accounts) ||
 			!("fetchedAt" in value) ||
-			typeof value.fetchedAt !== "number"
+			typeof value.fetchedAt !== "number" ||
+			!Number.isFinite(value.fetchedAt)
 		)
 			return undefined;
 		return value as Snapshot;
@@ -182,15 +186,14 @@ function codexScope(
 		: undefined;
 }
 
-/** Only verified provider-specific quota signals are interpreted. Never retain raw auth-file data. */
-export function parseProxyAccounts(body: unknown, now = Date.now()): Account[] {
+function parseAccountEntries(body: unknown, now = Date.now()): AccountEntry[] {
 	if (
 		!body ||
 		typeof body !== "object" ||
 		!Array.isArray((body as { files?: unknown }).files)
 	)
-		throw new Error("Invalid auth-files response");
-	const accounts: Account[] = [];
+		throw new Error("Invalid credentials response");
+	const accounts: AccountEntry[] = [];
 	for (const value of (body as { files: unknown[] }).files) {
 		if (!value || typeof value !== "object") continue;
 		const file = value as Record<string, unknown>;
@@ -205,24 +208,44 @@ export function parseProxyAccounts(body: unknown, now = Date.now()): Account[] {
 					usage = parsed;
 			}
 		}
-		if (!usage) continue;
+		const accountId =
+			file.id_token && typeof file.id_token === "object"
+				? (file.id_token as Record<string, unknown>).chatgpt_account_id
+				: undefined;
 		accounts.push({
-			provider: "codex",
-			identity: createHash("sha256").update(identity).digest("hex"),
-			...usage,
+			account: {
+				provider: "codex",
+				identity: createHash("sha256").update(identity).digest("hex"),
+				...(usage ?? { scope: {}, observedAt: now }),
+			},
+			authIndex: identity,
+			accountId:
+				typeof accountId === "string" && accountId ? accountId : undefined,
 		});
 	}
 	return accounts.sort(
 		(a, b) =>
-			a.provider.localeCompare(b.provider) ||
-			a.identity.localeCompare(b.identity),
+			a.account.provider.localeCompare(b.account.provider) ||
+			a.account.identity.localeCompare(b.account.identity),
 	);
 }
 
-function requestAuthFiles(url: string, key: string): Promise<unknown> {
+/** Only verified provider-specific quota signals are interpreted. Never retain raw auth-file data. */
+export function parseProxyAccounts(body: unknown, now = Date.now()): Account[] {
+	return parseAccountEntries(body, now)
+		.map(({ account }) => account)
+		.filter((account) => usableScope(account, now) !== undefined);
+}
+
+function requestManagement(
+	url: string,
+	key: string,
+	path: string,
+	data?: Record<string, unknown>,
+): Promise<{ status: number; body: unknown }> {
 	return new Promise((resolve, reject) => {
 		const endpoint = new URL(
-			"v0/management/auth-files",
+			path,
 			`${url.replace(/\/+$/, "").replace(/\/(?:v1|backend-api)$/, "")}/`,
 		).toString();
 		// curl honors the work profile's HTTPS_PROXY, HTTP_PROXY and NO_PROXY. The key
@@ -265,18 +288,104 @@ function requestAuthFiles(url: string, key: string): Promise<unknown> {
 				return;
 			}
 			const boundary = output.lastIndexOf("\n");
-			if (boundary < 0 || output.slice(boundary + 1) !== "200") {
-				reject(new Error("CLIProxyAPI returned a non-OK response"));
+			const status = Number(output.slice(boundary + 1));
+			if (
+				boundary < 0 ||
+				!Number.isInteger(status) ||
+				status < 100 ||
+				status > 599
+			) {
+				reject(new Error("CLIProxyAPI returned an invalid HTTP status"));
 				return;
 			}
 			try {
-				resolve(JSON.parse(output.slice(0, boundary)));
+				resolve({
+					status,
+					body:
+						status === 200 ? JSON.parse(output.slice(0, boundary)) : undefined,
+				});
 			} catch {
 				reject(new Error("CLIProxyAPI returned invalid JSON"));
 			}
 		});
-		child.stdin.end(`header = "Authorization: Bearer ${key}"\n`);
+		let config = `header = "Authorization: Bearer ${key}"\n`;
+		if (data !== undefined) {
+			config += `request = "POST"\nheader = "Content-Type: application/json"\ndata = ${JSON.stringify(JSON.stringify(data))}\n`;
+		}
+		child.stdin.end(config);
 	});
+}
+
+async function fetchResetCredits(
+	url: string,
+	key: string,
+	entry: AccountEntry,
+): Promise<number | undefined> {
+	try {
+		const header: Record<string, string> = {
+			Authorization: "Bearer $TOKEN$",
+			Accept: "application/json",
+			"OpenAI-Beta": "codex-1",
+			originator: "Codex Desktop",
+		};
+		if (entry.accountId) header["chatgpt-account-id"] = entry.accountId;
+		const response = await requestManagement(
+			url,
+			key,
+			"v8/management/requests/api-call",
+			{
+				auth_index: entry.authIndex,
+				method: "GET",
+				url: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
+				header,
+			},
+		);
+		if (
+			response.status !== 200 ||
+			!response.body ||
+			typeof response.body !== "object"
+		)
+			return undefined;
+		const upstream = response.body as Record<string, unknown>;
+		if (upstream.status_code !== 200 || typeof upstream.body !== "string")
+			return undefined;
+		const body: unknown = JSON.parse(upstream.body);
+		if (!body || typeof body !== "object") return undefined;
+		const credits = body as Record<string, unknown>;
+		const count = numeric(credits.available_count ?? credits.availableCount);
+		return count === undefined ? undefined : Math.max(0, Math.floor(count));
+	} catch {
+		// Reset credits are optional; an unsupported endpoint or failed account
+		// lookup must not hide its observed quota or other accounts' credits.
+		return undefined;
+	}
+}
+
+async function fetchProxyAccounts(
+	url: string,
+	key: string,
+): Promise<Account[]> {
+	const response = await requestManagement(
+		url,
+		key,
+		"v8/management/credentials",
+	);
+	if (response.status !== 200)
+		throw new Error("CLIProxyAPI returned a non-OK response");
+	const entries = parseAccountEntries(response.body);
+	let next = 0;
+	await Promise.all(
+		Array.from({ length: Math.min(4, entries.length) }, async () => {
+			while (next < entries.length) {
+				const entry = entries[next++];
+				const count = await fetchResetCredits(url, key, entry);
+				if (count !== undefined) entry.account.scope.availableResets = count;
+			}
+		}),
+	);
+	return entries
+		.map(({ account }) => account)
+		.filter((account) => usableScope(account, Date.now()) !== undefined);
 }
 
 async function update(source: string): Promise<boolean> {
@@ -294,9 +403,8 @@ async function update(source: string): Promise<boolean> {
 		});
 		const cached = currentSnapshot(source);
 		if (isProxySnapshotFresh(cached)) return false;
-		const accounts = parseProxyAccounts(await requestAuthFiles(url, key));
+		const accounts = await fetchProxyAccounts(url, key);
 		const updated: Snapshot = {
-			version: 3,
 			source,
 			fetchedAt: Date.now(),
 			accounts,
@@ -371,8 +479,12 @@ function usableScope(
 		scope[`${kind}PercentUsed`] = used;
 		if (typeof resetAt === "number") scope[`${kind}ResetAt`] = resetAt;
 	}
+	const resets = account.scope.availableResets;
+	if (typeof resets === "number" && Number.isFinite(resets) && resets >= 0)
+		scope.availableResets = Math.floor(resets);
 	return scope.sessionPercentUsed !== undefined ||
-		scope.weeklyPercentUsed !== undefined
+		scope.weeklyPercentUsed !== undefined ||
+		(scope.availableResets ?? 0) > 0
 		? scope
 		: undefined;
 }

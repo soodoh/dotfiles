@@ -24,7 +24,30 @@ const fixturePath = join(directory, "fixture.json");
 const curlPath = join(directory, "curl");
 writeFileSync(
 	curlPath,
-	'#!/bin/sh\ncat >/dev/null\nif [ -n "$CLIPROXY_TEST_ENDPOINT" ]; then for arg in "$@"; do printf "%s\\n" "$arg" >"$CLIPROXY_TEST_ENDPOINT"; done; fi\ncat "$CLIPROXY_TEST_FIXTURE"\nprintf "\\n200"\n',
+	`#!${process.execPath}
+const fs = require("node:fs");
+const config = fs.readFileSync(0, "utf8");
+const endpoint = process.argv.at(-1);
+const dataLine = config.split("\\n").find(line => line.startsWith("data = "));
+const data = dataLine ? JSON.parse(JSON.parse(dataLine.slice(7))) : undefined;
+if (process.env.CLIPROXY_TEST_REQUESTS) {
+  fs.appendFileSync(process.env.CLIPROXY_TEST_REQUESTS, JSON.stringify({endpoint, config, data, argv: process.argv.slice(2)}) + "\\n");
+}
+let status = 200;
+let body;
+if (endpoint.endsWith("/credentials")) {
+  status = Number(process.env.CLIPROXY_TEST_CREDENTIALS_STATUS ?? 200);
+  if (process.env.CLIPROXY_TEST_ENDPOINT) fs.writeFileSync(process.env.CLIPROXY_TEST_ENDPOINT, endpoint);
+  body = JSON.parse(fs.readFileSync(process.env.CLIPROXY_TEST_FIXTURE, "utf8"));
+} else {
+  const resets = process.env.CLIPROXY_TEST_RESETS
+    ? JSON.parse(fs.readFileSync(process.env.CLIPROXY_TEST_RESETS, "utf8")) : {};
+  const response = resets[data?.auth_index];
+  status = response?.management_status ?? 200;
+  body = response ?? {status_code: 404, body: "{}"};
+}
+process.stdout.write(JSON.stringify(body) + "\\n" + status);
+`,
 );
 chmodSync(curlPath, 0o755);
 
@@ -96,7 +119,7 @@ test.each(["", "/", "/v1", "/v1/", "/backend-api", "/backend-api/"])(
 		await refreshProxyUsage(() => {});
 		expect(
 			readFileSync(process.env.CLIPROXY_TEST_ENDPOINT, "utf8").trim(),
-		).toBe("https://proxy.example.test/proxy/v0/management/auth-files");
+		).toBe("https://proxy.example.test/proxy/v8/management/credentials");
 		expect(proxyUsageBadges()).toHaveLength(1);
 	},
 );
@@ -143,6 +166,267 @@ test("groups proxy accounts under one icon and +N without caching credentials", 
 	expect(cached).not.toContain("secret-");
 });
 
+test("fetches manual reset counts per account through the proxy", async () => {
+	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "private-management-key";
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/proxy/v1";
+	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+	process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+	process.env.CLIPROXY_TEST_RESETS = join(directory, "resets.json");
+	process.env.CLIPROXY_TEST_REQUESTS = join(directory, "requests.jsonl");
+	process.env.PATH = `${directory}:${originalEnv.PATH}`;
+	writeFileSync(process.env.CLIPROXY_TEST_REQUESTS, "");
+	writeFileSync(
+		fixturePath,
+		JSON.stringify({
+			files: [
+				{
+					...account("a", 47),
+					id_token: { chatgpt_account_id: "private-account-a" },
+				},
+				{
+					...account("b", 88),
+					id_token: { chatgpt_account_id: "private-account-b" },
+				},
+				{ ...account("disabled", 100), disabled: true },
+				{ ...account("claude", 50), provider: "claude" },
+			],
+		}),
+	);
+	writeFileSync(
+		process.env.CLIPROXY_TEST_RESETS,
+		JSON.stringify({
+			a: {
+				status_code: 200,
+				body: JSON.stringify({
+					available_count: 2,
+					credits: ["private-credit-a"],
+				}),
+			},
+			b: {
+				status_code: 200,
+				body: JSON.stringify({
+					availableCount: "3",
+					credits: ["private-credit-b"],
+				}),
+			},
+		}),
+	);
+	await refreshProxyUsage(() => {});
+	const badges = proxyUsageBadges();
+	expect(badges[0]).toContain("W47% (2d ↻2)");
+	expect(badges[0]).toContain("W88% (2d ↻3)");
+	expect(formatProviderUsage([], false, true)).toBe(badges[0]);
+	expect(renderProviderUsage([], { fg: (_color, text) => text }, false)).toBe(
+		badges[0],
+	);
+	const requests = readFileSync(process.env.CLIPROXY_TEST_REQUESTS, "utf8")
+		.trim()
+		.split("\n")
+		.map((line) => JSON.parse(line));
+	const calls = requests.filter(({ data }) => data !== undefined);
+	expect(calls).toHaveLength(2);
+	for (const id of ["a", "b"]) {
+		const call = calls.find(({ data }) => data.auth_index === id);
+		expect(call.endpoint).toBe(
+			"https://proxy.example.test/proxy/v8/management/requests/api-call",
+		);
+		expect(call.data).toEqual({
+			auth_index: id,
+			method: "GET",
+			url: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
+			header: {
+				Authorization: "Bearer $TOKEN$",
+				Accept: "application/json",
+				"OpenAI-Beta": "codex-1",
+				originator: "Codex Desktop",
+				"chatgpt-account-id": `private-account-${id}`,
+			},
+		});
+		expect(call.config).toContain(
+			'header = "Authorization: Bearer private-management-key"',
+		);
+		expect(JSON.stringify(call.argv)).not.toContain("private-");
+	}
+	const cached = readFileSync(path, "utf8");
+	expect(cached).not.toContain("private-");
+	expect(cached).not.toContain("auth_index");
+	resetProxyUsageForTests();
+	expect(proxyUsageBadges()).toEqual(badges);
+	await refreshProxyUsage(() => {});
+	expect(
+		readFileSync(process.env.CLIPROXY_TEST_REQUESTS, "utf8").trim().split("\n"),
+	).toHaveLength(requests.length);
+});
+
+test.each([
+	{ status_code: 200, body: '{"available_count":0}' },
+	{ status_code: 200, body: '{"available_count":-2}' },
+	{ status_code: 200, body: '{"available_count":"invalid"}' },
+	{ status_code: 200, body: '{"credits":[]}' },
+	{ status_code: 200, body: "invalid JSON" },
+	{ status_code: 401, body: '{"available_count":9}' },
+	{ management_status: 404 },
+	{ management_status: 500 },
+])(
+	"preserves quota without advertising unavailable reset credits: %j",
+	async (response) => {
+		process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+		process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+		process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+		process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+		process.env.CLIPROXY_TEST_RESETS = join(directory, "resets.json");
+		process.env.PATH = `${directory}:${originalEnv.PATH}`;
+		writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 47)] }));
+		writeFileSync(
+			process.env.CLIPROXY_TEST_RESETS,
+			JSON.stringify({ a: response }),
+		);
+		await refreshProxyUsage(() => {});
+		expect(proxyUsageBadges()).toEqual(["\uF120 S20% (2h)/W47% (2d)"]);
+	},
+);
+
+test.each([
+	{ status_code: 200, body: '{"available_count":0}' },
+	{ status_code: 401, body: "{}" },
+])(
+	"replaces old reset counts without hiding another account's credits: %j",
+	async (response) => {
+		process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+		process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+		process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+		process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+		process.env.CLIPROXY_TEST_RESETS = join(directory, "resets.json");
+		process.env.PATH = `${directory}:${originalEnv.PATH}`;
+		writeFileSync(
+			fixturePath,
+			JSON.stringify({ files: [account("a", 47), account("b", 88)] }),
+		);
+		writeFileSync(
+			process.env.CLIPROXY_TEST_RESETS,
+			JSON.stringify({
+				a: { status_code: 200, body: '{"available_count":2}' },
+			}),
+		);
+		await refreshProxyUsage(() => {});
+		expect(proxyUsageBadges()[0]).toContain("W47% (2d ↻2)");
+		const cached = JSON.parse(readFileSync(path, "utf8"));
+		cached.fetchedAt = Date.now() - 6 * 60_000;
+		writeFileSync(path, JSON.stringify(cached));
+		resetProxyUsageForTests();
+		writeFileSync(
+			process.env.CLIPROXY_TEST_RESETS,
+			JSON.stringify({
+				a: response,
+				b: { status_code: 200, body: '{"available_count":3}' },
+			}),
+		);
+		await refreshProxyUsage(() => {});
+		expect(proxyUsageBadges()[0]).toContain("W47% (2d)");
+		expect(proxyUsageBadges()[0]).toContain("W88% (2d ↻3)");
+	},
+);
+
+test.each([0, 6])(
+	"refreshes cached quota with missing optional reset counts only when its TTL expires (age: %s minutes)",
+	async (ageMinutes) => {
+		process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+		process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+		process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+		process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+		process.env.CLIPROXY_TEST_RESETS = join(directory, "resets.json");
+		process.env.PATH = `${directory}:${originalEnv.PATH}`;
+		const files = [account("a", 47)];
+		const source = createHash("sha256")
+			.update("https://proxy.example.test\0test-key")
+			.digest("hex");
+		writeFileSync(
+			path,
+			JSON.stringify({
+				source,
+				fetchedAt: Date.now() - ageMinutes * 60_000,
+				accounts: parseProxyAccounts({ files }),
+			}),
+		);
+		writeFileSync(fixturePath, JSON.stringify({ files }));
+		writeFileSync(
+			process.env.CLIPROXY_TEST_RESETS,
+			JSON.stringify({
+				a: { status_code: 200, body: '{"available_count":2}' },
+			}),
+		);
+		await refreshProxyUsage(() => {});
+		expect(proxyUsageBadges()[0]).toContain(
+			ageMinutes === 0 ? "W47% (2d)" : "W47% (2d ↻2)",
+		);
+	},
+);
+
+test.each(["{", "null", '{"accounts":{}}'])(
+	"refetches proxy usage when the disk cache is malformed: %s",
+	async (cache) => {
+		process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+		process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+		process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+		process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+		process.env.CLIPROXY_TEST_RESETS = join(directory, "resets.json");
+		process.env.PATH = `${directory}:${originalEnv.PATH}`;
+		writeFileSync(path, cache);
+		writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 47)] }));
+		writeFileSync(
+			process.env.CLIPROXY_TEST_RESETS,
+			JSON.stringify({
+				a: { status_code: 200, body: '{"available_count":2}' },
+			}),
+		);
+		await refreshProxyUsage(() => {});
+		expect(proxyUsageBadges()).toEqual(["\uF120 S20% (2h)/W47% (2d ↻2)"]);
+		resetProxyUsageForTests();
+		expect(proxyUsageBadges()).toEqual(["\uF120 S20% (2h)/W47% (2d ↻2)"]);
+	},
+);
+
+test.each([404, 500])(
+	"keeps usable cached quota when credential discovery fails with HTTP %s",
+	async (status) => {
+		process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+		process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+		process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+		process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+		process.env.PATH = `${directory}:${originalEnv.PATH}`;
+		writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 47)] }));
+		await refreshProxyUsage(() => {});
+		const cached = JSON.parse(readFileSync(path, "utf8"));
+		cached.fetchedAt = Date.now() - 7 * 60_000;
+		const cachedText = JSON.stringify(cached);
+		writeFileSync(path, cachedText);
+		resetProxyUsageForTests();
+		process.env.CLIPROXY_TEST_CREDENTIALS_STATUS = String(status);
+		await refreshProxyUsage(() => {});
+		expect(readFileSync(path, "utf8")).toBe(cachedText);
+		expect(proxyUsageBadges()).toEqual(["\uF120 S20% (2h)/W47% (2d) !"]);
+	},
+);
+
+test("shows reset credits even without a current quota observation", async () => {
+	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+	process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+	process.env.CLIPROXY_TEST_RESETS = join(directory, "resets.json");
+	process.env.PATH = `${directory}:${originalEnv.PATH}`;
+	writeFileSync(
+		fixturePath,
+		JSON.stringify({ files: [{ provider: "codex", auth_index: "a" }] }),
+	);
+	writeFileSync(
+		process.env.CLIPROXY_TEST_RESETS,
+		JSON.stringify({ a: { status_code: 200, body: '{"available_count":2}' } }),
+	);
+	await refreshProxyUsage(() => {});
+	expect(proxyUsageBadges()).toEqual(["\uF120 (↻2)"]);
+});
+
 test("retains old observations only until their reset, skipping unsupported or disabled accounts", () => {
 	const old = Date.now() - 16 * 60_000;
 	const expired = Date.now() - 3 * 86_400_000;
@@ -170,7 +454,6 @@ test("retries an empty account snapshot after one minute instead of five", async
 	writeFileSync(
 		path,
 		JSON.stringify({
-			version: 3,
 			source,
 			fetchedAt: Date.now() - 30_000,
 			accounts: [],
@@ -183,7 +466,6 @@ test("retries an empty account snapshot after one minute instead of five", async
 	writeFileSync(
 		path,
 		JSON.stringify({
-			version: 3,
 			source,
 			fetchedAt: Date.now() - 2 * 60_000,
 			accounts: [],
@@ -208,7 +490,6 @@ test("a fresh management snapshot does not mark an older, unexpired quota stale"
 	writeFileSync(
 		path,
 		JSON.stringify({
-			version: 3,
 			source,
 			fetchedAt: now,
 			accounts: [
@@ -246,7 +527,6 @@ test.each([
 		writeFileSync(
 			path,
 			JSON.stringify({
-				version: 3,
 				source,
 				fetchedAt: now - ageMinutes * 60_000,
 				accounts: [
@@ -263,7 +543,6 @@ test.each([
 		writeFileSync(
 			path,
 			JSON.stringify({
-				version: 3,
 				source,
 				fetchedAt: now - 16 * 60_000,
 				accounts: [
