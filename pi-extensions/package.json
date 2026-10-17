@@ -41,12 +41,12 @@
 		"test:coverage:html": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.reporter=html"
 	},
 	"dependencies": {
-		"@juicesharp/rpiv-ask-user-question": "2.13.8",
-		"@plannotator/pi-extension": "0.28.21",
-		"@router-for-me/pi-cliproxyapi-provider": "1.4.22",
-		"pi-subagents": "0.78.0",
+		"@juicesharp/rpiv-ask-user-question": "2.13.9",
+		"@plannotator/pi-extension": "0.28.23",
+		"@router-for-me/pi-cliproxyapi-provider": "1.4.23",
+		"pi-subagents": "0.79.0",
 		"pi-vim": "0.14.2",
-		"pi-web-access": "0.41.0",
+		"pi-web-access": "0.42.0",
 		"proper-lockfile": "4.1.2"
 	},
 	"peerDependencies": {
