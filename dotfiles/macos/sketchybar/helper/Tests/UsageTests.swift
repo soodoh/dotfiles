@@ -63,6 +63,24 @@ final class UsageTests {
     try requireThrows(try rows(["creditBalance": -1]))
     try requireThrows(try UsageSnapshot.decode(Data("not JSON".utf8)))
   }
+  func testMonthlyAndUnclassifiedQuota() throws {
+    let reset = (testNow.timeIntervalSince1970 + 30 * 86400) * 1000
+    let monthly = try rows([
+      "plan": "free", "scope": ["monthlyPercentUsed": 0, "monthlyResetAt": reset],
+    ])
+    try require(monthly.contains(PopupRow(title: "Monthly usage", value: "0%")))
+    try require(monthly.contains(PopupRow(title: "Resets", value: formatter.resetDate(reset))))
+    try requireFalse(monthly.contains(PopupRow(title: "Quota", value: "Unavailable")))
+    let fallback = try rows([
+      "quotaLookupFailed": true, "scope": ["monthlyPercentUsed": 42, "monthlyResetAt": reset],
+    ])
+    try require(fallback.contains(PopupRow(title: "Quota lookup", value: "Failed · last observed")))
+    let unknown = try rows([
+      "scope": ["percentUsed": 23, "windowSeconds": 14 * 86400, "resetAt": reset],
+    ])
+    try require(unknown.contains(PopupRow(title: "14d usage", value: "23%")))
+    try requireFalse(unknown.contains { $0.title == "Weekly usage" || $0.title == "Session usage" })
+  }
   func testLifecycleOrderingHoverAndRemoval() throws {
     let fake = FakeBar()
     try fake.ready()
@@ -142,6 +160,7 @@ final class UsageTests {
     ("fallbacks and unknowns", testFallbacksAndUnknowns),
     ("balances and expirations", testBalancesAndExpirations),
     ("windows and validation", testScopeWindowsAndValidation),
+    ("monthly and unclassified quota", testMonthlyAndUnclassifiedQuota),
     ("lifecycle and cached hover", testLifecycleOrderingHoverAndRemoval),
     ("reused row styling", testReusedRowsResetStyle),
   ]

@@ -187,10 +187,10 @@ function codexScope(
 			: NaN;
 	if (!Number.isFinite(observedAt) || observedAt > now + 60_000)
 		return undefined;
-	const scope: ProviderUsageScope = {};
-	for (const [name, fallback] of [
-		["Primary", "session"],
-		["Secondary", "weekly"],
+	const rateLimit: Record<string, unknown> = {};
+	for (const [name, slot] of [
+		["Primary", "primary_window"],
+		["Secondary", "secondary_window"],
 	] as const) {
 		const used = numeric(headers[`X-Codex-${name}-Used-Percent`]);
 		if (used === undefined) continue;
@@ -209,31 +209,16 @@ function codexScope(
 				"expired"
 		)
 			continue;
-		const timestamp = resetTimestamp;
 		const minutes = numeric(headers[`X-Codex-${name}-Window-Minutes`]);
-		const weekly =
-			minutes === undefined ? fallback === "weekly" : minutes >= 6 * 24 * 60;
-		const percent = Math.min(100, Math.max(0, used));
-		if (weekly) {
-			if (
-				scope.weeklyPercentUsed === undefined ||
-				percent >= scope.weeklyPercentUsed
-			) {
-				scope.weeklyPercentUsed = percent;
-				scope.weeklyResetAt = timestamp;
-			}
-		} else if (
-			scope.sessionPercentUsed === undefined ||
-			percent >= scope.sessionPercentUsed
-		) {
-			scope.sessionPercentUsed = percent;
-			scope.sessionResetAt = timestamp;
-		}
+		rateLimit[slot] = {
+			used_percent: used,
+			limit_window_seconds: minutes === undefined ? undefined : minutes * 60,
+			reset_at: resetTimestamp,
+		};
 	}
-	return scope.sessionPercentUsed !== undefined ||
-		scope.weeklyPercentUsed !== undefined
-		? { scope, observedAt }
-		: undefined;
+	// Header units differ from /usage, but period classification must not.
+	const scope = parseOpenAiUsageBody({ rate_limit: rateLimit });
+	return scope && hasQuota(scope) ? { scope, observedAt } : undefined;
 }
 
 function parseAccountEntries(body: unknown, now = Date.now()): AccountEntry[] {
@@ -485,7 +470,9 @@ function parseCreditBalance(body: unknown): CreditBalance | undefined {
 function hasQuota(scope: ProviderUsageScope | undefined): boolean {
 	return (
 		scope?.sessionPercentUsed !== undefined ||
-		scope?.weeklyPercentUsed !== undefined
+		scope?.weeklyPercentUsed !== undefined ||
+		scope?.monthlyPercentUsed !== undefined ||
+		scope?.percentUsed !== undefined
 	);
 }
 
@@ -507,48 +494,45 @@ async function fetchProxyAccounts(
 		Array.from({ length: Math.min(4, entries.length) }, async () => {
 			while (next < entries.length) {
 				const entry = entries[next++];
-				const previous = entry.account.disabled
-					? cached?.accounts.find(
-							(account) => account?.identity === entry.account.identity,
-						)
-					: undefined;
+				const previous = cached?.accounts.find(
+					(account) => account?.identity === entry.account.identity,
+				);
 				const previousResetAt =
 					previous?.resetCreditsObservedAt ?? cached?.fetchedAt;
 				const retained = previous
 					? usableScope(
 							{
 								...previous,
-								disabled: true,
+								quotaLookupFailed: true,
 								resetCreditsObservedAt: previousResetAt,
 							},
 							Date.now(),
 						)
 					: undefined;
-				// Balance is only available from /wham/usage, not management quota
-				// headers. Read it for every account, reusing the disabled quota read.
-				// Unknown/failed balances stay unavailable; never infer zero or retain
-				// an older balance with a newly refreshed snapshot timestamp.
+				// /usage is authoritative for every account, even if it has never
+				// served inference and therefore has no management quota headers.
 				const usageBody = await fetchCodexBody(url, key, entry, "usage");
 				entry.account.creditBalance = parseCreditBalance(usageBody);
-				if (entry.account.disabled) {
-					// Disabled means excluded from inference routing, not management
-					// reads. Its management record may omit quota headers entirely.
-					const quota = parseOpenAiUsageBody(usageBody);
-					entry.account.quotaLookupFailed = !hasQuota(quota);
-					if (quota && hasQuota(quota)) {
-						entry.account.scope = quota;
-						entry.account.observedAt = Date.now();
-					} else if (
-						previous &&
-						hasQuota(retained) &&
-						(!hasQuota(usableScope(entry.account, Date.now())) ||
-							previous.observedAt > entry.account.observedAt)
-					) {
-						entry.account.scope = { ...retained };
-						entry.account.observedAt = previous.observedAt;
-					}
-					entry.account.plan ??= previous?.plan;
+				const quota = parseOpenAiUsageBody(usageBody);
+				const headerQuota = hasQuota(usableScope(entry.account, Date.now()));
+				entry.account.quotaLookupFailed =
+					!hasQuota(quota) && (entry.account.disabled || !headerQuota);
+				if (quota && hasQuota(quota)) {
+					// Codex credits are not USD; only copy quota fields into the badge.
+					delete quota.balanceUsd;
+					entry.account.scope = quota;
+					entry.account.observedAt = Date.now();
+				} else if (
+					previous &&
+					hasQuota(retained) &&
+					(!headerQuota || previous.observedAt > entry.account.observedAt)
+				) {
+					entry.account.scope = { ...retained };
+					delete entry.account.scope.availableResets;
+					entry.account.observedAt = previous.observedAt;
+					entry.account.quotaLookupFailed = true;
 				}
+				entry.account.plan ??= previous?.plan;
 				const resets = await fetchResetCredits(url, key, entry);
 				if (resets) {
 					entry.account.scope.availableResets = resets.count;
@@ -648,12 +632,17 @@ function usableScope(
 ): ProviderUsageScope | undefined {
 	if (!account.scope || typeof account.scope !== "object") return undefined;
 	const scope: ProviderUsageScope = {};
-	for (const kind of ["session", "weekly"] as const) {
-		const used = account.scope[`${kind}PercentUsed`];
-		const resetAt = account.scope[`${kind}ResetAt`];
+	for (const [percentKey, resetKey] of [
+		["sessionPercentUsed", "sessionResetAt"],
+		["weeklyPercentUsed", "weeklyResetAt"],
+		["monthlyPercentUsed", "monthlyResetAt"],
+		["percentUsed", "resetAt"],
+	] as const) {
+		const used = account.scope[percentKey];
+		const resetAt = account.scope[resetKey];
 		if (typeof used !== "number" || !Number.isFinite(used)) continue;
 		if (
-			account.disabled &&
+			(account.disabled || account.quotaLookupFailed) &&
 			usageSnapshotFreshness(
 				{ fetchedAt: account.observedAt, state: "ready" },
 				now,
@@ -669,9 +658,12 @@ function usableScope(
 					) === "expired"
 		)
 			continue;
-		scope[`${kind}PercentUsed`] = used;
-		if (typeof resetAt === "number") scope[`${kind}ResetAt`] = resetAt;
+		scope[percentKey] = used;
+		if (typeof resetAt === "number" && Number.isFinite(resetAt))
+			scope[resetKey] = resetAt;
 	}
+	if (scope.percentUsed !== undefined)
+		scope.windowSeconds = numeric(account.scope.windowSeconds);
 	const resets = account.scope.availableResets;
 	if (
 		typeof resets === "number" &&
@@ -685,8 +677,7 @@ function usableScope(
 	)
 		scope.availableResets = Math.floor(resets);
 	return account.disabled === true ||
-		scope.sessionPercentUsed !== undefined ||
-		scope.weeklyPercentUsed !== undefined ||
+		hasQuota(scope) ||
 		(scope.availableResets ?? 0) > 0
 		? scope
 		: undefined;

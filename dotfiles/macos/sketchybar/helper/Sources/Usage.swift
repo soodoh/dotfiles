@@ -20,6 +20,11 @@ struct UsageAccount: Decodable {
     var sessionResetAt: Double?
     var weeklyPercentUsed: Double?
     var weeklyResetAt: Double?
+    var monthlyPercentUsed: Double?
+    var monthlyResetAt: Double?
+    var percentUsed: Double?
+    var resetAt: Double?
+    var windowSeconds: Double?
     var availableResets: Int?
   }
   struct ResetCredit: Decodable { var expiresAt: Double? }
@@ -93,6 +98,15 @@ struct PopupFormatter {
     if minutes < 1440 { return "\(minutes / 60)h ago" }
     return "\(minutes / 1440)d ago"
   }
+  func windowName(_ seconds: Double?) -> String {
+    guard let seconds, seconds.isFinite, seconds > 0 else { return "Quota" }
+    for (unit, size) in [("d", 86400.0), ("h", 3600.0), ("m", 60.0), ("s", 1.0)] {
+      if seconds.truncatingRemainder(dividingBy: size) == 0 {
+        return "\((seconds / size).formatted(.number.locale(Locale(identifier: "en_US_POSIX"))))\(unit)"
+      }
+    }
+    return "\(seconds)s"
+  }
   func rows(_ account: UsageAccount) -> [PopupRow] {
     let plans = [
       "pro": "Pro", "prolite": "Pro Lite", "plus": "Plus", "free": "Free", "team": "Team",
@@ -111,7 +125,13 @@ struct PopupFormatter {
       PopupRow(kind: .header, title: title, value: "Updated at \(clock(account.fetchedAt))"),
       PopupRow(kind: .status, title: status), PopupRow(kind: .divider),
     ]
-    let hasQuota = account.scope.sessionPercentUsed != nil || account.scope.weeklyPercentUsed != nil
+    let windows = [
+      ("Session", account.scope.sessionPercentUsed, account.scope.sessionResetAt),
+      ("Weekly", account.scope.weeklyPercentUsed, account.scope.weeklyResetAt),
+      ("Monthly", account.scope.monthlyPercentUsed, account.scope.monthlyResetAt),
+      (windowName(account.scope.windowSeconds), account.scope.percentUsed, account.scope.resetAt),
+    ]
+    let hasQuota = windows.contains { $0.1 != nil }
     if account.quotaLookupFailed == true {
       rows.append(
         PopupRow(
@@ -125,10 +145,7 @@ struct PopupFormatter {
             "Failed · \(account.scope.availableResets != nil ? "last observed" : "unavailable")"))
     }
     if !hasQuota { rows.append(PopupRow(title: "Quota", value: "Unavailable")) }
-    for (name, used, reset) in [
-      ("Session", account.scope.sessionPercentUsed, account.scope.sessionResetAt),
-      ("Weekly", account.scope.weeklyPercentUsed, account.scope.weeklyResetAt),
-    ] {
+    for (name, used, reset) in windows {
       if let used {
         rows.append(PopupRow(title: "\(name) usage", value: "\(Int(used.rounded()))%"))
         if let reset { rows.append(PopupRow(title: "Resets", value: resetDate(reset))) }

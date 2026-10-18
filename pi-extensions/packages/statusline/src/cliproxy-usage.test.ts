@@ -89,6 +89,109 @@ afterEach(() => {
 	}
 });
 
+test.each([false, true])(
+	"shows monthly-only Free usage without quota headers or reset credits (disabled: %s)",
+	async (disabled) => {
+		process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+		process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+		process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+		process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+		process.env.CLIPROXY_TEST_USAGE = join(directory, "monthly-usage.json");
+		process.env.PATH = `${directory}:${originalEnv.PATH}`;
+		writeFileSync(
+			fixturePath,
+			JSON.stringify({
+				files: [
+					{
+						provider: "codex",
+						auth_index: "free",
+						disabled,
+						id_token: { plan_type: "free" },
+						quota: { signals: {} },
+					},
+				],
+			}),
+		);
+		const resetAt = Math.floor(Date.now() / 1000) + 30 * 86400;
+		writeFileSync(
+			process.env.CLIPROXY_TEST_USAGE,
+			JSON.stringify({
+				free: {
+					status_code: 200,
+					body: JSON.stringify({
+						plan_type: "free",
+						rate_limit: {
+							primary_window: {
+								used_percent: 0,
+								limit_window_seconds: 2592000,
+								reset_at: resetAt,
+							},
+							secondary_window: null,
+						},
+					}),
+				},
+			}),
+		);
+		await refreshProxyUsage(() => {});
+		const views = proxyUsageAccounts();
+		expect(views).toHaveLength(1);
+		expect(views[0]).toMatchObject({
+			disabled,
+			summary: "0% (30d)",
+			quotaLookupFailed: false,
+			scope: { monthlyPercentUsed: 0, monthlyResetAt: resetAt * 1000 },
+		});
+		resetProxyUsageForTests();
+		expect(proxyUsageAccounts()).toEqual(views);
+
+		// A failed refresh must keep the observation's age, not the new snapshot's age.
+		const cached = JSON.parse(readFileSync(path, "utf8"));
+		cached.fetchedAt = Date.now() - 6 * 60_000;
+		cached.accounts[0].observedAt = Date.now() - 7 * 60_000;
+		writeFileSync(path, JSON.stringify(cached));
+		writeFileSync(process.env.CLIPROXY_TEST_USAGE, "{}");
+		resetProxyUsageForTests();
+		await refreshProxyUsage(() => {});
+		expect(proxyUsageAccounts()[0]).toMatchObject({
+			summary: "0% (30d)",
+			quotaLookupFailed: true,
+			stale: true,
+			observedAt: cached.accounts[0].observedAt,
+		});
+		const failed = JSON.parse(readFileSync(path, "utf8"));
+		failed.fetchedAt = Date.now() - 6 * 60_000;
+		failed.accounts[0].observedAt = Date.now() - 16 * 60_000;
+		writeFileSync(path, JSON.stringify(failed));
+		resetProxyUsageForTests();
+		await refreshProxyUsage(() => {});
+		if (disabled) expect(proxyUsageAccounts()[0].summary).toBe("?");
+		else expect(proxyUsageAccounts()).toEqual([]);
+	},
+);
+
+test.each([30, 14])(
+	"normalizes %s-day management headers without calling them weekly",
+	(days) => {
+		const now = Date.now();
+		const file = account("free", 0, now);
+		file.quota.signals = {
+			"X-Codex-Primary-Used-Percent": "0",
+			"X-Codex-Primary-Window-Minutes": String(days * 1440),
+			"X-Codex-Primary-Reset-At": String(Math.floor(now / 1000) + days * 86400),
+		} as typeof file.quota.signals;
+		const parsed = parseProxyAccounts({ files: [file] }, now);
+		expect(parsed).toHaveLength(1);
+		expect(parsed[0].scope).toMatchObject(
+			days === 30
+				? { monthlyPercentUsed: 0 }
+				: { percentUsed: 0, windowSeconds: days * 86400 },
+		);
+		expect(
+			parseProxyAccounts({ files: [file] }, now + (days + 1) * 86400000),
+		).toEqual([]);
+	},
+);
+
 test("keeps deterministic account identities, independent of response order or quota", () => {
 	const first = parseProxyAccounts({
 		files: [account("b", 100), account("a", 47)],
@@ -475,7 +578,11 @@ test("shows reset credits even without a current quota observation", async () =>
 		JSON.stringify({ a: { status_code: 200, body: '{"available_count":2}' } }),
 	);
 	await refreshProxyUsage(() => {});
-	expect(proxyUsageBadges()).toEqual(["\uF120 (↻2)"]);
+	expect(proxyUsageBadges()).toEqual(["\uF120 (↻2) !"]);
+	expect(proxyUsageAccounts()[0]).toMatchObject({
+		quotaLookupFailed: true,
+		stale: true,
+	});
 });
 
 test("retains old observations only until their reset, skipping unsupported providers", () => {
@@ -848,9 +955,8 @@ test.each([
 		for (const view of views) {
 			expect(view.creditBalance).toBe(expected);
 			// Balance never replaces quota or gets rendered as dollars in Pi.
-			expect(view.summary).toBe(
-				view.disabled ? "52% (2d)" : "S20% (2h)/W47% (2d)",
-			);
+			// A successful upstream snapshot supersedes older headers for both accounts.
+			expect(view.summary).toBe("52% (2d)");
 			expect(view.scope.balanceUsd).toBeUndefined();
 		}
 		const calls = readFileSync(process.env.CLIPROXY_TEST_REQUESTS, "utf8")

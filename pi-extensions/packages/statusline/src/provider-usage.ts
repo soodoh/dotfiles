@@ -45,7 +45,11 @@ export type ProviderUsageScope = {
 	weeklyPercentUsed?: number;
 	weeklyResetAt?: number;
 	monthlyPercentUsed?: number;
+	monthlyResetAt?: number;
 	percentUsed?: number;
+	resetAt?: number;
+	/** Reported duration of an unclassified quota window; never inferred from plan. */
+	windowSeconds?: number;
 	availableResets?: number;
 	balanceUsd?: number;
 	creditsUsd?: number;
@@ -161,8 +165,11 @@ function parseCachedScope(value: unknown): ProviderUsageScope | undefined {
 			typeof value.monthlyPercentUsed === "number"
 				? value.monthlyPercentUsed
 				: undefined,
+		monthlyResetAt: numericField(value.monthlyResetAt),
 		percentUsed:
 			typeof value.percentUsed === "number" ? value.percentUsed : undefined,
+		resetAt: numericField(value.resetAt),
+		windowSeconds: numericField(value.windowSeconds),
 		availableResets:
 			typeof value.availableResets === "number"
 				? value.availableResets
@@ -1045,7 +1052,7 @@ async function fetchAnthropicOAuthUsage(
 		: undefined;
 }
 
-type OpenAiUsageWindowKind = "session" | "weekly";
+type OpenAiUsageWindowKind = "session" | "weekly" | "monthly" | "unknown";
 
 function openAiWindowPercent(
 	window: Record<string, unknown> | undefined,
@@ -1075,7 +1082,11 @@ function openAiWindowKind(
 	if (durationSeconds === undefined) return fallback;
 
 	const daySeconds = 24 * 60 * 60;
-	return durationSeconds >= 6 * daySeconds ? "weekly" : "session";
+	if (durationSeconds === 5 * 60 * 60) return "session";
+	if (durationSeconds === 7 * daySeconds) return "weekly";
+	const days = durationSeconds / daySeconds;
+	if (Number.isInteger(days) && days >= 28 && days <= 31) return "monthly";
+	return "unknown";
 }
 
 export function parseOpenAiUsageBody(
@@ -1091,29 +1102,25 @@ export function parseOpenAiUsageBody(
 		? nestedRecord(rateLimit, "secondary_window")
 		: undefined;
 	const credits = nestedRecord(body, "credits");
-	let sessionPercentUsed: number | undefined;
-	let sessionResetAt: number | undefined;
-	let weeklyPercentUsed: number | undefined;
-	let weeklyResetAt: number | undefined;
+	const scope: ProviderUsageScope = {};
 	for (const [window, fallbackKind] of [
 		[primary, "session"],
 		[secondary, "weekly"],
 	] satisfies [Record<string, unknown> | undefined, OpenAiUsageWindowKind][]) {
 		const percentUsed = openAiWindowPercent(window);
 		if (percentUsed === undefined) continue;
-		const resetAt = openAiWindowResetAt(window);
-		if (openAiWindowKind(window, fallbackKind) === "weekly") {
-			if (weeklyPercentUsed === undefined || percentUsed >= weeklyPercentUsed) {
-				weeklyPercentUsed = percentUsed;
-				weeklyResetAt = resetAt;
-			}
-		} else if (
-			sessionPercentUsed === undefined ||
-			percentUsed >= sessionPercentUsed
-		) {
-			sessionPercentUsed = percentUsed;
-			sessionResetAt = resetAt;
-		}
+		const kind = openAiWindowKind(window, fallbackKind);
+		const percentKey =
+			kind === "unknown" ? "percentUsed" : (`${kind}PercentUsed` as const);
+		const resetKey =
+			kind === "unknown" ? "resetAt" : (`${kind}ResetAt` as const);
+		// Preserve the most restrictive observation and its corresponding reset.
+		if (scope[percentKey] !== undefined && percentUsed < scope[percentKey])
+			continue;
+		scope[percentKey] = percentUsed;
+		scope[resetKey] = openAiWindowResetAt(window);
+		if (kind === "unknown")
+			scope.windowSeconds = numericField(window?.limit_window_seconds);
 	}
 	const balanceUsd =
 		credits?.has_credits === true
@@ -1122,17 +1129,8 @@ export function parseOpenAiUsageBody(
 				)
 			: undefined;
 
-	return sessionPercentUsed !== undefined ||
-		weeklyPercentUsed !== undefined ||
-		balanceUsd !== undefined
-		? {
-				sessionPercentUsed,
-				sessionResetAt,
-				weeklyPercentUsed,
-				weeklyResetAt,
-				balanceUsd,
-			}
-		: undefined;
+	if (balanceUsd !== undefined) scope.balanceUsd = balanceUsd;
+	return Object.keys(scope).length > 0 ? scope : undefined;
 }
 
 function parseOpenAiResetCreditsBody(
@@ -1539,6 +1537,20 @@ function formatResetCountdown(timestamp: number): string {
 	return `${Math.ceil(remainingMinutes / (24 * 60))}d`;
 }
 
+function formatWindowDuration(seconds: number | undefined): string | undefined {
+	if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0)
+		return undefined;
+	for (const [unit, size] of [
+		["d", 86400],
+		["h", 3600],
+		["m", 60],
+		["s", 1],
+	] as const) {
+		if (seconds % size === 0) return `${seconds / size}${unit}`;
+	}
+	return `${seconds}s`;
+}
+
 export function formatProviderScope(
 	scope: ProviderUsageScope | undefined,
 ): string | undefined {
@@ -1547,6 +1559,7 @@ export function formatProviderScope(
 		label?: string;
 		value: number | undefined;
 		resetAt?: number;
+		duration?: string;
 	}[] = [
 		{
 			label: "S",
@@ -1558,12 +1571,29 @@ export function formatProviderScope(
 			value: scope.weeklyPercentUsed,
 			resetAt: scope.weeklyResetAt,
 		},
-		{ label: "M", value: scope.monthlyPercentUsed },
-		{ value: scope.percentUsed },
+		{
+			label: "M",
+			value: scope.monthlyPercentUsed,
+			resetAt: scope.monthlyResetAt,
+		},
+		{
+			value: scope.percentUsed,
+			resetAt: scope.resetAt,
+			duration: formatWindowDuration(scope.windowSeconds),
+		},
 	];
 	const percentages = percentageCandidates.filter(
-		(entry): entry is { label?: string; value: number; resetAt?: number } =>
-			entry.value !== undefined,
+		(
+			entry,
+		): entry is {
+			label?: string;
+			value: number;
+			resetAt?: number;
+			duration?: string;
+		} =>
+			entry.value !== undefined &&
+			Number.isFinite(entry.value) &&
+			(entry.resetAt === undefined || entry.resetAt > Date.now()),
 	);
 	const resets =
 		scope.availableResets !== undefined && scope.availableResets > 0
@@ -1573,9 +1603,10 @@ export function formatProviderScope(
 	if (percentages.length > 0) {
 		const showScopeLabels = percentages.length > 1;
 		scopeText = percentages
-			.map(({ label, value, resetAt }, index) => {
-				const percentage =
-					showScopeLabels && label
+			.map(({ label, value, resetAt, duration }, index) => {
+				const percentage = duration
+					? `${duration} ${formatPercent(value)}`
+					: showScopeLabels && label
 						? formatLabeledPercent(label, value)
 						: formatPercent(value);
 				const details: string[] = [];

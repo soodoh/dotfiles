@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -8,10 +8,12 @@ import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
 
 import {
 	discoverProviderUsageTargets,
+	formatProviderScope,
 	formatProviderUsage,
 	invalidateProviderUsageCache,
 	mappedProviderUsageFamily,
 	type ProviderUsageTarget,
+	parseOpenAiUsageBody,
 	refreshProviderUsage,
 	renderProviderUsage,
 } from "./provider-usage";
@@ -822,6 +824,130 @@ describe("provider usage", () => {
 		expect(render(targets)).toContain(`${OPENAI_LOGO} 12%`);
 		expect(render(targets)).not.toContain("W12%");
 		expect(render(targets)).not.toContain("S12%");
+	});
+
+	test.each([28, 29, 30, 31])(
+		"preserves a %s-day Codex quota as monthly, including zero usage and its reset",
+		(days) => {
+			const resetAt = Math.floor(Date.now() / 1000) + days * 86400;
+			expect(
+				parseOpenAiUsageBody({
+					rate_limit: {
+						primary_window: {
+							used_percent: 0,
+							limit_window_seconds: days * 86400,
+							reset_at: resetAt,
+						},
+						secondary_window: null,
+					},
+				}),
+			).toMatchObject({
+				monthlyPercentUsed: 0,
+				monthlyResetAt: resetAt * 1000,
+			});
+		},
+	);
+
+	test.each([86400, 14 * 86400, 90 * 86400])(
+		"preserves an unfamiliar %s-second Codex window without inventing a period",
+		(seconds) => {
+			const parsed = parseOpenAiUsageBody({
+				rate_limit: {
+					primary_window: {
+						used_percent: 23,
+						limit_window_seconds: seconds,
+						reset_at: 2_000_000_000,
+					},
+				},
+			});
+			expect(parsed).toMatchObject({
+				percentUsed: 23,
+				windowSeconds: seconds,
+				resetAt: 2_000_000_000_000,
+			});
+			expect(parsed?.sessionPercentUsed).toBeUndefined();
+			expect(parsed?.weeklyPercentUsed).toBeUndefined();
+		},
+	);
+
+	test.each([30, 14])(
+		"fetches, persists, and hydrates a direct Codex %s-day quota with its countdown",
+		async (days) => {
+			const token = jwtWithPayload({
+				"https://api.openai.com/auth": { chatgpt_account_id: "free-account" },
+			});
+			const resetAt = Math.floor(Date.now() / 1000) + days * 86400;
+			const expected = `${OPENAI_LOGO} ${days === 30 ? "" : `${days}d `}0% (${days}d)`;
+			const { fetchMock } = fetchCalls((url) =>
+				url.endsWith("/usage")
+					? Response.json({
+							rate_limit: {
+								primary_window: {
+									used_percent: 0,
+									limit_window_seconds: days * 86400,
+									reset_at: resetAt,
+								},
+								secondary_window: null,
+							},
+						})
+					: Response.json({ available_count: 0 }),
+			);
+			const ctx: ProviderUsageContext = {
+				readStoredCredential: () => ({ type: "oauth", access: token }),
+			};
+			const targets: ProviderUsageTarget[] = [
+				{ providerId: "openai-codex", authKind: "oauth", active: true },
+			];
+			await refreshAndWait(ctx, targets);
+			expect(render(targets)).toBe(expected);
+			const cached = readFileSync(sharedTestCachePath, "utf8");
+			const entry = Object.values(JSON.parse(cached).entries)[0] as {
+				scope: unknown;
+			};
+			expect(entry.scope).toMatchObject(
+				days === 30
+					? { monthlyPercentUsed: 0, monthlyResetAt: resetAt * 1000 }
+					: {
+							percentUsed: 0,
+							windowSeconds: days * 86400,
+							resetAt: resetAt * 1000,
+						},
+			);
+			invalidateProviderUsageCache();
+			writeFileSync(sharedTestCachePath, cached);
+			fetchMock.mockClear();
+			await refreshAndWait(ctx, targets);
+			expect(fetchMock).not.toHaveBeenCalled();
+			expect(render(targets)).toBe(expected);
+		},
+	);
+
+	test("formats shared monthly and unclassified quotas without displaying expired windows", () => {
+		const now = Date.now();
+		expect(
+			formatProviderScope({
+				sessionPercentUsed: 12,
+				monthlyPercentUsed: 0,
+				monthlyResetAt: now + 30 * 86400000,
+			}),
+		).toBe("S12%/M0% (30d)");
+		expect(
+			formatProviderScope({ monthlyPercentUsed: 99, monthlyResetAt: now - 1 }),
+		).toBeUndefined();
+		expect(
+			formatProviderScope({
+				percentUsed: 0,
+				resetAt: now + 3600000,
+				windowSeconds: 3600,
+			}),
+		).toBe("1h 0% (1h)");
+		expect(
+			formatProviderScope({
+				percentUsed: 99,
+				resetAt: now - 1,
+				windowSeconds: 14 * 86400,
+			}),
+		).toBeUndefined();
 	});
 
 	test("labels both OpenAI usage windows when both are returned", async () => {
