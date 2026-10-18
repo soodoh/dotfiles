@@ -10,7 +10,7 @@ fi
 
 source "$CONFIG_DIR/plugins/colors.sh"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
-source "$PLUGIN_DIR/bar_sections.sh"
+BAR_HELPER="$(/bin/bash "$CONFIG_DIR/helper/build.sh")" || exit 1
 
 ##### Bar Appearance #####
 # Configuring the general appearance of the bar.
@@ -20,7 +20,7 @@ source "$PLUGIN_DIR/bar_sections.sh"
 # https://felixkratz.github.io/SketchyBar/config/tricks#color-picker
 
 # Match the macOS menu-bar row so native vertical centering stays visible.
-sketchybar --bar position=top "height=$BAR_ROW_HEIGHT" padding_left=20 blur_radius=30 color="$BAR_COLOR"
+"$BAR_HELPER" appearance || exit 1
 
 ##### Changing Defaults #####
 # We now change some default values, which are applied to all further items.
@@ -94,28 +94,10 @@ sketchybar --add item front_app left \
            --set front_app icon.drawing=off script="$PLUGIN_DIR/front_app.sh" \
            --subscribe front_app front_app_switched
 
-##### Adding Right Items #####
-create_right_sections
-
-##### AI Usage #####
-sketchybar --add item ai_usage.refresh right \
-           --set ai_usage.refresh \
-           drawing=off \
-           updates=on \
-           update_freq=60 \
-           script="$PLUGIN_DIR/ai_usage_refresh.sh" \
-           --subscribe ai_usage.refresh system_woke
-
-##### Display-specific notch layout #####
-source "$PLUGIN_DIR/notch_layout.sh"
-create_notch_items
-create_bar_click_guard
-apply_notch_layout
-sketchybar --add event notch_usage_change \
-           --add item notch.layout left \
-           --set notch.layout drawing=off updates=on update_freq=30 \
-           script="/bin/bash -c 'source \"$PLUGIN_DIR/notch_layout.sh\"; apply_notch_layout'" \
-           --subscribe notch.layout display_change system_woke notch_usage_change
+##### Right sections, cached AI popups, and display-specific notch layout #####
+# The compiled helper owns these items and registers direct binary event
+# handlers. No compilation, provider discovery, or network access on hover.
+"$BAR_HELPER" setup || exit 1
 
 ##### Force all scripts to run the first time (never do this in a script) #####
 sketchybar --update

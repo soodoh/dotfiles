@@ -10,17 +10,56 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import lockfile from "proper-lockfile";
-import { formatProviderScope, type ProviderUsageScope } from "./provider-usage";
+import {
+	formatProviderScope,
+	PROVIDER_BADGE_SEPARATOR,
+	type ProviderUsageScope,
+	parseOpenAiUsageBody,
+} from "./provider-usage";
 import { isUsageCacheFresh, usageSnapshotFreshness } from "./usage-freshness";
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const CODEX_PROXY_LOGO = "\uF120"; // nf-fa-terminal
+
+type ResetCredit = {
+	expiresAt?: number;
+	grantedAt?: number;
+};
+
+// Codex usage credits are not a USD balance or manual-reset credits.
+type CreditBalance = number | "unlimited";
 
 type Account = {
 	provider: string;
 	identity: string;
 	scope: ProviderUsageScope;
 	observedAt: number;
+	plan?: string;
+	disabled?: boolean;
+	quotaLookupFailed?: boolean;
+	resetLookupFailed?: boolean;
+	health?: "active" | "unavailable" | "cooling-down" | "error" | "disabled";
+	resetCredits?: ResetCredit[];
+	resetCreditsObservedAt?: number;
+	creditBalance?: CreditBalance;
+};
+
+/** Safe presentation data shared by Pi and external renderers; never credentials. */
+export type ProxyUsageAccount = {
+	key: string;
+	summary: string;
+	scope: ProviderUsageScope;
+	plan?: string;
+	health?: Account["health"];
+	disabled: boolean;
+	quotaLookupFailed: boolean;
+	resetLookupFailed: boolean;
+	resetCredits?: ResetCredit[];
+	resetCreditsObservedAt?: number;
+	creditBalance?: CreditBalance;
+	fetchedAt: number;
+	observedAt: number;
+	stale: boolean;
 };
 // Request-only metadata: never written to the shared usage cache.
 type AccountEntry = {
@@ -122,6 +161,17 @@ function numeric(value: unknown): number | undefined {
 	return Number.isFinite(number) ? number : undefined;
 }
 
+function planName(value: unknown): string | undefined {
+	return typeof value === "string" && /^[a-z][a-z0-9_-]{0,31}$/i.test(value)
+		? value
+		: undefined;
+}
+
+function timestamp(value: unknown): number | undefined {
+	const parsed = typeof value === "string" ? Date.parse(value) : NaN;
+	return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function codexScope(
 	value: unknown,
 	now: number,
@@ -197,7 +247,7 @@ function parseAccountEntries(body: unknown, now = Date.now()): AccountEntry[] {
 	for (const value of (body as { files: unknown[] }).files) {
 		if (!value || typeof value !== "object") continue;
 		const file = value as Record<string, unknown>;
-		if (file.disabled === true || file.provider !== "codex") continue;
+		if (file.provider !== "codex") continue;
 		const identity = file.auth_index;
 		if (typeof identity !== "string" || !identity) continue;
 		let usage = codexScope(file.quota, now);
@@ -217,6 +267,24 @@ function parseAccountEntries(body: unknown, now = Date.now()): AccountEntry[] {
 				provider: "codex",
 				identity: createHash("sha256").update(identity).digest("hex"),
 				...(usage ?? { scope: {}, observedAt: now }),
+				plan: planName(
+					file.id_token && typeof file.id_token === "object"
+						? (file.id_token as Record<string, unknown>).plan_type
+						: undefined,
+				),
+				disabled: file.disabled === true,
+				health:
+					file.disabled === true
+						? "disabled"
+						: Array.isArray(file.cooldowns) && file.cooldowns.length > 0
+							? "cooling-down"
+							: file.unavailable === true
+								? "unavailable"
+								: file.status === "error"
+									? "error"
+									: file.status === "active" || file.status === "ready"
+										? "active"
+										: undefined,
 			},
 			authIndex: identity,
 			accountId:
@@ -316,11 +384,12 @@ function requestManagement(
 	});
 }
 
-async function fetchResetCredits(
+async function fetchCodexBody(
 	url: string,
 	key: string,
 	entry: AccountEntry,
-): Promise<number | undefined> {
+	endpoint: "usage" | "rate-limit-reset-credits",
+): Promise<unknown> {
 	try {
 		const header: Record<string, string> = {
 			Authorization: "Bearer $TOKEN$",
@@ -336,7 +405,7 @@ async function fetchResetCredits(
 			{
 				auth_index: entry.authIndex,
 				method: "GET",
-				url: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
+				url: `https://chatgpt.com/backend-api/wham/${endpoint}`,
 				header,
 			},
 		);
@@ -349,11 +418,46 @@ async function fetchResetCredits(
 		const upstream = response.body as Record<string, unknown>;
 		if (upstream.status_code !== 200 || typeof upstream.body !== "string")
 			return undefined;
-		const body: unknown = JSON.parse(upstream.body);
+		return JSON.parse(upstream.body) as unknown;
+	} catch {
+		return undefined;
+	}
+}
+
+async function fetchResetCredits(
+	url: string,
+	key: string,
+	entry: AccountEntry,
+): Promise<{ count: number; credits: ResetCredit[] } | undefined> {
+	try {
+		const body = await fetchCodexBody(
+			url,
+			key,
+			entry,
+			"rate-limit-reset-credits",
+		);
 		if (!body || typeof body !== "object") return undefined;
 		const credits = body as Record<string, unknown>;
 		const count = numeric(credits.available_count ?? credits.availableCount);
-		return count === undefined ? undefined : Math.max(0, Math.floor(count));
+		if (count === undefined) return undefined;
+		const available = Array.isArray(credits.credits)
+			? credits.credits.flatMap((value: unknown) => {
+					if (!value || typeof value !== "object") return [];
+					const credit = value as Record<string, unknown>;
+					if (
+						credit.status !== "available" ||
+						credit.is_supported_by_plan === false
+					)
+						return [];
+					const expiresAt = timestamp(credit.expires_at);
+					if (expiresAt !== undefined && expiresAt <= Date.now()) return [];
+					return [{ expiresAt, grantedAt: timestamp(credit.granted_at) }];
+				})
+			: [];
+		available.sort(
+			(a, b) => (a.expiresAt ?? Infinity) - (b.expiresAt ?? Infinity),
+		);
+		return { count: Math.max(0, Math.floor(count)), credits: available };
 	} catch {
 		// Reset credits are optional; an unsupported endpoint or failed account
 		// lookup must not hide its observed quota or other accounts' credits.
@@ -361,9 +465,34 @@ async function fetchResetCredits(
 	}
 }
 
+function creditBalance(value: unknown): CreditBalance | undefined {
+	if (value === "unlimited") return value;
+	return typeof value === "number" && Number.isFinite(value) && value >= 0
+		? value
+		: undefined;
+}
+
+function parseCreditBalance(body: unknown): CreditBalance | undefined {
+	if (!body || typeof body !== "object") return undefined;
+	const credits = (body as { credits?: unknown }).credits;
+	if (!credits || typeof credits !== "object") return undefined;
+	const record = credits as Record<string, unknown>;
+	if (record.unlimited === true) return "unlimited";
+	if (record.balance != null) return creditBalance(numeric(record.balance));
+	return record.has_credits === false ? 0 : undefined;
+}
+
+function hasQuota(scope: ProviderUsageScope | undefined): boolean {
+	return (
+		scope?.sessionPercentUsed !== undefined ||
+		scope?.weeklyPercentUsed !== undefined
+	);
+}
+
 async function fetchProxyAccounts(
 	url: string,
 	key: string,
+	cached: Snapshot | undefined,
 ): Promise<Account[]> {
 	const response = await requestManagement(
 		url,
@@ -378,8 +507,64 @@ async function fetchProxyAccounts(
 		Array.from({ length: Math.min(4, entries.length) }, async () => {
 			while (next < entries.length) {
 				const entry = entries[next++];
-				const count = await fetchResetCredits(url, key, entry);
-				if (count !== undefined) entry.account.scope.availableResets = count;
+				const previous = entry.account.disabled
+					? cached?.accounts.find(
+							(account) => account?.identity === entry.account.identity,
+						)
+					: undefined;
+				const previousResetAt =
+					previous?.resetCreditsObservedAt ?? cached?.fetchedAt;
+				const retained = previous
+					? usableScope(
+							{
+								...previous,
+								disabled: true,
+								resetCreditsObservedAt: previousResetAt,
+							},
+							Date.now(),
+						)
+					: undefined;
+				// Balance is only available from /wham/usage, not management quota
+				// headers. Read it for every account, reusing the disabled quota read.
+				// Unknown/failed balances stay unavailable; never infer zero or retain
+				// an older balance with a newly refreshed snapshot timestamp.
+				const usageBody = await fetchCodexBody(url, key, entry, "usage");
+				entry.account.creditBalance = parseCreditBalance(usageBody);
+				if (entry.account.disabled) {
+					// Disabled means excluded from inference routing, not management
+					// reads. Its management record may omit quota headers entirely.
+					const quota = parseOpenAiUsageBody(usageBody);
+					entry.account.quotaLookupFailed = !hasQuota(quota);
+					if (quota && hasQuota(quota)) {
+						entry.account.scope = quota;
+						entry.account.observedAt = Date.now();
+					} else if (
+						previous &&
+						hasQuota(retained) &&
+						(!hasQuota(usableScope(entry.account, Date.now())) ||
+							previous.observedAt > entry.account.observedAt)
+					) {
+						entry.account.scope = { ...retained };
+						entry.account.observedAt = previous.observedAt;
+					}
+					entry.account.plan ??= previous?.plan;
+				}
+				const resets = await fetchResetCredits(url, key, entry);
+				if (resets) {
+					entry.account.scope.availableResets = resets.count;
+					entry.account.resetCredits = resets.credits;
+					entry.account.resetCreditsObservedAt = Date.now();
+					entry.account.resetLookupFailed = false;
+				} else if (entry.account.disabled) {
+					entry.account.resetLookupFailed = true;
+					// Only failed reads use last-known values. Preserve their original
+					// age; successful metadata refreshes must not extend their lifetime.
+					if (retained?.availableResets !== undefined && previous) {
+						entry.account.scope.availableResets = retained.availableResets;
+						entry.account.resetCredits = previous.resetCredits;
+						entry.account.resetCreditsObservedAt = previousResetAt;
+					}
+				}
 			}
 		}),
 	);
@@ -403,7 +588,7 @@ async function update(source: string): Promise<boolean> {
 		});
 		const cached = currentSnapshot(source);
 		if (isProxySnapshotFresh(cached)) return false;
-		const accounts = await fetchProxyAccounts(url, key);
+		const accounts = await fetchProxyAccounts(url, key, cached);
 		const updated: Snapshot = {
 			source,
 			fetchedAt: Date.now(),
@@ -468,6 +653,14 @@ function usableScope(
 		const resetAt = account.scope[`${kind}ResetAt`];
 		if (typeof used !== "number" || !Number.isFinite(used)) continue;
 		if (
+			account.disabled &&
+			usageSnapshotFreshness(
+				{ fetchedAt: account.observedAt, state: "ready" },
+				now,
+			) === "expired"
+		)
+			continue;
+		if (
 			typeof resetAt === "number"
 				? resetAt <= now
 				: usageSnapshotFreshness(
@@ -480,16 +673,26 @@ function usableScope(
 		if (typeof resetAt === "number") scope[`${kind}ResetAt`] = resetAt;
 	}
 	const resets = account.scope.availableResets;
-	if (typeof resets === "number" && Number.isFinite(resets) && resets >= 0)
+	if (
+		typeof resets === "number" &&
+		Number.isFinite(resets) &&
+		resets >= 0 &&
+		(account.resetCreditsObservedAt === undefined ||
+			usageSnapshotFreshness(
+				{ fetchedAt: account.resetCreditsObservedAt, state: "ready" },
+				now,
+			) !== "expired")
+	)
 		scope.availableResets = Math.floor(resets);
-	return scope.sessionPercentUsed !== undefined ||
+	return account.disabled === true ||
+		scope.sessionPercentUsed !== undefined ||
 		scope.weeklyPercentUsed !== undefined ||
 		(scope.availableResets ?? 0) > 0
 		? scope
 		: undefined;
 }
 
-export function proxyUsageBadges(compact = false): string[] {
+export function proxyUsageAccounts(): ProxyUsageAccount[] {
 	const source = sourceKey();
 	if (!source) return [];
 	const data = currentSnapshot(source);
@@ -507,26 +710,88 @@ export function proxyUsageBadges(compact = false): string[] {
 	);
 	if (freshness === "expired" || !data || !Array.isArray(data.accounts))
 		return [];
-	const valid = data.accounts.flatMap((account) => {
+	return data.accounts.flatMap((account) => {
 		if (
 			account?.provider !== "codex" ||
 			typeof account.identity !== "string" ||
-			typeof account.observedAt !== "number"
+			!/^[a-f0-9]{64}$/.test(account.identity) ||
+			typeof account.observedAt !== "number" ||
+			!Number.isFinite(account.observedAt)
 		)
 			return [];
-		const scope = usableScope(account, Date.now());
-		return scope ? [{ ...account, scope }] : [];
+		const disabled = account.disabled === true;
+		const scope =
+			usableScope(account, Date.now()) ?? (disabled ? {} : undefined);
+		const scopeText = formatProviderScope(scope);
+		if (!scope || (!scopeText && !disabled)) return [];
+		const summary = scopeText ?? "?";
+		return [
+			{
+				key: account.identity,
+				summary,
+				scope,
+				plan: planName(account.plan),
+				creditBalance: creditBalance(account.creditBalance),
+				disabled,
+				quotaLookupFailed: account.quotaLookupFailed === true,
+				resetLookupFailed: account.resetLookupFailed === true,
+				health: disabled
+					? "disabled"
+					: ["active", "unavailable", "cooling-down", "error"].includes(
+								account.health ?? "",
+							)
+						? account.health
+						: undefined,
+				resetCreditsObservedAt:
+					scope.availableResets !== undefined
+						? (account.resetCreditsObservedAt ?? data.fetchedAt)
+						: undefined,
+				resetCredits:
+					scope.availableResets !== undefined &&
+					Array.isArray(account.resetCredits)
+						? account.resetCredits.flatMap((credit) => {
+								if (!credit || typeof credit !== "object") return [];
+								return [
+									{
+										expiresAt:
+											typeof credit.expiresAt === "number" &&
+											Number.isFinite(credit.expiresAt)
+												? credit.expiresAt
+												: undefined,
+										grantedAt:
+											typeof credit.grantedAt === "number" &&
+											Number.isFinite(credit.grantedAt)
+												? credit.grantedAt
+												: undefined,
+									},
+								];
+							})
+						: undefined,
+				fetchedAt: data.fetchedAt,
+				observedAt: account.observedAt,
+				stale:
+					freshness === "stale" ||
+					account.quotaLookupFailed === true ||
+					account.resetLookupFailed === true,
+			},
+		];
 	});
+}
+
+export function proxyUsageBadges(
+	compact = false,
+	render: (text: string, disabled: boolean) => string = (text) => text,
+): string[] {
+	const valid = proxyUsageAccounts();
 	const visible = compact ? valid.slice(0, 2) : valid;
-	const scopes = visible.flatMap((account) => {
-		const scope = formatProviderScope(account.scope);
-		return scope ? [scope] : [];
-	});
+	const scopes = visible.map((account) =>
+		render(`${CODEX_PROXY_LOGO} ${account.summary}`, account.disabled),
+	);
 	if (scopes.length === 0) return [];
 	if (compact && valid.length > visible.length)
-		scopes.push(`+${valid.length - visible.length}`);
+		scopes.push(render(`+${valid.length - visible.length}`, false));
 	return [
-		`${CODEX_PROXY_LOGO} ${scopes.join(", ")}${freshness === "stale" ? " !" : ""}`,
+		`${scopes.join(render(PROVIDER_BADGE_SEPARATOR, false))}${valid.some((account) => account.stale) ? render(" !", false) : ""}`,
 	];
 }
 

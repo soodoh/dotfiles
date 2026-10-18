@@ -90,6 +90,101 @@ function cliEnvironment(
 	return env;
 }
 
+test("exports safe account details separately from direct text while retaining compact text", async () => {
+	const root = await mkdtemp(join(tmpdir(), "pi-provider-usage-details-"));
+	const agentDir = join(root, "agent");
+	const now = Date.now();
+	const server = createServer((request, response) => {
+		const send = (body: unknown) => {
+			response.writeHead(200, { "content-type": "application/json" });
+			response.end(JSON.stringify(body));
+		};
+		if (request.url === "/v8/management/credentials") {
+			send({
+				files: ["a", "b", "c"].map((id, index) => ({
+					provider: "codex",
+					auth_index: id,
+					status: "active",
+					email: "private-email@example.test",
+					id_token: {
+						plan_type: "pro",
+						chatgpt_account_id: "private-account-id",
+					},
+					quota: {
+						observed_at: new Date(now).toISOString(),
+						signals: {
+							"X-Codex-Primary-Used-Percent": String((index + 1) * 10),
+							"X-Codex-Primary-Window-Minutes": "10080",
+							"X-Codex-Primary-Reset-At": String(
+								Math.floor(now / 1000) + 86400,
+							),
+						},
+					},
+				})),
+			});
+		} else if (request.url === "/v8/management/requests/api-call") {
+			send({
+				status_code: 200,
+				body: JSON.stringify({
+					available_count: 2,
+					credits: [
+						{
+							id: "private-credit-id",
+							status: "available",
+							expires_at: "2035-01-01T00:00:00Z",
+						},
+					],
+				}),
+			});
+		} else send({ info: { spend: 12.34 } });
+	});
+	try {
+		await new Promise<void>((resolve) =>
+			server.listen(0, "127.0.0.1", resolve),
+		);
+		const address = server.address();
+		if (!address || typeof address === "string")
+			throw new Error("Missing test server address");
+		const baseUrl = `http://127.0.0.1:${address.port}`;
+		await writePiConfiguration(agentDir, baseUrl, "private-llm-token");
+		const result = await execFileAsync(
+			process.env.BUN_BIN ?? "bun",
+			[cliPath],
+			{
+				env: {
+					...cliEnvironment(root, agentDir, join(root, "cache")),
+					CLIPROXYAPI_BASE_URL: baseUrl,
+					CLIPROXYAPI_MANAGEMENT_KEY: "private-management-key",
+				},
+				timeout: 20_000,
+			},
+		);
+		const output = JSON.parse(result.stdout);
+		expect(output.directText).toBe("LLMHub $12.34");
+		expect(output.text.split(" · ")).toEqual([
+			"LLMHub $12.34",
+			expect.stringMatching(/^\uF120 \d+%/),
+			expect.stringMatching(/^\uF120 \d+%/),
+			"+1",
+		]);
+		expect(output.proxyAccounts).toHaveLength(3);
+		for (const account of output.proxyAccounts) {
+			expect(account.key).toMatch(/^[a-f0-9]{64}$/);
+			expect(account.summary).toContain("↻2");
+			expect(account).toMatchObject({
+				plan: "pro",
+				health: "active",
+				resetCredits: [{ expiresAt: Date.parse("2035-01-01T00:00:00Z") }],
+			});
+		}
+		expect(result.stdout).not.toContain("private-");
+		expect(result.stdout).not.toContain("auth_index");
+	} finally {
+		if (server.listening) await closeServer(server);
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
 test("deduplicates provider refreshes across CLI processes", async () => {
 	const root = await mkdtemp(join(tmpdir(), "pi-provider-usage-cli-"));
 	const agentDir = join(root, "agent");
@@ -133,7 +228,11 @@ test("deduplicates provider refreshes across CLI processes", async () => {
 
 		expect(requestCount).toBe(1);
 		for (const result of results) {
-			expect(JSON.parse(result.stdout)).toEqual({ text: "LLMHub $12.34" });
+			expect(JSON.parse(result.stdout)).toEqual({
+				text: "LLMHub $12.34",
+				directText: "LLMHub $12.34",
+				proxyAccounts: [],
+			});
 		}
 		const cacheText = await readFile(
 			join(cacheDir, "pi", "provider-usage.json"),
@@ -203,8 +302,8 @@ test("merges concurrent Pi credential-scoped cache writes", async () => {
 
 		expect(requestCount).toBe(2);
 		expect(results.map((result) => JSON.parse(result.stdout))).toEqual([
-			{ text: "LLMHub $10.00" },
-			{ text: "LLMHub $20.00" },
+			{ text: "LLMHub $10.00", directText: "LLMHub $10.00", proxyAccounts: [] },
+			{ text: "LLMHub $20.00", directText: "LLMHub $20.00", proxyAccounts: [] },
 		]);
 		const cacheText = await readFile(
 			join(cacheDir, "pi", "provider-usage.json"),

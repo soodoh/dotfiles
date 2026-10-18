@@ -411,7 +411,12 @@ run = [
 run = "dotfiles/common/nvim/tests/validate.sh"
 
 [tasks."validate:macos:fast"]
-run = "for test in dotfiles/macos/sketchybar/plugins/tests/*_test.sh; do bash \"$test\"; done"
+run = '''
+for test in dotfiles/macos/sketchybar/plugins/tests/*_test.sh; do bash "$test"; done
+if [ "$(uname -s)" = Darwin ]; then
+  bash dotfiles/macos/sketchybar/helper/build.sh test
+fi
+'''
 
 [tasks."validate:macos:integration"]
 run = "bash dotfiles/macos/firefoxpwa/google-calendar.test.sh"

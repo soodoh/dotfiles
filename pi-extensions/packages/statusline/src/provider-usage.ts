@@ -27,7 +27,7 @@ const PROVIDER_USAGE_FETCH_MAX_ATTEMPTS = 3;
 const PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS = 50;
 const PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS = 1000;
 const PROVIDER_USAGE_RETRY_MAX_DELAY_MS = 20_000;
-const PROVIDER_BADGE_SEPARATOR = " · ";
+export const PROVIDER_BADGE_SEPARATOR = " · ";
 const OPENAI_LOGO = "\u{F0004}";
 const OPENROUTER_LOGO = "\u{F0469}";
 const GITHUB_LOGO = "\uF09B";
@@ -1078,7 +1078,9 @@ function openAiWindowKind(
 	return durationSeconds >= 6 * daySeconds ? "weekly" : "session";
 }
 
-function parseOpenAiUsageBody(body: unknown): ProviderUsageScope | undefined {
+export function parseOpenAiUsageBody(
+	body: unknown,
+): ProviderUsageScope | undefined {
 	if (!isRecord(body)) return undefined;
 
 	const rateLimit = nestedRecord(body, "rate_limit");
@@ -1611,15 +1613,13 @@ function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
 	];
 }
 
-function providerUsageBadges(
+function directProviderUsageBadges(
 	targets: ProviderUsageTarget[],
 	activeOnly: boolean,
 	activeFamilyOverride?: string,
-	compact = false,
-	activeProxy = false,
 ): { active: boolean; text: string }[] {
 	hydrateSharedCache();
-	const direct = targets
+	return targets
 		.filter((target) =>
 			isProviderSupportedAuth(target.providerId, target.authKind),
 		)
@@ -1638,12 +1638,31 @@ function providerUsageBadges(
 				text,
 			})),
 		);
+}
+
+export function formatDirectProviderUsage(
+	targets: ProviderUsageTarget[],
+): string {
+	return directProviderUsageBadges(targets, false)
+		.map(({ text }) => text)
+		.join(PROVIDER_BADGE_SEPARATOR);
+}
+
+function providerUsageBadges(
+	targets: ProviderUsageTarget[],
+	activeOnly: boolean,
+	activeFamilyOverride?: string,
+	compact = false,
+	activeProxy = false,
+	renderProxyText?: (text: string, disabled: boolean) => string,
+): { active: boolean; text: string; proxy?: boolean }[] {
 	return [
-		...direct,
+		...directProviderUsageBadges(targets, activeOnly, activeFamilyOverride),
 		...(activeOnly && !activeProxy
 			? []
-			: proxyUsageBadges(compact).map((text) => ({
+			: proxyUsageBadges(compact, renderProxyText).map((text) => ({
 					active: activeProxy,
+					proxy: true,
 					text,
 				}))),
 	];
@@ -1674,12 +1693,14 @@ export function renderProviderUsage(
 		activeFamilyOverride,
 		false,
 		activeProxy,
+		(text, disabled) =>
+			disabled || !activeProxy ? theme.fg("dim", text) : renderActive(text),
 	);
 	if (badges.length === 0) return undefined;
 	const separator = theme.fg("dim", PROVIDER_BADGE_SEPARATOR);
 	return badges
-		.map(({ active, text }) =>
-			active ? renderActive(text) : theme.fg("dim", text),
+		.map(({ active, text, proxy }) =>
+			proxy ? text : active ? renderActive(text) : theme.fg("dim", text),
 		)
 		.join(separator);
 }
