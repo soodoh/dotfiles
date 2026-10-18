@@ -53,5 +53,6 @@
     "cliproxyapi/gpt-6.1-sol",
     "cliproxyapi/gpt-6-luna",
     "google-vertex/gemini-3.8-flash"
-  ]
+  ],
+  "deviceId": "0fa6f9d1-cc90-494b-ba38-317f2e095668"
 }
