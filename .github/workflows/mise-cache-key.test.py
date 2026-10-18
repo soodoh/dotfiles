@@ -533,20 +533,6 @@ class WorkflowSecurityPolicyTests(unittest.TestCase):
         cls.workflow = cls.workflows["mise.yml"]
         cls.update_workflow = cls.workflows["repository-updates.yml"]
 
-    def test_ci_workflows_allow_missing_age_keys_at_every_step(self) -> None:
-        for name, workflow in self.workflows.items():
-            for job_name, job in workflow["jobs"].items():
-                for step in job["steps"]:
-                    environment = (
-                        workflow.get("env", {})
-                        | job.get("env", {})
-                        | step.get("env", {})
-                    )
-                    with self.subTest(
-                        workflow=name, job=job_name, step=step.get("name")
-                    ):
-                        self.assertEqual(environment.get("MISE_AGE_STRICT"), "false")
-
     def test_mise_commands_have_authenticated_github_access(self) -> None:
         for name, workflow in self.workflows.items():
             for job_name, job in workflow["jobs"].items():

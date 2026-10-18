@@ -1,3 +1,4 @@
+import base64
 import importlib.util
 import json
 import os
@@ -160,6 +161,15 @@ class MiseConfigurationTests(unittest.TestCase):
         cls.base = load_toml("mise.toml")
         cls.personal = load_toml("mise.personal-macos.toml")
         cls.work = load_toml("mise.work-macos.toml")
+        cls.shared_environment = cls.base["env"] | load_toml(
+            "dotfiles/common/mise/credentials.toml"
+        )["env"]
+        cls.personal_environment = cls.personal.get("env", {}) | load_toml(
+            "dotfiles/personal/mise-credentials.toml"
+        )["env"]
+        cls.work_environment = cls.work["env"] | load_toml(
+            "dotfiles/work/mise-credentials.toml"
+        )["env"]
 
     def test_brew_casks_are_explicitly_macos_only(self) -> None:
         for config_name, config in (
@@ -201,7 +211,7 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertEqual(agent["environment"]["MISE_EXEC_AUTO_INSTALL"], "false")
 
     def test_work_http_proxy_uses_local_first_hop_for_the_entire_profile(self) -> None:
-        environment = self.work["env"]
+        environment = self.work_environment
         self.assertEqual(environment["HTTP_PROXY"], environment["HTTPS_PROXY"])
         proxy = urlsplit(environment["HTTP_PROXY"])
         self.assertEqual(proxy.scheme, "http")
@@ -420,9 +430,9 @@ class MiseConfigurationTests(unittest.TestCase):
                 )
                 self.assertIsNotNone(reference)
                 variable = reference[1]
-                self.assertEqual(set(self.work["env"][variable]), {"age"})
-                self.assertNotIn(variable, self.base["env"])
-                self.assertNotIn(variable, self.personal.get("env", {}))
+                self.assertEqual(set(self.work_environment[variable]), {"age"})
+                self.assertNotIn(variable, self.shared_environment)
+                self.assertNotIn(variable, self.personal_environment)
         self.assertEqual(
             servers["gws-gmail"]["oauth"]["scope"].split(),
             ["https://www.googleapis.com/auth/gmail.readonly"],
@@ -439,14 +449,14 @@ class MiseConfigurationTests(unittest.TestCase):
             "AZURE_SUBSCRIPTION_ID",
         ):
             with self.subTest(variable=variable):
-                self.assertEqual(set(self.work["env"][variable]), {"age"})
+                self.assertEqual(set(self.work_environment[variable]), {"age"})
         self.assertEqual(
             azure["env"]["AZURE_TOKEN_CREDENTIALS"],
             "AzureCliCredential",
         )
 
         azure_test = mcp["azure-test"]
-        shell_directory = self.work["env"]["AZURE_CONFIG_DIR"].replace(
+        shell_directory = self.work_environment["AZURE_CONFIG_DIR"].replace(
             "{{ env.HOME }}", "${HOME}"
         )
         self.assertEqual(azure_test["env"]["AZURE_CONFIG_DIR"], shell_directory)
@@ -472,9 +482,9 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertIsNotNone(mise)
         tool = "npm:@earendil-works/pi-coding-agent"
         # An exactly pinned npm tool exercises real lock generation without downloads.
-        # Exercise safe Renovate, trusted Renovate, and CI without credentials.
+        # Neither trusted nor safe Renovate may need runner-specific overrides.
         for profile in (None, "personal-macos", "work-macos"):
-            for mode in ("safe", "no-env", "ci"):
+            for mode in ("trusted", "safe"):
                 with self.subTest(profile=profile, mode=mode):  # noqa: SIM117
                     with tempfile.TemporaryDirectory() as directory:
                         stage = Path(directory)
@@ -491,12 +501,6 @@ class MiseConfigurationTests(unittest.TestCase):
                         if mode == "safe":
                             # Renovate's default path never evaluates project env.
                             environment["MISE_SAFE"] = "1"
-                        elif mode == "no-env":
-                            # Trusted Renovate needs no workstation environment.
-                            environment["MISE_NO_ENV"] = "1"
-                        else:
-                            # CI still loads non-secret project environment values.
-                            environment["MISE_AGE_STRICT"] = "false"
                         arguments = [mise]
                         if profile:
                             arguments.extend(["--env", profile])
@@ -516,6 +520,83 @@ class MiseConfigurationTests(unittest.TestCase):
                             locked["tools"][tool][0]["version"],
                             tool_version(self.base["tools"][tool]),
                         )
+
+    def test_bootstrap_hook_uses_selected_profile_without_shell_exports(self) -> None:
+        mise = shutil.which("mise")
+        self.assertIsNotNone(mise)
+        # Run the real hook, but no actual packages, tools, services or dotfiles.
+        # The nested mise and uname stubs make this safe on every CI platform.
+        cases = (
+            (None, [], {}, None),
+            (None, ["--env", "personal-macos"], {}, "personal-macos"),
+            (None, [], {"MISE_ENV": "work-macos"}, "work-macos"),
+            ("personal-macos", [], {}, "personal-macos"),
+            ("work-macos", [], {}, "work-macos"),
+            ("personal-macos", ["--env", "work-macos"], {}, "work-macos"),
+            ("work-macos", [], {"MISE_ENV": "personal-macos"}, "personal-macos"),
+            ("work-macos", ["--env", "personal-macos"], {"MISE_ENV": "work-macos"}, "personal-macos"),
+            ("personal-macos", ["--env", "unknown"], {}, None),
+            ("personal-macos", ["--env", "personal-macos,work-macos"], {}, None),
+        )
+        for installed, flags, overrides, expected in cases:
+            with self.subTest(installed=installed, flags=flags, overrides=overrides):
+                with tempfile.TemporaryDirectory() as directory:
+                    home = Path(directory).resolve()
+                    config = home / ".config/mise"
+                    config.mkdir(parents=True)
+                    if installed:
+                        shutil.copy2(
+                            ROOT / "dotfiles" / installed.removesuffix("-macos") / "miserc.toml",
+                            config / "miserc.toml",
+                        )
+                    stage = home / "checkout"
+                    stage.mkdir()
+                    (stage / "mise.toml").write_text(
+                        "[bootstrap.hooks]\npre-packages = "
+                        + json.dumps(self.base["bootstrap"]["hooks"]["pre-packages"])
+                        + "\n"
+                    )
+                    if installed:
+                        (config / "conf.d").mkdir()
+                        (config / "conf.d/dotfiles").symlink_to(stage, target_is_directory=True)
+                    tools = home / "bin"
+                    tools.mkdir()
+                    calls = home / "calls"
+                    (tools / "uname").write_text('#!/bin/sh\nprintf "Darwin\\n"\n')
+                    (tools / "mise").write_text(
+                        '#!/bin/sh\nprintf "%s|%s\\n" "${MISE_ENV:-}" "$*" >> "$CALLS"\n'
+                    )
+                    for path in tools.iterdir():
+                        path.chmod(0o755)
+                    environment = {
+                        "HOME": str(home), "PATH": f"{tools}:{os.defpath}",
+                        "MISE_TRUSTED_CONFIG_PATHS": str(stage),
+                        "MISE_DATA_DIR": str(home / "data"),
+                        "MISE_CACHE_DIR": str(home / "cache"),
+                        "MISE_STATE_DIR": str(home / "state"),
+                        "CALLS": str(calls),
+                        **overrides,
+                    }
+                    for cwd in ((stage, home) if installed else (stage,)):
+                        with self.subTest(cwd=cwd):
+                            calls.unlink(missing_ok=True)
+                            result = subprocess.run(
+                                [mise, *flags, "bootstrap", "--only", "packages"],
+                                cwd=cwd, env=environment, capture_output=True, text=True,
+                                timeout=20, check=False,
+                            )
+                            if expected:
+                                self.assertEqual(result.returncode, 0, result.stderr)
+                                self.assertEqual(
+                                    calls.read_text().splitlines(),
+                                    [f"{expected}|bootstrap packages apply brew:mas --yes"],
+                                )
+                            else:
+                                self.assertNotEqual(result.returncode, 0, result.stderr)
+                                self.assertIn("choose an explicit profile", result.stderr)
+                                self.assertFalse(
+                                    calls.exists(), "invalid profiles must not apply packages"
+                                )
 
     @contextmanager
     def workstation_home(self, profile: str):
@@ -550,6 +631,8 @@ class MiseConfigurationTests(unittest.TestCase):
                 home = Path(directory).resolve()
                 environment = {
                     "HOME": str(home), "PATH": os.defpath,
+                    # dot apply reloads config after installing the global links.
+                    # This keyless fixture tests links, not decryption policy.
                     "MISE_AGE_STRICT": "false",
                     "MISE_DATA_DIR": str(home / "data"),
                     "MISE_CACHE_DIR": str(home / "cache"),
@@ -609,14 +692,79 @@ class MiseConfigurationTests(unittest.TestCase):
                         self.assertIn("Failed to decrypt", result.stderr)
                         self.assertIn("No age identities found", result.stderr)
 
-    def test_ci_can_load_configs_without_age_keys_or_certificate_file(self) -> None:
+    def test_workstation_credentials_decrypt_only_the_selected_profile(self) -> None:
+        mise = shutil.which("mise")
+        age = shutil.which("age")
+        keygen = shutil.which("age-keygen")
+        self.assertIsNotNone(mise)
+        self.assertIsNotNone(age)
+        self.assertIsNotNone(keygen)
+        # Use disposable keys and public fixture values, never workstation identities.
+        for profile in ("personal", "work"):
+            with self.workstation_home(profile) as (home, environment):
+                identity = home / ".config/mise/age.txt"
+                subprocess.run(
+                    [keygen, "-o", str(identity)], capture_output=True, check=True,
+                )
+                recipient = subprocess.check_output(
+                    [keygen, "-y", str(identity)], text=True,
+                ).strip()
+                wrong_identity = subprocess.run(
+                    [mise, "env", "--json"], cwd=home, env=environment,
+                    capture_output=True, text=True, timeout=30, check=False,
+                )
+                self.assertNotEqual(wrong_identity.returncode, 0)
+                self.assertIn("Failed to decrypt", wrong_identity.stderr)
+
+                expected = {}
+                for scope, destination in (
+                    ("shared", ".config/mise/conf.d/credentials.toml"),
+                    ("personal", ".config/mise/config.personal-macos.toml"),
+                    ("work", ".config/mise/config.work-macos.toml"),
+                ):
+                    target = home / destination
+                    original = target.read_text()
+                    declarations = tomllib.loads(original)["env"]
+                    # Paths are also valid fixture values for the work CA setting.
+                    value = str(home / f"{scope}-fixture.pem")
+                    Path(value).touch()
+                    encrypted = subprocess.check_output(
+                        [age, "-r", recipient], input=value.encode(),
+                    )
+                    ciphertext = base64.b64encode(encrypted).decode().rstrip("=")
+                    expected[scope] = {}
+                    for name, specification in declarations.items():
+                        if isinstance(specification, dict) and "age" in specification:
+                            original = original.replace(specification["age"], ciphertext)
+                            expected[scope][name] = value
+                    # Replace only this temporary home's symlink, never its source.
+                    target.unlink()
+                    target.write_text(original)
+
+                other = "work" if profile == "personal" else "personal"
+                for selected, flags in ((profile, []), (other, ["--env", f"{other}-macos"])):
+                    for cwd in (home, ROOT):
+                        with self.subTest(profile=profile, selected=selected, cwd=cwd):
+                            result = subprocess.run(
+                                [mise, *flags, "env", "--json"], cwd=cwd, env=environment,
+                                capture_output=True, text=True, timeout=30, check=False,
+                            )
+                            self.assertEqual(result.returncode, 0, result.stderr)
+                            resolved = json.loads(result.stdout)
+                            active = expected["shared"] | expected[selected]
+                            self.assertTrue(active)
+                            for name, value in active.items():
+                                self.assertEqual(resolved.get(name), value, name)
+                            excluded = expected["personal" if selected == "work" else "work"]
+                            self.assertTrue(excluded.keys().isdisjoint(resolved))
+
+    def test_dependency_configs_load_without_credentials_or_decryption_overrides(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise, "mise must be available to validate profile loading")
         with tempfile.TemporaryDirectory() as home:
             environment = {
                 "CI": "1",
                 "HOME": home,
-                "MISE_AGE_STRICT": "false",
                 "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
                 "MISE_YES": "1",
                 "PATH": os.defpath,
@@ -624,7 +772,8 @@ class MiseConfigurationTests(unittest.TestCase):
             for arguments in (
                 ("config",),
                 ("ls",),
-                ("--env", "work-macos", "config"),
+                ("--env", "personal-macos", "env", "--json"),
+                ("--env", "work-macos", "env", "--json"),
             ):
                 with self.subTest(arguments=arguments):
                     result = subprocess.run(
@@ -638,8 +787,8 @@ class MiseConfigurationTests(unittest.TestCase):
                     self.assertEqual(
                         result.returncode,
                         0,
-                        "CI must explicitly allow config loading without age keys or "
-                        "SSL_CERT_FILE:\n" + result.stderr,
+                        "Dependency config loading must not need workstation credentials:\n"
+                        + result.stderr,
                     )
 
     def test_certificate_variables_resolve_with_or_without_ssl_cert_file(self) -> None:
@@ -652,19 +801,12 @@ class MiseConfigurationTests(unittest.TestCase):
         )
         mise = shutil.which("mise")
         self.assertIsNotNone(mise)
-        with tempfile.TemporaryDirectory() as directory:
-            home = Path(directory)
+        with self.workstation_home("work") as (home, workstation_environment):
             certificate = home / "certificate.pem"
             certificate.touch()
             for ssl_cert_file in (None, str(certificate)):
                 with self.subTest(ssl_cert_file=ssl_cert_file):
-                    environment = {
-                        "HOME": str(home),
-                        "PATH": os.defpath,
-                        "MISE_AGE_STRICT": "false",
-                        "MISE_GLOBAL_CONFIG_FILE": str(home / "missing.toml"),
-                        "MISE_TRUSTED_CONFIG_PATHS": str(ROOT),
-                    }
+                    environment = workstation_environment | {"MISE_AGE_STRICT": "false"}
                     if ssl_cert_file:
                         environment["SSL_CERT_FILE"] = ssl_cert_file
                     result = subprocess.run(
@@ -924,11 +1066,11 @@ class MiseConfigurationTests(unittest.TestCase):
     def test_google_cloud_configuration_stays_in_shared_scope(self) -> None:
         google_env = {
             name
-            for name in self.base["env"]
+            for name in self.shared_environment
             if name.startswith("GOOGLE_CLOUD_")
         }
-        self.assertTrue(google_env.isdisjoint(self.work["env"].keys()))
-        self.assertTrue(google_env.isdisjoint(self.personal.get("env", {}).keys()))
+        self.assertTrue(google_env.isdisjoint(self.work_environment))
+        self.assertTrue(google_env.isdisjoint(self.personal_environment))
 
     def test_python_precedes_gcloud_installation(self) -> None:
         steps = [

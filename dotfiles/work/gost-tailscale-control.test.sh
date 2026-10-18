@@ -24,7 +24,7 @@ output=$(
 )
 expected=$(printf '%s' 'gost-proxy-user:test-app-password' | base64 | tr -d '\n')
 
-listener=$(python3 - "$root/mise.work-macos.toml" <<'PY'
+listener=$(python3 - "$root/dotfiles/work/mise-credentials.toml" <<'PY'
 import sys
 import tomllib
 from urllib.parse import urlsplit

@@ -70,13 +70,19 @@ pbpaste > ~/.config/mise/age.txt
 chmod 600 ~/.config/mise/age.txt
 ```
 
-- Run initial bootstrap command (with `MISE_ENV` set explicitly)
+- Apply the dotfiles with an explicit profile first, so native global credentials,
+  work proxy/certificate settings, and the profile selector are available before
+  bootstrap installs packages:
 
 ```bash
-MISE_ENV=personal-macos mise bootstrap
-# Or on the work Mac:
-MISE_ENV=work-macos mise bootstrap
+mise --env personal-macos dot apply --yes
+# Or on the work Mac: mise --env work-macos dot apply --yes
+mise bootstrap
 ```
+
+Global `miserc.toml` now selects the profile for plain `mise bootstrap`; no Fish
+profile or `MISE_ENV` export is needed. `mise --env personal-macos bootstrap` (or
+`work-macos`) also works when you want to select the profile explicitly.
 
 The shared bootstrap links `dotfiles/common/mise/config.toml` as mise's global
 config so bootstrap can use the existing host-specific `gh` login, including
@@ -100,17 +106,25 @@ in the checkout whether it is discovered locally or through its global folder li
 Verify the installed global configuration with `mise settings get self_update.auto`
 and `mise config ls` from outside the checkout.
 
-If a machine is already rate-limited **before** the global-config link exists,
-install/authenticate `gh` first, then make the credentials config available for the
-first retry (replace the profile as needed):
+### Updating an existing workstation
+
+After pulling the credential-config split, install the new global links once from
+this checkout (choose your profile):
 
 ```bash
-MISE_GLOBAL_CONFIG_FILE="$PWD/dotfiles/common/mise/config.toml" MISE_ENV=work-macos mise bootstrap
+mise --env personal-macos dot apply --yes
+# Or: mise --env work-macos dot apply --yes
 ```
 
-This is a recovery path for a machine with `gh` available, not an extra installer
-or a requirement to create a new GitHub token. A fresh machine without `gh`
-may need to wait for the unauthenticated rate limit to reset before the first
+This applies declared dotfiles only, not packages, login shells, or services.
+The encrypted values are unchanged, but they load only after these links exist.
+Subsequent mise invocations use them automatically. Open a fresh shell to discard
+any inherited settings from the old Fish profiles.
+
+If a machine is already rate-limited, install/authenticate `gh` first. The native
+global-config link installed by `mise dot apply` lets bootstrap reuse that login;
+no `MISE_GLOBAL_CONFIG_FILE` override or new GitHub token is needed. A fresh machine
+without `gh` may need to wait for the unauthenticated rate limit to reset before
 bootstrap can install it.
 
 ### Other Manual Steps
@@ -235,14 +249,29 @@ mise run lock
 
 Ensure `~/.config/mise/age.txt` was setup, per the fresh install instructions.
 
-The shared TOML configuration sets `age.strict = true`: missing or invalid identities fail closed, inside and outside the checkout, without a Fish environment override. Credential-free GitHub Actions jobs explicitly set `MISE_AGE_STRICT=false` so they can load non-secret project environment values.
+Encrypted environment values are workstation-only native global configuration:
 
-Renovate's normal `MISE_SAFE=1` lock generation does not evaluate the project environment or require the identity. Trusted Renovate runners must instead set `MISE_NO_ENV=1` when invoking mise: lock generation does not need workstation environment values. `MISE_AGE_STRICT=false` is an alternative for trusted automation that needs those values. On Mend-hosted Renovate, these `MISE_*` overrides require administrator configuration; they are not in the hosted repository environment allowlist. Set them on the Renovate runner, not only in GitHub Actions. Never provide the age identity to Renovate or CI.
+| Source in this checkout | Installed global path |
+| --- | --- |
+| `dotfiles/common/mise/credentials.toml` | `~/.config/mise/conf.d/credentials.toml` |
+| `dotfiles/personal/mise-credentials.toml` | `~/.config/mise/config.personal-macos.toml` |
+| `dotfiles/work/mise-credentials.toml` | `~/.config/mise/config.work-macos.toml` |
 
-The repository lock helper isolates staged generation from workstation-global tools and profiles. After correcting a Renovate runner, retry the affected PR so its artifact status and lockfiles are refreshed.
+Both profile files are linked, but mise loads only the selected profile's values.
+The work file also owns its proxy and certificate environment. `age.strict = true`
+remains enabled: installed workstations fail closed on missing or invalid identities,
+inside and outside the checkout, without Fish exports. The separate global
+`config.toml` remains settings-only and supplies the host-aware GitHub credential command.
 
-Example command:
+A fresh dependency checkout does not load these workstation files. Renovate (trusted
+or safe mode) and CI can generate locks without an age identity, decryption overrides,
+or changes to Mend's runner. The repository lock helper also isolates staged generation
+from workstation-global tools, profiles, and credential files. Never provide the age
+identity to Renovate or CI.
+
+Edit encrypted values in their source file, not the dependency manifests:
 
 ```bash
-mise set -E personal-macos --age-encrypt --prompt SOME_API_KEY
+mise set --file dotfiles/personal/mise-credentials.toml --age-encrypt --prompt SOME_API_KEY
+# For shared or work values, use the corresponding source path above.
 ```

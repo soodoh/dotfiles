@@ -23,6 +23,3 @@ login_shell = "/opt/homebrew/bin/fish"
 "~/.pi/agent/mcp.json" = "dotfiles/personal/pi/agent/mcp.json"
 "~/.pi/agent/models.json" = "dotfiles/personal/pi/agent/models.json"
 "~/.agents" = "dotfiles/personal/agents"
-
-[env]
-YNAB_API_KEY = { age = "YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBORlZPS3ZPRDIvVUNXdGdRZDUrRDg1eGFnLzh0V0VDMW45TUZoN3RVdlNrCjRtNkVlSmRYMEx2ZFViQnNQMEpTN21ZSlR3TmpydFNNcDRXSWV5dHpIT2MKLT4gST93LWdyZWFzZSA7QjQxWyB3XFZoYkJoRyB4JS0kVmhSQgp0bmhYYkEKLS0tIEdRRzZ0ZjZSallJaTVrVU1rVkNaYUJFc0NzbGwyUEQ5VGtpRWhqOFU1L1kKJsrgYEOlvU3AiZz+l7u7jWtDJXN17+IqzPQ3dvnmZR5MNBwFcrVfZr1LezaRh6XzJ4m8+vo8upisVWUeUTM8joAV3LFUf3Q//swa" }
