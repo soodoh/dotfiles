@@ -9,7 +9,18 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import lockfile from "proper-lockfile";
-import { proxyUsageBadges, refreshProxyUsage } from "./cliproxy-usage";
+import {
+	CODEX_PROXY_LOGO,
+	codexAccountKey,
+	hasQuota,
+	openAiRegistrationKey,
+	type ProxyUsageAccount,
+	proxyUsageAccounts,
+	proxyUsageBadges,
+	proxyUsageForCodexAccount,
+	proxyUsageForRegistration,
+	refreshProxyUsage,
+} from "./cliproxy-usage";
 import type {
 	AuthCredentialLike,
 	ModelLike,
@@ -72,10 +83,14 @@ export type ProviderUsageTarget = {
 	providerId: string;
 	authKind: ProviderUsageAuthKind;
 	active: boolean;
+	/** Process-local binding, verified against resolved native OAuth; never a second quota cache. */
+	openaiRegistrationKey?: string;
+	codexAccountKey?: string;
 };
 
 const OAUTH_PROVIDER_IDS = new Set([
 	"anthropic",
+	"openai",
 	"openai-codex",
 	"github-copilot",
 ]);
@@ -613,6 +628,7 @@ export function discoverProviderUsageTargets(
 		);
 	} else if (
 		activeProviderId &&
+		!activeAuthKind &&
 		activeProviderId !== LLMHUB_USAGE_PROVIDER_ID
 	) {
 		if (OAUTH_PROVIDER_IDS.has(activeProviderId)) {
@@ -674,7 +690,10 @@ export function discoverProviderUsageTargets(
 		}
 		const authStatus = ctx.modelRegistry?.getProviderAuthStatus?.(providerId);
 		if (authStatus?.configured) {
-			addProviderCandidate(candidates, providerId, "api_key", activeProviderId);
+			const authKind =
+				getStoredCredential(ctx, providerId)?.type ??
+				(authStatus.source === "OAuth" ? "oauth" : "api_key");
+			addProviderCandidate(candidates, providerId, authKind, activeProviderId);
 		}
 	}
 
@@ -738,6 +757,7 @@ type ResolvedProviderUsageAccess = {
 	cacheKey: string;
 	token?: string;
 	baseUrl?: string;
+	codexAccountKey?: string;
 };
 
 function configuredProviderBaseUrl(
@@ -800,7 +820,14 @@ async function resolveProviderUsageAccess(
 	const cacheKey = credentialIdentity
 		? `${targetKey}:${credentialFingerprint(`${targetKey}\0${credentialIdentity}`)}`
 		: targetKey;
-	return { cacheKey, token, baseUrl };
+	const accountId =
+		isLegacyCodex(target) && token ? extractOpenAiAccountId(token) : undefined;
+	return {
+		cacheKey,
+		token,
+		baseUrl,
+		codexAccountKey: accountId ? codexAccountKey(accountId) : undefined,
+	};
 }
 
 function normalizeBaseUrl(url: string): string {
@@ -1410,6 +1437,7 @@ async function queueProviderUsageRefresh(
 	target: ProviderUsageTarget,
 	fetchId: number,
 	onUpdate: () => void,
+	proxyRefresh: Promise<void>,
 ): Promise<void> {
 	// Initialize the cache path before resolving the process-local cache-key map.
 	hydrateSharedCache();
@@ -1427,10 +1455,12 @@ async function queueProviderUsageRefresh(
 		);
 		if (
 			providerUsageResolutionIds.get(targetKey) === resolutionId &&
-			fetchId === providerUsageInvalidation &&
-			providerUsageResolvedCacheKeys.delete(targetKey)
+			fetchId === providerUsageInvalidation
 		) {
-			onUpdate();
+			const hadProxyBinding = target.codexAccountKey !== undefined;
+			delete target.codexAccountKey;
+			if (providerUsageResolvedCacheKeys.delete(targetKey) || hadProxyBinding)
+				onUpdate();
 		}
 		return;
 	}
@@ -1442,6 +1472,24 @@ async function queueProviderUsageRefresh(
 		mappingChanged =
 			providerUsageResolvedCacheKeys.get(targetKey) !== access.cacheKey;
 		providerUsageResolvedCacheKeys.set(targetKey, access.cacheKey);
+		if (isLegacyCodex(target)) {
+			mappingChanged ||= target.codexAccountKey !== access.codexAccountKey;
+			target.codexAccountKey = access.codexAccountKey;
+		}
+	}
+
+	if (isLegacyCodex(target)) {
+		// Give the shared reader first refusal, including cold-cache refreshes.
+		await proxyRefresh;
+		if (
+			fetchId !== providerUsageInvalidation ||
+			providerUsageResolutionIds.get(targetKey) !== resolutionId
+		)
+			return;
+		if (hasQuota(linkedProxyAccount(target)?.scope)) {
+			onUpdate();
+			return;
+		}
 	}
 
 	hydrateSharedCache();
@@ -1475,23 +1523,111 @@ async function queueProviderUsageRefresh(
 	}
 }
 
+function isNativeOpenAi(target: ProviderUsageTarget): boolean {
+	return target.providerId === "openai" && target.authKind === "oauth";
+}
+
+function isLegacyCodex(target: ProviderUsageTarget): boolean {
+	return target.providerId === "openai-codex" && target.authKind === "oauth";
+}
+
+function linkedProxyAccount(
+	target: ProviderUsageTarget,
+): ProxyUsageAccount | undefined {
+	if (isNativeOpenAi(target) && target.openaiRegistrationKey)
+		return proxyUsageForRegistration(target.openaiRegistrationKey);
+	if (isLegacyCodex(target) && target.codexAccountKey)
+		return proxyUsageForCodexAccount(target.codexAccountKey);
+	return undefined;
+}
+
+function nativeOpenAiRegistration(
+	ctx: ProviderUsageContext,
+): string | undefined {
+	const credential = getStoredOAuthCredential(ctx, "openai");
+	return credential?.access &&
+		typeof credential.clientId === "string" &&
+		credential.clientId.trim() &&
+		credential.clientId.length <= 512 &&
+		Array.isArray(credential.scopes) &&
+		credential.scopes.includes("chatgpt.tokens.use.direct")
+		? openAiRegistrationKey(credential.clientId)
+		: undefined;
+}
+
+async function refreshNativeOpenAiBinding(
+	ctx: ProviderUsageContext,
+	target: ProviderUsageTarget,
+	fetchId: number,
+	onUpdate: () => void,
+): Promise<void> {
+	const targetKey = providerTargetKey(target.providerId, target.authKind);
+	const resolutionId = ++providerUsageResolutionId;
+	providerUsageResolutionIds.set(targetKey, resolutionId);
+	if (target.openaiRegistrationKey !== nativeOpenAiRegistration(ctx)) {
+		delete target.openaiRegistrationKey;
+		onUpdate();
+	}
+	let registration: string | undefined;
+	try {
+		// Resolve through Pi (including its OAuth refresh), but never send this token to the proxy.
+		const token = await getProviderToken(ctx, "openai");
+		if (token && getStoredOAuthCredential(ctx, "openai")?.access === token)
+			registration = nativeOpenAiRegistration(ctx);
+	} catch {
+		// Runtime overrides, missing grants and failed auth resolution leave quota unavailable.
+	}
+	if (
+		fetchId !== providerUsageInvalidation ||
+		providerUsageResolutionIds.get(targetKey) !== resolutionId
+	)
+		return;
+	if (target.openaiRegistrationKey !== registration) {
+		target.openaiRegistrationKey = registration;
+		onUpdate();
+	}
+}
+
 export function refreshProviderUsage(
 	ctx: ProviderUsageContext,
 	targets: ProviderUsageTarget[],
 	onUpdate: () => void,
 ): Promise<void> {
 	getConfiguredModels(ctx, onUpdate);
+	// Initialize shared-cache state before any asynchronous auth resolution starts.
+	hydrateSharedCache();
 	const fetchId = providerUsageInvalidation;
+	const nativeTargets = targets.filter(isNativeOpenAi);
+	const proxyRefresh = Promise.all(
+		nativeTargets.map((target) =>
+			refreshNativeOpenAiBinding(ctx, target, fetchId, onUpdate),
+		),
+	).then(() =>
+		refreshProxyUsage(
+			onUpdate,
+			nativeTargets.some((target) => !!target.openaiRegistrationKey)
+				? "native"
+				: targets.some(isLegacyCodex)
+					? "codex"
+					: undefined,
+		),
+	);
 	return Promise.all([
-		refreshProxyUsage(onUpdate),
+		proxyRefresh,
 		...targets
-			.filter((target) =>
-				isProviderSupportedAuth(target.providerId, target.authKind),
+			.filter(
+				(target) =>
+					!isNativeOpenAi(target) &&
+					isProviderSupportedAuth(target.providerId, target.authKind),
 			)
 			.map((target) =>
-				queueProviderUsageRefresh(ctx, target, fetchId, onUpdate),
+				queueProviderUsageRefresh(ctx, target, fetchId, onUpdate, proxyRefresh),
 			),
-	]).then(() => undefined);
+	]).then(() => {
+		// A joined proxy refresh may belong to a disposed footer; notify this native consumer too.
+		if (nativeTargets.length > 0 && fetchId === providerUsageInvalidation)
+			onUpdate();
+	});
 }
 
 export function providerDisplayLabel(providerId: string): string {
@@ -1632,6 +1768,14 @@ export function formatProviderScope(
 }
 
 function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
+	if (isNativeOpenAi(target)) {
+		const account = target.openaiRegistrationKey
+			? proxyUsageForRegistration(target.openaiRegistrationKey)
+			: undefined;
+		return [
+			`${providerDisplayLabel(target.providerId)} ${account?.summary ?? "?"}${account?.stale ? " !" : ""}`,
+		];
+	}
 	const status = providerUsageCache.get(
 		providerCacheKey(target.providerId, target.authKind),
 	);
@@ -1651,8 +1795,10 @@ function directProviderUsageBadges(
 ): { active: boolean; text: string }[] {
 	hydrateSharedCache();
 	return targets
-		.filter((target) =>
-			isProviderSupportedAuth(target.providerId, target.authKind),
+		.filter(
+			(target) =>
+				isProviderSupportedAuth(target.providerId, target.authKind) &&
+				!linkedProxyAccount(target),
 		)
 		.map((target) => ({
 			...target,
@@ -1679,23 +1825,87 @@ export function formatDirectProviderUsage(
 		.join(PROVIDER_BADGE_SEPARATOR);
 }
 
+/** External renderers keep one proxy item, even when a direct fallback supplies its missing quota. */
+export function providerUsageProxyAccounts(
+	targets: ProviderUsageTarget[],
+): ProxyUsageAccount[] {
+	hydrateSharedCache();
+	const linked = new Map(
+		targets
+			.filter(isLegacyCodex)
+			.map((target) => [linkedProxyAccount(target)?.key, target]),
+	);
+	return proxyUsageAccounts().map((account) => {
+		const target = linked.get(account.key);
+		if (!target || hasQuota(account.scope)) return account;
+		const status = providerUsageCache.get(
+			providerCacheKey(target.providerId, target.authKind),
+		);
+		const freshness = usageSnapshotFreshness(status);
+		if (!status?.scope || freshness === "expired" || !hasQuota(status.scope))
+			return account;
+		const scope = {
+			...status.scope,
+			availableResets:
+				status.scope.availableResets ?? account.scope.availableResets,
+		};
+		return {
+			...account,
+			scope,
+			summary: formatProviderScope(scope) ?? account.summary,
+			observedAt:
+				status.fetchedAt ?? status.lastAttemptAt ?? account.observedAt,
+			quotaLookupFailed: status.state !== "ready",
+			stale:
+				freshness === "stale" ||
+				(status.scope.availableResets === undefined &&
+					account.resetLookupFailed),
+			...(status.scope.availableResets !== undefined
+				? {
+						resetCredits: undefined,
+						resetCreditsObservedAt: status.fetchedAt,
+						resetLookupFailed: status.state !== "ready",
+					}
+				: {}),
+		};
+	});
+}
+
 function providerUsageBadges(
 	targets: ProviderUsageTarget[],
 	activeOnly: boolean,
 	activeFamilyOverride?: string,
 	compact = false,
 	activeProxy = false,
-	renderProxyText?: (text: string, disabled: boolean) => string,
+	renderPart: (text: string, active: boolean) => string = (text) => text,
 ): { active: boolean; text: string; proxy?: boolean }[] {
+	const linked = new Map<string, boolean>();
+	for (const target of targets) {
+		const account = linkedProxyAccount(target);
+		if (!account) continue;
+		const active =
+			target.active ||
+			(activeFamilyOverride !== undefined &&
+				providerFamily(target.providerId) === activeFamilyOverride);
+		linked.set(account.key, !!linked.get(account.key) || active);
+	}
+	const accounts = providerUsageProxyAccounts(targets).filter(
+		(account) => !activeOnly || activeProxy || linked.get(account.key),
+	);
+	const proxyBadges = proxyUsageBadges(
+		compact,
+		(text, disabled, account) => {
+			const proxyActive = activeProxy && !disabled;
+			if (!account) return renderPart(text, false);
+			if (!linked.has(account.key)) return renderPart(text, proxyActive);
+			const directActive = linked.get(account.key) === true;
+			return `${renderPart(OPENAI_LOGO, directActive)} ${renderPart(CODEX_PROXY_LOGO, proxyActive)} ${renderPart(account.summary, directActive || proxyActive)}`;
+		},
+		accounts,
+	);
 	return [
 		...directProviderUsageBadges(targets, activeOnly, activeFamilyOverride),
-		...(activeOnly && !activeProxy
-			? []
-			: proxyUsageBadges(compact, renderProxyText).map((text) => ({
-					active: activeProxy,
-					proxy: true,
-					text,
-				}))),
+		...proxyBadges.map((text) => ({ active: false, proxy: true, text })),
 	];
 }
 
@@ -1724,8 +1934,7 @@ export function renderProviderUsage(
 		activeFamilyOverride,
 		false,
 		activeProxy,
-		(text, disabled) =>
-			disabled || !activeProxy ? theme.fg("dim", text) : renderActive(text),
+		(text, active) => (active ? renderActive(text) : theme.fg("dim", text)),
 	);
 	if (badges.length === 0) return undefined;
 	const separator = theme.fg("dim", PROVIDER_BADGE_SEPARATOR);

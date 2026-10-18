@@ -12,6 +12,8 @@ export type AuthCredentialLike =
 			type: "oauth";
 			access?: string;
 			refresh?: string;
+			clientId?: string;
+			scopes?: string[];
 	  }
 	| { type: "api_key" };
 

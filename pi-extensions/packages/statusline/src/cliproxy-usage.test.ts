@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import {
 	parseProxyAccounts,
 	proxyUsageAccounts,
@@ -16,7 +16,16 @@ import {
 	refreshProxyUsage,
 	resetProxyUsageForTests,
 } from "./cliproxy-usage";
-import { formatProviderUsage, renderProviderUsage } from "./provider-usage";
+import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
+import {
+	discoverProviderUsageTargets,
+	formatDirectProviderUsage,
+	formatProviderUsage,
+	invalidateProviderUsageCache,
+	providerUsageProxyAccounts,
+	refreshProviderUsage,
+	renderProviderUsage,
+} from "./provider-usage";
 
 const directory = mkdtempSync(join(tmpdir(), "cliproxy-usage-test-"));
 const originalEnv = { ...process.env };
@@ -41,7 +50,7 @@ if (endpoint.endsWith("/credentials")) {
   if (process.env.CLIPROXY_TEST_ENDPOINT) fs.writeFileSync(process.env.CLIPROXY_TEST_ENDPOINT, endpoint);
   body = JSON.parse(fs.readFileSync(process.env.CLIPROXY_TEST_FIXTURE, "utf8"));
 } else {
-  const fixture = data?.url?.endsWith("/usage") ? process.env.CLIPROXY_TEST_USAGE : process.env.CLIPROXY_TEST_RESETS;
+  const fixture = data?.url?.endsWith("/chatpass/apps") ? process.env.CLIPROXY_TEST_APPS : data?.url?.endsWith("/usage") ? process.env.CLIPROXY_TEST_USAGE : process.env.CLIPROXY_TEST_RESETS;
   const responses = fixture ? JSON.parse(fs.readFileSync(fixture, "utf8")) : {};
   const response = responses[data?.auth_index];
   status = response?.management_status ?? 200;
@@ -75,6 +84,11 @@ function account(id: string, used: number, observedAt = Date.now()) {
 }
 
 afterEach(() => {
+	if (
+		process.env.PI_PROVIDER_USAGE_CACHE_PATH === join(directory, "direct.json")
+	)
+		invalidateProviderUsageCache();
+	vi.restoreAllMocks();
 	resetProxyUsageForTests();
 	process.env = { ...originalEnv };
 	try {
@@ -1128,3 +1142,500 @@ test.each([
 		expect(proxyUsageBadges()).toEqual([]);
 	},
 );
+
+function nativeProxyFixture() {
+	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-management-key";
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+	process.env.PI_PROVIDER_USAGE_CACHE_PATH = join(directory, "direct.json");
+	process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+	process.env.CLIPROXY_TEST_APPS = join(directory, "native-apps.json");
+	process.env.CLIPROXY_TEST_REQUESTS = join(directory, "native-requests.jsonl");
+	process.env.PATH = `${directory}:${originalEnv.PATH}`;
+	writeFileSync(process.env.CLIPROXY_TEST_REQUESTS, "");
+	writeFileSync(
+		fixturePath,
+		JSON.stringify({ files: [account("a", 47), account("b", 83)] }),
+	);
+	let credential: AuthCredentialLike = {
+		type: "oauth",
+		access: "native-access-secret",
+		refresh: "native-refresh-secret",
+		clientId: "oaiapp_native-registration",
+		scopes: ["chatgpt.tokens.use.direct"],
+	};
+	const ctx: ProviderUsageContext = {
+		model: { provider: "openai" },
+		readStoredCredential: (provider) =>
+			provider === "openai" ? credential : undefined,
+		modelRegistry: {
+			isUsingOAuth: () => credential.type === "oauth",
+			getProviderAuthStatus: (provider) => ({
+				configured: provider === "openai",
+				source: credential.type === "oauth" ? "OAuth" : "API key",
+			}),
+			getProviderAuth: async () => ({
+				auth: {
+					apiKey: credential.type === "oauth" ? credential.access : "api-key",
+				},
+			}),
+		},
+	};
+	const apps = (a: unknown, b: unknown) =>
+		writeFileSync(
+			process.env.CLIPROXY_TEST_APPS as string,
+			JSON.stringify(
+				Object.fromEntries(
+					[
+						["a", a],
+						["b", b],
+					].map(([key, body]) => [
+						key,
+						{
+							status_code: body === undefined ? 403 : 200,
+							body: JSON.stringify(body ?? {}),
+						},
+					]),
+				),
+			),
+		);
+	apps({ items: [{ id: "oaiapp_native-registration" }] }, { items: [] });
+	const requests = () =>
+		readFileSync(process.env.CLIPROXY_TEST_REQUESTS as string, "utf8")
+			.trim()
+			.split("\n")
+			.filter(Boolean)
+			.map((line) => JSON.parse(line));
+	return {
+		ctx,
+		apps,
+		requests,
+		setCredential: (value: AuthCredentialLike) => {
+			credential = value;
+		},
+	};
+}
+
+test("native OpenAI reuses matched proxy plan quota without sending native credentials or caching raw registrations", async () => {
+	const { ctx, requests } = nativeProxyFixture();
+	const fetchSpy = vi
+		.spyOn(globalThis, "fetch")
+		.mockRejectedValue(new Error("Unexpected direct request"));
+	const targets = discoverProviderUsageTargets(ctx);
+	expect(targets).toEqual([
+		{ providerId: "openai", authKind: "oauth", active: true },
+	]);
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatProviderUsage(targets, true)).toContain("W47%");
+	const matched = proxyUsageAccounts().find(
+		({ key }) => key === createHash("sha256").update("a").digest("hex"),
+	);
+	expect(formatDirectProviderUsage(targets)).toBe("");
+	expect(formatProviderUsage(targets, true)).toBe(
+		`\u{F0004} \uF120 ${matched?.summary}`,
+	);
+	expect(formatDirectProviderUsage(targets)).not.toContain("83%");
+	expect(proxyUsageAccounts()).toHaveLength(2);
+	expect(fetchSpy).not.toHaveBeenCalled();
+	const calls = requests();
+	expect(
+		calls.filter((r) => r.data?.url.endsWith("/chatpass/apps")),
+	).toHaveLength(2);
+	expect(calls.filter((r) => r.data?.url.endsWith("/usage"))).toHaveLength(2);
+	for (const call of calls.filter((r) => r.data)) {
+		expect(call.data.method).toBe("GET");
+		expect(call.data.header.Authorization).toBe("Bearer $TOKEN$");
+	}
+	for (const text of [JSON.stringify(calls), readFileSync(path, "utf8")]) {
+		expect(text).not.toContain("native-access-secret");
+		expect(text).not.toContain("native-refresh-secret");
+		expect(text).not.toContain("oaiapp_native-registration");
+	}
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(requests()).toHaveLength(calls.length);
+	// Another process (including the standalone CLI) can use the same mapping.
+	resetProxyUsageForTests();
+	const standalone = discoverProviderUsageTargets({ ...ctx, model: undefined });
+	await refreshProviderUsage(
+		{ ...ctx, model: undefined },
+		standalone,
+		() => {},
+	);
+	expect(formatDirectProviderUsage(standalone)).toBe("");
+	expect(formatProviderUsage(standalone)).toContain("W47%");
+	expect(requests()).toHaveLength(calls.length);
+});
+
+test.each([
+	["missing", { items: [] }, { items: [] }],
+	[
+		"duplicate across accounts",
+		{ items: [{ id: "oaiapp_native-registration" }] },
+		{ items: [{ id: "oaiapp_native-registration" }] },
+	],
+	[
+		"duplicate within account",
+		{
+			items: [
+				{ id: "oaiapp_native-registration" },
+				{ id: "oaiapp_native-registration" },
+			],
+		},
+		{ items: [] },
+	],
+	[
+		"failed other account",
+		{ items: [{ id: "oaiapp_native-registration" }] },
+		undefined,
+	],
+	[
+		"paginated",
+		{ items: [{ id: "oaiapp_native-registration" }], has_more: true },
+		{ items: [] },
+	],
+	[
+		"unknown pagination",
+		{ items: [{ id: "oaiapp_native-registration" }], next_page: "page2" },
+		{ items: [] },
+	],
+	[
+		"malformed",
+		{ items: [{ name: "not-an-id" }, { id: "oaiapp_native-registration" }] },
+		{ items: [] },
+	],
+])(
+	"native association fails closed on %s registration data, preserving proxy badges",
+	async (_reason, a, b) => {
+		const { ctx, apps } = nativeProxyFixture();
+		apps(a, b);
+		const targets = discoverProviderUsageTargets(ctx);
+		await refreshProviderUsage(ctx, targets, () => {});
+		expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
+		expect(proxyUsageAccounts()).toHaveLength(2);
+	},
+);
+
+test("native auth changes cannot reuse another registration's quota or fall back to stored OAuth after runtime overrides", async () => {
+	const { ctx, setCredential } = nativeProxyFixture();
+	const targets = discoverProviderUsageTargets(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatProviderUsage(targets, true)).toContain("W47%");
+	setCredential({
+		type: "oauth",
+		access: "different-access",
+		clientId: "oaiapp_other",
+		scopes: ["chatgpt.tokens.use.direct"],
+	});
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
+	setCredential({
+		type: "oauth",
+		access: "stored-access",
+		clientId: "oaiapp_native-registration",
+		scopes: ["chatgpt.tokens.use.direct"],
+	});
+	if (ctx.modelRegistry)
+		ctx.modelRegistry.getProviderAuth = async () => ({
+			auth: { apiKey: "runtime-api-key" },
+		});
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
+});
+
+test("native discovery upgrades a fresh proxy snapshot without registration data only once", async () => {
+	const { ctx, requests } = nativeProxyFixture();
+	await refreshProxyUsage(() => {});
+	expect(requests().some((r) => r.data?.url.endsWith("/chatpass/apps"))).toBe(
+		false,
+	);
+	const targets = discoverProviderUsageTargets(ctx);
+	await Promise.all([
+		refreshProviderUsage(ctx, targets, () => {}),
+		refreshProviderUsage(ctx, targets, () => {}),
+	]);
+	expect(formatProviderUsage(targets, true)).toContain("W47%");
+	expect(
+		requests().filter((r) => r.data?.url.endsWith("/chatpass/apps")),
+	).toHaveLength(2);
+});
+
+test.each([
+	{ type: "api_key" },
+	{ type: "oauth", access: "legacy-token" },
+	{
+		type: "oauth",
+		access: "native-token",
+		clientId: "oaiapp_native-registration",
+		scopes: ["openid"],
+	},
+] satisfies AuthCredentialLike[])(
+	"does not request app lists for unverified native grants: %j",
+	async (credential) => {
+		const { ctx, setCredential, requests } = nativeProxyFixture();
+		setCredential(credential);
+		const targets = discoverProviderUsageTargets(ctx);
+		await refreshProviderUsage(ctx, targets, () => {});
+		expect(requests().some((r) => r.data?.url.endsWith("/chatpass/apps"))).toBe(
+			false,
+		);
+		expect(formatDirectProviderUsage(targets)).not.toContain("47%");
+		expect(proxyUsageAccounts()).toHaveLength(2);
+	},
+);
+
+test("associations expire before stale proxy quota and cannot cross management base paths", async () => {
+	const { ctx } = nativeProxyFixture();
+	const targets = discoverProviderUsageTargets(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatProviderUsage(targets, true)).toContain("W47%");
+	process.env.CLIPROXYAPI_BASE_URL =
+		"https://proxy.example.test/another-installation";
+	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+	const cached = JSON.parse(readFileSync(path, "utf8"));
+	cached.fetchedAt = Date.now() - 6 * 60_000;
+	writeFileSync(path, JSON.stringify(cached));
+	resetProxyUsageForTests();
+	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
+	expect(proxyUsageAccounts()).toHaveLength(2);
+});
+
+test("a failed registration refresh invalidates association without hiding existing proxy quota", async () => {
+	const { ctx, apps } = nativeProxyFixture();
+	const targets = discoverProviderUsageTargets(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatProviderUsage(targets, true)).toContain("W47%");
+	const cached = JSON.parse(readFileSync(path, "utf8"));
+	cached.fetchedAt = Date.now() - 6 * 60_000;
+	writeFileSync(path, JSON.stringify(cached));
+	resetProxyUsageForTests();
+	apps(undefined, { items: [] });
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
+	expect(proxyUsageAccounts()).toHaveLength(2);
+});
+
+function legacyProxyFixture() {
+	const fixture = nativeProxyFixture();
+	let accountId = "private-account-a";
+	const token = () =>
+		`header.${Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: accountId } })).toString("base64url")}.signature`;
+	const ctx: ProviderUsageContext = {
+		model: { provider: "openai-codex" },
+		readStoredCredential: (provider) =>
+			provider === "openai-codex"
+				? { type: "oauth", access: token() }
+				: undefined,
+		modelRegistry: {
+			getProviderAuth: async () => ({ auth: { apiKey: token() } }),
+		},
+	};
+	const files = (
+		secondAccount = "private-account-b",
+		disabled = false,
+		withQuota = true,
+	) =>
+		writeFileSync(
+			fixturePath,
+			JSON.stringify({
+				files: [
+					{
+						...account("a", 47),
+						disabled,
+						...(withQuota ? {} : { quota: undefined }),
+						id_token: { chatgpt_account_id: "private-account-a" },
+					},
+					{
+						...account("b", 83),
+						id_token: { chatgpt_account_id: secondAccount },
+					},
+				],
+			}),
+		);
+	files();
+	const direct = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) =>
+		Response.json(
+			String(url).endsWith("/rate-limit-reset-credits")
+				? { available_count: 4 }
+				: {
+						rate_limit: {
+							primary_window: {
+								used_percent: 91,
+								limit_window_seconds: 604800,
+								reset_at: Math.floor(Date.now() / 1000) + 86400,
+							},
+						},
+					},
+		),
+	);
+	return {
+		...fixture,
+		ctx,
+		files,
+		direct,
+		setAccount: (value: string) => {
+			accountId = value;
+		},
+	};
+}
+
+test("legacy Codex prefers matching proxy quota from a cold cache and does not fetch it again", async () => {
+	const { ctx, direct, requests } = legacyProxyFixture();
+	const targets = discoverProviderUsageTargets(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(direct).not.toHaveBeenCalled();
+	expect(formatDirectProviderUsage(targets)).toBe("");
+	const matched = proxyUsageAccounts().find(
+		(a) => a.key === createHash("sha256").update("a").digest("hex"),
+	);
+	expect(formatProviderUsage(targets, true)).toBe(
+		`\u{F0004} \uF120 ${matched?.summary}`,
+	);
+	expect(providerUsageProxyAccounts(targets)).toHaveLength(2);
+	expect(requests().filter((r) => r.data?.url.endsWith("/usage"))).toHaveLength(
+		2,
+	);
+	expect(requests().some((r) => r.data?.url.endsWith("/chatpass/apps"))).toBe(
+		false,
+	);
+	const count = requests().length;
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(direct).not.toHaveBeenCalled();
+	expect(requests()).toHaveLength(count);
+	expect(readFileSync(path, "utf8")).not.toContain("private-account-");
+});
+
+test.each(["missing", "ambiguous", "unconfigured", "stale"])(
+	"legacy Codex falls back to direct reads when proxy association is %s",
+	async (reason) => {
+		const { ctx, direct, files, setAccount } = legacyProxyFixture();
+		if (reason === "missing") setAccount("not-enrolled");
+		if (reason === "ambiguous") files("private-account-a");
+		if (reason === "unconfigured")
+			delete process.env.CLIPROXYAPI_MANAGEMENT_KEY;
+		const targets = discoverProviderUsageTargets(ctx);
+		if (reason === "stale") {
+			await refreshProviderUsage(ctx, targets, () => {});
+			expect(direct).not.toHaveBeenCalled();
+			const cached = JSON.parse(readFileSync(path, "utf8"));
+			cached.fetchedAt = Date.now() - 6 * 60_000;
+			writeFileSync(path, JSON.stringify(cached));
+			resetProxyUsageForTests();
+			process.env.CLIPROXY_TEST_CREDENTIALS_STATUS = "503";
+		}
+		await refreshProviderUsage(ctx, targets, () => {});
+		expect(direct).toHaveBeenCalledTimes(2);
+		expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} 91% (1d ↻4)");
+	},
+);
+
+test("a matched disabled account with missing proxy quota uses direct fallback in the same single account entry", async () => {
+	const { ctx, direct, files } = legacyProxyFixture();
+	files("private-account-b", true, false);
+	const targets = discoverProviderUsageTargets(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(direct).toHaveBeenCalledTimes(2);
+	expect(formatDirectProviderUsage(targets)).toBe("");
+	const accounts = providerUsageProxyAccounts(targets);
+	expect(accounts).toHaveLength(2);
+	const matched = accounts.find((a) => a.disabled);
+	expect(matched?.summary).toBe("91% (1d ↻4)");
+	expect(matched?.scope.availableResets).toBe(4);
+	expect(matched?.quotaLookupFailed).toBe(false);
+	expect(formatProviderUsage(targets, true)).toBe(
+		"\u{F0004} \uF120 91% (1d ↻4)",
+	);
+});
+
+test("legacy account switches cannot keep the previous proxy association", async () => {
+	const { ctx, direct, setAccount } = legacyProxyFixture();
+	const targets = discoverProviderUsageTargets(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatProviderUsage(targets, true)).toContain("W47%");
+	setAccount("private-account-b");
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatProviderUsage(targets, true)).toContain("W83%");
+	expect(formatProviderUsage(targets, true)).not.toContain("47%");
+	expect(direct).not.toHaveBeenCalled();
+	setAccount("not-enrolled");
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(direct).toHaveBeenCalledTimes(2);
+	expect(formatDirectProviderUsage(targets)).toContain("91%");
+});
+
+test.each(["native", "legacy"])(
+	"merged %s account styles each route icon independently and keeps active-only usage",
+	async (provider) => {
+		const { ctx } =
+			provider === "native" ? nativeProxyFixture() : legacyProxyFixture();
+		const targets = discoverProviderUsageTargets(ctx);
+		await refreshProviderUsage(ctx, targets, () => {});
+		const summary = proxyUsageAccounts().find(
+			(a) => a.key === createHash("sha256").update("a").digest("hex"),
+		)?.summary;
+		const theme = {
+			fg: (_color: string, text: string) => `<dim>${text}</dim>`,
+		};
+		const active = (text: string) => `<active>${text}</active>`;
+		const render = (proxy: boolean, activeOnly = false) =>
+			renderProviderUsage(targets, theme, activeOnly, active, undefined, proxy);
+		expect(render(false)).toContain(
+			`<active>\u{F0004}</active> <dim>\uF120</dim> <active>${summary}</active>`,
+		);
+		expect(render(false, true)).not.toContain("83%");
+		targets[0].active = false;
+		expect(render(true)).toContain(
+			`<dim>\u{F0004}</dim> <active>\uF120</active> <active>${summary}</active>`,
+		);
+		expect(render(true)).toContain(
+			"<active>\uF120 S20% (2h)/W83% (2d)</active>",
+		);
+		expect(render(false)).toContain(
+			`<dim>\u{F0004}</dim> <dim>\uF120</dim> <dim>${summary}</dim>`,
+		);
+		expect(render(false, true)).toBeUndefined();
+		expect(formatDirectProviderUsage(targets)).toBe("");
+	},
+);
+
+test("a disabled proxy route does not dim an active direct OpenAI route", async () => {
+	const { ctx, files } = legacyProxyFixture();
+	files("private-account-b", true);
+	const targets = discoverProviderUsageTargets(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	const render = (proxy: boolean) =>
+		renderProviderUsage(
+			targets,
+			{ fg: (_color, text) => `<dim>${text}</dim>` },
+			false,
+			(text) => `<active>${text}</active>`,
+			undefined,
+			proxy,
+		);
+	expect(render(false)).toContain(
+		"<active>\u{F0004}</active> <dim>\uF120</dim> <active>S20%",
+	);
+	targets[0].active = false;
+	expect(render(true)).toContain(
+		"<dim>\u{F0004}</dim> <dim>\uF120</dim> <dim>S20%",
+	);
+});
+
+test("legacy association upgrades an older fresh proxy cache before considering direct fallback", async () => {
+	const { ctx, direct, requests } = legacyProxyFixture();
+	await refreshProxyUsage(() => {});
+	const cached = JSON.parse(readFileSync(path, "utf8"));
+	delete cached.codexAccounts;
+	writeFileSync(path, JSON.stringify(cached));
+	resetProxyUsageForTests();
+	const before = requests().length;
+	const targets = discoverProviderUsageTargets(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(direct).not.toHaveBeenCalled();
+	expect(formatDirectProviderUsage(targets)).toBe("");
+	expect(requests().length).toBeGreaterThan(before);
+	const after = requests().length;
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(requests()).toHaveLength(after);
+	expect(direct).not.toHaveBeenCalled();
+});

@@ -19,7 +19,7 @@ import {
 import { isUsageCacheFresh, usageSnapshotFreshness } from "./usage-freshness";
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-const CODEX_PROXY_LOGO = "\uF120"; // nf-fa-terminal
+export const CODEX_PROXY_LOGO = "\uF120"; // nf-fa-terminal
 
 type ResetCredit = {
 	expiresAt?: number;
@@ -71,12 +71,18 @@ type Snapshot = {
 	source: string;
 	fetchedAt: number;
 	accounts: Account[];
+	/** Hashed native registration -> hashed proxy identity. Empty means no safe match. */
+	openaiRegistrations?: Record<string, string>;
+	/** Hashed ChatGPT account ID -> hashed proxy identity; ambiguous accounts are omitted. */
+	codexAccounts?: Record<string, string>;
 };
 let snapshot: Snapshot | undefined;
 let pending: Promise<void> | undefined;
 let lastAttemptAt = 0;
 let lastAttemptSource: string | undefined;
 let lastAttemptFailed = false;
+type AccountLookup = "native" | "codex";
+let lastAttemptLookup: AccountLookup | undefined;
 
 function cachePath(): string {
 	return (
@@ -105,8 +111,11 @@ function sourceKey(): string | undefined {
 			return undefined;
 		if (parsed.username || parsed.password || parsed.search || parsed.hash)
 			return undefined;
+		const basePath = parsed.pathname
+			.replace(/\/+$/, "")
+			.replace(/\/(?:v1|backend-api)$/, "");
 		return createHash("sha256")
-			.update(`${parsed.origin}\0${key}`)
+			.update(`${parsed.origin}${basePath}\0${key}`)
 			.digest("hex");
 	} catch {
 		return undefined;
@@ -146,11 +155,73 @@ function currentSnapshot(source: string): Snapshot | undefined {
 	return snapshot?.source === source ? snapshot : undefined;
 }
 
-function isProxySnapshotFresh(data: Snapshot | undefined): boolean {
-	return isUsageCacheFresh({
-		lastAttemptAt: data?.fetchedAt,
-		state: data?.accounts.length === 0 ? "unknown" : "ready",
-	});
+function isProxySnapshotFresh(
+	data: Snapshot | undefined,
+	lookup?: AccountLookup,
+): boolean {
+	return (
+		(lookup !== "native" || data?.openaiRegistrations !== undefined) &&
+		(lookup !== "codex" || data?.codexAccounts !== undefined) &&
+		isUsageCacheFresh({
+			lastAttemptAt: data?.fetchedAt,
+			state: data?.accounts.length === 0 ? "unknown" : "ready",
+		})
+	);
+}
+
+export function openAiRegistrationKey(clientId: string): string {
+	return createHash("sha256").update(clientId).digest("hex");
+}
+
+export function codexAccountKey(accountId: string): string {
+	return createHash("sha256")
+		.update(`codex-account\0${accountId}`)
+		.digest("hex");
+}
+
+function uniqueAccountMatches(
+	pairs: [string, string][],
+): Record<string, string> {
+	const matches = new Map<string, string | undefined>();
+	for (const [key, account] of pairs) {
+		matches.set(key, matches.has(key) ? undefined : account);
+	}
+	return Object.fromEntries(
+		[...matches].filter(
+			(entry): entry is [string, string] => entry[1] !== undefined,
+		),
+	);
+}
+
+/** Only complete app lists establish uniqueness; never retain profile data or raw IDs. */
+function registrationKeys(body: unknown): string[] | undefined {
+	if (!body || typeof body !== "object" || Array.isArray(body))
+		return undefined;
+	const record = body as Record<string, unknown>;
+	if (
+		!Array.isArray(record.items) ||
+		record.items.length > 128 ||
+		Object.keys(record).some(
+			(key) => !["items", "has_more", "next_cursor"].includes(key),
+		) ||
+		(record.has_more !== undefined && record.has_more !== false) ||
+		(record.next_cursor !== undefined &&
+			record.next_cursor !== null &&
+			record.next_cursor !== "")
+	)
+		return undefined;
+	const keys = new Set<string>();
+	for (const item of record.items) {
+		if (!item || typeof item !== "object" || Array.isArray(item))
+			return undefined;
+		const id = (item as Record<string, unknown>).id;
+		if (typeof id !== "string" || !id.trim() || id.length > 512)
+			return undefined;
+		const key = openAiRegistrationKey(id);
+		if (keys.has(key)) return undefined;
+		keys.add(key);
+	}
+	return [...keys];
 }
 
 function numeric(value: unknown): number | undefined {
@@ -373,7 +444,7 @@ async function fetchCodexBody(
 	url: string,
 	key: string,
 	entry: AccountEntry,
-	endpoint: "usage" | "rate-limit-reset-credits",
+	endpoint: "usage" | "rate-limit-reset-credits" | "usage/chatpass/apps",
 ): Promise<unknown> {
 	try {
 		const header: Record<string, string> = {
@@ -467,7 +538,7 @@ function parseCreditBalance(body: unknown): CreditBalance | undefined {
 	return record.has_credits === false ? 0 : undefined;
 }
 
-function hasQuota(scope: ProviderUsageScope | undefined): boolean {
+export function hasQuota(scope: ProviderUsageScope | undefined): boolean {
 	return (
 		scope?.sessionPercentUsed !== undefined ||
 		scope?.weeklyPercentUsed !== undefined ||
@@ -480,7 +551,10 @@ async function fetchProxyAccounts(
 	url: string,
 	key: string,
 	cached: Snapshot | undefined,
-): Promise<Account[]> {
+	includeRegistrations: boolean,
+): Promise<
+	Pick<Snapshot, "accounts" | "openaiRegistrations" | "codexAccounts">
+> {
 	const response = await requestManagement(
 		url,
 		key,
@@ -489,11 +563,39 @@ async function fetchProxyAccounts(
 	if (response.status !== 200)
 		throw new Error("CLIProxyAPI returned a non-OK response");
 	const entries = parseAccountEntries(response.body);
+	const files = (response.body as { files: unknown[] }).files;
+	let registrationsComplete =
+		entries.length ===
+		files.filter(
+			(file) =>
+				file &&
+				typeof file === "object" &&
+				(file as { provider?: unknown }).provider === "codex",
+		).length;
+	const codexAccounts =
+		registrationsComplete && entries.every((entry) => !!entry.accountId)
+			? uniqueAccountMatches(
+					entries.map((entry) => [
+						codexAccountKey(entry.accountId as string),
+						entry.account.identity,
+					]),
+				)
+			: {};
+	const registrationAccounts: [string, string][] = [];
 	let next = 0;
 	await Promise.all(
 		Array.from({ length: Math.min(4, entries.length) }, async () => {
 			while (next < entries.length) {
 				const entry = entries[next++];
+				if (includeRegistrations) {
+					const keys = registrationKeys(
+						await fetchCodexBody(url, key, entry, "usage/chatpass/apps"),
+					);
+					if (!keys) registrationsComplete = false;
+					for (const registration of keys ?? []) {
+						registrationAccounts.push([registration, entry.account.identity]);
+					}
+				}
 				const previous = cached?.accounts.find(
 					(account) => account?.identity === entry.account.identity,
 				);
@@ -552,12 +654,25 @@ async function fetchProxyAccounts(
 			}
 		}),
 	);
-	return entries
-		.map(({ account }) => account)
-		.filter((account) => usableScope(account, Date.now()) !== undefined);
+	return {
+		accounts: entries
+			.map(({ account }) => account)
+			.filter((account) => usableScope(account, Date.now()) !== undefined),
+		codexAccounts,
+		...(includeRegistrations
+			? {
+					openaiRegistrations: uniqueAccountMatches(
+						registrationsComplete ? registrationAccounts : [],
+					),
+				}
+			: {}),
+	};
 }
 
-async function update(source: string): Promise<boolean> {
+async function update(
+	source: string,
+	lookup?: AccountLookup,
+): Promise<boolean> {
 	const key = process.env.CLIPROXYAPI_MANAGEMENT_KEY;
 	const url = process.env.CLIPROXYAPI_BASE_URL;
 	if (!key || !url) return false;
@@ -571,12 +686,17 @@ async function update(source: string): Promise<boolean> {
 			retries: { retries: 10, minTimeout: 100, maxTimeout: 100, factor: 1 },
 		});
 		const cached = currentSnapshot(source);
-		if (isProxySnapshotFresh(cached)) return false;
-		const accounts = await fetchProxyAccounts(url, key, cached);
+		if (isProxySnapshotFresh(cached, lookup)) return false;
+		const accounts = await fetchProxyAccounts(
+			url,
+			key,
+			cached,
+			lookup === "native",
+		);
 		const updated: Snapshot = {
 			source,
 			fetchedAt: Date.now(),
-			accounts,
+			...accounts,
 		};
 		const temporary = `${path}.${process.pid}.tmp`;
 		try {
@@ -599,12 +719,20 @@ async function update(source: string): Promise<boolean> {
 	}
 }
 
-export function refreshProxyUsage(onUpdate: () => void): Promise<void> {
+export function refreshProxyUsage(
+	onUpdate: () => void,
+	lookup?: AccountLookup,
+): Promise<void> {
 	const source = sourceKey();
 	if (!source) return Promise.resolve();
-	if (isProxySnapshotFresh(currentSnapshot(source))) return Promise.resolve();
+	if (isProxySnapshotFresh(currentSnapshot(source), lookup))
+		return Promise.resolve();
+	if (pending) return pending.then(() => refreshProxyUsage(onUpdate, lookup));
 	if (
 		lastAttemptSource === source &&
+		(!lookup ||
+			lastAttemptLookup === lookup ||
+			lastAttemptLookup === "native") &&
 		isUsageCacheFresh({
 			lastAttemptAt,
 			state: lastAttemptFailed ? "error" : "ready",
@@ -614,7 +742,8 @@ export function refreshProxyUsage(onUpdate: () => void): Promise<void> {
 	if (!pending) {
 		lastAttemptSource = source;
 		lastAttemptAt = Date.now();
-		pending = update(source)
+		lastAttemptLookup = lookup;
+		pending = update(source, lookup)
 			.then((changed) => {
 				lastAttemptFailed = !changed;
 				if (changed) onUpdate();
@@ -769,14 +898,50 @@ export function proxyUsageAccounts(): ProxyUsageAccount[] {
 	});
 }
 
+/** A registration association must be fresh; ordinary proxy quotas retain their own staleness policy. */
+function associatedProxyAccount(
+	key: string,
+	field: "openaiRegistrations" | "codexAccounts",
+): ProxyUsageAccount | undefined {
+	const source = sourceKey();
+	if (!source) return undefined;
+	const data = currentSnapshot(source);
+	if (!isProxySnapshotFresh(data)) return undefined;
+	const matches = data?.[field];
+	if (
+		!matches ||
+		typeof matches !== "object" ||
+		Array.isArray(matches) ||
+		!Object.hasOwn(matches, key)
+	)
+		return undefined;
+	return proxyUsageAccounts().find((account) => account.key === matches[key]);
+}
+
+export function proxyUsageForRegistration(
+	registration: string,
+): ProxyUsageAccount | undefined {
+	return associatedProxyAccount(registration, "openaiRegistrations");
+}
+
+export function proxyUsageForCodexAccount(
+	account: string,
+): ProxyUsageAccount | undefined {
+	return associatedProxyAccount(account, "codexAccounts");
+}
+
 export function proxyUsageBadges(
 	compact = false,
-	render: (text: string, disabled: boolean) => string = (text) => text,
+	render: (
+		text: string,
+		disabled: boolean,
+		account?: ProxyUsageAccount,
+	) => string = (text) => text,
+	valid = proxyUsageAccounts(),
 ): string[] {
-	const valid = proxyUsageAccounts();
 	const visible = compact ? valid.slice(0, 2) : valid;
 	const scopes = visible.map((account) =>
-		render(`${CODEX_PROXY_LOGO} ${account.summary}`, account.disabled),
+		render(`${CODEX_PROXY_LOGO} ${account.summary}`, account.disabled, account),
 	);
 	if (scopes.length === 0) return [];
 	if (compact && valid.length > visible.length)
@@ -792,4 +957,5 @@ export function resetProxyUsageForTests(): void {
 	lastAttemptAt = 0;
 	lastAttemptSource = undefined;
 	lastAttemptFailed = false;
+	lastAttemptLookup = undefined;
 }

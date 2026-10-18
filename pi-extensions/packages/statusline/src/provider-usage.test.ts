@@ -182,6 +182,45 @@ afterEach(() => {
 });
 
 describe("provider usage", () => {
+	test.each(["openai", "openai-codex"])(
+		"keeps %s as the usage target when both OAuth logins exist",
+		(providerId) => {
+			const ctx: ProviderUsageContext = {
+				model: { provider: providerId },
+				readStoredCredential: (provider) =>
+					["openai", "openai-codex"].includes(provider)
+						? { type: "oauth", access: `${provider}-token` }
+						: undefined,
+			};
+			expect(discoverProviderUsageTargets(ctx)).toEqual([
+				{ providerId, authKind: "oauth", active: true },
+			]);
+		},
+	);
+
+	test("native OAuth with no proxy stays unavailable rather than probing legacy endpoints", async () => {
+		const { fetchMock } = fetchCalls(() => Response.json({}));
+		const ctx: ProviderUsageContext = {
+			model: { provider: "openai" },
+			modelRegistry: {
+				getProviderAuth: async () => ({ auth: { apiKey: "native-token" } }),
+			},
+			readStoredCredential: (provider) =>
+				provider === "openai"
+					? {
+							type: "oauth",
+							access: "native-token",
+							clientId: "oaiapp_native",
+							scopes: ["chatgpt.tokens.use.direct"],
+						}
+					: undefined,
+		};
+		const targets = discoverProviderUsageTargets(ctx);
+		await refreshAndWait(ctx, targets);
+		expect(render(targets)).toBe(`${OPENAI_LOGO} ?`);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	test("hydrates fresh credential-scoped usage without fetching", async () => {
 		const token = "stored-anthropic-token";
 		const targetKey = "anthropic:oauth";

@@ -4,12 +4,12 @@ import {
 	ModelRuntime,
 	readStoredCredential,
 } from "@earendil-works/pi-coding-agent";
-import { proxyUsageAccounts } from "./cliproxy-usage";
 import type { ModelRegistryLike, ProviderUsageContext } from "./pi-types";
 import {
 	discoverProviderUsageTargetsAsync,
 	formatDirectProviderUsage,
 	formatProviderUsage,
+	providerUsageProxyAccounts,
 	refreshProviderUsage,
 } from "./provider-usage";
 
@@ -44,6 +44,6 @@ process.stdout.write(
 	`${JSON.stringify({
 		text: formatProviderUsage(targets, false, true) ?? "",
 		directText: formatDirectProviderUsage(targets),
-		proxyAccounts: proxyUsageAccounts(),
+		proxyAccounts: providerUsageProxyAccounts(targets),
 	})}\n`,
 );
