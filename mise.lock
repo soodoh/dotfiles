@@ -1536,7 +1536,7 @@ version = "4.10.0"
 backend = "npm:vscode-langservers-extracted"
 
 [[tools."npm:yaml-language-server"]]
-version = "1.25.0"
+version = "2.0.0"
 backend = "npm:yaml-language-server"
 
 [[tools."pipx:yamllint"]]
