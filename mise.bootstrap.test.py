@@ -241,6 +241,55 @@ class MiseConfigurationTests(unittest.TestCase):
         for variable in ("HTTP_PROXY", "HTTPS_PROXY"):
             self.assertEqual(daemon_environment[variable], environment[variable])
 
+    def test_sketchybar_launch_waits_for_aerospace_and_hands_off_process(self) -> None:
+        agent = self.base["bootstrap"]["macos"]["launchd"]["agents"]["sketchybar"]
+        # Prevent an incomplete workspace setup, and ensure launchd supervises
+        # the bar itself once AeroSpace is ready rather than a background shell.
+        for readiness, bar_status in ((1, 0), (0, 0), (0, 7)):
+            with self.subTest(readiness=readiness, bar_status=bar_status):
+                with tempfile.TemporaryDirectory() as directory:
+                    stage = Path(directory)
+                    calls = stage / "calls"
+                    aerospace = stage / "aerospace"
+                    aerospace.write_text(
+                        '#!/bin/sh\nprintf "aerospace %s\\n" "$*" >> "$CALLS"\n'
+                        'exit "$READINESS"\n'
+                    )
+                    aerospace.chmod(0o755)
+                    sketchybar = stage / "sketchybar"
+                    sketchybar.write_text(
+                        '#!/bin/sh\nprintf "sketchybar %s\\n" "$$" >> "$CALLS"\n'
+                        'exit "$BAR_STATUS"\n'
+                    )
+                    sketchybar.chmod(0o755)
+                    with subprocess.Popen(
+                        [agent["program"], *agent["args"]],
+                        cwd=stage,
+                        env={
+                            **agent["environment"],
+                            "PATH": f"{stage}:{agent['environment']['PATH']}",
+                            "CALLS": str(calls),
+                            "READINESS": str(readiness),
+                            "BAR_STATUS": str(bar_status),
+                        },
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    ) as process:
+                        _, stderr = process.communicate(timeout=5)
+                        self.assertEqual(
+                            process.returncode, 1 if readiness else bar_status, stderr
+                        )
+                        expected = ["aerospace list-workspaces --all"]
+                        if readiness == 0:
+                            expected.append(f"sketchybar {process.pid}")
+                        self.assertEqual(calls.read_text().splitlines(), expected)
+        # Failed readiness checks and later bar exits must both be retried,
+        # with throttling instead of a busy restart loop.
+        self.assertTrue(agent.get("run_at_load"))
+        self.assertTrue(agent.get("keep_alive"))
+        self.assertGreaterEqual(agent.get("throttle_interval", 0), 10)
+
     def test_colima_failed_start_is_cleaned_up_before_launchd_retries(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise)

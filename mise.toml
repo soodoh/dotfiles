@@ -189,6 +189,20 @@ environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr
 stdout_path = "~/Library/Logs/aerospace.log"
 stderr_path = "~/Library/Logs/aerospace.error.log"
 
+[bootstrap.macos.launchd.agents.sketchybar]
+program = "/bin/sh"
+# Check once before startup; launchd retries if AeroSpace is not ready yet.
+args = ["-c", '''
+aerospace list-workspaces --all >/dev/null 2>&1 || exit 1
+exec sketchybar
+''']
+run_at_load = true
+keep_alive = true
+throttle_interval = 10
+environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+stdout_path = "~/Library/Logs/sketchybar.log"
+stderr_path = "~/Library/Logs/sketchybar.error.log"
+
 [bootstrap.macos.launchd.agents.borders]
 program = "/opt/homebrew/bin/borders"
 args = ["active_color=0xff7aa2f7", "inactive_color=0xff3b4261", "width=5.0"]

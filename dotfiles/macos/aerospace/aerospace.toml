@@ -6,7 +6,7 @@ persistent-workspaces = ['1', '2', '3', '4']
 
 # Startup and companion services are managed by mise-installed launch agents.
 after-login-command = []
-after-startup-command = ['exec-and-forget sketchybar']
+after-startup-command = []
 start-at-login = false
 
 # Notify SketchyBar about workspace changes. The launch agent PATH exposes the
