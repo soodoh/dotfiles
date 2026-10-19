@@ -4,7 +4,7 @@
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "high",
   "theme": "dark",
-  "tuiMode": "regular",
+  "tuiMode": "fullscreen",
   "defaultTools": [
     "+codemode",
     "+tool_search"

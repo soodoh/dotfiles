@@ -1,1 +1,6 @@
-{}
+{
+  "tui.altScreen.pageUp": ["pageUp", "alt+u"],
+  "tui.altScreen.pageDown": ["pageDown", "alt+d"],
+  "tui.altScreen.bottom": ["ctrl+end", "alt+shift+g"],
+  "tui.altScreen.top": ["ctrl+home", "alt+g"]
+}
