@@ -185,6 +185,87 @@ test("exports safe account details separately from direct text while retaining c
 	}
 });
 
+test("exports Copilot as its own cached hover target without duplicating its compact badge", async () => {
+	const root = await mkdtemp(join(tmpdir(), "pi-copilot-usage-cli-"));
+	const agentDir = join(root, "agent");
+	const cacheDir = join(root, "cache");
+	const preload = join(root, "copilot-fixture.ts");
+	const requests = join(root, "requests.jsonl");
+	try {
+		await mkdir(agentDir, { recursive: true });
+		await writeFile(
+			join(agentDir, "auth.json"),
+			JSON.stringify({
+				"github-copilot": {
+					type: "oauth",
+					access: "private-session-token",
+					refresh: "private-github-token",
+					expires: Date.now() + 3_600_000,
+				},
+			}),
+			{ mode: 0o600 },
+		);
+		await writeFile(
+			preload,
+			`
+import { appendFileSync } from "node:fs";
+globalThis.fetch = async (url, init) => {
+  if (String(url) !== "https://api.github.com/copilot_internal/user" || (init?.method ?? "GET") !== "GET") throw new Error("Unexpected network request");
+  if (new Headers(init?.headers).get("Authorization") !== "token private-github-token") throw new Error("Incorrect usage credential");
+  appendFileSync(${JSON.stringify(requests)}, "GET user\\n");
+  return Response.json({
+    copilot_plan: "business", token_based_billing: true,
+    quota_reset_date_utc: "2035-02-01T00:00:00Z", login: "private-login",
+    quota_snapshots: { premium_interactions: {
+      entitlement: 1000, quota_remaining: 750, percent_remaining: 75,
+      overage_permitted: true, overage_count: 0,
+    } },
+  });
+};
+`,
+		);
+		const env = cliEnvironment(root, agentDir, cacheDir);
+		const invoke = () =>
+			execFileAsync(
+				process.env.BUN_BIN ?? "bun",
+				["--preload", preload, cliPath],
+				{ env, timeout: 20_000 },
+			);
+		const first = await invoke();
+		const output = JSON.parse(first.stdout);
+		expect(output.text).toBe(" 25%");
+		expect(output.directText).toBe("");
+		expect(output.proxyAccounts).toEqual([]);
+		expect(output.copilot).toMatchObject({
+			summary: "25%",
+			state: "ready",
+			stale: false,
+			details: {
+				plan: "Business",
+				premium: {
+					unit: "credits",
+					allowance: 1000,
+					used: 250,
+					remaining: 750,
+					overagePermitted: true,
+					overageUsed: 0,
+				},
+			},
+		});
+		expect(JSON.parse((await invoke()).stdout)).toEqual(output);
+		expect(await readFile(requests, "utf8")).toBe("GET user\n");
+		for (const text of [
+			first.stdout,
+			first.stderr,
+			await readFile(join(cacheDir, "pi", "provider-usage.json"), "utf8"),
+		]) {
+			expect(text).not.toContain("private-");
+		}
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
 test("deduplicates provider refreshes across CLI processes", async () => {
 	const root = await mkdtemp(join(tmpdir(), "pi-provider-usage-cli-"));
 	const agentDir = join(root, "agent");

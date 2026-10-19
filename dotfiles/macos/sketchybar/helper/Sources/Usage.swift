@@ -3,6 +3,7 @@ import Foundation
 struct UsageSnapshot: Decodable {
   var directText: String
   var proxyAccounts: [UsageAccount]
+  var copilot: CopilotAccount?
   static func decode(_ data: Data) throws -> UsageSnapshot {
     let snapshot = try JSONDecoder().decode(Self.self, from: data)
     let keys = snapshot.proxyAccounts.map(\.key)
@@ -58,6 +59,31 @@ struct UsageAccount: Decodable {
   var creditBalance: Balance?
 }
 
+struct CopilotAccount: Decodable {
+  struct Details: Decodable {
+    struct Quota: Decodable {
+      var unit: String
+      var unlimited: Bool?
+      var percentUsed: Double?
+      var allowance: Double?
+      var remaining: Double?
+      var used: Double?
+      var creditsUsed: Double?
+      var overagePermitted: Bool?
+      var overageUsed: Double?
+      var resetAt: Double?
+    }
+    var plan: String?
+    var premium: Quota?
+  }
+  var summary: String
+  var details: Details?
+  var state: String
+  var fetchedAt: Double?
+  var lastAttemptAt: Double?
+  var stale: Bool
+}
+
 struct PopupRow: Equatable {
   enum Kind { case detail, header, status, divider, spacer, note }
   var kind: Kind = .detail
@@ -102,10 +128,92 @@ struct PopupFormatter {
     guard let seconds, seconds.isFinite, seconds > 0 else { return "Quota" }
     for (unit, size) in [("d", 86400.0), ("h", 3600.0), ("m", 60.0), ("s", 1.0)] {
       if seconds.truncatingRemainder(dividingBy: size) == 0 {
-        return "\((seconds / size).formatted(.number.locale(Locale(identifier: "en_US_POSIX"))))\(unit)"
+        return
+          "\((seconds / size).formatted(.number.locale(Locale(identifier: "en_US_POSIX"))))\(unit)"
       }
     }
     return "\(seconds)s"
+  }
+  func rows(_ account: CopilotAccount) -> [PopupRow] {
+    let title = "Copilot" + (account.details?.plan.map { " · \($0)" } ?? "")
+    let hasDetails = account.details != nil
+    let quota = account.details?.premium
+    let expired = quota?.resetAt.map { $0 <= now.timeIntervalSince1970 * 1000 } ?? false
+    let status =
+      account.stale
+      ? "Stale data" : expired ? "Awaiting refresh" : hasDetails ? "Current" : "Usage unavailable"
+    var rows = [
+      PopupRow(
+        kind: .header, title: title,
+        value: account.fetchedAt.map {
+          "\(hasDetails ? "Updated at" : "Last checked") \(clock($0))"
+        } ?? "Not yet updated"),
+      PopupRow(kind: .status, title: status), PopupRow(kind: .divider),
+    ]
+    if account.state != "ready" {
+      rows.append(
+        PopupRow(
+          title: "Quota lookup",
+          value:
+            "\(account.state == "error" ? "Failed" : "Unavailable") · \(hasDetails ? "last observed" : "unavailable")"
+        ))
+    }
+    let unit =
+      quota?.unit == "credits" ? "AI credits" : quota?.unit == "requests" ? "requests" : "units"
+    rows.append(
+      PopupRow(
+        title: "Billing",
+        value: quota?.unit == "credits"
+          ? "AI credits" : quota?.unit == "requests" ? "Premium requests" : "Not reported"))
+    if let quota, !expired {
+      if quota.unlimited == true {
+        rows.append(PopupRow(title: "Allowance", value: "Unlimited"))
+        if let credits = quota.creditsUsed {
+          rows.append(PopupRow(title: "Credits used", value: "\(quantity(credits)) AI credits"))
+        }
+      } else {
+        rows.append(
+          PopupRow(
+            title: "Usage",
+            value: quota.percentUsed.map { "\(Int($0.rounded()))%" } ?? "Unavailable"))
+        if let used = quota.used, let allowance = quota.allowance {
+          rows.append(
+            PopupRow(
+              title: "Used / allowance", value: "\(quantity(used)) / \(quantity(allowance)) \(unit)"
+            ))
+        } else if let allowance = quota.allowance {
+          rows.append(PopupRow(title: "Allowance", value: "\(quantity(allowance)) \(unit)"))
+        }
+        rows.append(
+          PopupRow(
+            title: "Remaining",
+            value: quota.remaining.map { "\(quantity($0)) \(unit)" } ?? "Unavailable"))
+      }
+      rows.append(PopupRow(title: "Resets", value: quota.resetAt.map(resetDate) ?? "Not reported"))
+      rows.append(
+        PopupRow(
+          title: "Paid overage",
+          value: quota.overagePermitted.map { $0 ? "Allowed" : "Not allowed" } ?? "Not reported"))
+      if let overage = quota.overageUsed {
+        rows.append(PopupRow(title: "Overage used", value: "\(quantity(overage)) \(unit)"))
+      }
+    } else {
+      rows.append(
+        PopupRow(title: "Quota", value: expired ? "Expired · awaiting refresh" : "Unavailable"))
+    }
+    if ["Business", "Enterprise"].contains(account.details?.plan ?? "") {
+      rows.append(PopupRow(kind: .note, value: "Reported account quota, not organization pool."))
+    }
+    if account.stale, let observedAt = account.fetchedAt {
+      rows.append(
+        PopupRow(
+          kind: .note, value: "Last observed at \(clock(observedAt)) (\(observed(observedAt)))"))
+    }
+    return rows
+  }
+  func quantity(_ value: Double) -> String {
+    value.formatted(
+      .number.locale(Locale(identifier: "en_US")).precision(.fractionLength(0...2)))
   }
   func rows(_ account: UsageAccount) -> [PopupRow] {
     let plans = [

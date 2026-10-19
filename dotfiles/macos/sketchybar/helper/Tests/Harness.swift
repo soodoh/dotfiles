@@ -19,10 +19,30 @@ func accountFixture(_ key: String = "a", disabled: Bool = false) -> [String: Any
     "creditBalance": 125.5,
   ]
 }
-func snapshot(_ accounts: [[String: Any]] = [accountFixture()], direct: String = "LLMHub $12.00")
+func copilotFixture() -> [String: Any] {
+  [
+    "summary": "25%", "state": "ready", "stale": false,
+    "fetchedAt": testNow.timeIntervalSince1970 * 1000,
+    "lastAttemptAt": testNow.timeIntervalSince1970 * 1000,
+    "details": [
+      "plan": "Business",
+      "premium": [
+        "unit": "credits", "percentUsed": 25, "allowance": 1000, "used": 250.75,
+        "remaining": 749.25, "overagePermitted": true, "overageUsed": 0,
+        "resetAt": (testNow.timeIntervalSince1970 + 3600) * 1000,
+      ],
+    ],
+  ]
+}
+func snapshot(
+  _ accounts: [[String: Any]] = [accountFixture()], direct: String = "LLMHub $12.00",
+  copilot: [String: Any]? = nil
+)
   throws -> UsageSnapshot
 {
-  try UsageSnapshot.decode(jsonData(["directText": direct, "proxyAccounts": accounts]))
+  var value: [String: Any] = ["directText": direct, "proxyAccounts": accounts]
+  value["copilot"] = copilot
+  return try UsageSnapshot.decode(jsonData(value))
 }
 func display(_ id: Int, native: UInt32, width: Double, x: Double = 0, y: Double = 0) -> Display {
   Display(

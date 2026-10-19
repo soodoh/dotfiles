@@ -21,6 +21,12 @@ workspace, front-app, and system-metric plugins remain unchanged.
 
 Provider discovery, fetching, caching, and compact usage semantics remain in
 `pi-extensions/packages/statusline`. Pi's renderer is not involved in this helper.
+The CLI's optional `copilot` object renders as its own hoverable item alongside
+proxy accounts; `directText` excludes that separately rendered badge. Copilot's
+popover labels credits versus legacy requests, shows reported quota/reset/overage
+details, and distinguishes account quotas from organization pools. Unknown,
+unlimited, stale, and expired data stay explicit. Hover only toggles cached rows,
+including when usage is unavailable; it never triggers another provider read.
 
 ## Build and run
 
@@ -63,7 +69,8 @@ SKETCHYBAR_LIVE_TESTS=1 bash dotfiles/macos/sketchybar/helper/build.sh test
 Tests compile the production source with a small throwing-assertion runner;
 no separately installed test framework or XCTest/Xcode is required. Fixtures
 exercise meaningful behavior through the real renderer and process seam:
-formatting/freshness, unknown vs zero balances, item reuse/removal, independent
+formatting/freshness, Copilot billing units and quota expiry, unknown vs zero
+balances, item reuse/removal, independent
 hover targets, native width composition, scrolling/recovery, display reassociation,
 per-display guard extents, native mise invocation, failure preservation, and cleanup.
 

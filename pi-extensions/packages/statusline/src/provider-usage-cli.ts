@@ -9,6 +9,7 @@ import {
 	discoverProviderUsageTargetsAsync,
 	formatDirectProviderUsage,
 	formatProviderUsage,
+	providerUsageCopilot,
 	providerUsageProxyAccounts,
 	refreshProviderUsage,
 } from "./provider-usage";
@@ -43,7 +44,10 @@ await refreshProviderUsage(ctx, targets, () => {});
 process.stdout.write(
 	`${JSON.stringify({
 		text: formatProviderUsage(targets, false, true) ?? "",
-		directText: formatDirectProviderUsage(targets),
+		directText: formatDirectProviderUsage(
+			targets.filter((target) => target.providerId !== "github-copilot"),
+		),
+		copilot: providerUsageCopilot(targets),
 		proxyAccounts: providerUsageProxyAccounts(targets),
 	})}\n`,
 );

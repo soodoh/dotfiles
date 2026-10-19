@@ -76,7 +76,7 @@ final class UsageTests {
     ])
     try require(fallback.contains(PopupRow(title: "Quota lookup", value: "Failed · last observed")))
     let unknown = try rows([
-      "scope": ["percentUsed": 23, "windowSeconds": 14 * 86400, "resetAt": reset],
+      "scope": ["percentUsed": 23, "windowSeconds": 14 * 86400, "resetAt": reset]
     ])
     try require(unknown.contains(PopupRow(title: "14d usage", value: "23%")))
     try requireFalse(unknown.contains { $0.title == "Weekly usage" || $0.title == "Session usage" })
@@ -155,6 +155,101 @@ final class UsageTests {
       }
     }
   }
+  func testCopilotQuotaUnitsAndFreshness() throws {
+    func rows(_ quota: [String: Any]? = nil, changes: [String: Any] = [:]) throws -> [PopupRow] {
+      var fixture = copilotFixture().merging(changes) { _, new in new }
+      if let quota { fixture["details"] = ["plan": "Business", "premium": quota] }
+      return formatter.rows(try unwrap(snapshot([], copilot: fixture).copilot))
+    }
+    let fresh = try rows()
+    try requireEqual(fresh.first?.title, "Copilot · Business")
+    try require(fresh.contains(PopupRow(title: "Billing", value: "AI credits")))
+    try require(
+      fresh.contains(PopupRow(title: "Used / allowance", value: "250.75 / 1,000 AI credits")))
+    try require(fresh.contains(PopupRow(title: "Remaining", value: "749.25 AI credits")))
+    try require(fresh.contains(PopupRow(title: "Overage used", value: "0 AI credits")))
+    try require(fresh.contains(PopupRow(title: "Paid overage", value: "Allowed")))
+    try require(fresh.contains(PopupRow(title: "Resets", value: "Jan 31, 01:00 · 1h")))
+    try require(fresh.contains { $0.kind == .note && $0.value.contains("not organization pool") })
+    let requests = try rows([
+      "unit": "requests", "used": 0, "allowance": 300, "remaining": 300, "percentUsed": 0,
+      "overagePermitted": false,
+    ])
+    try require(requests.contains(PopupRow(title: "Used / allowance", value: "0 / 300 requests")))
+    try require(requests.contains(PopupRow(title: "Usage", value: "0%")))
+    try require(requests.contains(PopupRow(title: "Paid overage", value: "Not allowed")))
+    try require(requests.contains(PopupRow(title: "Resets", value: "Not reported")))
+    let unknown = try rows(["unit": "unknown"])
+    for (title, value) in [
+      ("Usage", "Unavailable"), ("Remaining", "Unavailable"), ("Billing", "Not reported"),
+      ("Paid overage", "Not reported"),
+    ] {
+      try require(unknown.contains(PopupRow(title: title, value: value)))
+    }
+    let unlimited = try rows(["unit": "credits", "unlimited": true, "creditsUsed": 1234.5])
+    try require(unlimited.contains(PopupRow(title: "Allowance", value: "Unlimited")))
+    try require(unlimited.contains(PopupRow(title: "Credits used", value: "1,234.5 AI credits")))
+    try requireFalse(unlimited.contains { $0.title == "Usage" || $0.title == "Remaining" })
+    let stale = try rows(changes: [
+      "state": "error", "stale": true,
+      "fetchedAt": testNow.timeIntervalSince1970 * 1000 - 7 * 60000,
+    ])
+    try require(stale.contains(PopupRow(kind: .status, title: "Stale data")))
+    try require(stale.contains(PopupRow(title: "Quota lookup", value: "Failed · last observed")))
+    try require(stale.contains { $0.kind == .note && $0.value.contains("7m ago") })
+    let expired = try rows([
+      "unit": "credits", "used": 10, "remaining": 90,
+      "resetAt": testNow.timeIntervalSince1970 * 1000 - 1,
+    ])
+    try require(expired.contains(PopupRow(title: "Quota", value: "Expired · awaiting refresh")))
+    try requireFalse(expired.contains { $0.title == "Remaining" || $0.title == "Used / allowance" })
+    let unavailable = try rows(changes: ["details": NSNull(), "state": "unknown"])
+    try require(unavailable.contains(PopupRow(title: "Quota", value: "Unavailable")))
+    try requireEqual(unavailable.first?.title, "Copilot")
+  }
+  func testCopilotLifecycleAndNotchLayout() throws {
+    let fake = FakeBar()
+    try fake.ready()
+    var controller = fake.controller()
+    let usage = try snapshot(copilot: copilotFixture())
+    try controller.render(usage, now: testNow)
+    for prefix in ["", "notch."] {
+      let copilot = prefix + "ai_usage.copilot"
+      let proxy = prefix + "ai_usage.proxy." + String(repeating: "a", count: 64)
+      let anchor = prefix + "ai_usage.providers"
+      let order = prefix.isEmpty ? Array(fake.order.reversed()) : fake.order
+      try requireEqual(
+        order.filter { [anchor, copilot, proxy].contains($0) }, [anchor, copilot, proxy])
+      try requireEqual(fake.items[copilot]?["label"], " 25%")
+      try controller.popup(name: copilot, sender: "mouse.entered")
+      try requireEqual(fake.items[copilot]?["popup.drawing"], "on")
+      try requireEqual(fake.items[proxy]?["popup.drawing"], "off")
+      let queries = fake.queries.count
+      try controller.popup(name: copilot, sender: "mouse.exited")
+      try requireEqual(fake.queries.count, queries, "Copilot hover must remain cache-only")
+      try controller.popup(name: copilot, sender: "mouse.entered")
+    }
+    let members = Set(fake.order)
+    try controller.render(usage, now: testNow)
+    try requireEqual(Set(fake.order), members)
+    try requireEqual(fake.items["ai_usage.copilot"]?["popup.drawing"], "on")
+    fake.displays = [display(1, native: 73, width: 1280), display(2, native: 99, width: 2560)]
+    controller.notches = { [NotchedDisplay(id: 73, notchWidth: 185)] }
+    try controller.layout()
+    try requireEqual(fake.items["notch.ai_usage.copilot"]?["display"], "1")
+    try requireEqual(fake.items["ai_usage.copilot"]?["display"], "2")
+    try requireEqual(fake.items["notch.ai_usage.copilot"]?["popup.drawing"], "on")
+    try controller.render(snapshot([], direct: "", copilot: copilotFixture()), now: testNow)
+    try requireEqual(fake.items["ai_usage.copilot"]?["icon.drawing"], "off")
+    try requireEqual(fake.items["notch.ai_usage.copilot"]?["padding_left"], "8")
+    try requireEqual(fake.items["right_separator.ai"]?["drawing"], "on")
+    controller.notches = { [] }
+    try controller.layout()
+    try requireEqual(fake.items["notch.ai_usage.copilot"]?["popup.drawing"], "off")
+    try controller.render(snapshot([], direct: ""), now: testNow)
+    try requireFalse(fake.order.contains(where: accountOrRow))
+    try requireEqual(fake.items["right_separator.ai"]?["drawing"], "off")
+  }
   static var allTests = [
     ("header and freshness", testHeaderAndFreshness),
     ("fallbacks and unknowns", testFallbacksAndUnknowns),
@@ -163,5 +258,7 @@ final class UsageTests {
     ("monthly and unclassified quota", testMonthlyAndUnclassifiedQuota),
     ("lifecycle and cached hover", testLifecycleOrderingHoverAndRemoval),
     ("reused row styling", testReusedRowsResetStyle),
+    ("Copilot units and freshness", testCopilotQuotaUnitsAndFreshness),
+    ("Copilot lifecycle and layout", testCopilotLifecycleAndNotchLayout),
   ]
 }

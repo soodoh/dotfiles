@@ -14,6 +14,7 @@ import {
 	mappedProviderUsageFamily,
 	type ProviderUsageTarget,
 	parseOpenAiUsageBody,
+	providerUsageCopilot,
 	refreshProviderUsage,
 	renderProviderUsage,
 } from "./provider-usage";
@@ -1220,6 +1221,148 @@ describe("provider usage", () => {
 			"openrouter",
 			"anthropic",
 		]);
+	});
+
+	test("persists Copilot details for the CLI without changing the compact badge or retaining identity", async () => {
+		const { fetchMock } = fetchCalls(() =>
+			Response.json({
+				copilot_plan: "business",
+				login: "private-login",
+				organization_list: ["private-org"],
+				token: "private-response-token",
+				token_based_billing: true,
+				quota_reset_date_utc: "2035-02-01T00:00:00Z",
+				quota_snapshots: {
+					premium_interactions: {
+						entitlement: 1000,
+						quota_remaining: 749.25,
+						remaining: 749,
+						percent_remaining: 75,
+						credits_used: 9000,
+						overage_permitted: true,
+						overage_count: 0,
+					},
+				},
+			}),
+		);
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: () => ({
+				type: "oauth",
+				refresh: "private-github-token",
+			}),
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "github-copilot", authKind: "oauth", active: true },
+		];
+		await refreshAndWait(ctx, targets);
+		expect(render(targets)).toBe(" 25%");
+		const account = providerUsageCopilot(targets);
+		expect(account).toMatchObject({
+			summary: "25%",
+			state: "ready",
+			stale: false,
+			details: {
+				plan: "Business",
+				premium: {
+					unit: "credits",
+					allowance: 1000,
+					used: 250.75,
+					remaining: 749.25,
+					overagePermitted: true,
+					overageUsed: 0,
+				},
+			},
+		});
+		const cache = readFileSync(sharedTestCachePath, "utf8");
+		expect(cache).not.toContain("private-");
+		expect(JSON.stringify(account)).not.toContain("private-");
+		invalidateProviderUsageCache();
+		writeFileSync(sharedTestCachePath, cache);
+		fetchMock.mockClear();
+		await refreshAndWait(ctx, targets);
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(providerUsageCopilot(targets)).toEqual(account);
+	});
+
+	test.each(["missing", "error"])(
+		"Copilot %s refresh retains the original observation only until expiry",
+		async (failure) => {
+			let now = Date.now();
+			vi.spyOn(Date, "now").mockImplementation(() => now);
+			let failed = false;
+			fetchCalls(() => {
+				if (!failed)
+					return Response.json({
+						copilot_plan: "pro",
+						token_based_billing: false,
+						quota_snapshots: {
+							premium_interactions: {
+								percent_remaining: 100,
+								remaining: 300,
+								entitlement: 300,
+							},
+						},
+					});
+				if (failure === "error") throw new Error("Network unavailable");
+				return Response.json({});
+			});
+			const ctx: ProviderUsageContext = {
+				readStoredCredential: () => ({
+					type: "oauth",
+					refresh: "github-token",
+				}),
+			};
+			const targets: ProviderUsageTarget[] = [
+				{ providerId: "github-copilot", authKind: "oauth", active: false },
+			];
+			await refreshAndWait(ctx, targets);
+			const original = providerUsageCopilot(targets);
+			failed = true;
+			now += 7 * 60_000;
+			await refreshAndWait(ctx, targets);
+			expect(providerUsageCopilot(targets)).toMatchObject({
+				summary: "0%",
+				state: failure === "error" ? "error" : "unknown",
+				stale: true,
+				fetchedAt: original?.fetchedAt,
+				lastAttemptAt: now,
+				details: original?.details,
+			});
+			expect(render(targets)).toBe(" 0% !");
+			now += 9 * 60_000;
+			expect(providerUsageCopilot(targets)).toMatchObject({ summary: "?" });
+			expect(providerUsageCopilot(targets)?.details).toBeUndefined();
+		},
+	);
+
+	test("Copilot details cannot cross credentials or survive logout", async () => {
+		let token = "first-token";
+		fetchCalls(() =>
+			token === "first-token"
+				? Response.json({
+						copilot_plan: "enterprise",
+						quota_snapshots: {
+							premium_interactions: { percent_remaining: 80 },
+						},
+					})
+				: new Response(null, { status: 403 }),
+		);
+		const ctx: ProviderUsageContext = {
+			readStoredCredential: () => ({ type: "oauth", refresh: token }),
+		};
+		const targets: ProviderUsageTarget[] = [
+			{ providerId: "github-copilot", authKind: "oauth", active: false },
+		];
+		await refreshAndWait(ctx, targets);
+		expect(providerUsageCopilot(targets)?.details?.plan).toBe("Enterprise");
+		token = "second-token";
+		await refreshAndWait(ctx, targets);
+		expect(providerUsageCopilot(targets)).toMatchObject({
+			summary: "?",
+			state: "error",
+		});
+		expect(providerUsageCopilot(targets)?.details).toBeUndefined();
+		expect(providerUsageCopilot([])).toBeUndefined();
 	});
 
 	test("uses GitHub Copilot refresh token instead of access token for usage endpoint", async () => {

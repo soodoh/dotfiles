@@ -45,11 +45,13 @@ struct Section {
 }
 
 func accountItem(_ name: String) -> Bool {
-  name.range(of: "^(notch[.])?ai_usage[.]proxy[.][a-f0-9]{64}$", options: .regularExpression) != nil
+  name.range(
+    of: "^(notch[.])?ai_usage[.](proxy[.][a-f0-9]{64}|copilot)$", options: .regularExpression)
+    != nil
 }
 func accountOrRow(_ name: String) -> Bool {
   name.range(
-    of: "^(notch[.])?ai_usage[.]proxy[.][a-f0-9]{64}([.]detail[.][0-9]+)?$",
+    of: "^(notch[.])?ai_usage[.](proxy[.][a-f0-9]{64}|copilot)([.]detail[.][0-9]+)?$",
     options: .regularExpression) != nil
 }
 
@@ -278,10 +280,10 @@ struct BarController {
     for name in state.items where name != "notch.layout" {
       if name.hasPrefix("notch.") {
         c.set(name, ["display=\(layout.notch)"])
-        if layout.notch == "0", name.hasPrefix("notch.ai_usage.proxy.") {
+        if layout.notch == "0", accountItem(name) {
           c.set(name, ["popup.drawing=off"])
         }
-      } else if name.hasPrefix("ai_usage.proxy.") {
+      } else if accountOrRow(name) {
         c.set(name, ["display=\(layout.regular)"])
         if layout.regular == "0" { c.set(name, ["popup.drawing=off"]) }
       }
@@ -327,6 +329,20 @@ struct BarController {
     var c = Commands()
     var wanted: Set<String> = []
     let formatter = PopupFormatter(now: now)
+    var accounts: [(name: String, label: String, disabled: Bool, rows: [PopupRow])] = []
+    if let copilot = usage.copilot {
+      accounts.append(
+        (
+          "ai_usage.copilot", " \(copilot.summary)\(copilot.stale ? " !" : "")", false,
+          formatter.rows(copilot)
+        ))
+    }
+    accounts += usage.proxyAccounts.map {
+      (
+        "ai_usage.proxy." + $0.key, "  \($0.summary)\($0.stale == true ? " !" : "")",
+        $0.disabled == true, formatter.rows($0)
+      )
+    }
     for prefix in ["", "notch."] {
       let anchor = prefix + "ai_usage.providers"
       guard state.items.contains(anchor) else { continue }
@@ -336,11 +352,11 @@ struct BarController {
         [
           "drawing=\(usage.directText.isEmpty ? "off" : "on")", "icon.drawing=off",
           "label=\(usage.directText)", "label.color=\(palette.accent)",
-          "label.padding_right=\(usage.proxyAccounts.isEmpty ? BarStyle.gutter : 0)",
+          "label.padding_right=\(accounts.isEmpty ? BarStyle.gutter : 0)",
         ])
       var previous = anchor
-      for (index, account) in usage.proxyAccounts.enumerated() {
-        let name = prefix + "ai_usage.proxy." + account.key
+      for (index, account) in accounts.enumerated() {
+        let name = prefix + account.name
         wanted.insert(name)
         if !state.items.contains(name) {
           c.command("--clone", name, anchor)
@@ -351,7 +367,7 @@ struct BarController {
               "icon.font.size=\(notch ? 12 : 14)",
             ])
         }
-        let color = account.disabled == true ? palette.dimmed : palette.accent
+        let color = account.disabled ? palette.dimmed : palette.accent
         let separator = index > 0 || !usage.directText.isEmpty
         // Leading spaces in a text box shift paint without extending
         // glyph-path width. The dot uses its native icon slot instead.
@@ -363,10 +379,10 @@ struct BarController {
             "padding_right=0", "background.drawing=off",
             "icon=·", "icon.drawing=\(separator ? "on" : "off")", "icon.width=dynamic",
             "icon.color=\(color)", "icon.padding_left=10", "icon.padding_right=15",
-            "label=  \(account.summary)\(account.stale == true ? " !" : "")",
+            "label=\(account.label)",
             "label.color=\(color)", "label.width=dynamic",
             "label.padding_left=\(separator ? 0 : BarStyle.gutter)",
-            "label.padding_right=\(index == usage.proxyAccounts.count - 1 ? BarStyle.gutter : 0)",
+            "label.padding_right=\(index == accounts.count - 1 ? BarStyle.gutter : 0)",
             "update_freq=0", "updates=on", "click_script=",
           ] + popupProperties(height: 26))
         if !notch { c.set(name, ["icon.font.size=14"]) }
@@ -375,7 +391,7 @@ struct BarController {
         }
         c.command("--subscribe", name, "mouse.entered", "mouse.exited")
         c.command("--move", name, notch ? "after" : "before", previous)
-        for (rowIndex, row) in formatter.rows(account).enumerated() {
+        for (rowIndex, row) in account.rows.enumerated() {
           let detail = name + ".detail.\(rowIndex)"
           wanted.insert(detail)
           if !state.items.contains(detail) { c.command("--add", "item", detail, "popup." + name) }
@@ -393,7 +409,7 @@ struct BarController {
     if state.items.contains("right_separator.ai") {
       c.set(
         "right_separator.ai",
-        ["drawing=\(usage.directText.isEmpty && usage.proxyAccounts.isEmpty ? "off" : "on")"])
+        ["drawing=\(usage.directText.isEmpty && accounts.isEmpty ? "off" : "on")"])
     }
     c.command("--trigger", "notch_usage_change")
     try bar.apply(c)

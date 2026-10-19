@@ -21,6 +21,11 @@ import {
 	proxyUsageForRegistration,
 	refreshProxyUsage,
 } from "./cliproxy-usage";
+import {
+	type CopilotUsageDetails,
+	parseCachedCopilotUsage,
+	parseCopilotUsage,
+} from "./copilot-usage";
 import type {
 	AuthCredentialLike,
 	ModelLike,
@@ -72,6 +77,7 @@ export type ProviderUsageStatus = {
 	authKind: ProviderUsageAuthKind;
 	state: ProviderUsageState;
 	scope?: ProviderUsageScope;
+	copilot?: CopilotUsageDetails;
 	fetchedAt?: number;
 };
 
@@ -213,6 +219,10 @@ function parseCacheEntry(value: unknown): ProviderUsageCacheEntry | undefined {
 		authKind: value.authKind,
 		state: value.state,
 		scope,
+		copilot:
+			value.providerId === "github-copilot"
+				? parseCachedCopilotUsage(value.copilot)
+				: undefined,
 		fetchedAt:
 			typeof value.fetchedAt === "number" ? value.fetchedAt : undefined,
 		lastAttemptAt:
@@ -290,6 +300,7 @@ async function persistSharedCache(): Promise<void> {
 					authKind: entry.authKind,
 					state: entry.state,
 					scope: entry.scope,
+					copilot: entry.copilot,
 					fetchedAt: entry.fetchedAt,
 					lastAttemptAt: entry.lastAttemptAt,
 				},
@@ -1202,48 +1213,24 @@ async function fetchOpenAiCodexUsage(
 		: undefined;
 }
 
-function quotaSnapshotPercentUsed(value: unknown): number | undefined {
-	if (!isRecord(value)) return undefined;
-	const used = numericField(
-		value.percent_used ?? value.used_percent ?? value.usedPercentage,
-	);
-	if (used !== undefined) return used;
-
-	const remaining = numericField(
-		value.percent_remaining ??
-			value.remaining_percent ??
-			value.remainingPercentage,
-	);
-	return remaining !== undefined ? 100 - remaining : undefined;
-}
-
 async function fetchGitHubCopilotUsage(
 	token: string,
-): Promise<ProviderUsageScope | undefined> {
-	const body = await fetchJson("https://api.github.com/copilot_internal/user", {
-		headers: {
-			Authorization: `token ${token}`,
-			Accept: "application/json",
-			"Editor-Version": "vscode/1.96.2",
-			"Editor-Plugin-Version": "copilot-chat/0.26.7",
-			"User-Agent": "GitHubCopilotChat/0.26.7",
-			"X-GitHub-Api-Version": "2025-04-01",
+): Promise<CopilotUsageDetails | undefined> {
+	const response = await fetchProviderUsageResponse(
+		"https://api.github.com/copilot_internal/user",
+		{
+			headers: {
+				Authorization: `token ${token}`,
+				Accept: "application/json",
+				"Editor-Version": "vscode/1.96.2",
+				"Editor-Plugin-Version": "copilot-chat/0.26.7",
+				"User-Agent": "GitHubCopilotChat/0.26.7",
+				"X-GitHub-Api-Version": "2025-04-01",
+			},
 		},
-	});
-	if (!isRecord(body)) return undefined;
-
-	const snapshots =
-		nestedRecord(body, "quotaSnapshots") ??
-		nestedRecord(body, "quota_snapshots");
-	const premium = snapshots
-		? (nestedRecord(snapshots, "premiumInteractions") ??
-			nestedRecord(snapshots, "premium_interactions"))
-		: undefined;
-	const percentUsed = quotaSnapshotPercentUsed(premium);
-
-	return percentUsed !== undefined
-		? { monthlyPercentUsed: percentUsed }
-		: undefined;
+	);
+	if (!response.ok) throw new Error(`HTTP ${response.status}`);
+	return parseCopilotUsage(await response.json());
 }
 
 async function fetchProviderUsage(
@@ -1259,9 +1246,20 @@ async function fetchProviderUsage(
 	if (target.authKind === "oauth") {
 		let scope: ProviderUsageScope | undefined;
 		if (target.providerId === "github-copilot") {
-			scope = access.token
+			const copilot = access.token
 				? await fetchGitHubCopilotUsage(access.token)
 				: undefined;
+			const percentUsed = copilot?.premium?.percentUsed;
+			// Reset/count details are popup-only; keep Pi's compact badge unchanged.
+			return {
+				...statusBase,
+				state: copilot ? "ready" : "unknown",
+				copilot,
+				scope:
+					percentUsed !== undefined
+						? { monthlyPercentUsed: percentUsed }
+						: undefined,
+			};
 		} else {
 			if (!access.token) return { ...statusBase, state: "unknown" };
 			const token = access.token;
@@ -1378,8 +1376,13 @@ async function refreshProviderUsageTarget(
 				scope:
 					status.scope ??
 					(status.state === "unknown" ? previousEntry?.scope : undefined),
+				copilot:
+					status.copilot ??
+					(status.state === "unknown" ? previousEntry?.copilot : undefined),
 				fetchedAt:
-					status.scope || !previousEntry?.scope
+					status.scope ||
+					status.copilot ||
+					!(previousEntry?.scope || previousEntry?.copilot)
 						? status.fetchedAt
 						: previousEntry.fetchedAt,
 				lastAttemptAt: attemptedAt,
@@ -1397,7 +1400,11 @@ async function refreshProviderUsageTarget(
 				authKind: target.authKind,
 				state: "error",
 				scope: previousEntry?.scope,
-				fetchedAt: previousEntry?.scope ? previousEntry.fetchedAt : Date.now(),
+				copilot: previousEntry?.copilot,
+				fetchedAt:
+					previousEntry?.scope || previousEntry?.copilot
+						? previousEntry.fetchedAt
+						: Date.now(),
 				lastAttemptAt: attemptedAt,
 			};
 			reportProviderUsageIssue(
@@ -1823,6 +1830,42 @@ export function formatDirectProviderUsage(
 	return directProviderUsageBadges(targets, false)
 		.map(({ text }) => text)
 		.join(PROVIDER_BADGE_SEPARATOR);
+}
+
+export type CopilotUsageAccount = {
+	summary: string;
+	details?: CopilotUsageDetails;
+	state: ProviderUsageState;
+	fetchedAt?: number;
+	lastAttemptAt?: number;
+	stale: boolean;
+};
+
+/** One separately hoverable direct provider, using the same credential-scoped cache as Pi. */
+export function providerUsageCopilot(
+	targets: ProviderUsageTarget[],
+): CopilotUsageAccount | undefined {
+	hydrateSharedCache();
+	const target = targets.find(
+		(target) =>
+			target.providerId === "github-copilot" && target.authKind === "oauth",
+	);
+	if (!target) return undefined;
+	const status = providerUsageCache.get(
+		providerCacheKey(target.providerId, target.authKind),
+	);
+	const freshness = usageSnapshotFreshness(status);
+	return {
+		summary:
+			freshness === "expired"
+				? "?"
+				: (formatProviderScope(status?.scope) ?? "?"),
+		details: freshness === "expired" ? undefined : status?.copilot,
+		state: status?.state ?? "unknown",
+		fetchedAt: status?.fetchedAt,
+		lastAttemptAt: status?.lastAttemptAt,
+		stale: freshness === "stale",
+	};
 }
 
 /** External renderers keep one proxy item, even when a direct fallback supplies its missing quota. */
