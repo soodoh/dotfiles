@@ -28,6 +28,7 @@
   "packages": [
     {
       "source": "./pi-extensions",
+      "prompts": [],
       "extensions": [
         "packages/auto-session-name/index.ts",
         "packages/agent-state/index.ts",
