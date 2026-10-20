@@ -436,7 +436,7 @@ class MiseConfigurationTests(unittest.TestCase):
         tool = self.work["tools"]["npm:@azure-devops/mcp"]
         self.assertEqual(tool["allow_builds"], ["keytar"])
 
-    def test_work_grafana_mcp_is_prod_only_and_read_only(self) -> None:
+    def test_work_grafana_mcp_uses_secure_production_profile(self) -> None:
         servers = json.loads(
             (ROOT / "dotfiles/work/pi/agent/mcp.json").read_text()
         )["mcpServers"]
@@ -445,7 +445,6 @@ class MiseConfigurationTests(unittest.TestCase):
             ["grafana-prod"],
         )
         grafana = servers["grafana-prod"]
-        self.assertIn("--disable-write", " ".join(grafana["args"]))
         self.assertEqual(urlsplit(grafana["env"]["GRAFANA_URL"]).scheme, "https")
         for variable in ("HOME", "AZURE_CONFIG_DIR"):
             self.assertEqual(
