@@ -1,6 +1,15 @@
 {
   "version": 3,
   "skills": {
+    "code-review-expert": {
+      "source": "sanyuan0704/sanyuan-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/sanyuan0704/sanyuan-skills.git",
+      "skillPath": "skills/code-review-expert/SKILL.md",
+      "skillFolderHash": "d3ff60f85c38178f30c5fe25a396030fb74bc859",
+      "installedAt": "2026-10-20T08:09:05.844Z",
+      "updatedAt": "2026-10-20T08:09:05.844Z"
+    },
     "obsidian-cli": {
       "source": "kepano/obsidian-skills",
       "sourceType": "github",
