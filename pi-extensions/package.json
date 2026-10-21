@@ -42,11 +42,11 @@
 	},
 	"dependencies": {
 		"@juicesharp/rpiv-ask-user-question": "2.13.9",
-		"@plannotator/pi-extension": "0.28.23",
+		"@plannotator/pi-extension": "0.28.24",
 		"@router-for-me/pi-cliproxyapi-provider": "1.4.23",
-		"pi-subagents": "0.79.1",
+		"pi-subagents": "0.79.2",
 		"pi-vim": "0.14.2",
-		"pi-web-access": "0.42.0",
+		"pi-web-access": "0.43.0",
 		"proper-lockfile": "4.1.2"
 	},
 	"peerDependencies": {
