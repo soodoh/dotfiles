@@ -885,7 +885,10 @@ class MiseConfigurationTests(unittest.TestCase):
             if profile:
                 arguments.extend(["--env", profile])
                 config_tools.update(load_toml(f"mise.{profile}.toml").get("tools", {}))
-                lock_tools.update(load_toml(f"mise.{profile}.lock").get("tools", {}))
+                # Private tool runtimes can add versions without replacing the
+                # shared runtime, so retain entries from both lockfile scopes.
+                for tool, entries in load_toml(f"mise.{profile}.lock").get("tools", {}).items():
+                    lock_tools[tool] = [*lock_tools.get(tool, []), *entries]
             result = subprocess.run(
                 [*arguments, "ls", "--current", "--offline", "--json"],
                 cwd=ROOT, env=environment, capture_output=True, text=True,
