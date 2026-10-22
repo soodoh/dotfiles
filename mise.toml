@@ -110,7 +110,6 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "brew:mas" = { version = "latest", os = "macos" }
 "mas:937984704" = { version = "latest", os = "macos" }
 "mas:1474276998" = { version = "latest", os = "macos" }
-"brew:firefoxpwa" = { version = "latest", os = "macos" }
 # Ordinary third-party taps are resolved natively by the minimum mise version.
 "brew:FelixKratz/formulae/sketchybar" = { version = "latest", os = "macos" }
 "brew:FelixKratz/formulae/borders" = { version = "latest", os = "macos" }
@@ -302,7 +301,6 @@ run = [
   { task = "bootstrap:pi" },
   { task = "bootstrap:herdr-plugins" },
   { task = "configure:agent-browser" },
-  { task = "configure:google-calendar-webapp" },
   { task = "configure:docker-compose-plugin" },
 ]
 
@@ -333,10 +331,6 @@ ln -sfn "$(mise which docker-cli-plugin-docker-compose)" "$plugin_dir/docker-com
 description = "Install Chrome for the mise-managed agent-browser CLI"
 run = "agent-browser install"
 
-[tasks."configure:google-calendar-webapp"]
-description = "Install the FirefoxPWA runtime and Google Calendar web app on macOS"
-run = "bash dotfiles/macos/firefoxpwa/google-calendar.sh"
-
 [tasks.status]
 description = "Report missing or differing declarative profile state"
 run = "mise bootstrap status --missing"
@@ -365,7 +359,6 @@ depends = [
   "validate:dotfiles:integration",
   "validate:agents:integration",
   "validate:neovim",
-  "validate:macos:integration",
 ]
 
 [tasks."validate:config"]
@@ -431,9 +424,6 @@ if [ "$(uname -s)" = Darwin ]; then
   bash dotfiles/macos/sketchybar/helper/build.sh test
 fi
 '''
-
-[tasks."validate:macos:integration"]
-run = "bash dotfiles/macos/firefoxpwa/google-calendar.test.sh"
 
 [tasks."validate:repository"]
 run = "git diff --check"
