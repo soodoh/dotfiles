@@ -41,7 +41,7 @@
 		"test:coverage:html": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.reporter=html"
 	},
 	"dependencies": {
-		"@juicesharp/rpiv-ask-user-question": "2.14.2",
+		"@juicesharp/rpiv-ask-user-question": "2.15.0",
 		"@plannotator/pi-extension": "0.28.30",
 		"@router-for-me/pi-cliproxyapi-provider": "1.4.23",
 		"pi-subagents": "0.81.0",
