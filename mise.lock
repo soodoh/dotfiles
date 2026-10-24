@@ -1503,6 +1503,10 @@ url = "https://nodejs.org/dist/v24.22.0/node-v24.22.0-darwin-x64.tar.gz"
 version = "2.5.15"
 backend = "npm:@biomejs/biome"
 
+[[tools."npm:@bitwarden/cli"]]
+version = "2026.10.0"
+backend = "npm:@bitwarden/cli"
+
 [[tools."npm:@earendil-works/pi-coding-agent"]]
 version = "1.4.0"
 backend = "npm:@earendil-works/pi-coding-agent"

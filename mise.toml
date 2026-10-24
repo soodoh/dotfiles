@@ -82,6 +82,7 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "cargo:taplo-cli" = "0.10.0"
 "go:golang.org/x/tools/gopls" = "v0.24.0"
 "pipx:yamllint" = "1.38.0"
+"npm:@bitwarden/cli" = "2026.10.0"
 "npm:@earendil-works/pi-coding-agent" = "1.4.0"
 "npm:agent-browser" = { version = "0.39.1", allow_builds = ["agent-browser"] }
 "npm:awk-language-server" = "0.10.6"
