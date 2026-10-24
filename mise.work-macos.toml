@@ -5,18 +5,18 @@ MISE_BREW_CASK_OPT_APPDIR = "{{ env.HOME }}/Applications"
 [tools]
 "pipx:azure-cli" = "2.91.0"
 # Snowflake's native dependencies do not support the shared Python 3.15.
-"pipx:snowflake-cli" = { version = "3.30.0", python = "3.13" }
+"pipx:snowflake-cli" = { version = "3.31.0", python = "3.13" }
 # MSF TrueDev tooling. Docker/Compose and jq come from the shared profile;
 # Azure CLI is declared above; gcloud is shared.
 "aqua:Azure/kubelogin" = "0.2.21"
 "aqua:GoogleContainerTools/skaffold" = "2.25.0"
-"aqua:PowerShell/PowerShell" = "7.6.7"
+"aqua:PowerShell/PowerShell" = "7.6.8"
 "aqua:ahmetb/kubectx" = "0.11.0"
 "aqua:derailed/k9s" = "0.51.0"
 "aqua:helm/helm" = "4.3.1"
 "aqua:kubernetes/kubernetes/kubectl" = "1.37.1"
 "npm:@azure/mcp" = "3.0.0"
-"npm:@azure-devops/mcp" = { version = "2.10.0", allow_builds = ["keytar"] }
+"npm:@azure-devops/mcp" = { version = "2.11.0", allow_builds = ["keytar"] }
 "npm:figma-developer-mcp" = "0.13.2"
 "github:grafana/mcp-grafana" = "v2.1.1"
 

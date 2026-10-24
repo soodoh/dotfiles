@@ -45,28 +45,28 @@ checksum = "sha256:91facde91ba713328adb408be1949f538a5a5dcaee6a3b93725a2c5703bbb
 url = "https://storage.googleapis.com/skaffold/releases/v2.25.0/skaffold-darwin-amd64"
 
 [[tools."aqua:PowerShell/PowerShell"]]
-version = "7.6.7"
+version = "7.6.8"
 backend = "aqua:PowerShell/PowerShell"
 
 [tools."aqua:PowerShell/PowerShell"."platforms.linux-arm64"]
-checksum = "sha256:ba465efdfb0984c1c5dc5ed9eb0b79a7e91a1b52c45f99377058c0659b84d3f1"
-url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.7/powershell-7.6.7-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/PowerShell/PowerShell/releases/assets/638079095"
+checksum = "sha256:3179e07fd98f026d39c730ebcb7626d071aac3351b171dda13f9f38d99efcef0"
+url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.8/powershell-7.6.8-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/PowerShell/PowerShell/releases/assets/666459244"
 
 [tools."aqua:PowerShell/PowerShell"."platforms.linux-x64"]
-checksum = "sha256:6896f9e3a6b0a354bf470835a96da76d2f801cd50dcf047ad7c4563bf93bf431"
-url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.7/powershell-7.6.7-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/PowerShell/PowerShell/releases/assets/638079580"
+checksum = "sha256:59112e38ad83350e4f6dc0195953c66b5926792f300ca2e7691b8242e7a16e7f"
+url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.8/powershell-7.6.8-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/PowerShell/PowerShell/releases/assets/666459897"
 
 [tools."aqua:PowerShell/PowerShell"."platforms.macos-arm64"]
-checksum = "sha256:50dde99bb066adacbb9a748182d09eb9beff25119dc3b12e85c84b6b6b1c5da9"
-url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.7/powershell-7.6.7-osx-arm64.tar.gz"
-url_api = "https://api.github.com/repos/PowerShell/PowerShell/releases/assets/638079780"
+checksum = "sha256:c16a3f433966c6fd5a9c8a660a95c92cb5dbc4b1813416501d1ba30ca160da32"
+url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.8/powershell-7.6.8-osx-arm64.tar.gz"
+url_api = "https://api.github.com/repos/PowerShell/PowerShell/releases/assets/666460184"
 
 [tools."aqua:PowerShell/PowerShell"."platforms.macos-x64"]
-checksum = "sha256:c354ca845cb81f9239bc0c6fbfd14256056400e4b269bd7a6373d113ad94c1e3"
-url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.7/powershell-7.6.7-osx-x64.tar.gz"
-url_api = "https://api.github.com/repos/PowerShell/PowerShell/releases/assets/638079953"
+checksum = "sha256:40a4eea4645c87149421cdef978efdcb88e561c96b22d3bfafe9a99ab7f8711d"
+url = "https://github.com/PowerShell/PowerShell/releases/download/v7.6.8/powershell-7.6.8-osx-x64.tar.gz"
+url_api = "https://api.github.com/repos/PowerShell/PowerShell/releases/assets/666460475"
 
 [[tools."aqua:ahmetb/kubectx"]]
 version = "0.11.0"
@@ -201,7 +201,7 @@ checksum = "sha256:11e7d286ebb2734ec2f4452b42b13754c5eb65b2fbaa8afe9c8a06cb1e9da
 url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.3.5"
 
 [[tools."npm:@azure-devops/mcp"]]
-version = "2.10.0"
+version = "2.11.0"
 backend = "npm:@azure-devops/mcp"
 
 [tools."npm:@azure-devops/mcp".options]
@@ -220,7 +220,7 @@ version = "2.91.0"
 backend = "pipx:azure-cli"
 
 [[tools."pipx:snowflake-cli"]]
-version = "3.30.0"
+version = "3.31.0"
 backend = "pipx:snowflake-cli"
 
 [tools."pipx:snowflake-cli".options]
