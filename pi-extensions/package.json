@@ -42,7 +42,7 @@
 	},
 	"dependencies": {
 		"@juicesharp/rpiv-ask-user-question": "2.14.2",
-		"@plannotator/pi-extension": "0.28.29",
+		"@plannotator/pi-extension": "0.28.30",
 		"@router-for-me/pi-cliproxyapi-provider": "1.4.23",
 		"pi-subagents": "0.81.0",
 		"pi-vim": "0.14.2",
