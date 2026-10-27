@@ -25,7 +25,10 @@ PROFILE_LOCKS = {
     "personal-macos": "mise.personal-macos.lock",
     "work-macos": "mise.work-macos.lock",
 }
-UNSUPPORTED_TOOLS = {"work-macos": ("http:twg",)}
+UNSUPPORTED_TOOLS = {
+    "personal-macos": ("http:gcloud",),
+    "work-macos": ("http:twg",),
+}
 PLATFORMS = "linux-x64,linux-arm64,macos-x64,macos-arm64"
 LOCKED_CONFIG = "[tool_config]\nlocked = true"
 UNLOCKED_CONFIG = "[tool_config]\nlocked = false"

@@ -46,15 +46,15 @@ To load only `auto-session-name`, add a filtered package entry to `~/.pi/agent/s
 
 ```json
 {
-  "packages": [
-    {
-      "source": "./pi-extensions",
-      "extensions": ["packages/auto-session-name/index.ts"],
-      "skills": [],
-      "prompts": [],
-      "themes": []
-    }
-  ]
+	"packages": [
+		{
+			"source": "./pi-extensions",
+			"extensions": ["packages/auto-session-name/index.ts"],
+			"skills": [],
+			"prompts": [],
+			"themes": []
+		}
+	]
 }
 ```
 
@@ -70,10 +70,10 @@ policy.
 
 ```json
 {
-  "autoSessionName": {
-    "enabled": true,
-    "titleModel": ["session-default"]
-  }
+	"autoSessionName": {
+		"enabled": true,
+		"titleModel": ["session-default"]
+	}
 }
 ```
 

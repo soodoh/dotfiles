@@ -51,13 +51,13 @@ as requests for human input.
 ```ts
 // Symbol.for("@agegr/pi-web/session-liveness/v1")
 interface Registry {
-  version: 1;
-  register(provider: {
-    name: string;
-    sessionId: string;
-    sessionFile?: string;
-    isActive(): boolean;
-  }): () => void;
+	version: 1;
+	register(provider: {
+		name: string;
+		sessionId: string;
+		sessionFile?: string;
+		isActive(): boolean;
+	}): () => void;
 }
 ```
 

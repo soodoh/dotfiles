@@ -48,10 +48,16 @@ update it. The global `self_update.auto = true` setting keeps workstations curre
 mise checks before eligible interactive commands, at most once every seven days
 by default (not on shell activation or a background schedule). Both automatic
 updates and unpinned `mise self-update` honor mise's release-age policy.
-CI also uses mise-action's default selection of the newest stable release at
-least 24 hours old. Tool versions and lockfiles remain pinned, but rerunning
-a commit may use a newer mise CLI. Raise a minimum after the release cooldown
-when possible; an explicit version install intentionally bypasses it.
+CI pins mise 2026.10.20, which fixes lock generation in locked configurations
+(regressed in 2026.10.19). This explicit pin intentionally bypasses the release
+cooldown and keeps validation and repository updates on the same CLI. Workstation
+auto-updates still honor the release-age policy.
+
+Google Cloud CLI uses mise's native HTTP backend with checksummed official SDK
+archives, avoiding the bundled vfox plugin's Lua module-loading failure. It uses
+the managed Python runtime without running Google's system-wide installer. The
+repository-updates workflow maintains this HTTP tool alongside TWG; Renovate
+continues to maintain supported tools and refresh all mise locks in safe mode.
 
 - Clone this repo
 
