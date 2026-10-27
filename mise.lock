@@ -1641,7 +1641,7 @@ backend = "npm:graphql-language-service-cli"
 trust_policy_excludes = '["fastq@1.20.2"]'
 
 [[tools."npm:oxlint"]]
-version = "1.89.0"
+version = "1.90.0"
 backend = "npm:oxlint"
 
 [[tools."npm:prettier"]]
