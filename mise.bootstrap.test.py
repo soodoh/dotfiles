@@ -637,7 +637,10 @@ class MiseConfigurationTests(unittest.TestCase):
                                 self.assertEqual(result.returncode, 0, result.stderr)
                                 self.assertEqual(
                                     calls.read_text().splitlines(),
-                                    [f"{expected}|bootstrap packages apply brew:mas --yes"],
+                                    [
+                                        f"{expected}|install ruby",
+                                        f"{expected}|bootstrap packages apply brew:mas --yes",
+                                    ],
                                 )
                             else:
                                 self.assertNotEqual(result.returncode, 0, result.stderr)

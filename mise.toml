@@ -264,6 +264,8 @@ case "$MISE_ENV" in
 esac
 
 if [ "$(uname -s)" = Darwin ]; then
+  # Cask inspection needs Ruby >= 3 before bootstrap reaches its tools phase.
+  mise install ruby
   # The mas package manager must exist before the main package pass discovers it.
   mise bootstrap packages apply brew:mas --yes
 fi

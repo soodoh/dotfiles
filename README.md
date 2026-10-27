@@ -83,12 +83,26 @@ chmod 600 ~/.config/mise/age.txt
 ```bash
 mise --env personal-macos dot apply --yes
 # Or on the work Mac: mise --env work-macos dot apply --yes
+cd ~
 mise bootstrap
 ```
 
 Global `miserc.toml` now selects the profile for plain `mise bootstrap`; no Fish
 profile or `MISE_ENV` export is needed. `mise --env personal-macos bootstrap` (or
 `work-macos`) also works when you want to select the profile explicitly.
+
+Run bootstrap from outside this checkout (for example, `cd ~`) with mise
+2026.10.20. When the same configuration is discovered both locally and through
+its global folder link, mise can discard the local lockfile's download URLs and
+report `No lockfile URL found` even though the committed entry is complete.
+Global-only discovery avoids this upstream trust-resolution bug; keep locked mode
+on and do not regenerate the locks to work around it.
+
+On macOS, the pre-packages hook installs the pinned Ruby before inspecting
+third-party casks. Cask inspection needs Ruby >= 3, but the normal tools phase
+runs after packages; macOS's system Ruby is too old. For a read-only status/plan
+check before the first bootstrap, run `mise install ruby` from outside the
+checkout first.
 
 The shared bootstrap links `dotfiles/common/mise/config.toml` as mise's global
 config so bootstrap can use the existing host-specific `gh` login, including
