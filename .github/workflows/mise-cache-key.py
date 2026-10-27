@@ -1,6 +1,7 @@
 """Build CI cache keys from mise inputs that affect installed tools."""
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -177,9 +178,19 @@ def cache_inputs(
     locks = load_toml(root / "mise.lock")
     platform = platform_name(os_name, architecture)
     declarations = declared_tools(config)
-    # Raw templates can depend on arbitrary env/vars/files, which this projection
-    # intentionally does not hash. Fail closed rather than claim safe reuse.
-    if "{{" in json.dumps(declarations):
+    # HTTP archive URLs may interpolate the version, which is already part of
+    # the identity. Hash the original URL/options below; only exempt that one
+    # placeholder from the template guard, including per-platform URLs.
+    reviewed = copy.deepcopy(declarations)
+    for tools in reviewed.values():
+        for tool, specification in tools.items():
+            if tool.startswith("http:") and isinstance(specification, dict):
+                for options in (specification, *specification.get("platforms", {}).values()):
+                    if isinstance(options.get("url"), str):
+                        options["url"] = options["url"].replace("{{ version }}", "")
+    # Other templates can depend on arbitrary env/vars/files, which this
+    # projection intentionally does not hash. Fail closed rather than reuse.
+    if "{{" in json.dumps(reviewed):
         raise ValueError("templated tool inputs require a cache-key policy review")
 
     versions = resolved_versions(root, config, declarations)

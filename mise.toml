@@ -102,11 +102,16 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 [tools."http:gcloud"]
 version = "583.0.0"
 depends = ["python"]
-url = 'https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-{{ os(macos="darwin") }}-{{ arch(x64="x86_64", arm64="arm") }}.tar.gz'
 strip_components = 1
 bin_path = "bin"
 version_list_url = "https://dl.google.com/dl/cloudsdk/channels/rapid/components-2.json"
 version_json_path = ".version"
+
+[tools."http:gcloud".platforms]
+linux-x64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-linux-x86_64.tar.gz" }
+linux-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-linux-arm.tar.gz" }
+macos-x64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-x86_64.tar.gz" }
+macos-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-arm.tar.gz" }
 
 [bootstrap.packages]
 "apt:fish" = { version = "latest", os = "linux" }

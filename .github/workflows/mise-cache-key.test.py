@@ -353,6 +353,32 @@ class MiseCacheKeyTests(unittest.TestCase):
                 path.write_text(path.read_text().replace(old, new))
                 self.assertNotEqual(self.keys()["restore-key"], before["restore-key"])
 
+    def test_repository_tools_have_cacheable_inputs(self) -> None:
+        # Exercise the real CI entry point before a new tool reaches cache restore.
+        for os_name, arch, image in (("Linux", "X64", "ubuntu26"), ("macOS", "ARM64", "macos26")):
+            with self.subTest(platform=os_name):
+                keys = self.helper.build_keys(ROOT, os_name, arch, image, "2026.10.20")
+                self.assertTrue(keys["primary-key"].startswith(keys["restore-key"]))
+
+    def test_http_version_urls_are_cacheable_but_environment_templates_are_not(self) -> None:
+        config = self.root / "mise.toml"
+        lock = self.root / "mise.lock"
+        config.write_text(
+            '[tools."http:fixture"]\nversion = "1.0.0"\n'
+            'url = "https://example.test/tool-{{ version }}.tar.gz"\n'
+        )
+        lock.write_text(
+            '[[tools."http:fixture"]]\nversion = "1.0.0"\nbackend = "http:fixture"\n'
+            '"platforms.linux-x64" = { url = "https://example.test/tool-1.0.0.tar.gz" }\n'
+        )
+        before = self.keys()
+        original = config.read_text()
+        config.write_text(original.replace("example.test", "mirror.test"))
+        self.assertNotEqual(self.keys()["restore-key"], before["restore-key"])
+        config.write_text(original.replace("{{ version }}", "{{ env.VERSION }}"))
+        with self.assertRaisesRegex(ValueError, "policy review"):
+            self.keys()
+
     def test_templates_fail_closed(self) -> None:
         path = self.root / "mise.toml"
         path.write_text(
