@@ -27,15 +27,15 @@ To load only `shared-prompt-history`, add a filtered package entry to `~/.pi/age
 
 ```json
 {
-  "packages": [
-    {
-      "source": "./pi-extensions",
-      "extensions": ["packages/shared-prompt-history/index.ts"],
-      "skills": [],
-      "prompts": [],
-      "themes": []
-    }
-  ]
+	"packages": [
+		{
+			"source": "./pi-extensions",
+			"extensions": ["packages/shared-prompt-history/index.ts"],
+			"skills": [],
+			"prompts": [],
+			"themes": []
+		}
+	]
 }
 ```
 

@@ -29,15 +29,15 @@ To load only `statusline`, add a filtered package entry to `~/.pi/agent/settings
 
 ```json
 {
-  "packages": [
-    {
-      "source": "./pi-extensions",
-      "extensions": ["packages/statusline/index.ts"],
-      "skills": [],
-      "prompts": [],
-      "themes": []
-    }
-  ]
+	"packages": [
+		{
+			"source": "./pi-extensions",
+			"extensions": ["packages/statusline/index.ts"],
+			"skills": [],
+			"prompts": [],
+			"themes": []
+		}
+	]
 }
 ```
 
@@ -55,12 +55,12 @@ There are no slash commands. The statusline is intentionally always-on once the 
 
 The rendered line is width-aware: narrow terminals use active-only provider detail when needed, then wrap remaining overflow onto additional lines without truncating sections.
 
-| Segment        | Description                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Model          | Current Pi model name, shortened for Claude, with a bolt when the selected CLIProxyAPI model has Fast enabled and supports priority service tier. |
-| Thinking       | Current Pi thinking level (`off` through `max`), using Pi's matching level color.                                   |
-| Git            | Branch name, staged `+n`, and unstaged `*n` markers. Untracked files still make the branch appear dirty.           |
-| Provider usage | Usage or balance information for all authenticated configured providers, with OpenAI window reset dates and reset-credit counts and the selected model's provider highlighted. |
+| Segment        | Description                                                                                                                                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Model          | Current Pi model name, shortened for Claude, with a bolt when the selected CLIProxyAPI model has Fast enabled and supports priority service tier.                                                                                        |
+| Thinking       | Current Pi thinking level (`off` through `max`), using Pi's matching level color.                                                                                                                                                        |
+| Git            | Branch name, staged `+n`, and unstaged `*n` markers. Untracked files still make the branch appear dirty.                                                                                                                                 |
+| Provider usage | Usage or balance information for all authenticated configured providers, with OpenAI window reset dates and reset-credit counts and the selected model's provider highlighted.                                                           |
 | Context        | Pi's current context percentage and effective context window, colored normally below 70%, warning above 70%, and error above 90%. Unknown usage (including immediately after compaction) renders as `?` until Pi reports a new estimate. |
 
 ## Configuration
@@ -73,9 +73,9 @@ Use a nested array where each inner array defines one line:
 
 ```json
 {
-  "statusline": {
-    "sections": [["model", "thinking", "git", "context"], ["provider_usage"]]
-  }
+	"statusline": {
+		"sections": [["model", "thinking", "git", "context"], ["provider_usage"]]
+	}
 }
 ```
 
@@ -87,9 +87,9 @@ Use a flat array to render everything on one line:
 
 ```json
 {
-  "statusline": {
-    "sections": ["model", "thinking", "git", "provider_usage", "context"]
-  }
+	"statusline": {
+		"sections": ["model", "thinking", "git", "provider_usage", "context"]
+	}
 }
 ```
 
@@ -99,9 +99,9 @@ For example, to show only context then model on a single line:
 
 ```json
 {
-  "statusline": {
-    "sections": ["context", "model"]
-  }
+	"statusline": {
+		"sections": ["context", "model"]
+	}
 }
 ```
 
@@ -109,9 +109,9 @@ Or to put git on a separate line from the model:
 
 ```json
 {
-  "statusline": {
-    "sections": [["model", "context"], ["git"]]
-  }
+	"statusline": {
+		"sections": [["model", "context"], ["git"]]
+	}
 }
 ```
 
@@ -140,7 +140,7 @@ Plan percentages are **used**, not remaining. They do not establish native app-s
 - When LiteLLM is active, model IDs whose first route segment is exactly `chatgpt` or `openai` highlight the existing OpenAI usage badge. Other LiteLLM routes do not map to a usage provider, and this mapping does not create targets or change provider requests.
 - Direct-provider requests make at most three attempts, retrying only network failures, throttling, and transient HTTP responses with capped exponential backoff and full jitter. `Retry-After` is honored up to the backoff cap; authentication and other non-transient failures fail immediately. All usage sources share a five-minute successful refresh, one-minute failed-refresh retry, and 15-minute maximum last-known-value display lifetime. Age-based `!` stale warnings allow a one-minute grace period after refresh becomes due (appearing once a snapshot is older than six minutes), so routine background refreshes do not flash warnings. Failed or empty refreshes warn immediately; neither the grace period nor an in-flight refresh extends the 15-minute display lifetime. A missing value for an active direct provider still renders as `?`.
 - Provider results are shared across processes in `${XDG_CACHE_HOME:-~/.cache}/pi/provider-usage.json` (override with `PI_PROVIDER_USAGE_CACHE_PATH`). Both usage caches are disposable, unversioned snapshots: readers validate their current structure, malformed data is a cache miss, and missing optional fields are filled on the next normal TTL refresh (except requested OpenAI association metadata, which upgrades a fresh older proxy snapshot once). Cache entries are scoped by a one-way credential fingerprint, contain usage results only, never credentials or endpoints, and use provider-specific refresh leases so concurrent Pi and Sketchybar processes join the first refresh instead of making duplicate requests. LLM Hub fingerprints include both the normalized Pi base URL and resolved Pi API key.
-- CLIProxyAPI accounts use a separate cache (`${XDG_CACHE_HOME:-~/.cache}/pi/cliproxy-usage.json`, override with `PI_CLIPROXY_USAGE_CACHE_PATH`). If `CLIPROXYAPI_MANAGEMENT_KEY` and `CLIPROXYAPI_BASE_URL` are present, the reader lists accounts with `GET /v8/management/credentials`. The configured server is expected to support the current v8 management interface. All management calls use curl (which honors the work profile's GOST proxy settings). The management key is privileged and distinct from the inference key. The raw response contains identity and token fields: neither it nor credential labels are logged or cached. Only Codex accounts are currently supported; other enrolled provider types are hidden. For every Codex account, including disabled accounts, the reader also forwards a read-only `GET https://chatgpt.com/backend-api/wham/rate-limit-reset-credits` through `POST /v8/management/requests/api-call`. The proxy substitutes the account's token for literal `Bearer $TOKEN$`; the statusline never downloads upstream credentials. Requests include the account's `id_token.chatgpt_account_id` when available, and run at most four at a time within the shared refresh lease. The normalized available count is displayed as `↻N`, matching direct Codex usage; zero or unknown counts are omitted. Disabled accounts remain in the same stable order with dimmed proxy-route styling; a separately active direct OpenAI route can still accent its own icon and the shared quota text. They are included even without usable quota, showing `?` rather than disappearing. Every account also fetches `/wham/usage` through the same read-only management forwarding for its quota and credit balance (credits, not USD or manual resets). The normalized `creditBalance` is a nonnegative number or `"unlimited"`, separate from the compact scope so Pi's badges are unchanged. Missing/failed balance reads show unavailable rather than zero or a newly timestamped old balance. Successful `/usage` quota responses supersede management headers for active and disabled accounts alike; Free accounts may have no quota headers at all. Header windows are normalized through the same parser as direct Codex usage. When `/usage` has no usable quota, valid management headers are the fallback; otherwise a valid last-known quota can survive for up to 15 minutes from its original observation. Retained quota is marked stale, and refreshing metadata never extends its lifetime. Disabled-account quota lookup failures remain explicit even when headers provide a fallback. These reads never enable inference routing or consume credits. Re-enabling restores normal styling, not a different quota source. Safe account details (plan, health, and available reset-credit grant/expiry timestamps) are also cached for external renderers; raw credit IDs, profile data, and identity labels are discarded. Failed reset-credit lookups do not hide quota percentages or other accounts' credits, and positive reset counts can appear even without a current quota observation. No credits are consumed and no routing cooldowns are reset. Account ordering is deterministic by hashed credential identity, not usage. Each proxy Codex account has its own `nf-fa-terminal` glyph, with no account numbers or aliases. Proxy accounts and direct providers share the same middot (` · `) separator; unlinked direct OpenAI Codex keeps its existing OpenAI glyph, while linked accounts use the merged display described above. Pi shows every supported account's value. The CLI's compatibility `text` field still limits proxy accounts to two plus `+N`, while structured `proxyAccounts` includes every visible account. The proxy stores a batch account snapshot separately because the management endpoint returns all accounts at once. A snapshot with no supported accounts is retried after one minute rather than the five-minute successful refresh interval; non-empty snapshots use the normal freshness policy. An older server quota observation does not itself make a successful management read stale; its percentages are shown only while the reported reset window remains valid (or for up to 15 minutes without a reset timestamp).
+- CLIProxyAPI accounts use a separate cache (`${XDG_CACHE_HOME:-~/.cache}/pi/cliproxy-usage.json`, override with `PI_CLIPROXY_USAGE_CACHE_PATH`). If `CLIPROXYAPI_MANAGEMENT_KEY` and `CLIPROXYAPI_BASE_URL` are present, the reader lists accounts with `GET /v8/management/credentials`. The configured server is expected to support the current v8 management interface. All management calls use curl (which honors the work profile's GOST proxy settings). The management key is privileged and distinct from the inference key. The raw response contains identity and token fields: neither it nor credential labels are logged or cached. Only Codex accounts are currently supported; other enrolled provider types are hidden. For every Codex account, including disabled accounts, the reader also forwards a read-only `GET https://chatgpt.com/backend-api/wham/rate-limit-reset-credits` through `POST /v8/management/requests/api-call`. The proxy substitutes the account's token for literal `Bearer $TOKEN$`; the statusline never downloads upstream credentials. Requests include the account's `id_token.chatgpt_account_id` when available, and run at most four at a time within the shared refresh lease. The normalized available count is displayed as `↻N`, matching direct Codex usage; zero or unknown counts are omitted. Disabled accounts remain in the same stable order with dimmed proxy-route styling; a separately active direct OpenAI route can still accent its own icon and the shared quota text. They are included even without usable quota, showing `?` rather than disappearing. Every account also fetches `/wham/usage` through the same read-only management forwarding for its quota and credit balance (credits, not USD or manual resets). The normalized `creditBalance` is a nonnegative number or `"unlimited"`, separate from the compact scope so Pi's badges are unchanged. Missing/failed balance reads show unavailable rather than zero or a newly timestamped old balance. Successful `/usage` quota responses supersede management headers for active and disabled accounts alike; Free accounts may have no quota headers at all. Header windows are normalized through the same parser as direct Codex usage. When `/usage` has no usable quota, valid management headers are the fallback; otherwise a valid last-known quota can survive for up to 15 minutes from its original observation. Retained quota is marked stale, and refreshing metadata never extends its lifetime. Disabled-account quota lookup failures remain explicit even when headers provide a fallback. These reads never enable inference routing or consume credits. Re-enabling restores normal styling, not a different quota source. Safe account details (plan, health, and available reset-credit grant/expiry timestamps) are also cached for external renderers; raw credit IDs, profile data, and identity labels are discarded. Failed reset-credit lookups do not hide quota percentages or other accounts' credits, and positive reset counts can appear even without a current quota observation. No credits are consumed and no routing cooldowns are reset. Account ordering is deterministic by hashed credential identity, not usage. Each proxy Codex account has its own `nf-fa-terminal` glyph, with no account numbers or aliases. Proxy accounts and direct providers share the same middot (`·`) separator; unlinked direct OpenAI Codex keeps its existing OpenAI glyph, while linked accounts use the merged display described above. Pi shows every supported account's value. The CLI's compatibility `text` field still limits proxy accounts to two plus `+N`, while structured `proxyAccounts` includes every visible account. The proxy stores a batch account snapshot separately because the management endpoint returns all accounts at once. A snapshot with no supported accounts is retried after one minute rather than the five-minute successful refresh interval; non-empty snapshots use the normal freshness policy. An older server quota observation does not itself make a successful management read stale; its percentages are shown only while the reported reset window remains valid (or for up to 15 minutes without a reset timestamp).
 - GitHub Copilot reuses its existing read-only `GET https://api.github.com/copilot_internal/user` call and credential-scoped provider cache for popup details; no extra requests or credentials are needed. The compact Pi badge remains a monthly percentage without added counts or a reset countdown. Sketchybar gives Copilot a separate hoverable item in regular and notch layouts, showing the reported plan, billing units (AI credits, legacy premium requests, or unknown), used/allowance and remaining values, local reset time/countdown, paid-overage policy and reported consumption, and freshness/lookup status. Counts come from the reported entitlement and `quota_remaining` (falling back to `remaining`), never rounded percentages or hard-coded plan limits. Aggregate `credits_used` has no entitlement denominator and is shown separately only for unlimited quotas, not divided by a budget. Business/Enterprise popups explicitly distinguish the reported account quota from the organization's shared pool. Missing values remain unavailable/not reported, explicit zeroes remain zero, unlimited quotas do not get a percentage, and expired quota periods are not shown as current popup counts. Failed reads retain details only within the existing 15-minute maximum, preserve the original observation time, and mark them stale; successful partial responses do not relabel old fields as fresh. Only allowlisted plan names and normalized quota fields enter the cache/output; raw identity, organizations, SKU and tokens are discarded. Chat/completion quotas and model pricing are not included in this first popup.
 - External renderers such as Sketchybar consume the exact same discovery, fetching, formatting, and cache implementation with `bun packages/statusline/src/provider-usage-cli.ts`. The CLI constructs Pi's `ModelRuntime`, loads `models.json`, and resolves credentials from Pi's normal `auth.json`; it does not depend on Claude settings or inherited Anthropic/LLM Hub environment variables. Sketchybar records standalone refresh diagnostics in `${XDG_CACHE_HOME:-~/.cache}/sketchybar/ai-usage.log` (override with `AI_USAGE_LOG_PATH`). The command preserves its `text` field and additionally returns `directText` (provider badges not already represented by a linked proxy account or the dedicated Copilot item), optional `copilot` (compact summary, sanitized plan/premium quota details, state, observation/attempt times, and staleness), and `proxyAccounts` (stable hashed keys, compact summaries, quota scopes, plan/health, disabled state, reset expirations, quota/reset-credit observation times, credit balance, snapshot fetch time, lookup-failure flags, and staleness). Sketchybar uses these structured fields rather than splitting rendered text. Shared TypeScript owns all provider fetching, validation, caching, and compact account formatting; Sketchybar alone owns item and popup presentation.
 - Percentage badges stay unprefixed when a provider reports one value. When multiple values need disambiguation, compact scope prefixes identify `S` session, `W` weekly, and `M` monthly usage. Unclassified Codex windows retain their reported duration and render it explicitly (for example, `14d 23%`), rather than being guessed as weekly. Five-hour, seven-day, and 28–31-day Codex windows map to session, weekly, and monthly scopes regardless of plan; legacy responses without a duration retain their primary/session and secondary/weekly defaults. Monthly and unclassified windows carry reset timestamps through both caches and displays. Zero usage is valid; expired windows are omitted, not relabeled zero. Percentages without a reported duration and dollar balances stay unprefixed for compactness. Reset timestamps use rounded-up relative time; available banked reset credits share the detail without a dot separator (for example, `93% (2d ↻3)`).

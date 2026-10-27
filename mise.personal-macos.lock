@@ -5,15 +5,19 @@ version = "2.38.3"
 backend = "aqua:aws/aws-cli"
 
 [tools."aqua:aws/aws-cli"."platforms.linux-arm64"]
+checksum = "sha256:30452d9d2e47979ddca5dd9d0fc13c3b42ad6185b44916e54e3f5ef31fe70ee9"
 url = "https://awscli.amazonaws.com/awscli-exe-linux-aarch64-2.38.3.zip"
 
 [tools."aqua:aws/aws-cli"."platforms.linux-x64"]
+checksum = "sha256:ae55fa4aa6653fc296f38eac500873e3b0e798d02a35f305c692d02fc835c548"
 url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.38.3.zip"
 
 [tools."aqua:aws/aws-cli"."platforms.macos-arm64"]
+checksum = "sha256:e3e5f1efda9875286e897be6ca2d91db63e1118f93fb02e44693292131831b32"
 url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.3.pkg"
 
 [tools."aqua:aws/aws-cli"."platforms.macos-x64"]
+checksum = "sha256:e3e5f1efda9875286e897be6ca2d91db63e1118f93fb02e44693292131831b32"
 url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.3.pkg"
 
 [[tools."pipx:ansible-core"]]

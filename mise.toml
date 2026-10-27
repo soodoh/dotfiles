@@ -1,5 +1,5 @@
 # Compatibility floor; raise only when configuration requires newer features or fixes.
-min_version = "2026.10.10"
+min_version = "2026.10.20"
 
 [settings]
 experimental = true
@@ -45,7 +45,6 @@ node = "24.22.0" # LTS; keep aligned with .nvmrc
 python = "3.15.0"
 # Read-only third-party tap evaluation needs Ruby >= 3 (macOS ships Ruby 2.6).
 ruby = "4.0.7"
-gcloud = { version = "583.0.0", depends = ["python"] }
 bun = "1.4.3"
 go = "1.27.3"
 rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
@@ -98,6 +97,21 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:vscode-langservers-extracted" = "4.10.0"
 "npm:yaml-language-server" = "2.0.0"
 
+# Use Google's archives directly: the embedded vfox plugin in mise 2026.10.20
+# cannot load its Python helper, and Renovate safe mode cannot install plugins.
+[tools."http:gcloud"]
+version = "583.0.0"
+depends = ["python"]
+strip_components = 1
+bin_path = "bin"
+version_list_url = "https://dl.google.com/dl/cloudsdk/channels/rapid/components-2.json"
+version_json_path = ".version"
+
+[tools."http:gcloud".platforms]
+linux-x64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-linux-x86_64.tar.gz" }
+linux-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-linux-arm.tar.gz" }
+macos-x64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-x86_64.tar.gz" }
+macos-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-arm.tar.gz" }
 
 [bootstrap.packages]
 "apt:fish" = { version = "latest", os = "linux" }
@@ -241,10 +255,6 @@ stdout_path = "~/Library/Logs/moshi-hook.log"
 stderr_path = "~/Library/Logs/moshi-hook.error.log"
 
 [bootstrap.hooks]
-pre-tools = '''
-mise install python
-CLOUDSDK_PYTHON="$(mise which python3)" mise install gcloud
-'''
 pre-packages = '''
 # Bootstrap hooks do not export the profile selected by miserc.toml or --env.
 export MISE_ENV={{ mise_env | default(value=[]) | join(sep=",") | quote }}
@@ -392,7 +402,10 @@ HERDR_CONFIG_PATH="$PWD/dotfiles/common/herdr/config.toml" herdr config check
 '''
 
 [tasks."validate:dotfiles:integration"]
-run = "python3 dotfiles/common/yazi/copy-relative-path.test.py"
+run = [
+  "python3 dotfiles/common/yazi/copy-relative-path.test.py",
+  "gcloud --version",
+]
 
 [tasks."validate:agents:install"]
 description = "Install locked extension dependencies before either validation lane"

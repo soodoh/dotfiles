@@ -1123,30 +1123,20 @@ class MiseConfigurationTests(unittest.TestCase):
         self.assertTrue(google_env.isdisjoint(self.work_environment))
         self.assertTrue(google_env.isdisjoint(self.personal_environment))
 
-    def test_python_precedes_gcloud_installation(self) -> None:
-        steps = [
-            line.strip()
-            for line in self.base["bootstrap"]["hooks"]["pre-tools"].splitlines()
-            if line.strip()
-        ]
-        python_steps = [
-            index
-            for index, step in enumerate(steps)
-            if "mise install" in step and step.endswith("python")
-        ]
-        gcloud_steps = [
-            index
-            for index, step in enumerate(steps)
-            if "mise install" in step
-            and step.endswith("gcloud")
-            and "CLOUDSDK_PYTHON" in step
-            and "mise which python3" in step
-        ]
-        self.assertEqual(len(python_steps), 1)
-        self.assertEqual(len(gcloud_steps), 1)
-        self.assertLess(python_steps[0], gcloud_steps[0])
-        self.assertEqual(self.base["tools"]["gcloud"]["depends"], ["python"])
-        self.assertNotIn("{{", tool_version(self.base["tools"]["python"]))
+    def test_gcloud_archives_are_verified_on_each_supported_platform(self) -> None:
+        # The native archive backend must retain a Python runtime and verified
+        # downloads on both workstation architectures and the shared Linux layer.
+        tool = "http:gcloud"
+        self.assertIn("python", self.base["tools"][tool]["depends"])
+        entry, = load_toml("mise.lock")["tools"][tool]
+        self.assertEqual(entry["version"], tool_version(self.base["tools"][tool]))
+        for platform in ("linux-x64", "linux-arm64", "macos-x64", "macos-arm64"):
+            with self.subTest(platform=platform):
+                artifact = entry[f"platforms.{platform}"]
+                url = urlsplit(artifact["url"])
+                self.assertEqual(url.scheme, "https")
+                self.assertEqual(url.hostname, "storage.googleapis.com")
+                self.assertRegex(artifact["checksum"], r"^sha256:[0-9a-f]{64}$")
 
     def test_mas_is_installed_before_the_main_package_pass(self) -> None:
         packages = self.base["bootstrap"]["packages"]

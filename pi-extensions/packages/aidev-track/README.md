@@ -18,12 +18,12 @@ this extension records into git notes at commit/push time.
 
 ## Event mapping
 
-| Pi event | aidev-track call | Claude equivalent |
-| --- | --- | --- |
-| `before_agent_start`, or `agent_start` without it | `turn-start pi` once per settled run | `UserPromptSubmit` |
-| `tool_call` (`edit`/`write`) | `checkpoint pi` | `PreToolUse` (pristine snapshot) |
-| `tool_result` (`edit`/`write`) | `checkpoint pi` | `PostToolUse` (edited snapshot) |
-| `agent_settled` | `turn-end pi` | `Stop` (reconcile) |
+| Pi event                                          | aidev-track call                     | Claude equivalent                |
+| ------------------------------------------------- | ------------------------------------ | -------------------------------- |
+| `before_agent_start`, or `agent_start` without it | `turn-start pi` once per settled run | `UserPromptSubmit`               |
+| `tool_call` (`edit`/`write`)                      | `checkpoint pi`                      | `PreToolUse` (pristine snapshot) |
+| `tool_result` (`edit`/`write`)                    | `checkpoint pi`                      | `PostToolUse` (edited snapshot)  |
+| `agent_settled`                                   | `turn-end pi`                        | `Stop` (reconcile)               |
 
 Each call pipes a JSON payload on stdin containing `session_id`
 (`ctx.sessionManager.getSessionId()`), `cwd`, and the relevant hook fields —
