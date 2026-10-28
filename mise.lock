@@ -1612,7 +1612,7 @@ version = "1.4.0"
 backend = "npm:@earendil-works/pi-coding-agent"
 
 [[tools."npm:agent-browser"]]
-version = "0.39.4"
+version = "0.40.0"
 backend = "npm:agent-browser"
 
 [tools."npm:agent-browser".options]
