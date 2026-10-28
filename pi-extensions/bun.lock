@@ -6,9 +6,9 @@
       "name": "pi-extensions",
       "dependencies": {
         "@juicesharp/rpiv-ask-user-question": "2.15.0",
-        "@plannotator/pi-extension": "0.28.33",
+        "@plannotator/pi-extension": "0.28.35",
         "@router-for-me/pi-cliproxyapi-provider": "1.4.24",
-        "pi-subagents": "0.83.0",
+        "pi-subagents": "0.83.1",
         "pi-vim": "0.14.2",
         "pi-web-access": "0.45.0",
         "proper-lockfile": "4.1.2",
@@ -157,7 +157,7 @@
 
     "@pierre/theming": ["@pierre/theming@1.0.1", "", { "peerDependencies": { "@pierre/theme": "^1.1.0 || ^2.0.0", "@shikijs/themes": "^3.0.0 || ^4.0.0", "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0", "shiki": "^3.0.0 || ^4.0.0" }, "optionalPeers": ["@pierre/theme", "@shikijs/themes", "react", "react-dom", "shiki"] }, "sha512-WCI5Qd7iprDpISL9fBYOLe8RV53+b7mFNA3bPzl60/2CKCSrsKN8zEcep6Y3BAzvARlmca50zGjDodqPGiTUKA=="],
 
-    "@plannotator/pi-extension": ["@plannotator/pi-extension@0.28.33", "", { "dependencies": { "@joplin/turndown-plugin-gfm": "^1.0.68", "@pierre/diffs": "1.5.2", "@plannotator/webtui": "0.1.0", "chokidar": "^5.0.0", "diff": "^8.0.4", "parse5": "^7.3.0", "turndown": "^7.2.4" }, "peerDependencies": { "@earendil-works/pi-coding-agent": ">=0.79.1" } }, "sha512-MVUPC5FQ+xoFhJkY92NjIcl35T6I3K2d+vd6C6fSxEeqotIdetUYi6K5kLeafuJqiVzshl6n0/p/oywwY298BQ=="],
+    "@plannotator/pi-extension": ["@plannotator/pi-extension@0.28.35", "", { "dependencies": { "@joplin/turndown-plugin-gfm": "^1.0.68", "@pierre/diffs": "1.5.2", "@plannotator/webtui": "0.1.0", "chokidar": "^5.0.0", "diff": "^8.0.4", "parse5": "^7.3.0", "turndown": "^7.2.4" }, "peerDependencies": { "@earendil-works/pi-coding-agent": ">=0.79.1" } }, "sha512-CNQ7zCq2ezHxhnz12eZTdcFk7fWHkw1RR6Xh23V4mysY94m4Io1vb+URhcKQM48IX6fq3hBCW4DU5ZwTpIK5fw=="],
 
     "@plannotator/webtui": ["@plannotator/webtui@0.1.0", "", { "dependencies": { "@xterm/addon-fit": "0.12.0-beta.216", "@xterm/addon-unicode11": "0.10.0-beta.216", "@xterm/addon-web-links": "0.13.0-beta.216", "@xterm/addon-webgl": "0.20.0-beta.215", "@xterm/xterm": "6.1.0-beta.216", "lucide-react": "^0.577.0", "node-pty": "^1.1.0", "ws": "^8.20.0" }, "peerDependencies": { "react": "^18.3.0 || ^19.0.0", "react-dom": "^18.3.0 || ^19.0.0" } }, "sha512-pwJfFg5VXOwucs55K6mef5fgK5eC8mJrFYc8RJdvB/T00alwnzgDjT/BAsarPiMj4U3NjUZImzxnbypJsn/ESA=="],
 
@@ -777,7 +777,7 @@
 
     "path-to-regexp": ["path-to-regexp@8.4.2", "", {}, "sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA=="],
 
-    "pi-subagents": ["pi-subagents@0.83.0", "", { "dependencies": { "@js-temporal/polyfill": "0.5.1", "acorn": "8.18.0", "jiti": "2.7.0", "undici": "8.12.3", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=1.2.0", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "typebox": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui", "typebox"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-MlmLLa8Cb2/RCkkhCgbRDdeigpFL8v0rKqa+HjWpa/3ylZb49Fg+XDsbMeNu+zQ6268dnxGt1sTDhXsAKxBzKg=="],
+    "pi-subagents": ["pi-subagents@0.83.1", "", { "dependencies": { "@js-temporal/polyfill": "0.5.1", "acorn": "8.18.0", "jiti": "2.7.0", "undici": "8.12.3", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=1.2.0", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "typebox": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui", "typebox"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-zpWi8zPMJyPYySZJ4jnVYNREGVJWXDl5K/S85YMn+IlTUJgAvUFeiaHmTfY+xI8hqLhZgJg0X1WnkmxxQSOIpw=="],
 
     "pi-vim": ["pi-vim@0.14.2", "", { "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": ">=0.74.0" } }, "sha512-CFSKJvOCNToueIMyBgsujT+gHa4sAlLOnT4VYZ6iCGKJ7M24eCVWFKKnnMt6tmP1rDE6T7k/AqBrb6LWzCzRaQ=="],
 
