@@ -42,9 +42,9 @@
 	},
 	"dependencies": {
 		"@juicesharp/rpiv-ask-user-question": "2.15.0",
-		"@plannotator/pi-extension": "0.28.33",
+		"@plannotator/pi-extension": "0.28.35",
 		"@router-for-me/pi-cliproxyapi-provider": "1.4.24",
-		"pi-subagents": "0.83.0",
+		"pi-subagents": "0.83.1",
 		"pi-vim": "0.14.2",
 		"pi-web-access": "0.45.0",
 		"proper-lockfile": "4.1.2"
