@@ -83,7 +83,7 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "pipx:yamllint" = "1.38.0"
 "npm:@bitwarden/cli" = "2026.10.0"
 "npm:@earendil-works/pi-coding-agent" = "1.4.0"
-"npm:agent-browser" = { version = "0.39.4", allow_builds = ["agent-browser"] }
+"npm:agent-browser" = { version = "0.40.0", allow_builds = ["agent-browser"] }
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.8.1", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:@biomejs/biome" = "2.6.3"
