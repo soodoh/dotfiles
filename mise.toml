@@ -39,7 +39,7 @@ herdr_focus_notify_ref = "94e8e1394e1bdbaa3dd55d4d83e0e3f98ecab743"
 herdr_sesh_ref = "1d1bcc518347b468e438b05ef806102c97414348"
 
 [tools]
-node = "24.22.1" # LTS; keep aligned with .nvmrc
+node = "24.22.2" # LTS; keep aligned with .nvmrc
 "aqua:Schniz/fnm" = "1.39.0"
 "aqua:yarnpkg/berry" = "4.18.0"
 python = "3.15.1"
@@ -86,7 +86,7 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "npm:agent-browser" = { version = "0.40.0", allow_builds = ["agent-browser"] }
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.8.1", trust_policy_excludes = ["fastq@1.20.2"] }
-"npm:@biomejs/biome" = "2.6.3"
+"npm:@biomejs/biome" = "2.6.4"
 "npm:eslint_d" = "15.0.3"
 "npm:graphql-language-service-cli" = { version = "3.5.0", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:oxlint" = "1.90.0"
