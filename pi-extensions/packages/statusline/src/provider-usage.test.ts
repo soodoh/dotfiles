@@ -177,7 +177,11 @@ beforeEach(() => {
 
 afterEach(() => {
 	invalidateProviderUsageCache();
-	process.env = { ...originalEnv };
+	// Preserve the native env object: Node 26 child processes inherit from it.
+	for (const key of Object.keys(process.env)) {
+		if (!(key in originalEnv)) delete process.env[key];
+	}
+	Object.assign(process.env, originalEnv);
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
