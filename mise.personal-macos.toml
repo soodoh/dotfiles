@@ -1,6 +1,6 @@
 [tools]
-"aqua:aws/aws-cli" = "2.39.1"
-"pipx:ansible-core" = "2.21.5"
+"aqua:aws/aws-cli" = "2.39.3"
+"pipx:ansible-core" = "2.22.0"
 "pipx:ansible-lint" = "26.10.1"
 
 [bootstrap.packages]
