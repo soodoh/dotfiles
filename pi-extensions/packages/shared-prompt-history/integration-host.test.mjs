@@ -22,6 +22,8 @@ if (process.argv[2] !== "worker") {
 	);
 	pi.initTheme("dark");
 	const mode = Object.create(InteractiveMode.prototype);
+	// This terminal-free fixture bypasses the constructor's dialog-stack initializer.
+	mode.extensionDialogs = [];
 	mode.ui = { requestRender() {}, setFocus() {} };
 	const { KeybindingsManager } = await import(
 		pathToFileURL(join(hostRoot, "dist/core/keybindings.js")).href

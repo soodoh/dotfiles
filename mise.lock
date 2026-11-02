@@ -1608,7 +1608,7 @@ version = "2026.10.1"
 backend = "npm:@bitwarden/cli"
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
-version = "1.4.0"
+version = "1.5.0"
 backend = "npm:@earendil-works/pi-coding-agent"
 
 [[tools."npm:agent-browser"]]
