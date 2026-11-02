@@ -15,6 +15,12 @@
   ],
   "packageRules": [
     {
+      "description": "OpenTofu tags can precede binaries; only update to published releases",
+      "matchManagers": ["mise"],
+      "matchDepNames": ["aqua:opentofu/opentofu"],
+      "overrideDatasource": "github-releases"
+    },
+    {
       "description": "Automerge lock maintenance and non-major updates after checks pass",
       "matchUpdateTypes": [
         "lockFileMaintenance",
