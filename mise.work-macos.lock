@@ -240,7 +240,7 @@ version = "2.91.0"
 backend = "pipx:azure-cli"
 
 [[tools."pipx:snowflake-cli"]]
-version = "3.31.0"
+version = "3.32.1"
 backend = "pipx:snowflake-cli"
 
 [tools."pipx:snowflake-cli".options]
