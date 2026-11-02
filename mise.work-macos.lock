@@ -173,32 +173,32 @@ checksum = "sha256:88379aff5c8111de6be0a394adffba2819e44cde269f3ab23cef76de1a48e
 url = "https://dl.k8s.io/v1.37.2/bin/darwin/amd64/kubectl"
 
 [[tools."github:grafana/mcp-grafana"]]
-version = "2.1.1"
+version = "2.2.0"
 backend = "github:grafana/mcp-grafana"
 
 [tools."github:grafana/mcp-grafana"."platforms.linux-arm64"]
-checksum = "sha256:8b77c9b5396bbcd018e5de6af1cbf7e725a0360c5d34c723241fb0dbeb8d928d"
+checksum = "sha256:6478ef322152bf15c0cec565d6bdfa5c3d123e1080aaf03bd370418849267b16"
 checksum_source = "mise-versions"
-url = "https://github.com/grafana/mcp-grafana/releases/download/v2.1.1/mcp-grafana_Linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/grafana/mcp-grafana/releases/assets/660007544"
+url = "https://github.com/grafana/mcp-grafana/releases/download/v2.2.0/mcp-grafana_Linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/grafana/mcp-grafana/releases/assets/701776584"
 
 [tools."github:grafana/mcp-grafana"."platforms.linux-x64"]
-checksum = "sha256:fba3a5294fa07218dbf59944c75ca890ce9c59384bff1bb43cd28d63b0521bec"
+checksum = "sha256:f93bfbd94cde68cc2e43cf5ba55da4f8e28b1a36b14fb14dadd566fc36b1312b"
 checksum_source = "mise-versions"
-url = "https://github.com/grafana/mcp-grafana/releases/download/v2.1.1/mcp-grafana_Linux_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/grafana/mcp-grafana/releases/assets/660007546"
+url = "https://github.com/grafana/mcp-grafana/releases/download/v2.2.0/mcp-grafana_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/grafana/mcp-grafana/releases/assets/701776565"
 
 [tools."github:grafana/mcp-grafana"."platforms.macos-arm64"]
-checksum = "sha256:37179539f9c6b65a27b8840540394af215fbe285f20be5569eae50bd33e7bc49"
+checksum = "sha256:3710a7453b86fb535b41b6dab6bb0b1a7db86743e2ade8e06a187ca68f1e3df0"
 checksum_source = "mise-versions"
-url = "https://github.com/grafana/mcp-grafana/releases/download/v2.1.1/mcp-grafana_Darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/grafana/mcp-grafana/releases/assets/660007602"
+url = "https://github.com/grafana/mcp-grafana/releases/download/v2.2.0/mcp-grafana_Darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/grafana/mcp-grafana/releases/assets/701776465"
 
 [tools."github:grafana/mcp-grafana"."platforms.macos-x64"]
-checksum = "sha256:36880cbc7bdea5e39a558121f90f4acab54c083e6402f663934e787d5264816b"
+checksum = "sha256:50038be93cd2141aa6d8f6ec219ec0ca3df9a5db30c0e711649c6f8844c95ec7"
 checksum_source = "mise-versions"
-url = "https://github.com/grafana/mcp-grafana/releases/download/v2.1.1/mcp-grafana_Darwin_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/grafana/mcp-grafana/releases/assets/660007610"
+url = "https://github.com/grafana/mcp-grafana/releases/download/v2.2.0/mcp-grafana_Darwin_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/grafana/mcp-grafana/releases/assets/701776483"
 
 [[tools."http:twg"]]
 version = "1.3.5"
