@@ -239,6 +239,9 @@ backend = "npm:figma-developer-mcp"
 version = "2.92.0"
 backend = "pipx:azure-cli"
 
+[tools."pipx:azure-cli".options]
+python = "3.13"
+
 [[tools."pipx:snowflake-cli"]]
 version = "3.32.1"
 backend = "pipx:snowflake-cli"

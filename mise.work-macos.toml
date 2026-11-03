@@ -3,7 +3,8 @@
 MISE_BREW_CASK_OPT_APPDIR = "{{ env.HOME }}/Applications"
 
 [tools]
-"pipx:azure-cli" = "2.92.0"
+# Azure's macOS broker wheels do not support Python 3.15; reuse Snowflake's runtime.
+"pipx:azure-cli" = { version = "2.92.0", python = "3.13" }
 # Snowflake's native dependencies do not support the shared Python 3.15.
 "pipx:snowflake-cli" = { version = "3.32.1", python = "3.13" }
 # MSF TrueDev tooling. Docker/Compose and jq come from the shared profile;
