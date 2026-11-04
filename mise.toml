@@ -55,8 +55,8 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:getsops/sops" = "3.13.3"
 "aqua:BurntSushi/ripgrep" = "15.2.0"
 "aqua:junegunn/fzf" = "0.74.5"
-"aqua:jdx/usage" = "7.1.5"
-"aqua:atuinsh/atuin" = "18.24.4"
+"aqua:jdx/usage" = "7.2.0"
+"aqua:atuinsh/atuin" = "18.24.5"
 "aqua:jesseduffield/lazygit" = "0.66.2"
 "aqua:starship/starship" = "1.27.0"
 "aqua:ajeetdsouza/zoxide" = "0.10.0"
@@ -72,7 +72,7 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:JohnnyMorganz/StyLua" = "2.6.0"
-"aqua:docker/cli" = "29.9.2"
+"aqua:docker/cli" = "29.9.3"
 "aqua:docker/compose" = "5.7.0"
 # Upstream does not publish macOS binaries; Cargo works on all shared platforms.
 "cargo:eza" = "0.23.5"
@@ -83,13 +83,13 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "pipx:yamllint" = "1.38.0"
 "npm:@bitwarden/cli" = "2026.10.1"
 "npm:@earendil-works/pi-coding-agent" = "1.5.0"
-"npm:agent-browser" = { version = "0.41.1", allow_builds = ["agent-browser"] }
+"npm:agent-browser" = { version = "0.41.2", allow_builds = ["agent-browser"] }
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.8.1", trust_policy_excludes = ["fastq@1.20.2"] }
-"npm:@biomejs/biome" = "2.6.4"
-"npm:eslint_d" = "15.0.3"
+"npm:@biomejs/biome" = "2.6.5"
+"npm:eslint_d" = "15.1.0"
 "npm:graphql-language-service-cli" = { version = "4.0.1", trust_policy_excludes = ["fastq@1.20.2"] }
-"npm:oxlint" = "1.90.0"
+"npm:oxlint" = "1.91.0"
 "npm:prettier" = "3.9.10"
 "npm:pyright" = "1.1.414"
 "npm:typescript-language-server" = "6.0.3"
