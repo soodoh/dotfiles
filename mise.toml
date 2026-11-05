@@ -67,7 +67,7 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "github:docker/docker-language-server" = "v0.20.1"
 "aqua:LuaLS/lua-language-server" = "3.19.2"
 "aqua:artempyanykh/marksman" = "2026-02-08"
-"aqua:astral-sh/ruff" = "0.17.3"
+"aqua:astral-sh/ruff" = "0.17.4"
 "aqua:rhysd/actionlint" = "1.7.12"
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"

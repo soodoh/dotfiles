@@ -25,5 +25,5 @@ version = "2.22.0"
 backend = "pipx:ansible-core"
 
 [[tools."pipx:ansible-lint"]]
-version = "26.10.1"
+version = "26.11.0"
 backend = "pipx:ansible-lint"
