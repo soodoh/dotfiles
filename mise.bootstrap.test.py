@@ -436,21 +436,32 @@ class MiseConfigurationTests(unittest.TestCase):
         tool = self.work["tools"]["npm:@azure-devops/mcp"]
         self.assertEqual(tool["allow_builds"], ["keytar"])
 
-    def test_work_grafana_mcp_uses_secure_production_profile(self) -> None:
+    def test_work_grafana_mcps_use_secure_azure_profiles(self) -> None:
         servers = json.loads(
             (ROOT / "dotfiles/work/pi/agent/mcp.json").read_text()
         )["mcpServers"]
-        self.assertEqual(
-            [name for name in servers if name.startswith("grafana")],
-            ["grafana-prod"],
-        )
-        grafana = servers["grafana-prod"]
-        self.assertEqual(urlsplit(grafana["env"]["GRAFANA_URL"]).scheme, "https")
-        for variable in ("HOME", "AZURE_CONFIG_DIR"):
-            self.assertEqual(
-                grafana["env"][variable], servers["azure"]["env"][variable]
-            )
-        self.assertNotIn("GRAFANA_SERVICE_ACCOUNT_TOKEN", grafana["env"])
+        for profile, azure_name in (("prod", "azure"), ("dev", "azure-test")):
+            with self.subTest(profile=profile):
+                grafana = servers[f"grafana-{profile}"]
+                for variable in ("HOME", "AZURE_CONFIG_DIR"):
+                    self.assertEqual(
+                        grafana["env"][variable], servers[azure_name]["env"][variable]
+                    )
+                for target, source in (
+                    ("GRAFANA_AZURE_TENANT", f"AZURE_{profile.upper()}_TENANT_ID"),
+                    ("GRAFANA_AZURE_RESOURCE", f"GRAFANA_{profile.upper()}_AZURE_RESOURCE"),
+                    ("GRAFANA_URL", f"GRAFANA_{profile.upper()}_URL"),
+                ):
+                    self.assertEqual(grafana["env"][target], "${" + source + "}")
+                    encrypted = self.work_environment[source]
+                    self.assertEqual(set(encrypted), {"age"})
+                    ciphertext = encrypted["age"]
+                    self.assertTrue(
+                        base64.b64decode(ciphertext + "=" * (-len(ciphertext) % 4), validate=True)
+                        .startswith(b"age-encryption.org/v1\n")
+                    )
+                    self.assertNotIn(source, self.shared_environment)
+                    self.assertNotIn(source, self.personal_environment)
 
     def test_workspace_mcp_credentials_are_encrypted_and_work_only(self) -> None:
         servers = json.loads(

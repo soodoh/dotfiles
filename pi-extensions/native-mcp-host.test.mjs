@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { grafanaEnvironment } from "./packages/grafana-bridge/test-support/fixture.ts";
 import { resolvePiHost } from "./test-support/host-runtime.mjs";
 
 const file = fileURLToPath(import.meta.url);
@@ -29,6 +30,7 @@ if (process.argv[2] !== "--worker") {
 				{
 					cwd: root,
 					env: {
+						...grafanaEnvironment,
 						HOME: root,
 						TMPDIR: root,
 						PATH: process.env.PATH,
@@ -174,14 +176,30 @@ if (process.argv[2] !== "--worker") {
 				assert.equal("sampling" in env.clientCapabilities, false);
 				assert.equal(env.INHERITED_SENTINEL, "fixture-inherited");
 				assert.equal(env.HTTPS_PROXY, process.env.HTTPS_PROXY);
-				if (name === "azure-test") {
-					assert.equal(env.AZURE_SUBSCRIPTION_ID, null);
+				if (name === "azure-test" || name === "grafana-dev") {
+					if (name === "azure-test")
+						assert.equal(env.AZURE_SUBSCRIPTION_ID, null);
 					assert.equal(env.HOME, join(process.env.HOME, ".azure/dev"));
 					assert.equal(env.AZURE_CONFIG_DIR, process.env.AZURE_CONFIG_DIR);
 				}
 				if (name === "azure" || name === "grafana-prod") {
 					assert.equal(env.HOME, join(process.env.HOME, ".azure/prod"));
 					assert.equal(env.AZURE_CONFIG_DIR, join(env.HOME, ".azure"));
+				}
+				if (name === "grafana-prod" || name === "grafana-dev") {
+					const profile = name === "grafana-prod" ? "PROD" : "DEV";
+					assert.equal(
+						env.GRAFANA_AZURE_TENANT,
+						grafanaEnvironment[`AZURE_${profile}_TENANT_ID`],
+					);
+					assert.equal(
+						env.GRAFANA_AZURE_RESOURCE,
+						grafanaEnvironment[`GRAFANA_${profile}_AZURE_RESOURCE`],
+					);
+					assert.equal(
+						env.GRAFANA_URL,
+						grafanaEnvironment[`GRAFANA_${profile}_URL`],
+					);
 				}
 				if (name === "azure") {
 					assert.equal(

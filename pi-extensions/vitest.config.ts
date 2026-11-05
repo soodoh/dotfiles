@@ -8,6 +8,7 @@ export default defineConfig({
 			exclude: [
 				"**/*.test.*",
 				"**/*.spec.*",
+				"**/test-support/**",
 				"**/dist/**",
 				"**/node_modules/**",
 				"**/.pi-lens/**",

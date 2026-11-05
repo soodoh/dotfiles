@@ -137,15 +137,31 @@
     },
     "grafana-prod": {
       "description": "Read and manage production Grafana dashboards, alerting, and other observability resources; query metrics and logs.",
-      "command": "/bin/sh",
+      "command": "node",
       "args": [
-        "-c",
-        "token=$(az account get-access-token --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f --tenant 791313ac-cd3f-48b0-8501-2ac69aec78e9 --query accessToken -o tsv) || exit 1; [ -n \"$token\" ] || exit 1; export GRAFANA_SERVICE_ACCOUNT_TOKEN=\"$token\"; exec mcp-grafana -t stdio --usage-stats disabled"
+        "~/.pi/agent/pi-extensions/packages/grafana-bridge/index.ts"
       ],
       "env": {
         "HOME": "${HOME}/.azure/prod",
         "AZURE_CONFIG_DIR": "${HOME}/.azure/prod/.azure",
-        "GRAFANA_URL": "https://prod-obs-grafana-d6aubrhpbjc7etee.eus2.grafana.azure.com/"
+        "GRAFANA_AZURE_TENANT": "${AZURE_PROD_TENANT_ID}",
+        "GRAFANA_AZURE_RESOURCE": "${GRAFANA_PROD_AZURE_RESOURCE}",
+        "GRAFANA_URL": "${GRAFANA_PROD_URL}"
+      },
+      "exposure": "codemode"
+    },
+    "grafana-dev": {
+      "description": "Read and manage development Grafana dashboards, alerting, and other observability resources using the isolated development Azure profile; query metrics and logs.",
+      "command": "node",
+      "args": [
+        "~/.pi/agent/pi-extensions/packages/grafana-bridge/index.ts"
+      ],
+      "env": {
+        "HOME": "${HOME}/.azure/dev",
+        "AZURE_CONFIG_DIR": "${HOME}/.azure/dev/.azure",
+        "GRAFANA_AZURE_TENANT": "${AZURE_DEV_TENANT_ID}",
+        "GRAFANA_AZURE_RESOURCE": "${GRAFANA_DEV_AZURE_RESOURCE}",
+        "GRAFANA_URL": "${GRAFANA_DEV_URL}"
       },
       "exposure": "codemode"
     },

@@ -43,6 +43,8 @@ for await (const line of createInterface({ input: process.stdin })) {
 						"AZURE_TOKEN_CREDENTIALS",
 						"PERSONAL_ACCESS_TOKEN",
 						"GRAFANA_URL",
+						"GRAFANA_AZURE_TENANT",
+						"GRAFANA_AZURE_RESOURCE",
 						"INHERITED_SENTINEL",
 						"HTTPS_PROXY",
 					].map((key) => [key, process.env[key] ?? null]),
