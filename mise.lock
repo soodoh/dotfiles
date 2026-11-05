@@ -1612,6 +1612,9 @@ backend = "npm:@biomejs/biome"
 version = "2026.10.1"
 backend = "npm:@bitwarden/cli"
 
+[tools."npm:@bitwarden/cli".options]
+trust_policy_excludes = '["@bitwarden/cli@2026.10.1"]'
+
 [[tools."npm:@earendil-works/pi-coding-agent"]]
 version = "1.5.0"
 backend = "npm:@earendil-works/pi-coding-agent"

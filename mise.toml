@@ -81,7 +81,9 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 "cargo:taplo-cli" = "0.10.0"
 "go:golang.org/x/tools/gopls" = "v0.24.0"
 "pipx:yamllint" = "1.38.0"
-"npm:@bitwarden/cli" = "2026.10.1"
+# This release lacks 2026.5.0's staged approval; Sigstore provenance was verified
+# and every build file matched Bitwarden's official cli-v2026.10.1 artifact.
+"npm:@bitwarden/cli" = { version = "2026.10.1", trust_policy_excludes = ["@bitwarden/cli@2026.10.1"] }
 "npm:@earendil-works/pi-coding-agent" = "1.5.0"
 "npm:agent-browser" = { version = "0.41.2", allow_builds = ["agent-browser"] }
 "npm:awk-language-server" = "0.10.6"
