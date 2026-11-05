@@ -69,7 +69,6 @@ plus real subprocess failure probes. It exercises native codemode concurrency
 and extension-triggered continuations without credentials or workstation hooks.
 It does not claim end-to-end git-note attribution by the proprietary CLI.
 
-
 ```sh
 git notes --ref=aidev-track show HEAD   # inspect the raw authorship note
 aidev-track pr                          # AI vs human breakdown for the branch

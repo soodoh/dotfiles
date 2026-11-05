@@ -493,49 +493,49 @@ url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/704009775"
 provenance = "github-attestations"
 
 [[tools."aqua:atuinsh/atuin"]]
-version = "18.24.4"
+version = "18.24.5"
 backend = "aqua:atuinsh/atuin"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-arm64"]
-checksum = "sha256:5216c5fc98d46c0f99106699f88f122e4a5332e8151f481fdaac408329e3d0c6"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.24.4/atuin-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/690584609"
+checksum = "sha256:ae4228314f6b33705fe584dce58a2910b8e19fbeb8b652263ee7b66cc7e87a59"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.24.5/atuin-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/707958968"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-arm64-musl"]
-checksum = "sha256:7698bd70195bde165bb37ea3133aa6663dd48ff7d6a23042cda2c7be4c22ba78"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.24.4/atuin-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/690584613"
+checksum = "sha256:b44b3f264652b847b2e524ec397aa498c13076ed75cf213239ed2b9a0de2f99d"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.24.5/atuin-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/707958969"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-x64"]
-checksum = "sha256:d5ed5958ef04a4c20cb876feaa7fbad965f6ccd7b997e7ed54e862adec9ce0fc"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.24.4/atuin-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/690584795"
+checksum = "sha256:e16a95f10e9592543d2d578e44c2f1dccf89b57915c2e2c6935b435b3f43cee4"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.24.5/atuin-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/707959200"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-x64-baseline"]
-checksum = "sha256:d5ed5958ef04a4c20cb876feaa7fbad965f6ccd7b997e7ed54e862adec9ce0fc"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.24.4/atuin-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/690584795"
+checksum = "sha256:e16a95f10e9592543d2d578e44c2f1dccf89b57915c2e2c6935b435b3f43cee4"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.24.5/atuin-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/707959200"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-x64-musl"]
-checksum = "sha256:788cff5b3903ca7f1f5bdff3e4b4975c38b3c20385176a49b01ad1bea5b37636"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.24.4/atuin-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/690584812"
+checksum = "sha256:54182762c9d91a4f779748f622749ff6963956db005feb13e62d037196b05618"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.24.5/atuin-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/707959222"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:788cff5b3903ca7f1f5bdff3e4b4975c38b3c20385176a49b01ad1bea5b37636"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.24.4/atuin-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/690584812"
+checksum = "sha256:54182762c9d91a4f779748f622749ff6963956db005feb13e62d037196b05618"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.24.5/atuin-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/707959222"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.macos-arm64"]
-checksum = "sha256:edd06294377599bf4d85ca3337abc802256a991262260bdd980d1b649583553d"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.24.4/atuin-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/690584610"
+checksum = "sha256:644e92d5667e2ebbc00758c71d5974bc907d238eaa6cdc32b24eb73dce7f9a5a"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.24.5/atuin-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/707958967"
 provenance = "github-attestations"
 
 [[tools."aqua:cli/cli"]]
@@ -597,39 +597,44 @@ url_api = "https://api.github.com/repos/cli/cli/releases/assets/679195693"
 provenance = "github-attestations"
 
 [[tools."aqua:docker/cli"]]
-version = "29.9.2"
+version = "29.9.3"
 backend = "aqua:docker/cli"
 
 [tools."aqua:docker/cli"."platforms.linux-arm64"]
-checksum = "sha256:873b3e0207857c3b2f28392fb922f3ea6efe37620c16d4d4aaf2fef409c90b73"
-url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.9.2.tgz"
+checksum = "sha256:1b27fd739378ef938401e81ce5afb73b7ad7432d4f598814a9ff5f826bb464d2"
+url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.9.3.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-arm64-musl"]
-url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.9.2.tgz"
+checksum = "sha256:1b27fd739378ef938401e81ce5afb73b7ad7432d4f598814a9ff5f826bb464d2"
+url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.9.3.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64"]
-checksum = "sha256:9ac225999fd5e863f7694c728ef23d480616b1e5639328fa309befd4243d69eb"
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.2.tgz"
+checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64-baseline"]
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.2.tgz"
+checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64-musl"]
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.2.tgz"
+checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64-musl-baseline"]
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.2.tgz"
+checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-arm64"]
-checksum = "sha256:ea8a2ce5ac31f9f5f3fb711a7a485e1e46cc7a69798a629a70306f6e6af25b7a"
-url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.9.2.tgz"
+checksum = "sha256:79145e169bca0b9571d02de8e1cd311a36e0e8fdb4599b6661a87b1bb3afbe13"
+url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.9.3.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-x64"]
-checksum = "sha256:089c3f618df88bdef4f1257d9d604499136a1ec5168b67d194c260acad2b522f"
-url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.9.2.tgz"
+checksum = "sha256:f7d8f835391cd0a8c676d9a8d2547f909da6a2d029595943b0ce8d5f169abe47"
+url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.9.3.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-x64-baseline"]
-url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.9.2.tgz"
+checksum = "sha256:f7d8f835391cd0a8c676d9a8d2547f909da6a2d029595943b0ce8d5f169abe47"
+url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.9.3.tgz"
 
 [[tools."aqua:docker/compose"]]
 version = "5.7.0"
@@ -796,62 +801,62 @@ url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-x8
 url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898229"
 
 [[tools."aqua:jdx/usage"]]
-version = "7.1.5"
+version = "7.2.0"
 backend = "aqua:jdx/usage"
 
 [tools."aqua:jdx/usage"."platforms.linux-arm64"]
-checksum = "sha256:3decdb5476727b1ac113f8519cdb627e22efb4157d0ad708e102fb6179db8d10"
+checksum = "sha256:a618ab5e634ed485cea7ea49575da720cf1cc92c8619e3a6c2a008aff81035f9"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.1.5/usage-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/697960872"
+url = "https://github.com/jdx/usage/releases/download/v7.2.0/usage-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/706478545"
 
 [tools."aqua:jdx/usage"."platforms.linux-arm64-musl"]
-checksum = "sha256:e325150ebf20f58733ff5e2bf97573d893cac09ee21c71cbb62b0194c565527b"
+checksum = "sha256:320421c6047c2726b01476c69d36b18fa513b917bd0c8ae80d1f880521435cc8"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.1.5/usage-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/697959383"
+url = "https://github.com/jdx/usage/releases/download/v7.2.0/usage-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/706480827"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64"]
-checksum = "sha256:38e6dcb6369285e76343bf99882dab3f0db0b2f24aac95ae0e654efcb801b3d6"
+checksum = "sha256:32d475f22d8c5a637a61b0d6caa076ed4c5d1de3cde61efcf509e07478208340"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.1.5/usage-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/697958862"
+url = "https://github.com/jdx/usage/releases/download/v7.2.0/usage-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/706479906"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-baseline"]
-checksum = "sha256:38e6dcb6369285e76343bf99882dab3f0db0b2f24aac95ae0e654efcb801b3d6"
+checksum = "sha256:32d475f22d8c5a637a61b0d6caa076ed4c5d1de3cde61efcf509e07478208340"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.1.5/usage-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/697958862"
+url = "https://github.com/jdx/usage/releases/download/v7.2.0/usage-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/706479906"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-musl"]
-checksum = "sha256:05efcbc1bdf6c56d24841a84b2e98198b00526f6407834d339f2cccdafd3071c"
+checksum = "sha256:beac5db300bf11ff71d8f8b762898265cdb5dc98bad64c49b790de5d808d6d02"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.1.5/usage-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/697958180"
+url = "https://github.com/jdx/usage/releases/download/v7.2.0/usage-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/706479159"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:05efcbc1bdf6c56d24841a84b2e98198b00526f6407834d339f2cccdafd3071c"
+checksum = "sha256:beac5db300bf11ff71d8f8b762898265cdb5dc98bad64c49b790de5d808d6d02"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.1.5/usage-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/697958180"
+url = "https://github.com/jdx/usage/releases/download/v7.2.0/usage-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/706479159"
 
 [tools."aqua:jdx/usage"."platforms.macos-arm64"]
-checksum = "sha256:90ac6ec790cebe79c2e234171b9e16b6071e02dc0506f2953315fc5c0222b2d9"
+checksum = "sha256:1e666f741c800aa5eda693b1d28cc8caa3ac4ec7e73b6ffff40bb42a13a886d1"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.1.5/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/697963966"
+url = "https://github.com/jdx/usage/releases/download/v7.2.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/706597605"
 
 [tools."aqua:jdx/usage"."platforms.macos-x64"]
-checksum = "sha256:90ac6ec790cebe79c2e234171b9e16b6071e02dc0506f2953315fc5c0222b2d9"
+checksum = "sha256:1e666f741c800aa5eda693b1d28cc8caa3ac4ec7e73b6ffff40bb42a13a886d1"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.1.5/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/697963966"
+url = "https://github.com/jdx/usage/releases/download/v7.2.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/706597605"
 
 [tools."aqua:jdx/usage"."platforms.macos-x64-baseline"]
-checksum = "sha256:90ac6ec790cebe79c2e234171b9e16b6071e02dc0506f2953315fc5c0222b2d9"
+checksum = "sha256:1e666f741c800aa5eda693b1d28cc8caa3ac4ec7e73b6ffff40bb42a13a886d1"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.1.5/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/697963966"
+url = "https://github.com/jdx/usage/releases/download/v7.2.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/706597605"
 
 [[tools."aqua:jesseduffield/lazygit"]]
 version = "0.66.2"
@@ -1600,19 +1605,22 @@ checksum = "sha256:525c9b29bb0263d687de60a4cec0e2a6db876a8eb032369e5795eca71e7c3
 url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-darwin-x64.tar.gz"
 
 [[tools."npm:@biomejs/biome"]]
-version = "2.6.4"
+version = "2.6.5"
 backend = "npm:@biomejs/biome"
 
 [[tools."npm:@bitwarden/cli"]]
 version = "2026.10.1"
 backend = "npm:@bitwarden/cli"
 
+[tools."npm:@bitwarden/cli".options]
+trust_policy_excludes = '["@bitwarden/cli@2026.10.1"]'
+
 [[tools."npm:@earendil-works/pi-coding-agent"]]
 version = "1.5.0"
 backend = "npm:@earendil-works/pi-coding-agent"
 
 [[tools."npm:agent-browser"]]
-version = "0.41.1"
+version = "0.41.2"
 backend = "npm:agent-browser"
 
 [tools."npm:agent-browser".options]
@@ -1630,7 +1638,7 @@ backend = "npm:bash-language-server"
 trust_policy_excludes = '["fastq@1.20.2"]'
 
 [[tools."npm:eslint_d"]]
-version = "15.0.3"
+version = "15.1.0"
 backend = "npm:eslint_d"
 
 [[tools."npm:graphql-language-service-cli"]]
@@ -1641,7 +1649,7 @@ backend = "npm:graphql-language-service-cli"
 trust_policy_excludes = '["fastq@1.20.2"]'
 
 [[tools."npm:oxlint"]]
-version = "1.90.0"
+version = "1.91.0"
 backend = "npm:oxlint"
 
 [[tools."npm:prettier"]]
