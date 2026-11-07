@@ -149,11 +149,6 @@ check-further-callbacks = true
 run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
-if.app-id = 'app.zen-browser.zen'
-check-further-callbacks = true
-run = ['move-node-to-workspace 2']
-
-[[on-window-detected]]
 if.app-id = 'com.google.Chrome.app.kjbdgfilnfhdoflbpgamdcdgpehopbep' # Google Calendar
 check-further-callbacks = true
 run = ['move-node-to-workspace 2']
@@ -173,6 +168,16 @@ run = ['move-node-to-workspace 3']
 if.app-id = 'md.obsidian'
 check-further-callbacks = true
 run = ['move-node-to-workspace 3']
+
+[[on-window-detected]]
+if.app-id = 'tech.dongdongbh.mindwtr'
+check-further-callbacks = true
+run = ['move-node-to-workspace 3']
+
+[[on-window-detected]]
+if.app-id = 'app.zen-browser.zen'
+check-further-callbacks = true
+run = ['move-node-to-workspace 4']
 
 [[on-window-detected]]
 if.app-id = 'com.apple.Music'
