@@ -127,49 +127,55 @@ esc = 'mode main'
 3 = 'main'
 4 = 'secondary'
 
-# Automatically move applications to preferred workspace
+# Assign each newly detected window, whether it opens before or after AeroSpace
+# starts. Startup-only rules miss apps restored later during macOS login.
+# Exact bundle IDs keep Chrome separate from its installed web apps.
+# Continue matching so browser extension popups can also float below.
 # Main workspaces
 [[on-window-detected]]
-if.app-name-regex-substring = 'google chrome'
-if.during-aerospace-startup = true
+if.app-id = 'com.google.Chrome'
 check-further-callbacks = true
 run = ['move-node-to-workspace 1']
 
 [[on-window-detected]]
-if.app-name-regex-substring = 'ghostty'
-if.during-aerospace-startup = true
+if.app-id = 'com.mitchellh.ghostty'
 check-further-callbacks = true
 run = ['move-node-to-workspace 1']
 
 # "Organization" apps
 [[on-window-detected]]
-if.app-name-regex-substring = '(?i)(firefox|google chrome|zen)'
-if.during-aerospace-startup = true
+if.app-id = 'org.mozilla.firefox'
 check-further-callbacks = true
 run = ['move-node-to-workspace 2']
 
 [[on-window-detected]]
-if.app-name-regex-substring = 'slack'
-if.during-aerospace-startup = true
+if.app-id = 'app.zen-browser.zen'
+check-further-callbacks = true
+run = ['move-node-to-workspace 2']
+
+[[on-window-detected]]
+if.app-id = 'com.google.Chrome.app.kjbdgfilnfhdoflbpgamdcdgpehopbep' # Google Calendar
+check-further-callbacks = true
+run = ['move-node-to-workspace 2']
+
+[[on-window-detected]]
+if.app-id = 'com.tinyspeck.slackmacgap'
 check-further-callbacks = true
 run = ['move-node-to-workspace 2']
 
 # "Other" apps
 [[on-window-detected]]
-if.app-name-regex-substring = 'messages'
-if.during-aerospace-startup = true
+if.app-id = 'com.apple.MobileSMS'
 check-further-callbacks = true
 run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
-if.app-name-regex-substring = 'obsidian'
-if.during-aerospace-startup = true
+if.app-id = 'md.obsidian'
 check-further-callbacks = true
 run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
-if.app-name-regex-substring = 'music'
-if.during-aerospace-startup = true
+if.app-id = 'com.apple.Music'
 check-further-callbacks = true
 run = ['move-node-to-workspace 4']
 
