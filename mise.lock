@@ -1654,13 +1654,6 @@ trust_policy_excludes = '["@bitwarden/cli@2026.10.1"]'
 version = "1.5.0"
 backend = "npm:@earendil-works/pi-coding-agent"
 
-[[tools."npm:agent-browser"]]
-version = "0.41.2"
-backend = "npm:agent-browser"
-
-[tools."npm:agent-browser".options]
-allow_builds = '["agent-browser"]'
-
 [[tools."npm:awk-language-server"]]
 version = "0.10.6"
 backend = "npm:awk-language-server"
@@ -1671,6 +1664,10 @@ backend = "npm:bash-language-server"
 
 [tools."npm:bash-language-server".options]
 trust_policy_excludes = '["fastq@1.20.2"]'
+
+[[tools."npm:betterwright"]]
+version = "2.9.1"
+backend = "npm:betterwright"
 
 [[tools."npm:eslint_d"]]
 version = "15.1.0"

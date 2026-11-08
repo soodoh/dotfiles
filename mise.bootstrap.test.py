@@ -432,6 +432,14 @@ class MiseConfigurationTests(unittest.TestCase):
                         "Test extensions against the same Pi SDK as the mise host",
                     )
 
+    def test_browser_cli_and_pi_adapter_use_the_same_release(self) -> None:
+        manifest = json.loads((ROOT / "pi-extensions/package.json").read_text())
+        self.assertEqual(
+            tool_version(self.base["tools"]["npm:betterwright"]),
+            manifest["dependencies"]["betterwright"],
+            "Keep browser provisioning compatible with the Pi runtime",
+        )
+
     def test_azure_devops_mcp_allows_only_required_package_builds(self) -> None:
         tool = self.work["tools"]["npm:@azure-devops/mcp"]
         self.assertEqual(tool["allow_builds"], ["keytar"])

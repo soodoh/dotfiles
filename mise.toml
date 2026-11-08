@@ -85,7 +85,7 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 # and every build file matched Bitwarden's official cli-v2026.10.1 artifact.
 "npm:@bitwarden/cli" = { version = "2026.10.1", trust_policy_excludes = ["@bitwarden/cli@2026.10.1"] }
 "npm:@earendil-works/pi-coding-agent" = "1.5.0"
-"npm:agent-browser" = { version = "0.41.2", allow_builds = ["agent-browser"] }
+"npm:betterwright" = "2.9.1"
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.8.1", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:@biomejs/biome" = "2.6.6"
@@ -315,7 +315,7 @@ description = "Install repository dependencies and configure managed integration
 run = [
   { task = "bootstrap:pi" },
   { task = "bootstrap:herdr-plugins" },
-  { task = "configure:agent-browser" },
+  { task = "configure:betterwright" },
   { task = "configure:docker-compose-plugin" },
 ]
 
@@ -342,9 +342,13 @@ mkdir -p "$plugin_dir"
 ln -sfn "$(mise which docker-cli-plugin-docker-compose)" "$plugin_dir/docker-compose"
 '''
 
-[tasks."configure:agent-browser"]
-description = "Install Chrome for the mise-managed agent-browser CLI"
-run = "agent-browser install"
+[tasks."configure:betterwright"]
+description = "Install BetterChromium and keep browser credentials in Bitwarden only"
+run = [
+  "betterwright setup",
+  "betterwright vault settings agent-use off",
+  "betterwright vault settings offer-save off",
+]
 
 [tasks.status]
 description = "Report missing or differing declarative profile state"
@@ -454,6 +458,7 @@ run = [
   *) printf 'error: choose an active profile with --env\n' >&2; exit 64 ;;
 esac''',
   { task = "update:tools" },
+  { task = "configure:betterwright" },
   { task = "configure:docker-compose-plugin" },
   { task = "update:agents" },
   { task = "update:skills" },

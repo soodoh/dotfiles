@@ -18,7 +18,7 @@
   "quietStartup": true,
   "enableSkillCommands": true,
   "skills": [
-    "~/.agents/skills/agent-browser/SKILL.md"
+    "~/.agents/skills/betterwright/SKILL.md"
   ],
   "extensions": [
     "extensions/*.ts",
@@ -39,7 +39,8 @@
         "node_modules/@plannotator/pi-extension",
         "node_modules/pi-web-access/index.ts",
         "node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
-        "node_modules/pi-subagents/index.js"
+        "node_modules/pi-subagents/index.js",
+        "packages/betterwright/index.ts"
       ]
     }
   ],

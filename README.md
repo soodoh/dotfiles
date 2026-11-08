@@ -147,6 +147,46 @@ no `MISE_GLOBAL_CONFIG_FILE` override or new GitHub token is needed. A fresh mac
 without `gh` may need to wait for the unauthenticated rate limit to reset before
 bootstrap can install it.
 
+### Browser automation (BetterWright)
+
+Mise owns the BetterWright CLI and Bun. The locked local Pi package supplies a
+small native adapter to both profiles; no `pi install`, MCP server, or
+`betterwright init` is needed. After pulling this replacement, run:
+
+```bash
+mise install npm:betterwright
+mise run bootstrap:pi
+mise run configure:betterwright
+betterwright doctor
+```
+
+Doctor’s optional agent-host/MCP/model-backend warnings do not apply to this
+checkout-managed native Pi integration. Restart Pi or use `/reload` to expose
+`browser`, `browser_download`, and `browser_visibility`. The configure task
+installs the package-pinned BetterChromium and disables CLI vault use and
+password capture; Pi disables the vault entirely. Both bootstrap and grouped
+updates reconcile this setup.
+BetterChromium supports macOS arm64 and Linux x64; other architectures need an
+explicit browser provider (see BetterWright’s provider documentation).
+
+**Bitwarden is the only credential store.** Browser cookies/logins still persist
+in `~/.betterwright/`, so protect that directory as authenticated state. In Pi,
+use `/browser-visibility visible` before navigating to a login. Install Bitwarden
+in this dedicated browser, sign in, and unlock it yourself; existing desktop/CLI
+logins and extensions from other browser profiles are not imported. Agents pause
+while you enter credentials. Visibility changes restart the browser and lose
+open tabs, but preserve cookies and logins. The adapter binds live view to
+loopback only. CLI live view has its own defaults; bind it explicitly to
+`127.0.0.1` when using it.
+
+Existing agent-browser sessions and `~/.agent-browser/` are deliberately left
+alone to avoid interrupting other work or deleting authenticated state. Once
+those sessions are no longer needed, uninstall the retired CLI explicitly:
+
+```bash
+mise uninstall npm:agent-browser
+```
+
 ### Other Manual Steps
 
 - Authenticate with Bitwarden desktop app & enable SSH agent. Then delete the temporary SSH keys we used to clone this repo initially: `rm ~/.ssh/id_ed25519*`

@@ -1,4 +1,6 @@
+# Legacy browser artifacts may still contain authenticated state.
 .agent-browser/
+.betterwright/
 .serena/
 /.pi/
 .pi-subagents/

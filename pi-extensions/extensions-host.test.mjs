@@ -376,7 +376,7 @@ await test("local package declares host-provided dependencies as peers", () => {
 	}
 });
 
-await test("actual host: profile package filters expose Plannotator review", async (t) => {
+await test("actual host: profile filters expose review and Bitwarden-only browsing", async (t) => {
 	for (const profile of ["personal", "work"]) {
 		await t.test(profile, () => {
 			const settings = JSON.parse(
@@ -407,6 +407,22 @@ await test("actual host: profile package filters expose Plannotator review", asy
 				commands.filter((command) => command === "plannotator-review").length,
 				1,
 				`${profile}: requires exactly one /plannotator-review command`,
+			);
+			const tools = report.extensions.flatMap((extension) => extension.tools);
+			for (const name of [
+				"browser",
+				"browser_download",
+				"browser_visibility",
+			]) {
+				assert.equal(
+					tools.filter((tool) => tool === name).length,
+					1,
+					`${profile}: requires exactly one registration of ${name}`,
+				);
+			}
+			assert.ok(
+				!tools.includes("browser_login"),
+				`${profile}: Bitwarden owns logins`,
 			);
 		});
 	}
