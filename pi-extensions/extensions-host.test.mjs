@@ -181,7 +181,7 @@ await test("actual host: both profiles discover the bundled BetterWright skills"
 			const { skills, diagnostics } = loader.getSkills();
 			assert.deepEqual(diagnostics, [], `${profile}: skill load diagnostics`);
 			const prompt = formatSkillsForPrompt(skills);
-			for (const name of ["browser", "bitwarden", "full-stack-e2e-review"]) {
+			for (const name of ["browser", "full-stack-e2e-review"]) {
 				assert.equal(
 					skills.filter((skill) => skill.name === name).length,
 					1,
@@ -469,16 +469,19 @@ await test("actual host: profile filters expose review and Bitwarden-only browsi
 			const commands = report.extensions.flatMap(
 				(extension) => extension.commands,
 			);
-			assert.equal(
-				commands.filter((command) => command === "plannotator-review").length,
-				1,
-				`${profile}: requires exactly one /plannotator-review command`,
-			);
+			for (const name of ["plannotator-review", "bw"]) {
+				assert.equal(
+					commands.filter((command) => command === name).length,
+					1,
+					`${profile}: requires exactly one /${name} command`,
+				);
+			}
 			const tools = report.extensions.flatMap((extension) => extension.tools);
 			for (const name of [
 				"browser",
 				"browser_download",
 				"browser_visibility",
+				"browser_login",
 			]) {
 				assert.equal(
 					tools.filter((tool) => tool === name).length,
@@ -486,10 +489,6 @@ await test("actual host: profile filters expose review and Bitwarden-only browsi
 					`${profile}: requires exactly one registration of ${name}`,
 				);
 			}
-			assert.ok(
-				!tools.includes("browser_login"),
-				`${profile}: Bitwarden owns logins`,
-			);
 		});
 	}
 });

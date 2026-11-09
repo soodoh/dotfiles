@@ -25,7 +25,6 @@
 		"skills": [
 			"node_modules/pi-subagents/skills",
 			"node_modules/betterwright/SKILL.md",
-			"node_modules/betterwright/skills/bitwarden/SKILL.md",
 			"node_modules/betterwright/skills/full-stack-e2e-review/SKILL.md"
 		],
 		"prompts": [
