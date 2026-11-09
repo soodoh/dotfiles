@@ -22,8 +22,9 @@ twg help discover-skills "JQL sprint prioritization" --skill twg-jira
 Discovery searches reference titles and curated frontmatter descriptions, not
 arbitrary body prose. Each result contains the owning skill and exact reference.
 Skill names and descriptions are a fallback for top-level routes that do not
-yet own references. The response contains one primary skill and at most two
-close alternatives.
+yet own references. By default, the response contains one primary skill and at
+most two close alternatives (three results total). An explicit positive
+`--limit` may return additional qualifying alternatives.
 
 Follow `next.loadSkill` and `next.loadReference` when present. Loading a skill
 returns its full `SKILL.md` and reference index without loading every reference
@@ -147,6 +148,11 @@ twg -o text help describe "jira workitem query"
 | Project/goal/focus area key or search result | `twg help projects`, `twg help goals`, `twg help focus-areas`, then describe the exact `get` or `query` command                                                                                     |
 | Relationships or dependencies                | `twg help context`, then `twg help describe "context"`                                                                                                                                              |
 | Assets / CMDB                                | `twg help assets`, then inspect object schema/type help before AQL                                                                                                                                  |
+
+For manager-chain/direct-report/peer selectors, partial person results, or
+person-to-artifact handoffs, load `USER-IDENTIFIERS.md`. It includes command and
+output recipes, selector boundaries, and the distinction between positional
+`context user` and first-party-only `collaborators`.
 
 For org, team, leadership, and dependency synthesis, do not fall back to
 implementation-only exploration just because the prompt says "graph",

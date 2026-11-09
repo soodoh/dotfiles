@@ -1,15 +1,14 @@
 ---
 name: twg-status-rollups
 description: >
-  Use with root `twg` for status rollups, personal work summaries, and
-  decision-readiness or go/no-go briefs. Routes to `pr-tree`, `org-tree`,
-  `work-tree`, or `workitem-tree`.
+  Use with root `twg` for status rollups, personal, manager, or direct-report work
+  summaries, and decision-readiness or go/no-go briefs. Person activity uses
+  `work query`; org rollups use tree commands.
 ---
 
 # twg-status-rollups
 
-Use with the root `twg` skill. Get exact command grammar from live `twg help`,
-`twg help <terms>`, or `twg help describe <path>`.
+Use with root `twg`; get exact grammar from `twg help describe <path>`.
 
 ## CLI launcher fallback
 
@@ -20,127 +19,120 @@ PATH failures.
 
 ## Use When
 
-- "What did I/person/team/org work on?" or weekly personal update
-- Short-window personal update, standup, handoff, or restart after time away
-- "Status of project/goal/topic/focus area"
-- "Is this project ready to launch?" or go/no-go decision brief
-- Leadership, monthly, annual, cycle, appraisal, or goal-alignment readout
-- Org bottlenecks, priorities, stale goals, or project risks
+- Personal/team/org work summaries, standups, handoffs, or appraisals.
+- Project/goal/topic status, leadership readouts, bottlenecks, or launch readiness.
 
 ## First Move
 
-Resolve scope before retrieval:
+Resolve the person/roster or project/topic anchor. Preserve the requested window;
+otherwise state a bounded default. Personal summaries: one year maximum.
 
-- Person/team/org: resolve identity, roster, or org-tree groups.
-- Project, goal, focus area, or topic: resolve native key, ARI, URL, name, or
-  central project/page/workitem anchors.
-
-Establish the time window. If absent, ask when precision matters; otherwise use
-a recent bounded window and state it. Keep personal summaries to 1 year or less.
+Resolve "my manager's work" with `user manager --identifier <requester-aaid>`,
+then `references/personal-work-summary.md`. Empty `org-tree` ancestors do not
+exclude a 3P manager.
 
 ## Tree Routing Matrix
 
-- `pr-tree`: merged/open PRs, reviews, shipped work, or repo momentum by manager
-  or team. Default for PR-constrained evidence.
-- `org-tree`: manager chain, roster, and reporting structure; use for grouping,
-  not delivery evidence.
-- `workitem-tree`: Jira issue load and active/done movement by org tree.
-- `work-tree`: multi-surface org counts across Jira, PRs, goals, projects, docs,
-  or videos. Not for PR-only or Jira-only asks.
+Load `../twg/references/USER-IDENTIFIERS.md` for supported selectors.
+Mixed-identity reporting: `user manager-chain`, `user direct-reports --identifier`,
+and `user peers`, when advertised and enabled. Query each person's artifacts
+separately; tree rollups remain first-party scoped.
+
+- `pr-tree`: PR-only org activity.
+- `org-tree`: 1P hierarchy/roster, not delivery evidence.
+- `workitem-tree`: Jira-only org activity.
+- `work-tree`: multi-surface org activity.
 
 ## Fast Path: PR-Based Leadership Rollup
 
-For PR-based leadership prompts:
-
-1. Preserve the requested scope and window; for "last 2 weeks," use
-   `--since 14d`.
+1. Preserve scope/window. Split merged/open queries: `--state merged` with `--since`
+   filters merge time; `--state open` with `--since` filters update time, not creation.
 2. Use `pr-tree` first. It groups by reporting-tree `directReports`; add
    `org-tree` only for hierarchy context.
 3. If option shape is uncertain, inspect `twg help describe "pr-tree"` before
    the data call; do not probe incompatible flag combinations.
-4. Start count-first, then make at most one supported sampling/full-fetch pass
-   for repo or theme evidence. Synthesize at manager/team level from that tree.
-   Do not issue per-person queries merely to populate every group; use one
-   targeted PR follow-up only when a material theme lacks representative proof.
+4. Start count-first, then at most one supported sampling/full-fetch pass for
+   repo or theme evidence, and synthesize at manager/team level.
+   Do not issue per-person queries to populate groups; add one targeted PR
+   follow-up only when a material theme lacks proof.
 5. Add one secondary surface only for a named gap.
 
-Target 2-4 calls.
+Target 2-4 calls. Missing nested evidence in compact output: read saved full
+`stdout.json`; do not re-root/refetch branches already present there.
+
+Before answering, run a local JSON calculation on the saved full responses:
+
+- Traverse all `directReports` recursively; join states by `accountId`. Name
+  zero-activity people only when both returned direct totals are zero; missing
+  people are unknown. `--active-only` prunes subtrees but retains connecting
+  managers: `summary.people` counts retained nodes, `activePeople` matching authors,
+  neither the full roster. Use the identifier reference's roster check.
+- Copy totals from `data.summary`, repo aggregates from `summary.topRepos`.
+  For branch totals, group each person once; never add overlapping subtrees.
+  `--samples` caps examples, not totals; label example-derived counts as samples.
+  Missing top-repo entries are not zeros. Inferred themes need not partition totals.
+- Extract a returned full PR URL per supported group; copy it without ellipses,
+  even for UUID repos. Keep unsupported groups qualified. Use computed values
+  consistently in headings and prose; disclose discrepancies rather than guessing.
+  Volume establishes neither leadership nor momentum.
 
 ## Evidence Policy
 
-- Match evidence to prompt constraints; merged-PR-only conclusions require PR
-  evidence.
-- Start count-first on tree surfaces; hydrate examples only for themes, risks,
-  or owner attribution.
-- Rank broad lists before minimal hydration.
+- Match evidence to the requested scope; open PRs are not shipped work.
+- Filter server-side by status/date/owner/tag when supported; rank broad lists,
+  reuse fields, hydrate missing evidence.
+- Batch ranked reads with `goals get`, `projects get`, `focus-areas get`,
+  `jira workitem get`, or `pull-requests get`.
+- Read Confluence page bodies with `confluence content get`, not `docs get`.
 - Distinguish authored delivery from review, coordination, and influence.
 - Stop when evidence is sufficient. After two identical backend failures, stop
   that path and report the gap.
 
 ## Recipe Cards
 
-### Person Or Personal Update
-
-Resolve the person, then pull recent Jira work, PRs, docs/pages, meetings, and
-project/goal involvement. Load `references/personal-work-summary.md` for exact
-subject, notification, PR hydration, and outcome-first rules.
-Separate delivery, review, docs/strategy, coordination, and influence.
-
 ### Short-Window Personal Update / Standup
 
-Load `references/personal-work-summary.md`. Resolve the person, preserve the
-requested project and window, prioritize material work, and distinguish
-evidence gaps from confirmed blockers.
+Load `references/personal-work-summary.md` for personal updates, standups, and
+catch-ups. Preserve person, project, and window; separate delivery, review,
+coordination, and evidence gaps.
 
 ### Team Or Org Leadership Readout
 
-Resolve org-tree first. Group before per-person details. Use org-level signals,
-then hydrate only outliers that change momentum, blockers, review load, or
-ownership.
+Resolve the first-party org-tree; state directory coverage gaps without
+recursively walking the org.
+Org projects: `twg projects query --scope org
+--include-inferred` (`[Paid: Enriched]`). Group results; hydrate outliers
+affecting momentum, blockers, or ownership.
 
 ### Project Or Goal Status
 
-Fetch the native project/goal first. Include owner, state, update,
-links, dates, and recency. Hydrate only risk, progress, or dependency evidence.
+Fetch the native project/goal first, with owner, state, update, links, dates,
+and recency. Hydrate only risk, progress, or dependency evidence.
 
 ### Decision Readiness / Go-No-Go
 
-Load `references/decision-readiness.md`. Resolve the native project or decision
-anchor first and keep explicit links as the scope boundary. Identify the gates,
-then give the requested decision or recommendation with confidence, gaps, and
-change conditions. Do not infer owners.
+Load `references/decision-readiness.md`. Resolve the native project or decision anchor;
+bound scope by explicit links. Identify gates; give a recommendation with
+confidence, gaps, and change conditions. Do not infer owners.
 
 ### Topic Status
 
 Resolve/search once, select central project, goal, page, or workitem anchors,
-then hydrate those before using broad work/activity queries.
-
-## References
-
-- `references/personal-work-summary.md` - standups, catch-ups, and broader
-  personal status evidence
-- `references/decision-readiness.md` - cross-domain go/no-go and approval evidence
+then hydrate those before broad work/activity queries.
 
 ### Appraisal / Performance Evidence
 
 Resolve person and horizon. Separate delivery, review, collaboration,
 docs/strategy, project/goal impact, and stakeholder signals. Avoid count-only
-ranking; add caveats when evidence is weak.
+ranking; caveat weak evidence.
 
-## Output Shape
+## Answer
 
-- Executive summary first, with 3-6 high-signal observations.
-- Table with owner/team/workstream, positive signals, risk signals, current
-  focus, confidence, and evidence.
-- Risks and leadership attention ranked by impact and owner.
-- Confidence and gaps, including stale updates, missing product coverage, ACL
-  gaps, or sampled evidence boundaries.
+Answer plainly by team/workstream, citing progress, risks, supported owners and
+coverage limits. Use tables when they clarify comparisons, not by default for
+standups or single-project updates.
 
 ## Anti-Patterns
 
-- Do not make a status report a list of every artifact.
 - Do not infer goal/project health from issue counts alone.
-- Do not fan out across every org member if manager/team-level grouping answers
-  the prompt.
 - Do not use search snippets as final evidence for status or risk.
-- Start explicit merged/open PR rollups with `pr-tree`, not the other trees.

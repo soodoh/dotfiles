@@ -18,7 +18,6 @@
   "quietStartup": true,
   "enableSkillCommands": true,
   "skills": [
-    "~/.agents/skills/betterwright/SKILL.md",
     "~/.acm/plugins/1ds/skills/ds-ui/SKILL.md",
     "~/.acm/plugins/1ds/skills/ds-tokens/SKILL.md",
     "~/.acm/plugins/1ds/skills/1ds-heimdall-usage/SKILL.md"

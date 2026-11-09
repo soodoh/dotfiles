@@ -160,6 +160,13 @@ mise run configure:betterwright
 betterwright doctor
 ```
 
+Pi loads the upstream `browser`, `bitwarden`, and `full-stack-e2e-review` skills
+from the same locked Bun package, just like Pi-subagents. Their explicit file
+paths avoid copying BetterWright's repository or discovering all its nested
+skills. These skills are package-owned, not tracked by `npx skills`; no custom
+browser skill is maintained. In Pi, native tools take precedence over the
+upstream skill's CLI examples.
+
 Doctor’s optional agent-host/MCP/model-backend warnings do not apply to this
 checkout-managed native Pi integration. Restart Pi or use `/reload` to expose
 `browser`, `browser_download`, and `browser_visibility`. The configure task
@@ -297,6 +304,23 @@ Updates remain explicit and grouped:
 ```bash
 mise --env personal-macos run update
 mise --env work-macos run update
+```
+
+The weekly repository-updates job refreshes TWG's committed work skills after
+updating its CLI pin and locks. It installs only the pinned binary, runs
+`twg skills install --local --yes --no-prune` in a disposable directory with an
+isolated HOME and no credentials, and copies only the TWG skills into the work
+catalog. Machine-specific install metadata is discarded. The CLI bump and skills
+land in the same PR; bootstrap only deploys those committed files.
+
+`dotfiles/work/agents/twg-skills.json` records the exporting CLI version and a
+content digest. Validation detects version/content drift; unchanged snapshots
+are a no-op. Explicit work-profile grouped updates also reconcile this snapshot.
+To refresh it separately after changing the pin:
+
+```bash
+mise --env work-macos install --locked http:twg
+mise --env work-macos run update:twg-skills
 ```
 
 After changing tools in any mise configuration, refresh every committed lockfile on Linux, the canonical CI platform:

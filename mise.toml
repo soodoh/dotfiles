@@ -384,6 +384,8 @@ depends = [
 run = [
   "python3 mise.bootstrap.test.py",
   "python3 mise.lock.test.py",
+  "python3 dotfiles/work/agents/twg-skills.test.py",
+  "python3 dotfiles/work/agents/twg-skills.py check",
   "python3 .github/workflows/mise-cache-key.test.py",
   "python3 dotfiles/common/herdr/plugin.test.py",
   # Remove this narrow exception once actionlint supports GitHub-hosted Ubuntu 26 upstream.
@@ -458,6 +460,9 @@ run = [
   *) printf 'error: choose an active profile with --env\n' >&2; exit 64 ;;
 esac''',
   { task = "update:tools" },
+  '''if [ "$MISE_ENV" = work-macos ]; then
+  mise run update:twg-skills
+fi''',
   { task = "configure:betterwright" },
   { task = "configure:docker-compose-plugin" },
   { task = "update:agents" },

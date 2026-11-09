@@ -87,7 +87,7 @@ await test("host discovery handles npm symlinks and mise wrappers without fallba
 	assert.throws(() => resolvePiHost(), /actual launcher/);
 });
 
-await test("actual host: profile-declared catalog skills load once and reach the prompt", async (t) => {
+await test("actual host: profile catalogs load once and honor skill invocation metadata", async (t) => {
 	const root = fixture(t);
 	const { loadSkills, formatSkillsForPrompt } = await import(
 		pathToFileURL(join(host.root, "dist/core/skills.js")).href
@@ -100,20 +100,26 @@ await test("actual host: profile-declared catalog skills load once and reach the
 		const declaredPaths = (settings.skills ?? []).filter((path) =>
 			path.startsWith("~/.agents/"),
 		);
-		assert.ok(
-			declaredPaths.length > 0,
-			`${profile}: no catalog skills declared`,
-		);
 		const catalog = join(profileRoot, "agents/skills");
-		const paths = declaredPaths.map((path) =>
+		const lock = JSON.parse(
+			readFileSync(join(profileRoot, "agents/.skill-lock.json"), "utf8"),
+		);
+		const configuredPaths = declaredPaths.map((path) =>
 			join(profileRoot, "agents", path.slice("~/.agents/".length)),
 		);
+		const paths = [
+			...Object.keys(lock.skills).map((name) =>
+				join(catalog, name, "SKILL.md"),
+			),
+			...configuredPaths,
+		];
 		const result = loadSkills({
 			cwd: root,
 			agentDir: join(root, ".pi/agent"),
-			skillPaths: [catalog, ...paths],
+			skillPaths: [catalog, ...configuredPaths],
 			includeDefaults: true,
 		});
+		assert.deepEqual(result.diagnostics, [], `${profile}: catalog diagnostics`);
 		for (const path of paths) {
 			assert.deepEqual(
 				result.diagnostics.filter((diagnostic) => diagnostic.path === path),
@@ -123,13 +129,73 @@ await test("actual host: profile-declared catalog skills load once and reach the
 				(skill) => realpathSync(skill.filePath) === realpathSync(path),
 			);
 			assert.equal(skills.length, 1, `${profile}: skill missing or duplicated`);
-			assert.equal(skills[0].disableModelInvocation, false);
-			assert.ok(
+			assert.equal(
 				formatSkillsForPrompt(result.skills).includes(
 					`<name>${skills[0].name}</name>`,
 				),
+				!skills[0].disableModelInvocation,
 			);
 		}
+	}
+});
+
+await test("actual host: both profiles discover the bundled BetterWright skills", async (t) => {
+	const root = fixture(t);
+	const pi = await import(pathToFileURL(join(host.root, "dist/index.js")).href);
+	const { formatSkillsForPrompt } = await import(
+		pathToFileURL(join(host.root, "dist/core/skills.js")).href
+	);
+	const previousHome = process.env.HOME;
+	process.env.HOME = root;
+	try {
+		for (const profile of ["personal", "work"]) {
+			const settings = JSON.parse(
+				readFileSync(
+					join(
+						packageRoot,
+						"..",
+						"dotfiles",
+						profile,
+						"pi/agent/settings.json",
+					),
+					"utf8",
+				),
+			);
+			const entry = settings.packages.find(
+				(pkg) => pkg.source === "./pi-extensions",
+			);
+			const loader = new pi.DefaultResourceLoader({
+				cwd: root,
+				agentDir: join(root, profile, ".pi/agent"),
+				settingsManager: pi.SettingsManager.inMemory({
+					packages: [
+						{ ...entry, source: packageRoot, extensions: [], prompts: [] },
+					],
+				}),
+				noExtensions: true,
+				noPromptTemplates: true,
+				noThemes: true,
+				noContextFiles: true,
+			});
+			await loader.reload();
+			const { skills, diagnostics } = loader.getSkills();
+			assert.deepEqual(diagnostics, [], `${profile}: skill load diagnostics`);
+			const prompt = formatSkillsForPrompt(skills);
+			for (const name of ["browser", "bitwarden", "full-stack-e2e-review"]) {
+				assert.equal(
+					skills.filter((skill) => skill.name === name).length,
+					1,
+					`${profile}: ${name}`,
+				);
+				assert.ok(
+					prompt.includes(`<name>${name}</name>`),
+					`${profile}: missing ${name} description`,
+				);
+			}
+		}
+	} finally {
+		if (previousHome === undefined) delete process.env.HOME;
+		else process.env.HOME = previousHome;
 	}
 });
 

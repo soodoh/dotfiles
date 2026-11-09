@@ -17,9 +17,6 @@
   "collapseChangelog": true,
   "quietStartup": true,
   "enableSkillCommands": true,
-  "skills": [
-    "~/.agents/skills/betterwright/SKILL.md"
-  ],
   "extensions": [
     "extensions/*.ts",
     "-extensions/herdr-agent-state.ts",

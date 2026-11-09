@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "version": "1.3.5",
+  "skills": [
+    "twg",
+    "twg-agentic-search",
+    "twg-artifacts",
+    "twg-code-review",
+    "twg-confluence",
+    "twg-context-discovery",
+    "twg-engineering-work",
+    "twg-jira",
+    "twg-jira-resolve-merged-work",
+    "twg-operational-health",
+    "twg-responsibility-routing",
+    "twg-space-creation",
+    "twg-status-rollups"
+  ],
+  "sha256": "bb4bd8be681ac8db3dd2650ad81219781ef6524ccfc64d822ea92ed979b723ec"
+}

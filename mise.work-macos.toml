@@ -115,6 +115,10 @@ bash "$repo/dotfiles/work/bootstrap-repositories.sh"
 "~/.pi/agent/AGENTS.md" = "dotfiles/work/pi/agent/AGENTS.md"
 "~/.agents" = "dotfiles/work/agents"
 
+[tasks."update:twg-skills"]
+description = "Refresh committed TWG skills from the pinned CLI without workstation setup"
+run = "python3 dotfiles/work/agents/twg-skills.py refresh"
+
 # ACM owns its global plugin store and Claude registration outside this checkout.
 # Run from an isolated directory so its project hooks cannot modify dotfiles.
 [tasks."update:acm"]
