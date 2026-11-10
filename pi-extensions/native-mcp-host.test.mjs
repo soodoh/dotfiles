@@ -67,9 +67,7 @@ if (process.argv[2] !== "--worker") {
 		McpServerConnection,
 		McpOAuthCredentialStore,
 	} = await load("extensions/mcp/runtime.js");
-	const { createMcpToolDefinition, createMcpToolName } = await load(
-		"extensions/mcp/tools.js",
-	);
+	const { createMcpToolDefinition } = await load("extensions/mcp/tools.js");
 	const { executeCodemode } = await load("extensions/codemode/execute.js");
 
 	function config(profile) {
@@ -226,7 +224,8 @@ if (process.argv[2] !== "--worker") {
 				createMcpToolDefinition({
 					server: "azure-devops",
 					tool,
-					name: createMcpToolName("azure-devops", tool.name),
+					// Fixture tool names are identifier-safe; no host-private naming helper.
+					name: `mcp__azure_devops__${tool.name}`,
 					exposure: getMcpToolExposure(work["azure-devops"], tool.name),
 					getClient: async () => connection,
 				}),
