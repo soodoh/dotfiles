@@ -12,6 +12,34 @@ afterEach(() => {
 	vi.unstubAllEnvs();
 });
 
+test("the upstream prompt hook preserves host guidance and appends routing guardrails", async () => {
+	const hooks = [];
+	extension({
+		registerTool() {},
+		registerCommand() {},
+		on: (event, handler) => {
+			if (event === "before_agent_start") hooks.push(handler);
+		},
+	});
+	let systemPrompt = "Host guidance: use browser for multi-page research.";
+	for (const hook of hooks)
+		systemPrompt = (await hook({ systemPrompt }))?.systemPrompt ?? systemPrompt;
+	expect(systemPrompt).toMatch(/^Host guidance:/);
+	const guardrails = systemPrompt.split("## Guardrails for this session")[1];
+	expect(guardrails).toBeDefined();
+	for (const capability of [
+		"Tool routing takes precedence",
+		"web_search",
+		"fetch_content",
+		"Context7",
+		"tool_search",
+		"UI interaction",
+		"authentication/authorization",
+		"Bitwarden",
+	])
+		expect(guardrails).toContain(capability);
+});
+
 // Exercise the real upstream factory and client: defaults would create a
 // separate local vault and enable credential capture instead of using bw.
 test("browser use and visibility restarts retain Bitwarden-only credentials", async () => {

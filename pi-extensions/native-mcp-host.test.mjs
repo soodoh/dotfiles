@@ -136,6 +136,13 @@ if (process.argv[2] !== "--worker") {
 		assert.equal(getMcpToolExposure(work[server], forbidden), "hidden");
 	}
 
+	// Frequently used Kusto entrypoints must be visible without discovery;
+	// unrelated Azure capabilities stay gated by the existing allowlists.
+	for (const name of ["azure", "azure-test"]) {
+		assert.equal(getMcpToolExposure(work[name], "kusto"), "direct");
+		assert.equal(getMcpToolExposure(work[name], "monitor"), "codemode");
+	}
+
 	async function connect(name, original) {
 		const config = { ...original };
 		if (config.command === "/usr/bin/env") {

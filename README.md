@@ -160,12 +160,12 @@ mise run configure:betterwright
 betterwright doctor
 ```
 
-Pi loads the upstream `browser` and `full-stack-e2e-review` skills from the
-same locked Bun package, just like Pi-subagents. Their explicit file
-paths avoid copying BetterWright's repository or discovering all its nested
-skills. These skills are package-owned, not tracked by `npx skills`; no custom
-browser skill is maintained. In Pi, native tools take precedence over the
-upstream skill's CLI examples.
+Pi loads a local `browser` skill with narrow UI/visual/browser-only triggers
+and the upstream `full-stack-e2e-review` skill from the locked Bun package.
+Explicit file paths avoid discovering every nested dependency skill; neither
+skill is tracked by `npx skills`. The native adapter supplies shared tool-routing
+guardrails to both profiles, and the local skill links to upstream browser API
+documentation. See [routing and evaluation](pi-extensions/packages/betterwright/README.md#tool-routing).
 
 Doctor’s optional agent-host/MCP/model-backend warnings do not apply to this
 checkout-managed native Pi integration. Restart Pi or use `/reload` to expose

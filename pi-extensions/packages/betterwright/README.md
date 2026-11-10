@@ -1,9 +1,55 @@
-# BetterWright with Bitwarden CLI
+# BetterWright routing and Bitwarden CLI
 
 `index.ts` configures BetterWright's native Pi tools with the read-only
 `createBitwardenVault()` adapter. Mise owns `bw`; the Bun package owns
 BetterWright. No browser extension, dependency patch, second credential store,
 or local credential-capture workflow is required.
+
+## Tool routing
+
+`index.ts` owns the shared routing guardrails injected into both profiles.
+They take precedence over upstream instructions that broadly recommend browser
+use for live-web tasks. The local `skills/browser/SKILL.md` supplies narrow
+invocation metadata and references the locked upstream API documentation; the
+upstream end-to-end review skill remains registered separately. No dependency
+files are modified. Work-specific services and environment boundaries remain
+in `dotfiles/work/pi/agent/AGENTS.md`.
+
+Routing is prompt guidance, not a security boundary or a guarantee. Browser
+tools remain available for legitimate UI workflows; there are no keyword gates
+or additional user confirmations.
+
+### Routing evaluation
+
+The opt-in evaluation uses real model inference with the effective adapter
+prompt, the local skill, and work instructions where applicable. It intercepts
+operational calls before execution: no browser, vault, or cloud operation runs.
+Only the local browser skill can be read. Model-provider inference and provider
+initialization still use the normal configured connection and may incur cost.
+
+From the repository root, using a configured model:
+
+```sh
+mise exec -- node --use-env-proxy pi-extensions/packages/betterwright/routing.eval.mjs \
+  "$(mise which pi)" cliproxyapi/gpt-6.1-sol
+```
+
+Omit `--use-env-proxy` on a direct connection. The evaluation defaults to high
+thinking; `PI_REASONING_LEVEL` can override it. It prints JSON lines with the
+selected route, duration, token usage, and any final answer, then exits nonzero
+for an incorrect route or inference failure. Sessions are disposable and
+in-memory; provider configuration/caches retain their normal behavior.
+
+`routing.evals.json` covers research, public URLs, Test/Prod Kusto, service-tool
+discovery, visual UI work, browser-only content, unsupported service UI, an
+authentication failure, and an empty query. Cases accept tool families rather
+than exact call sequences. Service/search schemas are representative fixtures;
+this checks the first operational choice, not end-to-end completion, live MCP
+discovery ranking, or query correctness. Failure scenarios are supplied in the
+prompt, not produced by a live service. `targetMentioned` is informational: an
+initial command-discovery call may legitimately omit the cluster URI. Review
+answers and arguments alongside the pass count, and repeat across usual models
+before treating a change as a reliability improvement.
 
 ## Session setup
 

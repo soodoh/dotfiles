@@ -1,0 +1,65 @@
+[
+	{
+		"id": "public-research",
+		"profile": "personal",
+		"prompt": "Find recent official guidance comparing browser automation with API tools for AI agents. Give me links and a short summary.",
+		"accept": ["web_search"]
+	},
+	{
+		"id": "public-url",
+		"profile": "personal",
+		"prompt": "Summarize the current function-calling guidance at https://platform.openai.com/docs/guides/function-calling. I only need the article's text, not screenshots.",
+		"accept": ["fetch_content"]
+	},
+	{
+		"id": "integration-logs",
+		"profile": "work",
+		"prompt": "Check Integration Kusto logs for the last hour and summarize errors by service. Keep it read-only.",
+		"accept": ["mcp__azure_test__kusto"],
+		"target": "https://docusigntestfollower.westus.kusto.windows.net/"
+	},
+	{
+		"id": "production-logs",
+		"profile": "work",
+		"prompt": "Check Prod Kusto telemetry for the last hour and summarize errors by service. Keep it read-only.",
+		"accept": ["mcp__azure__kusto"],
+		"target": "https://docusign1.westus.kusto.windows.net/"
+	},
+	{
+		"id": "discover-analytics",
+		"profile": "work",
+		"prompt": "Look up last week's signup funnel in Mixpanel and summarize where users dropped off.",
+		"accept": ["tool_search"]
+	},
+	{
+		"id": "portal-visual-check",
+		"profile": "work",
+		"prompt": "Take a screenshot of the signed-in Azure portal overview and verify that the subscription selector is visible. This is a visual UI check, not a resource inventory query.",
+		"accept": ["browser_evidence", "browser"]
+	},
+	{
+		"id": "browser-only-content",
+		"profile": "personal",
+		"prompt": "The fetch tool could not retrieve my authenticated statement at https://example.com/account/statement because it needs the existing website session, and no account API tool is configured. Read that statement using the signed-in website. No download is needed.",
+		"accept": ["browser_evidence", "browser"]
+	},
+	{
+		"id": "unsupported-service-ui",
+		"profile": "work",
+		"prompt": "I need a visual walkthrough of the dark-theme setting under Appearance + startup views on https://portal.azure.com/. The configured Azure MCP tools do not expose that setting. Open the portal and show me where it is; leave the setting unchanged.",
+		"accept": ["browser_evidence", "browser"]
+	},
+	{
+		"id": "authentication-failure",
+		"profile": "work",
+		"prompt": "The configured Prod Kusto MCP call just returned an authentication failure. I still need the logs. What should we do next?",
+		"accept": []
+	},
+	{
+		"id": "empty-query",
+		"profile": "work",
+		"prompt": "The read-only Prod Kusto search for error text 'signup failed' returned no rows. Try a broader query in the same environment to check for related onboarding failures in the last hour.",
+		"accept": ["mcp__azure__kusto"],
+		"target": "https://docusign1.westus.kusto.windows.net/"
+	}
+]

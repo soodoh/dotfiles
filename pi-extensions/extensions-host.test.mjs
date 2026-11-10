@@ -1,6 +1,6 @@
 // Run with: mise exec -- node pi-extensions/extensions-host.test.mjs "$(mise which pi)"
-// Registration/import coverage, not session_start, tools, services, UI, or native
-// background execution. Keep subagents-host.test.mjs and manual native completion.
+// Registration/import and prompt-hook coverage, not session_start, tools,
+// services, UI, or native background execution. Keep subagents-host.test.mjs and manual native completion.
 // Node permissions guard accidental startup effects, not malicious dependencies.
 import assert from "node:assert/strict";
 import {
@@ -139,7 +139,7 @@ await test("actual host: profile catalogs load once and honor skill invocation m
 	}
 });
 
-await test("actual host: both profiles discover the bundled BetterWright skills", async (t) => {
+await test("actual host: both profiles discover the local browser skill and upstream review skill", async (t) => {
 	const root = fixture(t);
 	const pi = await import(pathToFileURL(join(host.root, "dist/index.js")).href);
 	const { formatSkillsForPrompt } = await import(
@@ -173,11 +173,43 @@ await test("actual host: both profiles discover the bundled BetterWright skills"
 					],
 				}),
 				noExtensions: true,
+				additionalExtensionPaths: [
+					join(packageRoot, "packages/betterwright/index.ts"),
+				],
 				noPromptTemplates: true,
 				noThemes: true,
 				noContextFiles: true,
 			});
 			await loader.reload();
+			const loaded = loader.getExtensions();
+			assert.deepEqual(loaded.errors, []);
+			const basePrompt =
+				profile === "work"
+					? readFileSync(
+							join(packageRoot, "../dotfiles/work/pi/agent/AGENTS.md"),
+							"utf8",
+						)
+					: "Personal host instructions";
+			let systemPrompt = basePrompt;
+			for (const extension of loaded.extensions)
+				for (const hook of extension.handlers.get("before_agent_start") ?? [])
+					systemPrompt =
+						(await hook({ systemPrompt }))?.systemPrompt ?? systemPrompt;
+			assert.ok(systemPrompt.startsWith(basePrompt));
+			const guardrails = systemPrompt.split(
+				"## Guardrails for this session",
+			)[1];
+			for (const capability of [
+				"web_search",
+				"fetch_content",
+				"tool_search",
+				"UI interaction",
+				"Bitwarden",
+			])
+				assert.ok(
+					guardrails?.includes(capability),
+					`${profile}: missing ${capability} guidance`,
+				);
 			const { skills, diagnostics } = loader.getSkills();
 			assert.deepEqual(diagnostics, [], `${profile}: skill load diagnostics`);
 			const prompt = formatSkillsForPrompt(skills);
@@ -192,6 +224,33 @@ await test("actual host: both profiles discover the bundled BetterWright skills"
 					`${profile}: missing ${name} description`,
 				);
 			}
+			const browser = skills.find((skill) => skill.name === "browser");
+			assert.equal(
+				realpathSync(browser.filePath),
+				join(packageRoot, "packages/betterwright/skills/browser/SKILL.md"),
+				`${profile}: browser routing must come from the local skill`,
+			);
+			assert.equal(
+				realpathSync(
+					skills.find((skill) => skill.name === "full-stack-e2e-review")
+						.filePath,
+				),
+				join(
+					packageRoot,
+					"node_modules/betterwright/skills/full-stack-e2e-review/SKILL.md",
+				),
+			);
+			const skillText = readFileSync(browser.filePath, "utf8");
+			const links = [...skillText.matchAll(/\]\(([^)]+)\)/g)];
+			assert.ok(
+				links.length > 0,
+				"Browser helper documentation must be reachable",
+			);
+			for (const [, link] of links)
+				assert.ok(
+					readFileSync(new URL(link, pathToFileURL(browser.filePath))).length >
+						0,
+				);
 		}
 	} finally {
 		if (previousHome === undefined) delete process.env.HOME;

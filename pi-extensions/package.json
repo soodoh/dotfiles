@@ -24,7 +24,7 @@
 		],
 		"skills": [
 			"node_modules/pi-subagents/skills",
-			"node_modules/betterwright/SKILL.md",
+			"./packages/betterwright/skills/browser/SKILL.md",
 			"node_modules/betterwright/skills/full-stack-e2e-review/SKILL.md"
 		],
 		"prompts": [

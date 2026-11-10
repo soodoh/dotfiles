@@ -87,7 +87,7 @@
       }
     },
     "azure": {
-      "description": "Read-only Stage, Demo, and Prod Azure resources, monitoring, and Kusto diagnostics using the production profile.",
+      "description": "Read-only Stage, Demo, and Prod Azure resources and monitoring; Kusto/KQL queries for logs, telemetry, and diagnostics using the production profile.",
       "command": "azmcp",
       "args": [
         "server",
@@ -101,7 +101,7 @@
       },
       "exposure": "hidden",
       "toolExposure": {
-        "kusto": "codemode",
+        "kusto": "direct",
         "subscription_list": "codemode",
         "group_list": "codemode",
         "group_resource_list": "codemode",
@@ -110,7 +110,7 @@
       }
     },
     "azure-test": {
-      "description": "Read-only Integration/Test Azure resources, monitoring, and Kusto diagnostics using the isolated development profile.",
+      "description": "Read-only Integration/Test Azure resources and monitoring; Kusto/KQL queries for logs, telemetry, and diagnostics using the isolated development profile.",
       "command": "/usr/bin/env",
       "args": [
         "-u",
@@ -127,7 +127,7 @@
       },
       "exposure": "hidden",
       "toolExposure": {
-        "kusto": "codemode",
+        "kusto": "direct",
         "subscription_list": "codemode",
         "group_list": "codemode",
         "group_resource_list": "codemode",
