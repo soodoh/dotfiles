@@ -84,7 +84,7 @@ rust = { version = "1.99.1", components = ["clippy", "rustfmt", "rust-src", "rus
 # This release lacks 2026.5.0's staged approval; Sigstore provenance was verified
 # and every build file matched Bitwarden's official cli-v2026.10.1 artifact.
 "npm:@bitwarden/cli" = { version = "2026.10.1", trust_policy_excludes = ["@bitwarden/cli@2026.10.1"] }
-"npm:@earendil-works/pi-coding-agent" = "1.5.1"
+"npm:@earendil-works/pi-coding-agent" = "1.5.2"
 "npm:betterwright" = "2.9.1"
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.8.1", trust_policy_excludes = ["fastq@1.20.2"] }
