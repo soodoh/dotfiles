@@ -29,14 +29,14 @@ function supportsOriginOnlyMatching(value: unknown): boolean {
 	for (const entry of value) {
 		const uri = object(entry);
 		if (!uri || typeof uri.uri !== "string" || !uri.uri.trim()) return false;
-		if (uri.match === 0 || uri.match === 1) {
-			// Explicit Base domain / Host. bw --url owns the actual matching,
-			// including public suffixes and equivalent domains.
+		if (uri.match == null || uri.match === 0 || uri.match === 1) {
+			// Default / Base domain / Host: trust bw --url for the supplied origin.
+			// Default inherits the CLI's strategy; do not assume Base domain or
+			// claim full-page URL matching when the SDK supplies only an origin.
 			hasSupportedUri = true;
 		} else if (uri.match !== 5) {
 			// The CLI returns items, not the URI that matched. Reject the whole
-			// item if any URI could have matched by an unsupported rule. Default
-			// is unresolved here and could inherit a path-sensitive strategy.
+			// item if any URI has an explicit URL-based or unknown rule.
 			return false;
 		}
 		// Never cannot authorize an item, but another supported URI can.
@@ -83,7 +83,7 @@ export function createBitwardenVault(run: CliRunner): CredentialVault {
 	async function matchingLogins(origin: string) {
 		let output: string;
 		try {
-			// bw --url is authoritative for domain/host matching. Never replace it
+			// bw --url is authoritative for Default/domain/host matching. Never replace it
 			// with an unscoped list or get-by-id. Decrypted stdout stays here;
 			// never include subprocess errors, stderr, or raw JSON in tool results.
 			output = await run(["list", "items", "--url", origin, "--nointeraction"]);
@@ -150,7 +150,7 @@ export function createBitwardenVault(run: CliRunner): CredentialVault {
 				);
 			if (!matches[0])
 				throw new Error(
-					"No matching Bitwarden login is available for this origin. This adapter supports only explicit Base domain/Host URI rules (plus Never); Default and URL-based rules are unsupported.",
+					"No matching Bitwarden login is available for this origin. This adapter supports Default, Base domain and Host URI rules (plus Never); explicit Exact, Regular expression and Starts with rules are unsupported.",
 				);
 			// Only this internal fill response carries a secret. BetterWright
 			// consumes it in the worker and redacts it from model-visible output.

@@ -18,7 +18,7 @@ function login(overrides = {}) {
 			username: "person@example.com",
 			password,
 			totp: "fixture-totp-secret",
-			uris: [{ uri: "https://example.com/login", match: 0 }],
+			uris: [{ uri: "https://example.com/login", match: null }],
 		},
 		...overrides,
 	};
@@ -76,6 +76,8 @@ test("metadata search ignores secrets and filters by account label or username",
 // These are results of the trusted CLI matcher, not tests of Bitwarden's
 // matching algorithm. The adapter must not impose its own domain/scheme rules.
 test.each([
+	["https://example.com/login", null],
+	["example.com", undefined],
 	["https://example.com/login", 0],
 	["example.com", 0],
 	["https://other.example.com/login", 0],
@@ -83,7 +85,7 @@ test.each([
 	["http://app.example.com/login", 1],
 	["https://APP.example.com:443/sign-in", 1],
 ])(
-	"retains a CLI-authorized domain/host match: %s (%s)",
+	"retains a CLI-authorized Default/domain/host match: %s (%s)",
 	async (uri, match) => {
 		const item = login();
 		item.login.uris = [{ uri, match }];
@@ -131,20 +133,22 @@ test("an explicit HTTP localhost URI supports a password-only development login"
 	});
 });
 
-test("a Never URI does not exclude a CLI-authorized domain URI on the same item", async () => {
-	const item = login();
-	item.login.uris = [
-		{ uri: origin, match: 5 },
-		{ uri: "https://other.example.com", match: 0 },
-		{ uri: `${origin}/login`, match: 0 },
-	];
-	const { vault } = backend([item]);
-	await expect(
-		vault.handleRequest("fill", { id }, origin),
-	).resolves.toMatchObject({ id });
-});
+test.each([null, undefined, 0, 1])(
+	"a Never URI does not exclude a CLI-authorized supported URI: %s",
+	async (match) => {
+		const item = login();
+		item.login.uris = [
+			{ uri: origin, match: 5 },
+			{ uri: `${origin}/login`, match },
+		];
+		const { vault } = backend([item]);
+		await expect(
+			vault.handleRequest("fill", { id }, origin),
+		).resolves.toMatchObject({ id });
+	},
+);
 
-test.each([null, undefined, 2, 3, 4, 5, 99, "0", false])(
+test.each([2, 3, 4, 5, 99, "0", false])(
 	"does not authorize an unsupported or Never-only URI rule: %s",
 	async (match) => {
 		const item = login();
@@ -159,15 +163,15 @@ test.each([null, undefined, 2, 3, 4, 5, 99, "0", false])(
 	},
 );
 
-test.each([null, undefined, 2, 3, 4, 99])(
-	"a domain URI cannot mask a match through an unsupported rule: %s",
+test.each([2, 3, 4, 99])(
+	"a Default URI cannot mask a match through an explicit unsupported rule: %s",
 	async (match) => {
 		const item = login();
 		// The CLI could have returned this item because of the second URI.
-		// It does not identify which URI matched, so the unrelated domain URI
+		// It does not identify which URI matched, so the unrelated Default URI
 		// cannot be used as evidence that a supported rule authorized the item.
 		item.login.uris = [
-			{ uri: "https://unrelated.test", match: 0 },
+			{ uri: "https://unrelated.test", match: null },
 			{ uri: origin, match },
 		];
 		const { vault } = backend([item]);

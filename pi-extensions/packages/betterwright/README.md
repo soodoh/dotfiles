@@ -104,7 +104,7 @@ never captured stdout/stderr, process error objects, or their causes.
   Manage vault items in Bitwarden instead.
 
 Every list and fill uses `bw list items --url <current-origin> --nointeraction`.
-Bitwarden's CLI is authoritative for domain/host matching; the adapter applies
+Bitwarden's CLI is authoritative for Default/domain/host matching; the adapter applies
 the supported-rule and access restrictions below. Every fill re-queries that
 scoped match set, even when an item ID was selected earlier. It never bypasses
 matching by fetching an ID directly or reading an unscoped vault. No item or
@@ -114,46 +114,54 @@ If it invalidates Pi's key, use
 `/bw lock` then `/bw unlock` again after syncing. Login and sync are not exposed
 to the model, and no extra background CLI server is started.
 
-### Bitwarden domain/host matching
+### Bitwarden URI matching
 
-For **explicit Base domain and Host** URI settings, the adapter trusts the
-Bitwarden CLI's URL-filtered results. It does not reimplement public-suffix or
-equivalent-domain logic, impose an exact-origin restriction on saved URIs, or
-add scheme/port restrictions beyond Bitwarden's chosen strategy. Base domain
-can therefore offer a saved base-domain login on a subdomain. Host remains
-subject to Bitwarden's own host/port matching. The returned credential's
-`origin` and `matchMode: "exact-origin"` bind delivery to the _current request's_
-origin; they do not describe or overwrite the saved Bitwarden matching setting.
+For **Default, Base domain and Host** URI settings, the adapter trusts the
+Bitwarden CLI's URL-filtered results for the supplied origin. It does not
+reimplement public-suffix or equivalent-domain logic, impose an exact-origin
+restriction on saved URIs, or add scheme/port restrictions beyond Bitwarden's
+chosen strategy. Default (null or an omitted match setting) inherits the CLI's
+configured strategy; it is neither rejected nor forced to Base domain.
 
-This is deliberately **not full URI-matching parity**. BetterWright 2.9.1 gives
-the adapter only a canonical HTTP(S) origin, not the full current page URL:
+The returned credential's `origin` and `matchMode: "exact-origin"` bind delivery
+to the _current request's_ origin. They do not describe or overwrite the saved
+Bitwarden matching setting.
 
-| Saved URI setting                      | Adapter behavior                                                                                          |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Base domain (explicit)                 | Delegate to `bw --url`                                                                                    |
-| Host (explicit)                        | Delegate to `bw --url`                                                                                    |
-| Never                                  | Cannot authorize a match; another supported URI may                                                       |
-| Starts with, Exact, Regular expression | Exclude the item; full URL context is unavailable                                                         |
-| Default (unset/null)                   | Exclude the item; the CLI response does not disclose the resolved strategy, which could be path-sensitive |
-| Unknown or malformed                   | Exclude the item                                                                                          |
+- **Default, Base domain, Host:** delegate matching to `bw --url <origin>`.
+- **Never:** cannot authorize a match; another supported URI may.
+- **Explicit Starts with, Exact, Regular expression:** exclude the item because
+  the credential request does not include the full current URL.
+- **Unknown or malformed rules:** exclude the item.
 
-The CLI returns whole matching items, not the particular URI that matched. To
-avoid authorizing an item through an unrelated Base domain/Host URI when a
-path-sensitive URI actually matched, **every URI on the item must use an
-explicit supported setting or Never**. One Default, URL-based, unknown, or
-malformed URI excludes the whole item. Never-only items are excluded too.
+The CLI returns whole matching items, not the particular URI that matched.
+One explicit URL-based, unknown, or malformed URI therefore excludes the whole
+item, even alongside a supported URI; otherwise the supported URI could mask
+an unsupported match. Never-only items are excluded too.
 
-For a login saved as `https://ynab.com` to be offered on
-`https://app.ynab.com`, explicitly select **Base domain** on that saved URI in
-Bitwarden. Keep other URIs only with explicit Base domain, Host, or Never
-settings. Save and run `bw sync` in your normal terminal before retrying in Pi.
-No exact application-host URI is required. The adapter never rewrites vault
-items or changes their matching settings. A previously accepted Default URI
-must now be changed explicitly if it is to remain usable here.
+**Accepted limitation:** this is origin-based matching, not full-page URL
+matching. If Default inherits a URL-sensitive strategy, the CLI evaluates that
+strategy against the origin, not the current path, query or fragment. The
+adapter deliberately accepts the CLI's result rather than requiring users to
+change ordinary Default entries. Explicit URL-sensitive rules remain blocked.
 
-Full support for Default and URL-based rules requires trusted full-current-URL
-context at the credential matching and fill seam, not an origin comparison or
-a caller-supplied URL. No SDK/dependency patch is installed.
+A YNAB login can keep its base-domain URI and Default setting; no exact
+`https://app.ynab.com` URI or explicit Base domain override is required by the
+adapter. Bitwarden must still return the item as a match for the current
+origin. Save changes and run `bw sync` in your normal terminal when updating
+vault items; the adapter never rewrites them.
+
+#### Full URL availability
+
+Stock BetterWright 2.9.1 exposes `page.url()` in browser code, but its custom
+vault interface is `handleRequest(action, payload, origin)`. The credential
+worker reduces the target URL to an origin before sending the vault request;
+it does not provide a trusted full target URL to this adapter. A separate URL
+read or caller-supplied payload field is not bound to that credential target.
+
+If upstream adds trusted target-URL context at the credential matching/fill
+seam, the adapter can pass that URL to Bitwarden and support explicit
+URL-sensitive strategies. For now, use the existing origin interface and the
+lenient policy above. No SDK/dependency patch is installed.
 
 Trashed entries, non-login items, entries requiring master-password reprompt,
 and entries without a password are excluded. There is no bypass for reprompt.
@@ -195,7 +203,7 @@ bun run test packages/betterwright
 bun run ci:fast
 ```
 
-Tests use synthetic vault records and a fake `bw` executable. Domain/host tests
+Tests use synthetic vault records and a fake `bw` executable. Default/domain/host tests
 verify delegation of already-matched CLI results and scoped re-queries; they do
 not reproduce Bitwarden's matcher or prove a real-vault login. They exercise
 supported-rule restrictions, freshness, ambiguity, read-only behavior, metadata
