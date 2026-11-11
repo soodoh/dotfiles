@@ -103,26 +103,57 @@ never captured stdout/stderr, process error objects, or their causes.
 - All mutations, generation, rotation, and other backend actions are refused.
   Manage vault items in Bitwarden instead.
 
-Every fill re-reads the current CLI data and revalidates the item against the
-current canonical HTTP(S) origin. No item or authorization is cached between
-requests. When other clients change vault data, sync through the CLI manually;
-that terminal needs its own normal CLI unlock. If it invalidates Pi's key, use
+Every list and fill uses `bw list items --url <current-origin> --nointeraction`.
+Bitwarden's CLI is authoritative for domain/host matching; the adapter applies
+the supported-rule and access restrictions below. Every fill re-queries that
+scoped match set, even when an item ID was selected earlier. It never bypasses
+matching by fetching an ID directly or reading an unscoped vault. No item or
+authorization is cached between requests. When other clients change vault data,
+sync through the CLI manually; that terminal needs its own normal CLI unlock.
+If it invalidates Pi's key, use
 `/bw lock` then `/bw unlock` again after syncing. Login and sync are not exposed
 to the model, and no extra background CLI server is started.
 
-### Conservative URI matching
+### Bitwarden domain/host matching
 
-Bitwarden's CLI URL filter is not treated as authorization. The adapter
-independently requires the saved URI's scheme, hostname, and effective port to
-match the current origin. HTTPS credentials cannot be offered on HTTP;
-sibling subdomains and alternate ports do not share credentials implicitly.
+For **explicit Base domain and Host** URI settings, the adapter trusts the
+Bitwarden CLI's URL-filtered results. It does not reimplement public-suffix or
+equivalent-domain logic, impose an exact-origin restriction on saved URIs, or
+add scheme/port restrictions beyond Bitwarden's chosen strategy. Base domain
+can therefore offer a saved base-domain login on a subdomain. Host remains
+subject to Bitwarden's own host/port matching. The returned credential's
+`origin` and `matchMode: "exact-origin"` bind delivery to the _current request's_
+origin; they do not describe or overwrite the saved Bitwarden matching setting.
 
-Default/domain and host rules are deliberately narrowed to exact-origin.
-Never-match items are excluded. Starts-with, exact-URL, regex, and unknown match
-rules are also excluded: BetterWright supplies only the origin, which cannot
-safely enforce path-specific rules. An item can still match through another
-eligible URI. Configure an appropriate domain/host URI explicitly in Bitwarden
-when needed; the adapter never rewrites an item's matching rules.
+This is deliberately **not full URI-matching parity**. BetterWright 2.9.1 gives
+the adapter only a canonical HTTP(S) origin, not the full current page URL:
+
+| Saved URI setting                      | Adapter behavior                                                                                          |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Base domain (explicit)                 | Delegate to `bw --url`                                                                                    |
+| Host (explicit)                        | Delegate to `bw --url`                                                                                    |
+| Never                                  | Cannot authorize a match; another supported URI may                                                       |
+| Starts with, Exact, Regular expression | Exclude the item; full URL context is unavailable                                                         |
+| Default (unset/null)                   | Exclude the item; the CLI response does not disclose the resolved strategy, which could be path-sensitive |
+| Unknown or malformed                   | Exclude the item                                                                                          |
+
+The CLI returns whole matching items, not the particular URI that matched. To
+avoid authorizing an item through an unrelated Base domain/Host URI when a
+path-sensitive URI actually matched, **every URI on the item must use an
+explicit supported setting or Never**. One Default, URL-based, unknown, or
+malformed URI excludes the whole item. Never-only items are excluded too.
+
+For a login saved as `https://ynab.com` to be offered on
+`https://app.ynab.com`, explicitly select **Base domain** on that saved URI in
+Bitwarden. Keep other URIs only with explicit Base domain, Host, or Never
+settings. Save and run `bw sync` in your normal terminal before retrying in Pi.
+No exact application-host URI is required. The adapter never rewrites vault
+items or changes their matching settings. A previously accepted Default URI
+must now be changed explicitly if it is to remain usable here.
+
+Full support for Default and URL-based rules requires trusted full-current-URL
+context at the credential matching and fill seam, not an origin comparison or
+a caller-supplied URL. No SDK/dependency patch is installed.
 
 Trashed entries, non-login items, entries requiring master-password reprompt,
 and entries without a password are excluded. There is no bypass for reprompt.
@@ -164,8 +195,10 @@ bun run test packages/betterwright
 bun run ci:fast
 ```
 
-Tests use synthetic vault records and a fake `bw` executable. They exercise
-matching, freshness, ambiguity, read-only behavior, metadata filtering, error
-sanitization, child-only secret delivery, idle/shutdown cleanup, late-result
-races, masked Unicode/paste/cancellation handling, and the real upstream Pi
+Tests use synthetic vault records and a fake `bw` executable. Domain/host tests
+verify delegation of already-matched CLI results and scoped re-queries; they do
+not reproduce Bitwarden's matcher or prove a real-vault login. They exercise
+supported-rule restrictions, freshness, ambiguity, read-only behavior, metadata
+filtering, error sanitization, child-only secret delivery, idle/shutdown cleanup,
+late-result races, masked Unicode/paste/cancellation handling, and the real upstream Pi
 factory across visibility restarts. They never query a real unlocked vault.

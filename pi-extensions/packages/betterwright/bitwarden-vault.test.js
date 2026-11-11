@@ -18,7 +18,7 @@ function login(overrides = {}) {
 			username: "person@example.com",
 			password,
 			totp: "fixture-totp-secret",
-			uris: [{ uri: `${origin}/login`, match: null }],
+			uris: [{ uri: "https://example.com/login", match: 0 }],
 		},
 		...overrides,
 	};
@@ -73,36 +73,47 @@ test("metadata search ignores secrets and filters by account label or username",
 	).toEqual([]);
 });
 
+// These are results of the trusted CLI matcher, not tests of Bitwarden's
+// matching algorithm. The adapter must not impose its own domain/scheme rules.
 test.each([
-	"http://app.example.com/login",
-	"https://other.example.com/login",
-	"https://app.example.com:8443/login",
-	"https://app.example.com.evil.test/login",
-	"https://attacker@app.example.com/login",
-	"file:///tmp/login",
-	"not a URL",
+	["https://example.com/login", 0],
+	["example.com", 0],
+	["https://other.example.com/login", 0],
+	["https://equivalent.test/login", 0],
+	["http://app.example.com/login", 1],
+	["https://APP.example.com:443/sign-in", 1],
 ])(
-	"CLI URL filtering is independently narrowed before fill: %s",
-	async (uri) => {
+	"retains a CLI-authorized domain/host match: %s (%s)",
+	async (uri, match) => {
 		const item = login();
-		item.login.uris = [{ uri, match: null }];
-		const { vault } = backend([item]);
+		item.login.uris = [{ uri, match }];
+		const { vault, run } = backend([item]);
 		expect((await vault.handleRequest("list", {}, origin)).credentials).toEqual(
-			[],
+			[expect.objectContaining({ id, origin, matchMode: "exact-origin" })],
 		);
-		await expect(vault.handleRequest("fill", { id }, origin)).rejects.toThrow(
-			"No matching",
-		);
+		await expect(
+			vault.handleRequest("fill", { id }, origin),
+		).resolves.toMatchObject({
+			id,
+			origin,
+			secret: password,
+		});
+		expect(run.mock.calls).toEqual([
+			[["list", "items", "--url", origin, "--nointeraction"]],
+			[["list", "items", "--url", origin, "--nointeraction"]],
+		]);
 	},
 );
 
-test("URI matching normalizes hostnames and effective ports without using paths as domains", async () => {
-	const item = login();
-	item.login.uris = [{ uri: "https://APP.example.com:443/sign-in", match: 1 }];
-	const { vault } = backend([item]);
-	expect(
-		(await vault.handleRequest("list", {}, origin)).credentials,
-	).toHaveLength(1);
+test("an empty CLI match set cannot be bypassed by selecting an item id", async () => {
+	const { vault, run } = backend([]);
+	expect((await vault.handleRequest("list", {}, origin)).credentials).toEqual(
+		[],
+	);
+	await expect(vault.handleRequest("fill", { id }, origin)).rejects.toThrow(
+		"No matching",
+	);
+	expect(run.mock.calls.every(([args]) => args.includes("--url"))).toBe(true);
 });
 
 test("an explicit HTTP localhost URI supports a password-only development login", async () => {
@@ -120,7 +131,7 @@ test("an explicit HTTP localhost URI supports a password-only development login"
 	});
 });
 
-test("an item can match through a second eligible URI", async () => {
+test("a Never URI does not exclude a CLI-authorized domain URI on the same item", async () => {
 	const item = login();
 	item.login.uris = [
 		{ uri: origin, match: 5 },
@@ -133,8 +144,8 @@ test("an item can match through a second eligible URI", async () => {
 	).resolves.toMatchObject({ id });
 });
 
-test.each([2, 3, 4, 5, 99])(
-	"does not broaden URI match rule %s",
+test.each([null, undefined, 2, 3, 4, 5, 99, "0", false])(
+	"does not authorize an unsupported or Never-only URI rule: %s",
 	async (match) => {
 		const item = login();
 		item.login.uris = [{ uri: origin, match }];
@@ -142,8 +153,51 @@ test.each([2, 3, 4, 5, 99])(
 		expect((await vault.handleRequest("list", {}, origin)).credentials).toEqual(
 			[],
 		);
+		await expect(vault.handleRequest("fill", { id }, origin)).rejects.toThrow(
+			"No matching",
+		);
 	},
 );
+
+test.each([null, undefined, 2, 3, 4, 99])(
+	"a domain URI cannot mask a match through an unsupported rule: %s",
+	async (match) => {
+		const item = login();
+		// The CLI could have returned this item because of the second URI.
+		// It does not identify which URI matched, so the unrelated domain URI
+		// cannot be used as evidence that a supported rule authorized the item.
+		item.login.uris = [
+			{ uri: "https://unrelated.test", match: 0 },
+			{ uri: origin, match },
+		];
+		const { vault } = backend([item]);
+		expect((await vault.handleRequest("list", {}, origin)).credentials).toEqual(
+			[],
+		);
+		await expect(vault.handleRequest("fill", { id }, origin)).rejects.toThrow(
+			"No matching",
+		);
+	},
+);
+
+test.each([
+	null,
+	[],
+	{},
+	[null],
+	[{ uri: "", match: 0 }],
+	[{ uri: 42, match: 1 }],
+])("does not authorize malformed URI collections: %j", async (uris) => {
+	const item = login();
+	item.login.uris = uris;
+	const { vault } = backend([item]);
+	expect((await vault.handleRequest("list", {}, origin)).credentials).toEqual(
+		[],
+	);
+	await expect(vault.handleRequest("fill", { id }, origin)).rejects.toThrow(
+		"No matching",
+	);
+});
 
 test.each([
 	{ reprompt: 1 },
@@ -193,13 +247,11 @@ test("a unique login can be selected automatically or by username", async () => 
 	).resolves.toMatchObject({ id });
 });
 
-test("fill revalidates an item moved to another site after listing", async () => {
-	const moved = login();
-	moved.login.uris = [{ uri: "https://unrelated.test", match: null }];
+test("fill re-queries CLI authorization after listing instead of fetching a selected id", async () => {
 	const run = vi
 		.fn()
 		.mockResolvedValueOnce(JSON.stringify([login()]))
-		.mockResolvedValueOnce(JSON.stringify([moved]));
+		.mockResolvedValueOnce(JSON.stringify([]));
 	const vault = createBitwardenVault(run);
 	expect(
 		(await vault.handleRequest("list", {}, origin)).credentials,
@@ -207,8 +259,33 @@ test("fill revalidates an item moved to another site after listing", async () =>
 	await expect(vault.handleRequest("fill", { id }, origin)).rejects.toThrow(
 		"No matching",
 	);
-	expect(run).toHaveBeenCalledTimes(2);
+	expect(run.mock.calls).toEqual([
+		[["list", "items", "--url", origin, "--nointeraction"]],
+		[["list", "items", "--url", origin, "--nointeraction"]],
+	]);
 });
+
+test.each([
+	{ reprompt: 1 },
+	{ deletedDate: "2026-01-01T00:00:00Z" },
+	{ login: { password, uris: [{ uri: origin, match: 5 }] } },
+	{ login: { password, uris: [{ uri: origin, match: 3 }] } },
+])(
+	"fill also revalidates adapter restrictions after listing: %j",
+	async (change) => {
+		const run = vi
+			.fn()
+			.mockResolvedValueOnce(JSON.stringify([login()]))
+			.mockResolvedValueOnce(JSON.stringify([login(change)]));
+		const vault = createBitwardenVault(run);
+		expect(
+			(await vault.handleRequest("list", {}, origin)).credentials,
+		).toHaveLength(1);
+		await expect(vault.handleRequest("fill", { id }, origin)).rejects.toThrow(
+			"No matching",
+		);
+	},
+);
 
 test.each([
 	"save",

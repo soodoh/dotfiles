@@ -23,13 +23,25 @@ function httpUrl(value: unknown): URL | null {
 	}
 }
 
-function matchesOrigin(value: unknown, origin: string): boolean {
-	const uri = object(value);
-	// BetterWright supplies only the origin. Do not broaden Never, exact-URL,
-	// starts-with, or regex rules that may restrict a particular path.
-	if (!uri || (uri.match != null && uri.match !== 0 && uri.match !== 1))
-		return false;
-	return httpUrl(uri.uri)?.origin === origin;
+function supportsOriginOnlyMatching(value: unknown): boolean {
+	if (!Array.isArray(value) || !value.length) return false;
+	let hasSupportedUri = false;
+	for (const entry of value) {
+		const uri = object(entry);
+		if (!uri || typeof uri.uri !== "string" || !uri.uri.trim()) return false;
+		if (uri.match === 0 || uri.match === 1) {
+			// Explicit Base domain / Host. bw --url owns the actual matching,
+			// including public suffixes and equivalent domains.
+			hasSupportedUri = true;
+		} else if (uri.match !== 5) {
+			// The CLI returns items, not the URI that matched. Reject the whole
+			// item if any URI could have matched by an unsupported rule. Default
+			// is unresolved here and could inherit a path-sensitive strategy.
+			return false;
+		}
+		// Never cannot authorize an item, but another supported URI can.
+	}
+	return hasSupportedUri;
 }
 
 function matchingLogin(value: unknown, origin: string) {
@@ -44,13 +56,13 @@ function matchingLogin(value: unknown, origin: string) {
 		!login ||
 		typeof login.password !== "string" ||
 		!login.password ||
-		!Array.isArray(login.uris) ||
-		!login.uris.some((uri) => matchesOrigin(uri, origin))
+		!supportsOriginOnlyMatching(login.uris)
 	)
 		return null;
 	return {
 		id: item.id,
 		origin,
+		// Bind delivery to this request's origin, not the saved URI's host.
 		matchMode: "exact-origin",
 		category: "login",
 		username: typeof login.username === "string" ? login.username : "",
@@ -71,7 +83,8 @@ export function createBitwardenVault(run: CliRunner): CredentialVault {
 	async function matchingLogins(origin: string) {
 		let output: string;
 		try {
-			// bw returns decrypted items. Keep stdout inside this trusted adapter;
+			// bw --url is authoritative for domain/host matching. Never replace it
+			// with an unscoped list or get-by-id. Decrypted stdout stays here;
 			// never include subprocess errors, stderr, or raw JSON in tool results.
 			output = await run(["list", "items", "--url", origin, "--nointeraction"]);
 		} catch {
@@ -137,7 +150,7 @@ export function createBitwardenVault(run: CliRunner): CredentialVault {
 				);
 			if (!matches[0])
 				throw new Error(
-					"No matching Bitwarden login is available for this origin.",
+					"No matching Bitwarden login is available for this origin. This adapter supports only explicit Base domain/Host URI rules (plus Never); Default and URL-based rules are unsupported.",
 				);
 			// Only this internal fill response carries a secret. BetterWright
 			// consumes it in the worker and redacts it from model-visible output.
