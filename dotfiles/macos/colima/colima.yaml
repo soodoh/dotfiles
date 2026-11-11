@@ -6,7 +6,7 @@ cpu: 4
 # NOTE: value can only be increased after virtual machine has been created.
 #
 # Default: 100
-disk: 100
+disk: 150
 
 # Size of the memory in GiB to be allocated to the virtual machine.
 # Default: 2
@@ -170,8 +170,6 @@ vmType: vz
 portForwarder: ssh
 
 # Utilise rosetta for amd64 emulation (requires m1 mac and vmType `vz`)
-# Install on the host first: softwareupdate --install-rosetta
-# A previously provisioned guest can enter emergency mode if Rosetta is absent.
 # Default: false
 rosetta: true
 
