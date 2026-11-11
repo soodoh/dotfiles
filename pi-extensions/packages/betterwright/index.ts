@@ -23,6 +23,7 @@ export default function extension(pi: ExtensionAPI) {
 			],
 		},
 		browserOptions: {
+			headless: true,
 			vault: createBitwardenVault(session.run),
 			credentialCapture: false,
 			liveView: { host: "127.0.0.1", publicHost: "127.0.0.1" },
