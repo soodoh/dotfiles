@@ -95,10 +95,17 @@ never captured stdout/stderr, process error objects, or their causes.
 ## Supported operations
 
 - `credentials.list({text?, category?})`: metadata for matching password logins.
-  Search uses only usernames and item names. Other categories return no records.
+  Search uses only usernames and item names. `hasTotp` reports only whether an
+  authenticator is configured, not whether the CLI can generate its code. Other
+  categories return no records.
 - `credentials.fill({id?, username?, submit?})` / `browser_login`: fill the chosen
   matching login, or the sole match. Multiple matches require disambiguation.
   `submit` is handled by BetterWright, not the adapter.
+- `browser_totp({id, selector, submitSelector?})`: fill a numeric authenticator
+  code from a selected matching login into an explicitly observed MFA input.
+  `id` is the plain UUID from `credentials.list()`. No password-field or submit
+  autodetection occurs; only an explicit `submitSelector` submits the form.
+  Returns fill/submission status, **not** proof of authentication success.
 - `credentials.listPending()`: no pending records, since generation is disabled.
 - All mutations, generation, rotation, and other backend actions are refused.
   Manage vault items in Bitwarden instead.
@@ -107,8 +114,10 @@ Every list and fill uses `bw list items --url <current-origin> --nointeraction`.
 Bitwarden's CLI is authoritative for Default/domain/host matching; the adapter applies
 the supported-rule and access restrictions below. Every fill re-queries that
 scoped match set, even when an item ID was selected earlier. It never bypasses
-matching by fetching an ID directly or reading an unscoped vault. No item or
-authorization is cached between requests. When other clients change vault data,
+matching by fetching an item directly or reading an unscoped vault. Only after
+that scoped authorization, a TOTP fill invokes
+`bw get totp <selected-uuid> --nointeraction` inside the trusted host, never
+through an agent-visible shell. No item or authorization is cached between requests. When other clients change vault data,
 sync through the CLI manually; that terminal needs its own normal CLI unlock.
 If it invalidates Pi's key, use
 `/bw lock` then `/bw unlock` again after syncing. Login and sync are not exposed
@@ -166,13 +175,46 @@ lenient policy above. No SDK/dependency patch is installed.
 Trashed entries, non-login items, entries requiring master-password reprompt,
 and entries without a password are excluded. There is no bypass for reprompt.
 
+## TOTP fill
+
+`bitwarden-totp.ts` registers `browser_totp` alongside the upstream native login
+tool, reusing that tool's client, browser session and serialization queue.
+The adapter understands an internal `totp:<uuid>` selector and substitutes a
+fresh CLI-generated code for the worker's secret. The seed is **not** used as a
+password. An explicit OTP input is carried through the SDK's existing
+`passwordSelector` transport slot: stock 2.9.1 fills that target even when it is
+an ordinary text input. The worker pins the target handles, validates their
+frame/document origin before vault access, tracks the code for redaction and
+returns metadata only. There is no SDK patch, browser-code interpolation or
+second browser client. The outer tool allowlists its status output and discards
+upstream diagnostics, images and progress callbacks.
+
+The CLI, not a local TOTP generator, enforces its authenticator and entitlement
+requirements. Six- and eight-digit numeric codes (including leading zeros) are
+supported; other formats, including Steam codes, are refused. The login must
+still have a password, supported URI settings and no master-password reprompt.
+All access runs through the existing child-only session and lock/cleanup path.
+
+An authenticator key must be saved and synced in Bitwarden. Generated codes are
+never reused across fills or automatically refreshed/retried. A code can expire before verification; check
+the visible outcome before requesting another, especially after an uncertain
+submission. Cancellation follows stock BetterWright behavior: a cancelled or
+failed call may already have filled or submitted, and cannot undo that effect.
+Observe the input before filling, and verify authentication separately without
+reading the populated input or taking a screenshot that exposes its code.
+
+After changing the extension, `/reload` and `/bw unlock` are human steps. The
+new tool is registered when this extension loads; no real vault or browser is
+accessed during registration.
+
 ## Secret handling
 
 `bw list items` returns decrypted candidate items to trusted host code. The
 adapter constructs metadata from an explicit field allowlist; passwords, notes,
 TOTP seeds, custom fields, and raw CLI responses are never returned by `list`.
-Only the internal `fill` response carries the selected password. BetterWright
-consumes that response in its worker, tracks the password for output redaction,
+Only the internal `fill` response carries the selected password or generated
+TOTP code. BetterWright consumes that response in its worker, tracks the secret
+for output redaction,
 and returns only fill metadata to the agent. The adapter does not retain a
 separate secret cache or persist plaintext.
 
@@ -209,4 +251,8 @@ not reproduce Bitwarden's matcher or prove a real-vault login. They exercise
 supported-rule restrictions, freshness, ambiguity, read-only behavior, metadata
 filtering, error sanitization, child-only secret delivery, idle/shutdown cleanup,
 late-result races, masked Unicode/paste/cancellation handling, and the real upstream Pi
-factory across visibility restarts. They never query a real unlocked vault.
+factory across visibility restarts. TOTP tests cover scoped authorization,
+CLI errors and numeric formats, no password fallback/cache/retry, tool option
+and output allowlists, the actual stock worker fill with synthetic DOM handles,
+and the real upstream tool/client wired to a fake CLI. These are not live MFA
+or real DOM/browser acceptance tests. They never query a real unlocked vault.

@@ -2,6 +2,14 @@ import type { CredentialVault } from "betterwright";
 
 const itemId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 type CliRunner = (args: string[]) => Promise<string>;
+const totpPrefix = "totp:";
+
+/** Internal selector for the stock worker's trusted secret-fill channel. */
+export function totpCredentialId(id: string): string {
+	if (typeof id !== "string" || !itemId.test(id))
+		throw new Error("Invalid Bitwarden credential id.");
+	return `${totpPrefix}${id}`;
+}
 
 function object(value: unknown): Record<string, unknown> | null {
 	return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -67,6 +75,7 @@ function matchingLogin(value: unknown, origin: string) {
 		category: "login",
 		username: typeof login.username === "string" ? login.username : "",
 		label: typeof item.name === "string" ? item.name : null,
+		hasTotp: typeof login.totp === "string" && Boolean(login.totp.trim()),
 		secret: login.password,
 	};
 }
@@ -133,7 +142,9 @@ export function createBitwardenVault(run: CliRunner): CredentialVault {
 				};
 			}
 
-			const id = optionalText(input.id);
+			const selector = optionalText(input.id);
+			const isTotp = selector?.startsWith(totpPrefix) === true;
+			const id = isTotp ? selector?.slice(totpPrefix.length) : selector;
 			const username = optionalText(input.username);
 			if (id !== undefined && !itemId.test(id))
 				throw new Error("Invalid Bitwarden credential id.");
@@ -152,6 +163,34 @@ export function createBitwardenVault(run: CliRunner): CredentialVault {
 				throw new Error(
 					"No matching Bitwarden login is available for this origin. This adapter supports Default, Base domain and Host URI rules (plus Never); explicit Exact, Regular expression and Starts with rules are unsupported.",
 				);
+			if (isTotp) {
+				if (!matches[0].hasTotp)
+					throw new Error(
+						"The selected Bitwarden login has no authenticator configured.",
+					);
+				let code: string;
+				try {
+					// Only after current-origin authorization. Bitwarden generates the
+					// code and enforces its own TOTP access/premium policy; no seed
+					// parsing, local generator, clipboard, cache, or CLI retry.
+					const output = await run([
+						"get",
+						"totp",
+						matches[0].id,
+						"--nointeraction",
+					]);
+					if (typeof output !== "string") throw new Error();
+					code = output.trim();
+					if (!/^(?:\d{6}|\d{8})$/.test(code)) throw new Error();
+				} catch {
+					throw new Error(
+						"Bitwarden could not supply a numeric TOTP code. Check authenticator configuration, CLI access and TOTP entitlement.",
+					);
+				}
+				// The stock worker tracks/redacts this code before filling the
+				// explicitly selected OTP field. Never return the seed or password.
+				return { ...matches[0], username: "", secret: code };
+			}
 			// Only this internal fill response carries a secret. BetterWright
 			// consumes it in the worker and redacts it from model-visible output.
 			return matches[0];

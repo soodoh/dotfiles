@@ -40,6 +40,7 @@ test("list exposes only site-scoped login metadata", async () => {
 			category: "login",
 			username: "person@example.com",
 			label: "Personal account",
+			hasTotp: true,
 		},
 	]);
 	for (const secret of [

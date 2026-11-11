@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getKeybindings } from "@earendil-works/pi-tui";
@@ -50,6 +50,28 @@ test("browser use and visibility restarts retain Bitwarden-only credentials", as
 		clients.push(this);
 		return { ok: true, result: {}, artifacts: [], pages: [] };
 	});
+	vi.spyOn(BetterWright.prototype, "fillCredential").mockImplementation(
+		async function (options) {
+			clients.push(this);
+			expect(options).toMatchObject({
+				id: "totp:11111111-1111-1111-1111-111111111111",
+				passwordSelector: "aria-ref=e22",
+				generate: false,
+			});
+			const record = await this.vault.handleRequest(
+				"fill",
+				{ id: options.id },
+				"https://example.com",
+			);
+			expect(record.secret).toBe("000123");
+			return {
+				ok: true,
+				result: { id: record.id, filled: ["password"], submitted: false },
+				artifacts: [],
+				pages: [],
+			};
+		},
+	);
 	const tools = new Map();
 	const commands = new Map();
 	const events = new Map();
@@ -62,6 +84,7 @@ test("browser use and visibility restarts retain Bitwarden-only credentials", as
 				login: {
 					username: "fixture-user",
 					password: "fixture-password",
+					totp: "fixture-authenticator",
 					uris: [{ uri: "https://example.com", match: 0 }],
 				},
 			},
@@ -75,6 +98,7 @@ test("browser use and visibility restarts retain Bitwarden-only credentials", as
 	});
 	try {
 		expect(tools.has("browser_login")).toBe(true);
+		expect(tools.has("browser_totp")).toBe(true);
 		expect(existsSync(cli.argsFile)).toBe(false);
 		await commands.get("bw").handler("unlock", {
 			mode: "tui",
@@ -101,7 +125,21 @@ test("browser use and visibility restarts retain Bitwarden-only credentials", as
 		await tools
 			.get("browser_visibility")
 			.execute("headless", { mode: "headless" });
-		expect(clients.length).toBeGreaterThanOrEqual(3);
+		const totp = await tools.get("browser_totp").execute("totp", {
+			id: "11111111-1111-1111-1111-111111111111",
+			selector: "aria-ref=e22",
+		});
+		expect(totp.details).toEqual({
+			ok: true,
+			id: "11111111-1111-1111-1111-111111111111",
+			filled: ["totp"],
+			submitted: false,
+		});
+		expect(JSON.stringify(totp)).not.toContain("000123");
+		expect(readFileSync(cli.argsFile, "utf8")).toContain(
+			"get\ntotp\n11111111-1111-1111-1111-111111111111\n--nointeraction\n",
+		);
+		expect(clients.length).toBeGreaterThanOrEqual(4);
 		for (const client of clients) {
 			expect(client.vault).toBe(clients[0].vault);
 			await expect(
@@ -118,6 +156,12 @@ test("browser use and visibility restarts retain Bitwarden-only credentials", as
 		await expect(
 			clients[0].vault.handleRequest("list", {}, "https://example.com"),
 		).rejects.toThrow("locked");
+		await expect(
+			tools.get("browser_totp").execute("locked-totp", {
+				id: "11111111-1111-1111-1111-111111111111",
+				selector: "aria-ref=e22",
+			}),
+		).rejects.toThrow("outcome is unknown");
 		expect(existsSync(join(home, "vault"))).toBe(false);
 	} finally {
 		for (const handler of events.get("session_shutdown")) await handler();

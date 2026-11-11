@@ -27,6 +27,14 @@ case "$1" in
     test -z "$BW_PI_UNLOCK_PASSWORD" || exit 5
     printf '%s' "$BW_TEST_OUTPUT"
     ;;
+  get)
+    test "$2" = totp || exit 6
+    test "$3" = 11111111-1111-1111-1111-111111111111 || exit 7
+    test "$4" = --nointeraction || exit 8
+    test "$BW_SESSION" = "$BW_TEST_KEY" || exit 4
+    test -z "$BW_PI_UNLOCK_PASSWORD" || exit 5
+    printf '%s' "$BW_TEST_TOTP"
+    ;;
   *) exit 99 ;;
 esac
 `,
@@ -38,6 +46,7 @@ esac
 	vi.stubEnv("BW_TEST_ENV", envFile);
 	vi.stubEnv("BW_TEST_KEY", "fixture-session-key");
 	vi.stubEnv("BW_TEST_OUTPUT", output);
+	vi.stubEnv("BW_TEST_TOTP", "000123");
 	vi.stubEnv("BW_TEST_ERROR", "");
 	vi.stubEnv("BW_TEST_EXIT", "0");
 	return {
