@@ -3,6 +3,7 @@
   "defaultProvider": "cliproxyapi",
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "high",
+  "transport": "sse",
   "theme": "dark",
   "tuiMode": "fullscreen",
   "defaultTools": [
