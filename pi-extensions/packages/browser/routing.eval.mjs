@@ -24,7 +24,7 @@ const model = modelName.slice(slash + 1);
 const directory = mkdtempSync(join(tmpdir(), "pi-routing-eval-"));
 const skillPath = join(
 	packageRoot,
-	"packages/betterwright/skills/browser/SKILL.md",
+	"packages/browser/skills/playwright-browser/SKILL.md",
 );
 const modelRuntime = await pi.ModelRuntime.create({ refreshOnCreate: false });
 
@@ -118,7 +118,7 @@ try {
 				...(provider === "cliproxyapi"
 					? [join(packageRoot, "packages/cliproxyapi/index.ts")]
 					: []),
-				join(packageRoot, "packages/betterwright/index.ts"),
+				join(packageRoot, "packages/browser/index.ts"),
 			],
 			additionalSkillPaths: [skillPath],
 			agentsFilesOverride: () => ({
@@ -180,12 +180,7 @@ try {
 				"Unexpected model fallback",
 			);
 			const active = session.getActiveToolNames();
-			for (const required of [
-				"web_search",
-				"fetch_content",
-				"tool_search",
-				"browser",
-			])
+			for (const required of ["web_search", "fetch_content", "tool_search"])
 				assert.ok(
 					active.includes(required),
 					`Missing evaluation tool: ${required}`,

@@ -63,13 +63,6 @@
       "separateMajorMinor": true
     },
     {
-      "description": "Upgrade BetterWright browser provisioning and the Pi runtime together",
-      "matchPackageNames": ["betterwright", "npm:betterwright"],
-      "groupName": "BetterWright CLI and Pi",
-      "groupSlug": "betterwright-cli-and-pi",
-      "separateMajorMinor": true
-    },
-    {
       "description": "Isolate Python updates and allow time for standalone binaries to be published",
       "matchManagers": ["mise"],
       "matchDepNames": ["python"],

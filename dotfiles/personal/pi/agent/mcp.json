@@ -1,5 +1,26 @@
 {
   "mcpServers": {
+    "playwright": {
+      "command": "playwright-mcp",
+      "args": [
+        "--browser",
+        "chrome",
+        "--no-webmcp",
+        "--codegen",
+        "none",
+        "--console-level",
+        "error"
+      ],
+      "env": {
+        "PLAYWRIGHT_MCP_CONFIG": "${HOME}/.config/playwright-mcp/config.json",
+        "PLAYWRIGHT_MCP_EXECUTABLE_PATH": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "PLAYWRIGHT_MCP_USER_DATA_DIR": "${HOME}/.local/share/playwright-mcp/profiles/personal-macos",
+        "PLAYWRIGHT_MCP_OUTPUT_DIR": "${HOME}/.local/share/playwright-mcp/artifacts/personal-macos",
+        "PLAYWRIGHT_MCP_HEADLESS": "false"
+      },
+      "exposure": "deferred",
+      "description": "Browser UI interaction and visual verification in dedicated signed Google Chrome. Persistent profile with Chrome-managed Bitwarden; prefer specialized API/search tools."
+    },
     "context7": {
       "description": "Look up current library and framework documentation and code examples.",
       "url": "https://mcp.context7.com/mcp",

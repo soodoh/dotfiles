@@ -1643,16 +1643,13 @@ url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-darwin-x64.tar.gz"
 version = "2.6.6"
 backend = "npm:@biomejs/biome"
 
-[[tools."npm:@bitwarden/cli"]]
-version = "2026.10.1"
-backend = "npm:@bitwarden/cli"
-
-[tools."npm:@bitwarden/cli".options]
-trust_policy_excludes = '["@bitwarden/cli@2026.10.1"]'
-
 [[tools."npm:@earendil-works/pi-coding-agent"]]
 version = "1.5.2"
 backend = "npm:@earendil-works/pi-coding-agent"
+
+[[tools."npm:@playwright/mcp"]]
+version = "0.0.85"
+backend = "npm:@playwright/mcp"
 
 [[tools."npm:awk-language-server"]]
 version = "0.10.6"
@@ -1664,10 +1661,6 @@ backend = "npm:bash-language-server"
 
 [tools."npm:bash-language-server".options]
 trust_policy_excludes = '["fastq@1.20.2"]'
-
-[[tools."npm:betterwright"]]
-version = "2.9.1"
-backend = "npm:betterwright"
 
 [[tools."npm:eslint_d"]]
 version = "15.1.0"

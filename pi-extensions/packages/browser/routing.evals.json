@@ -35,19 +35,19 @@
 		"id": "portal-visual-check",
 		"profile": "work",
 		"prompt": "Take a screenshot of the signed-in Azure portal overview and verify that the subscription selector is visible. This is a visual UI check, not a resource inventory query.",
-		"accept": ["browser_evidence", "browser"]
+		"accept": ["tool_search"]
 	},
 	{
 		"id": "browser-only-content",
 		"profile": "personal",
 		"prompt": "The fetch tool could not retrieve my authenticated statement at https://example.com/account/statement because it needs the existing website session, and no account API tool is configured. Read that statement using the signed-in website. No download is needed.",
-		"accept": ["browser_evidence", "browser"]
+		"accept": ["tool_search"]
 	},
 	{
 		"id": "unsupported-service-ui",
 		"profile": "work",
 		"prompt": "I need a visual walkthrough of the dark-theme setting under Appearance + startup views on https://portal.azure.com/. The configured Azure MCP tools do not expose that setting. Open the portal and show me where it is; leave the setting unchanged.",
-		"accept": ["browser_evidence", "browser"]
+		"accept": ["tool_search"]
 	},
 	{
 		"id": "authentication-failure",

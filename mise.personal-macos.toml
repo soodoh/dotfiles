@@ -7,7 +7,6 @@
 "brew-cask:discord" = { version = "latest", os = "macos" }
 "brew-cask:anki" = { version = "latest", os = "macos" }
 "brew-cask:moonlight" = { version = "latest", os = "macos" }
-"brew-cask:google-chrome" = { version = "latest", os = "macos" }
 "brew-cask:slack" = { version = "latest", os = "macos" }
 "brew-cask:zoom" = { version = "latest", os = "macos" }
 "brew-cask:prusaslicer" = { version = "latest", os = "macos" }
@@ -23,3 +22,9 @@ login_shell = "/opt/homebrew/bin/fish"
 "~/.pi/agent/mcp.json" = "dotfiles/personal/pi/agent/mcp.json"
 "~/.pi/agent/models.json" = "dotfiles/personal/pi/agent/models.json"
 "~/.agents" = "dotfiles/personal/agents"
+
+[tasks."browser:setup"]
+description = "Open dedicated personal Chrome for human sign-in and extension setup; close it before MCP use"
+run = '''
+exec "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --user-data-dir="${HOME}/.local/share/playwright-mcp/profiles/personal-macos" chrome://extensions/
+'''

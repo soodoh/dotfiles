@@ -115,6 +115,12 @@ bash "$repo/dotfiles/work/bootstrap-repositories.sh"
 "~/.pi/agent/AGENTS.md" = "dotfiles/work/pi/agent/AGENTS.md"
 "~/.agents" = "dotfiles/work/agents"
 
+[tasks."browser:setup"]
+description = "Open dedicated work Chrome for human sign-in and extension setup; close it before MCP use"
+run = '''
+exec "${HOME}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --user-data-dir="${HOME}/.local/share/playwright-mcp/profiles/work-macos" chrome://extensions/
+'''
+
 [tasks."update:twg-skills"]
 description = "Refresh committed TWG skills from the pinned CLI without workstation setup"
 run = "python3 dotfiles/work/agents/twg-skills.py refresh"

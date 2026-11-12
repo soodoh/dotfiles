@@ -20,12 +20,11 @@
 			"node_modules/pi-web-access/index.ts",
 			"node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
 			"node_modules/pi-subagents/index.js",
-			"./packages/betterwright/index.ts"
+			"./packages/browser/index.ts"
 		],
 		"skills": [
 			"node_modules/pi-subagents/skills",
-			"./packages/betterwright/skills/browser/SKILL.md",
-			"node_modules/betterwright/skills/full-stack-e2e-review/SKILL.md"
+			"./packages/browser/skills/playwright-browser/SKILL.md"
 		],
 		"prompts": [
 			"node_modules/pi-subagents/prompts"
@@ -47,7 +46,6 @@
 		"@juicesharp/rpiv-ask-user-question": "2.15.0",
 		"@plannotator/pi-extension": "0.28.61",
 		"@router-for-me/pi-cliproxyapi-provider": "1.4.25",
-		"betterwright": "2.9.1",
 		"pi-subagents": "0.88.0",
 		"pi-vim": "0.16.0",
 		"pi-web-access": "0.47.0",
@@ -78,7 +76,6 @@
 		"@plannotator/pi-extension",
 		"pi-web-access",
 		"@juicesharp/rpiv-ask-user-question",
-		"pi-subagents",
-		"betterwright"
+		"pi-subagents"
 	]
 }

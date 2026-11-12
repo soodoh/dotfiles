@@ -147,86 +147,39 @@ no `MISE_GLOBAL_CONFIG_FILE` override or new GitHub token is needed. A fresh mac
 without `gh` may need to wait for the unauthenticated rate limit to reset before
 bootstrap can install it.
 
-### Browser automation (BetterWright)
+### Browser automation (Playwright MCP)
 
-Mise owns the BetterWright CLI and Bun. The locked local Pi package supplies a
-small native adapter to both profiles; no `pi install`, MCP server, or
-`betterwright init` is needed. After pulling this replacement, run:
+Mise pins Playwright MCP; native Pi MCP configuration launches signed Google
+Chrome with separate persistent personal/work profiles. Chrome, not mise or
+Renovate, owns Bitwarden installation and updates. Choose your explicit profile
+(use `work-macos` for work):
 
 ```bash
-mise install npm:betterwright npm:@bitwarden/cli
+mise --env personal-macos install --locked npm:@playwright/mcp
+mise --env personal-macos dot apply --yes
 mise run bootstrap:pi
-mise run configure:betterwright
-betterwright doctor
+mise --env personal-macos run browser:setup
 ```
 
-Pi loads a local `browser` skill with narrow UI/visual/browser-only triggers
-and the upstream `full-stack-e2e-review` skill from the locked Bun package.
-Explicit file paths avoid discovering every nested dependency skill; neither
-skill is tracked by `npx skills`. The native adapter supplies shared tool-routing
-guardrails to both profiles, and the local skill links to upstream browser API
-documentation. See [routing and evaluation](pi-extensions/packages/betterwright/README.md#tool-routing).
+In the dedicated native Chrome window, sign into Google and enable extension
+sync, or install Bitwarden once from the Chrome Web Store. Then configure
+Vaultwarden, complete SSO/unlock, and approve Apple Passwords access yourself.
+A new profile does not inherit extensions from regular Chrome. Close that Chrome
+instance completely before MCP uses it. Repeat independently for work if needed.
 
-Doctor’s optional agent-host/MCP/model-backend warnings do not apply to this
-checkout-managed native Pi integration. Restart Pi or use `/reload` to expose
-`browser`, `browser_download`, and `browser_visibility`. The configure task
-installs the package-pinned BetterChromium and disables CLI vault use and
-password capture; Pi replaces the local vault with a read-only Bitwarden CLI
-adapter. Both bootstrap and grouped updates reconcile this setup.
-BetterChromium supports macOS arm64 and Linux x64; other architectures need an
-explicit browser provider (see BetterWright’s provider documentation).
+Restart Pi to load the MCP server and local `playwright-browser` skill. Discover
+the `playwright` tools with `tool_search`; `/mcp` shows connection status. Browser
+data and automatically named artifacts live under
+`~/.local/share/playwright-mcp/`, outside the checkout. Normal Chrome sync/update and native Keychain behavior are retained
+through supported launch configuration; no unpacked-extension loader or custom
+credential adapter is used. Renovate maintains the MCP pin and mise locks.
 
-**Bitwarden is the only credential store.** Pi's native adapter uses the
-mise-managed `bw` CLI through BetterWright's supported custom-vault interface;
-no browser extension or dependency patch is needed. Agents use `browser_login`
-or `credentials.list()` / `credentials.fill()`. Only site-matched account
-metadata reaches the agent; passwords go directly to the protected fill path.
-Credential capture, writes, and password generation are disabled.
-
-Log in to the CLI yourself (configure your server first if necessary):
-
-```fish
-bw config server https://your-vault.example.com
-bw login --sso
-```
-
-Skip those commands if already logged in. Start Pi normally, without exporting
-`BW_SESSION`, then use its human-only commands:
-
-```text
-/bw unlock   # masked master-password prompt; no process restart needed
-/bw status   # reports only this adapter's locked/unlocked state
-/bw lock     # clears this Pi instance's session and cancels pending access
-```
-
-The session stays in adapter memory and is passed only to its `bw` children.
-It locks after 15 minutes without credential activity, on `/reload`, session
-replacement, or shutdown. Browser visibility restarts preserve it. Unlocking
-requires the interactive terminal; the agent cannot perform it. Never put a
-password or session key in chat, command arguments, shell history, or dotfiles.
-Inherited `BW_SESSION` values are ignored, not imported.
-
-`/bw lock` is local to Pi; it does not run the CLI's global `bw lock`, undo
-website logins, or clear fields already filled. The CLI warns that a new
-`bw unlock` invalidates previous session keys, so unlocking another client
-sharing its configuration can require unlocking again here. Desktop/extension
-unlock state remains independent. See [adapter details](pi-extensions/packages/betterwright/README.md)
-for matching restrictions, syncing, and the security model.
-
-Browser cookies/logins still persist in `~/.betterwright/`, so protect that
-directory as authenticated state. Use `/browser-visibility visible` when human
-login is needed; agents pause while you enter credentials. Visibility changes
-restart the browser and lose open tabs, but preserve cookies and logins. The
-adapter binds live view to loopback only. CLI live view has its own defaults;
-bind it explicitly to `127.0.0.1` when using it.
-
-Existing agent-browser sessions and `~/.agent-browser/` are deliberately left
-alone to avoid interrupting other work or deleting authenticated state. Once
-those sessions are no longer needed, uninstall the retired CLI explicitly:
-
-```bash
-mise uninstall npm:agent-browser
-```
+SSO, extension unlock, and biometric approval remain human steps, with browser
+observations paused during credential entry. Signed Chrome enables native macOS
+capabilities but does not guarantee Google accepts automated sign-in. Existing
+retired-browser state and everyday Chrome profiles are preserved, not migrated.
+Protect dedicated profile/artifact directories as authenticated state. See the
+[browser setup and security notes](pi-extensions/packages/browser/README.md).
 
 ### Other Manual Steps
 

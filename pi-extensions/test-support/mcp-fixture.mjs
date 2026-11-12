@@ -47,6 +47,11 @@ for await (const line of createInterface({ input: process.stdin })) {
 						"GRAFANA_AZURE_RESOURCE",
 						"INHERITED_SENTINEL",
 						"HTTPS_PROXY",
+						"PLAYWRIGHT_MCP_CONFIG",
+						"PLAYWRIGHT_MCP_EXECUTABLE_PATH",
+						"PLAYWRIGHT_MCP_USER_DATA_DIR",
+						"PLAYWRIGHT_MCP_OUTPUT_DIR",
+						"PLAYWRIGHT_MCP_HEADLESS",
 					].map((key) => [key, process.env[key] ?? null]),
 				);
 				data.clientCapabilities = clientCapabilities;

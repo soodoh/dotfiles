@@ -185,6 +185,47 @@ class MiseConfigurationTests(unittest.TestCase):
                     self.assertIsInstance(specification, dict)
                     self.assertEqual(specification.get("os"), "macos")
 
+    def test_native_browser_setup_and_mcp_share_isolated_profiles(self) -> None:
+        # A typo here opens a fresh profile instead of the one containing the
+        # human's extension/login. Exercise quoting with spaces in HOME too.
+        profiles = set()
+        for profile, config in (("personal", self.personal), ("work", self.work)):
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory() as directory:
+                home = Path(directory) / "home with spaces"
+                home.mkdir()
+                server = json.loads(
+                    (ROOT / f"dotfiles/{profile}/pi/agent/mcp.json").read_text()
+                )["mcpServers"]["playwright"]
+                environment = server["env"]
+                script = config["tasks"]["browser:setup"]["run"]
+                executable = environment["PLAYWRIGHT_MCP_EXECUTABLE_PATH"]
+                self.assertIn(f'"{executable}"', script)
+                probe = home / "fake Chrome"
+                probe.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+                probe.chmod(0o755)
+                result = subprocess.run(
+                    ["sh", "-c", script.replace(f'"{executable}"', f'"{probe}"')],
+                    env={"HOME": str(home), "PATH": os.defpath},
+                    capture_output=True, text=True, check=True, timeout=5,
+                )
+                data = environment["PLAYWRIGHT_MCP_USER_DATA_DIR"]
+                profiles.add(data)
+                resolved = data.replace("${HOME}", str(home))
+                self.assertEqual(
+                    result.stdout.splitlines(),
+                    [f"--user-data-dir={resolved}", "chrome://extensions/"],
+                )
+                # Persistent data and artifacts stay outside checkouts and
+                # outside Chrome's everyday profile directory.
+                for variable in (
+                    "PLAYWRIGHT_MCP_USER_DATA_DIR", "PLAYWRIGHT_MCP_OUTPUT_DIR"
+                ):
+                    self.assertTrue(environment[variable].startswith("${HOME}/.local/share/"))
+                    self.assertIn(f"/{profile}-macos", environment[variable])
+                target = environment["PLAYWRIGHT_MCP_CONFIG"].replace("${HOME}", "~")
+                self.assertTrue((ROOT / self.base["dotfiles"][target]).is_file())
+        self.assertEqual(len(profiles), 2, "personal and work must not share authentication")
+
     def test_work_tailscale_control_proxy_is_profile_scoped(self) -> None:
         self.assertIn("brew:gost", self.work["bootstrap"]["packages"])
         self.assertNotIn("brew:gost", self.base["bootstrap"]["packages"])
@@ -431,14 +472,6 @@ class MiseConfigurationTests(unittest.TestCase):
                         host_version,
                         "Test extensions against the same Pi SDK as the mise host",
                     )
-
-    def test_browser_cli_and_pi_adapter_use_the_same_release(self) -> None:
-        manifest = json.loads((ROOT / "pi-extensions/package.json").read_text())
-        self.assertEqual(
-            tool_version(self.base["tools"]["npm:betterwright"]),
-            manifest["dependencies"]["betterwright"],
-            "Keep browser provisioning compatible with the Pi runtime",
-        )
 
     def test_azure_devops_mcp_allows_only_required_package_builds(self) -> None:
         tool = self.work["tools"]["npm:@azure-devops/mcp"]

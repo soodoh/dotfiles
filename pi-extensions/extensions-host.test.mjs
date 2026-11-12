@@ -139,7 +139,7 @@ await test("actual host: profile catalogs load once and honor skill invocation m
 	}
 });
 
-await test("actual host: both profiles discover the local browser skill and upstream review skill", async (t) => {
+await test("actual host: both profiles discover the Playwright MCP browser skill", async (t) => {
 	const root = fixture(t);
 	const pi = await import(pathToFileURL(join(host.root, "dist/index.js")).href);
 	const { formatSkillsForPrompt } = await import(
@@ -174,7 +174,7 @@ await test("actual host: both profiles discover the local browser skill and upst
 				}),
 				noExtensions: true,
 				additionalExtensionPaths: [
-					join(packageRoot, "packages/betterwright/index.ts"),
+					join(packageRoot, "packages/browser/index.ts"),
 				],
 				noPromptTemplates: true,
 				noThemes: true,
@@ -213,7 +213,7 @@ await test("actual host: both profiles discover the local browser skill and upst
 			const { skills, diagnostics } = loader.getSkills();
 			assert.deepEqual(diagnostics, [], `${profile}: skill load diagnostics`);
 			const prompt = formatSkillsForPrompt(skills);
-			for (const name of ["browser", "full-stack-e2e-review"]) {
+			for (const name of ["playwright-browser"]) {
 				assert.equal(
 					skills.filter((skill) => skill.name === name).length,
 					1,
@@ -224,21 +224,16 @@ await test("actual host: both profiles discover the local browser skill and upst
 					`${profile}: missing ${name} description`,
 				);
 			}
-			const browser = skills.find((skill) => skill.name === "browser");
-			assert.equal(
-				realpathSync(browser.filePath),
-				join(packageRoot, "packages/betterwright/skills/browser/SKILL.md"),
-				`${profile}: browser routing must come from the local skill`,
+			const browser = skills.find(
+				(skill) => skill.name === "playwright-browser",
 			);
 			assert.equal(
-				realpathSync(
-					skills.find((skill) => skill.name === "full-stack-e2e-review")
-						.filePath,
-				),
+				realpathSync(browser.filePath),
 				join(
 					packageRoot,
-					"node_modules/betterwright/skills/full-stack-e2e-review/SKILL.md",
+					"packages/browser/skills/playwright-browser/SKILL.md",
 				),
+				`${profile}: browser routing must come from the local skill`,
 			);
 			const skillText = readFileSync(browser.filePath, "utf8");
 			const links = [...skillText.matchAll(/\]\(([^)]+)\)/g)];
@@ -501,7 +496,7 @@ await test("local package declares host-provided dependencies as peers", () => {
 	}
 });
 
-await test("actual host: profile filters expose review and Bitwarden-only browsing", async (t) => {
+await test("actual host: profile filters expose review and browser guidance", async (t) => {
 	for (const profile of ["personal", "work"]) {
 		await t.test(profile, () => {
 			const settings = JSON.parse(
@@ -528,26 +523,11 @@ await test("actual host: profile filters expose review and Bitwarden-only browsi
 			const commands = report.extensions.flatMap(
 				(extension) => extension.commands,
 			);
-			for (const name of ["plannotator-review", "bw"]) {
-				assert.equal(
-					commands.filter((command) => command === name).length,
-					1,
-					`${profile}: requires exactly one /${name} command`,
-				);
-			}
-			const tools = report.extensions.flatMap((extension) => extension.tools);
-			for (const name of [
-				"browser",
-				"browser_download",
-				"browser_visibility",
-				"browser_login",
-			]) {
-				assert.equal(
-					tools.filter((tool) => tool === name).length,
-					1,
-					`${profile}: requires exactly one registration of ${name}`,
-				);
-			}
+			assert.equal(
+				commands.filter((command) => command === "plannotator-review").length,
+				1,
+				`${profile}: requires exactly one /plannotator-review command`,
+			);
 		});
 	}
 });

@@ -181,6 +181,18 @@ if (process.argv[2] !== "--worker") {
 				assert.equal("sampling" in env.clientCapabilities, false);
 				assert.equal(env.INHERITED_SENTINEL, "fixture-inherited");
 				assert.equal(env.HTTPS_PROXY, process.env.HTTPS_PROXY);
+				if (name === "playwright") {
+					// An unresolved ${HOME} silently selects an unauthenticated profile.
+					for (const [variable, reference] of Object.entries(server.env))
+						assert.equal(
+							env[variable],
+							reference.replace(/\$\{HOME\}/g, process.env.HOME),
+						);
+					assert.equal(
+						getMcpToolExposure(server, "browser_navigate"),
+						"deferred",
+					);
+				}
 				if (name === "azure-test" || name === "grafana-dev") {
 					if (name === "azure-test")
 						assert.equal(env.AZURE_SUBSCRIPTION_ID, null);

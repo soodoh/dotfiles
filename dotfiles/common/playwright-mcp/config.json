@@ -1,0 +1,25 @@
+{
+  "redactUrlParams": [
+    "code",
+    "state",
+    "access_token",
+    "id_token",
+    "refresh_token",
+    "token",
+    "client_secret",
+    "password",
+    "SAMLRequest",
+    "SAMLResponse"
+  ],
+  "browser": {
+    "launchOptions": {
+      "ignoreDefaultArgs": [
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "--password-store=basic",
+        "--use-mock-keychain"
+      ]
+    }
+  }
+}
