@@ -37,7 +37,7 @@ jobs:
 
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5
         with:
-          version: 2026.11.6
+          version: 2026.11.8
           install: true
           install_args: "aqua:neovim/neovim aqua:rhysd/actionlint bun"
           cache: true
