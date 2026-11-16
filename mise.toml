@@ -356,6 +356,7 @@ run = [{ task = "validate:fast" }, { task = "validate:integration" }]
 description = "Run syntax, policy, unit, and repository checks"
 depends = [
   "validate:config",
+  "validate:locks",
   "validate:dotfiles:fast",
   "validate:agents:fast",
   "validate:macos:fast",
@@ -387,7 +388,7 @@ run = [
 ]
 
 [tasks."validate:locks"]
-description = "Regenerate mise lockfiles and verify the canonical Linux output"
+description = "Validate committed mise locks offline without refreshing artifacts"
 run = "python3 mise.lock.py check"
 
 [tasks."validate:dotfiles:fast"]

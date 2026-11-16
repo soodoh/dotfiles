@@ -1,5 +1,7 @@
 import argparse
+import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -8,6 +10,7 @@ import tomllib
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_FILES = (
@@ -30,6 +33,8 @@ UNSUPPORTED_TOOLS = {
     "work-macos": ("http:twg",),
 }
 PLATFORMS = "linux-x64,linux-arm64,macos-x64,macos-arm64"
+# Atuin no longer publishes Intel macOS binaries; its other targets remain required.
+UNAVAILABLE_ARCHIVES = {"aqua:atuinsh/atuin": {"macos-x64"}}
 LOCKED_CONFIG = "[tool_config]\nlocked = true"
 UNLOCKED_CONFIG = "[tool_config]\nlocked = false"
 MISE_CONFIG_ENVIRONMENT = {
@@ -246,17 +251,199 @@ def update_unsupported_tools(root: Path) -> None:
         finalize_staged_update(root, stage)
 
 
-def check_lockfiles(root: Path) -> None:
-    candidates = generate_lockfiles(root)
-    stale = plan_changes(root, candidates, LOCK_FILES)
-    if stale:
-        formatted = "\n".join(f"  - {name}" for name in stale)
-        raise SystemExit(
-            "mise lockfiles are stale or not reproducible on the canonical Linux runner:\n"
-            f"{formatted}\n"
-            "Run `python3 mise.lock.py refresh` on Linux or dispatch the Repository updates workflow."
+def read_validation_input(root: Path, name: str) -> dict:
+    try:
+        with (root / name).open("rb") as stream:
+            return tomllib.load(stream)
+    except (OSError, ValueError) as error:
+        raise ValueError(f"{name}: {error}") from error
+
+
+def validate_archive_entries(name: str, lock: dict) -> None:
+    tools = lock.get("tools")
+    if not isinstance(tools, dict):
+        raise TypeError(f"{name}: expected a tools table")
+    for tool, entries in tools.items():
+        if not isinstance(entries, list) or not entries:
+            raise ValueError(f"{name}: {tool}: expected locked version entries")
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise TypeError(f"{name}: {tool}: expected locked version tables")
+            context = f"{name}: {tool}@{entry.get('version', '?')}"
+            backend = entry.get("backend")
+            if not isinstance(backend, str) or not isinstance(entry.get("version"), str):
+                raise TypeError(f"{context}: missing version or backend")
+            # This repository uses core short names and explicitly qualified
+            # non-core tools. Do not let a lock redirect a declaration's backend.
+            expected_backend = tool if ":" in tool else f"core:{tool}"
+            if backend != expected_backend:
+                raise ValueError(f"{context}: expected backend {expected_backend!r}, found {backend!r}")
+            # Package-manager backends and rustup do not lock archive URLs.
+            # Archive backends must cover the four repository target platforms,
+            # including private runtimes (e.g. pipx's Python) in profile locks.
+            archive_backend = backend.split(":", 1)[0] in {"aqua", "github", "http"}
+            if archive_backend or backend in {
+                "core:node", "core:python", "core:ruby", "core:go", "core:bun",
+            }:
+                for platform in PLATFORMS.split(","):
+                    artifact = entry.get(f"platforms.{platform}")
+                    if artifact is None and platform in UNAVAILABLE_ARCHIVES.get(tool, set()):
+                        continue
+                    if not isinstance(artifact, dict):
+                        raise TypeError(f"{context}: missing {platform} archive")
+                    location = f"{context}: {platform}"
+                    url = artifact.get("url")
+                    if not isinstance(url, str) or urlsplit(url).scheme != "https" or not urlsplit(url).netloc:
+                        raise ValueError(f"{location}: url must be an absolute HTTPS URL")
+                    checksum = artifact.get("checksum")
+                    if not isinstance(checksum, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", checksum):
+                        raise ValueError(f"{location}: checksum must be a SHA-256 digest")
+                    if "provenance" in artifact and (
+                        not isinstance(artifact["provenance"], str) or not artifact["provenance"]
+                    ):
+                        raise ValueError(f"{location}: provenance must be a nonempty string")
+
+
+def validate_http_urls(
+    source: str, tool: str, specification: dict, version: str, entries: list[dict],
+) -> None:
+    lock_name = source.replace(".toml", ".lock")
+    platforms = specification.get("platforms", {})
+    for platform in sorted(set(PLATFORMS.split(",")) | platforms.keys()):
+        template = platforms.get(platform, {}).get("url", specification.get("url"))
+        if template is None:
+            continue
+        context = f"{source}: {tool}@{version}: {platform}: url"
+        if not isinstance(template, str):
+            raise TypeError(f"{context} must be a string")
+        # Repository HTTP URLs are literals or use only mise's version variable.
+        # Fail closed on richer templates instead of silently skipping validation;
+        # never evaluate arbitrary template functions during offline validation.
+        expected = re.sub(r"{{\s*version\s*}}", lambda _: version, template)
+        if any(marker in expected for marker in ("{{", "{%", "{#")):
+            raise ValueError(f"{context}: offline validation supports only literal URLs and {{{{ version }}}}")
+        if not any(
+            entry["version"] == version
+            and entry.get(f"platforms.{platform}", {}).get("url") == expected
+            for entry in entries
+        ):
+            raise ValueError(f"{context}: {lock_name} does not match declared URL {expected!r}")
+
+
+def validate_requests(stage: Path, profile: str | None, configs: dict[str, dict]) -> None:
+    # Ask mise itself to match versions, backends and normalized backend options
+    # to committed locks. Unlike `mise lock`, offline `ls` never refreshes URLs
+    # for unchanged versions. It can warn and omit unresolved tools with exit 0,
+    # so require every declared request to appear in its output as well.
+    environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("MISE_")
+    }
+    environment.update({
+        "MISE_CONFIG_DIR": str(stage / ".global"),
+        "MISE_GLOBAL_CONFIG_FILE": str(stage / ".empty.toml"),
+        "MISE_SYSTEM_CONFIG_FILE": str(stage / ".empty.toml"),
+        "MISE_ENV": "",
+        "MISE_SAFE": "1",
+        "MISE_TRUSTED_CONFIG_PATHS": str(stage),
+        "MISE_SELF_UPDATE_AUTO": "false",
+    })
+    arguments = ["mise", "--cd", str(stage), "--no-env", "--no-hooks"]
+    tools = dict(configs["mise.toml"].get("tools", {}))
+    sources = {tool: "mise.toml" for tool in tools}
+    if profile:
+        name = f"mise.{profile}.toml"
+        overrides = configs[name].get("tools", {})
+        tools.update(overrides)
+        sources.update({tool: name for tool in overrides})
+        arguments.extend(["--env", profile])
+
+    def resolve(overrides: dict[str, str]) -> tuple[dict, str]:
+        result = subprocess.run(
+            [*arguments, "ls", "--current", "--offline", "--json"],
+            cwd=stage, env=environment | overrides, capture_output=True, text=True,
+            check=False, timeout=30,
         )
-    print("mise lockfiles are reproducible")
+        if result.returncode:
+            raise ValueError(f"{profile or 'shared'}: mise resolution failed:\n{result.stderr.strip()}")
+        return json.loads(result.stdout), result.stderr.strip()
+
+    resolved, warnings = resolve({})
+    problems = []
+    for tool, specification in tools.items():
+        specifications = specification if isinstance(specification, list) else [specification]
+        requests = [
+            item if isinstance(item, str) else item["version"]
+            for item in specifications
+        ]
+        actual = [record["requested_version"] for record in resolved.get(tool, [])]
+        if sorted(requests) != sorted(actual):
+            problems.append(
+                f"{sources[tool]}: {tool}: requests {requests!r} have no matching lock "
+                "(check version, backend and options)"
+            )
+        elif tool.startswith("http:"):
+            # HTTP URL templates are committed declarations, not upstream
+            # metadata. mise's resolver matches options but ignores these URLs.
+            source = sources[tool]
+            lock = read_validation_input(stage, source.replace(".toml", ".lock"))
+            for item in specifications:
+                if not isinstance(item, dict):
+                    continue
+                for record in resolved[tool]:
+                    if record["requested_version"] == item["version"]:
+                        validate_http_urls(
+                            source, tool, item, record["version"], lock["tools"].get(tool, []),
+                        )
+    # `ls --current` omits pipx's private Python runtime. Resolve each requested
+    # runtime explicitly, using mise's version matching rather than hand-written
+    # prefix rules. An installed runtime alone must not satisfy a missing lock.
+    python_requests = {
+        item["python"]
+        for tool, specification in tools.items()
+        if tool.startswith("pipx:")
+        for item in (specification if isinstance(specification, list) else [specification])
+        if isinstance(item, dict) and isinstance(item.get("python"), str)
+    }
+    lock_names = ["mise.lock", *([PROFILE_LOCKS[profile]] if profile else [])]
+    python_versions = {
+        entry["version"] for name in lock_names
+        for entry in read_validation_input(stage, name)["tools"].get("python", [])
+    }
+    for request in sorted(python_requests):
+        runtimes, _ = resolve({"MISE_PYTHON_VERSION": request})
+        records = runtimes.get("python", [])
+        if not records or any(
+            record["requested_version"] != request or record["version"] not in python_versions
+            for record in records
+        ):
+            problems.append(f"{profile or 'shared'}: private python@{request} has no matching lock")
+    if problems:
+        details = "\n".join(problems)
+        if warnings:
+            details += "\n" + warnings
+        raise ValueError(details)
+
+
+def check_lockfiles(root: Path) -> None:
+    # Validity is independent of today's upstream metadata. Refreshing all
+    # artifacts here made unrelated PRs fail when Python published another
+    # standalone build for an already-pinned version.
+    try:
+        configs = {name: read_validation_input(root, name) for name in CONFIG_FILES}
+        if configs["mise.toml"].get("tool_config", {}).get("locked") is not True:
+            raise ValueError("mise.toml: tool_config.locked must be true for lock validation")
+        for name in LOCK_FILES:
+            validate_archive_entries(name, read_validation_input(root, name))
+        with staged_repository(root) as stage:
+            for profile in (None, *PROFILES):
+                validate_requests(stage, profile, configs)
+    except (ValueError, TypeError, OSError, subprocess.TimeoutExpired) as error:
+        raise SystemExit(
+            f"mise lock validation failed:\n{error}\n"
+            "After intentional tool changes, run `python3 mise.lock.py refresh` on Linux "
+            "and commit the updated locks."
+        ) from error
+    print("mise locks match configuration and contain required download metadata")
 
 
 def main() -> None:
