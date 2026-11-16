@@ -57,7 +57,7 @@ Google Cloud CLI uses mise's native HTTP backend with checksummed official SDK
 archives, avoiding the bundled vfox plugin's Lua module-loading failure. It uses
 the managed Python runtime without running Google's system-wide installer. The
 repository-updates workflow maintains this HTTP tool alongside TWG; Renovate
-continues to maintain supported tools and refresh all mise locks in safe mode.
+continues to maintain supported tools and refresh their lock entries in safe mode.
 
 - Clone this repo
 
@@ -310,11 +310,25 @@ mise --env work-macos install --locked http:twg
 mise --env work-macos run update:twg-skills
 ```
 
-After changing tools in any mise configuration, refresh every committed lockfile on Linux, the canonical CI platform:
+After intentional tool changes, refresh the committed lockfiles on Linux:
 
 ```bash
 mise run lock
 ```
+
+The weekly repository-updates job also refreshes all mise locks. These explicit
+refreshes may select newer archive builds for an unchanged tool version (for
+example, a new Python standalone build date).
+
+`mise run validate:locks` is read-only and works on Linux and macOS. It checks
+committed requests, backends and backend options with mise's offline resolver,
+plus required platform URLs and SHA-256 metadata, including private Python
+runtimes. Explicit HTTP archive URLs must match their declarations; offline
+validation supports literal URLs and `{{ version }}` templates, using the locked
+version. Atuin's unavailable Intel macOS archive is exempt. Validation does not
+re-resolve upstream artifacts: an older pinned build is not an invalid lock just
+because a newer build exists. CI still installs with `--locked` and provenance
+verification enabled; offline structural checks do not verify archive signatures.
 
 ## Changing encrypted environment variables
 

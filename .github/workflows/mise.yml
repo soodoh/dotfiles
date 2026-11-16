@@ -111,20 +111,7 @@ jobs:
           printf 'mise-cache-outcome=%s\n' "$outcome" >>"$GITHUB_STEP_SUMMARY"
       - name: Install native test dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential fish node-gyp
-      - name: Detect mise dependency changes
-        id: mise-changes
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        shell: bash
-        run: |
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          if git diff --quiet "$BASE_SHA" HEAD -- 'mise*.toml' 'mise*.lock' mise.lock.py; then
-            echo "changed=false" >>"$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >>"$GITHUB_OUTPUT"
-          fi
-      - name: Verify mise lockfile reproducibility
-        if: steps.mise-changes.outputs.changed == 'true'
+      - name: Validate committed mise locks without refreshing upstream metadata
         run: mise run validate:locks
       - name: Install mise-managed tools
         run: |
