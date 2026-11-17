@@ -12,6 +12,18 @@
 "brew-cask:prusaslicer" = { version = "latest", os = "macos" }
 "brew-cask:rar" = { version = "latest", os = "macos" }
 
+# One server owns this profile; all Pi sessions connect through localhost HTTP.
+[bootstrap.macos.launchd.agents.playwright-mcp-personal-macos]
+program = "~/.local/bin/mise"
+args = ["--env", "personal-macos", "run", "browser:serve"]
+run_at_load = true
+keep_alive = true
+throttle_interval = 10
+working_directory = "~/.local/share/dotfiles"
+environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", MISE_EXEC_AUTO_INSTALL = "false" }
+stdout_path = "~/Library/Logs/playwright-mcp-personal-macos.log"
+stderr_path = "~/Library/Logs/playwright-mcp-personal-macos.error.log"
+
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"
 
@@ -23,8 +35,13 @@ login_shell = "/opt/homebrew/bin/fish"
 "~/.pi/agent/models.json" = "dotfiles/personal/pi/agent/models.json"
 "~/.agents" = "dotfiles/personal/agents"
 
+[tasks."browser:serve"]
+description = "Serve the shared personal Playwright MCP browser on loopback"
+env = { PLAYWRIGHT_MCP_CONFIG = "{{env.HOME}}/.config/playwright-mcp/config.json", PLAYWRIGHT_MCP_EXECUTABLE_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", PLAYWRIGHT_MCP_USER_DATA_DIR = "{{env.HOME}}/.local/share/playwright-mcp/profiles/personal-macos", PLAYWRIGHT_MCP_OUTPUT_DIR = "{{env.HOME}}/.local/share/playwright-mcp/artifacts/personal-macos", PLAYWRIGHT_MCP_HEADLESS = "false" }
+run = "exec playwright-mcp --browser chrome --host 127.0.0.1 --port 8931 --shared-browser-context --no-webmcp --codegen none --console-level error"
+
 [tasks."browser:setup"]
-description = "Open dedicated personal Chrome for human sign-in and extension setup; close it before MCP use"
+description = "Open dedicated personal Chrome for human sign-in and extension setup; stop the shared MCP server first"
 run = '''
 exec "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --user-data-dir="${HOME}/.local/share/playwright-mcp/profiles/personal-macos" chrome://extensions/
 '''

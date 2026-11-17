@@ -157,10 +157,12 @@ bootstrap can install it.
 
 ### Browser automation (Playwright MCP)
 
-Mise pins Playwright MCP; native Pi MCP configuration launches signed Google
-Chrome with separate persistent personal/work profiles. Chrome, not mise or
-Renovate, owns Bitwarden installation and updates. Choose your explicit profile
-(use `work-macos` for work):
+Mise pins Playwright MCP; native Pi MCP connects over localhost HTTP to one
+shared server per persistent personal/work Chrome profile. Upstream
+`--shared-browser-context` supports multiple Pi sessions without competing
+profile launches. Chrome, not mise or Renovate, owns Bitwarden installation and
+updates. Choose your explicit profile (use `work-macos` for work). Stop any
+existing shared server before native setup:
 
 ```bash
 mise --env personal-macos install --locked npm:@playwright/mcp
@@ -174,17 +176,24 @@ sync, or install Bitwarden once from the Chrome Web Store. Then configure
 Vaultwarden, complete SSO/unlock, and approve Apple Passwords access yourself.
 A new profile does not inherit extensions from regular Chrome. Close that Chrome
 instance completely before MCP uses it. Repeat independently for work if needed.
+Then start the server in a separate terminal with
+`mise --env personal-macos run browser:serve` (use `work-macos` for work). Normal workstation bootstrap instead manages the server through its
+profile-specific LaunchAgent; do not run a second foreground copy.
 
-Restart Pi to load the MCP server and local `playwright-browser` skill. Discover
-the `playwright` tools with `tool_search`; `/mcp` shows connection status. Browser
-data and automatically named artifacts live under
-`~/.local/share/playwright-mcp/`, outside the checkout. Normal Chrome sync/update and native Keychain behavior are retained
-through supported launch configuration; no unpacked-extension loader or custom
+When migrating from stdio, first release Chrome from its old owning Pi session.
+Restart Pi to load the HTTP MCP configuration and local `playwright-browser`
+skill. Discover the `playwright` tools with `tool_search`; `/mcp` shows connection
+status. Browser data and automatically named artifacts live under
+`~/.local/share/playwright-mcp/`, outside the checkout. Normal Chrome sync/update
+and native Keychain behavior are retained through supported launch
+configuration; no unpacked-extension loader or custom
 credential adapter is used. Renovate maintains the MCP pin and mise locks.
 
-SSO, extension unlock, and biometric approval remain human steps, with browser
-observations paused during credential entry. Signed Chrome enables native macOS
-capabilities but does not guarantee Google accepts automated sign-in. Existing
+Sessions share tabs and authentication: use a task-specific tab and coordinate
+global browser changes. SSO, extension unlock, and biometric approval remain human
+steps, with browser work paused in all connected sessions during credential
+entry. Signed Chrome enables native macOS capabilities but does not guarantee
+Google accepts automated sign-in. Existing
 retired-browser state and everyday Chrome profiles are preserved, not migrated.
 Protect dedicated profile/artifact directories as authenticated state. See the
 [browser setup and security notes](pi-extensions/packages/browser/README.md).
