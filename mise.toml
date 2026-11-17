@@ -73,7 +73,7 @@ rust = { version = "1.100.0", components = ["clippy", "rustfmt", "rust-src", "ru
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:JohnnyMorganz/StyLua" = "2.6.0"
 "aqua:docker/cli" = "29.10.0"
-"aqua:docker/compose" = "5.7.2"
+"aqua:docker/compose" = "5.8.0"
 # Upstream does not publish macOS binaries; Cargo works on all shared platforms.
 "cargo:eza" = "0.23.5"
 "cargo:tree-sitter-cli" = "0.27.2"
