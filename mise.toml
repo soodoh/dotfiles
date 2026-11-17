@@ -55,7 +55,7 @@ rust = { version = "1.100.0", components = ["clippy", "rustfmt", "rust-src", "ru
 "aqua:getsops/sops" = "3.13.3"
 "aqua:BurntSushi/ripgrep" = "15.2.0"
 "aqua:junegunn/fzf" = "0.75.0"
-"aqua:jdx/usage" = "7.3.0"
+"aqua:jdx/usage" = "7.4.0"
 "aqua:atuinsh/atuin" = "18.24.8"
 "aqua:jesseduffield/lazygit" = "0.66.3"
 "aqua:starship/starship" = "1.27.0"
@@ -72,7 +72,7 @@ rust = { version = "1.100.0", components = ["clippy", "rustfmt", "rust-src", "ru
 "aqua:koalaman/shellcheck" = "0.11.0"
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:JohnnyMorganz/StyLua" = "2.6.0"
-"aqua:docker/cli" = "29.9.3"
+"aqua:docker/cli" = "29.10.0"
 "aqua:docker/compose" = "5.7.1"
 # Upstream does not publish macOS binaries; Cargo works on all shared platforms.
 "cargo:eza" = "0.23.5"
@@ -88,7 +88,7 @@ rust = { version = "1.100.0", components = ["clippy", "rustfmt", "rust-src", "ru
 "npm:@biomejs/biome" = "2.6.8"
 "npm:eslint_d" = "15.1.0"
 "npm:graphql-language-service-cli" = { version = "4.0.1", trust_policy_excludes = ["fastq@1.20.2"] }
-"npm:oxlint" = "1.93.0"
+"npm:oxlint" = "1.94.0"
 "npm:prettier" = "3.10.1"
 "npm:pyright" = "1.1.414"
 "npm:typescript-language-server" = "6.1.0"

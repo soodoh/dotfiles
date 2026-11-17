@@ -597,44 +597,44 @@ url_api = "https://api.github.com/repos/cli/cli/releases/assets/740719067"
 provenance = "github-attestations"
 
 [[tools."aqua:docker/cli"]]
-version = "29.9.3"
+version = "29.10.0"
 backend = "aqua:docker/cli"
 
 [tools."aqua:docker/cli"."platforms.linux-arm64"]
-checksum = "sha256:1b27fd739378ef938401e81ce5afb73b7ad7432d4f598814a9ff5f826bb464d2"
-url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.9.3.tgz"
+checksum = "sha256:6e5159e8b5615e0c0c2954a2a1a2a12bc65f5d9b603595dba24a10cb367408cd"
+url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.10.0.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-arm64-musl"]
-checksum = "sha256:1b27fd739378ef938401e81ce5afb73b7ad7432d4f598814a9ff5f826bb464d2"
-url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.9.3.tgz"
+checksum = "sha256:6e5159e8b5615e0c0c2954a2a1a2a12bc65f5d9b603595dba24a10cb367408cd"
+url = "https://download.docker.com/linux/static/stable/aarch64/docker-29.10.0.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64"]
-checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
+checksum = "sha256:7c1ebadc65c716cdc6d35fc78759ed0e4317debf43c21dd12f066f2006999def"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.10.0.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64-baseline"]
-checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
+checksum = "sha256:7c1ebadc65c716cdc6d35fc78759ed0e4317debf43c21dd12f066f2006999def"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.10.0.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64-musl"]
-checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
+checksum = "sha256:7c1ebadc65c716cdc6d35fc78759ed0e4317debf43c21dd12f066f2006999def"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.10.0.tgz"
 
 [tools."aqua:docker/cli"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
+checksum = "sha256:7c1ebadc65c716cdc6d35fc78759ed0e4317debf43c21dd12f066f2006999def"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.10.0.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-arm64"]
-checksum = "sha256:79145e169bca0b9571d02de8e1cd311a36e0e8fdb4599b6661a87b1bb3afbe13"
-url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.9.3.tgz"
+checksum = "sha256:84025e01f7716eb8bd1064c49a9d2b3a38547fa963983e81017c73ee8c5d540b"
+url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.10.0.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-x64"]
-checksum = "sha256:f7d8f835391cd0a8c676d9a8d2547f909da6a2d029595943b0ce8d5f169abe47"
-url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.9.3.tgz"
+checksum = "sha256:18fd600a2fc0bc2e62f34f66b0fd717dc2a774aa533bf3cef98011b9d37e0459"
+url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.10.0.tgz"
 
 [tools."aqua:docker/cli"."platforms.macos-x64-baseline"]
-checksum = "sha256:f7d8f835391cd0a8c676d9a8d2547f909da6a2d029595943b0ce8d5f169abe47"
-url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.9.3.tgz"
+checksum = "sha256:18fd600a2fc0bc2e62f34f66b0fd717dc2a774aa533bf3cef98011b9d37e0459"
+url = "https://download.docker.com/mac/static/stable/x86_64/docker-29.10.0.tgz"
 
 [[tools."aqua:docker/compose"]]
 version = "5.7.1"
@@ -801,62 +801,62 @@ url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-x8
 url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898229"
 
 [[tools."aqua:jdx/usage"]]
-version = "7.3.0"
+version = "7.4.0"
 backend = "aqua:jdx/usage"
 
 [tools."aqua:jdx/usage"."platforms.linux-arm64"]
-checksum = "sha256:b845455e5fda89983fe6860066b2f520ba28cb0a265d64f2fde0e950eb9e0d07"
+checksum = "sha256:63ec67fd6bc8c54ad9e2775e95d6eea565565a30568d65c75be8423b3dd842ea"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.3.0/usage-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/715712902"
+url = "https://github.com/jdx/usage/releases/download/v7.4.0/usage-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/756265141"
 
 [tools."aqua:jdx/usage"."platforms.linux-arm64-musl"]
-checksum = "sha256:3bfcf7b5cff0daec5629f54dd15f40001a09bab551663d6e937c99c5716ae094"
+checksum = "sha256:2b522480691d6af6bb2a96de28cf9edbd90af3a52195cefe0d19217c18652c4a"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.3.0/usage-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/715716415"
+url = "https://github.com/jdx/usage/releases/download/v7.4.0/usage-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/756262084"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64"]
-checksum = "sha256:78d9d765bb87c9377e95fd816ab436a5001d95d28b3b9bf7e405ed3eccfe025c"
+checksum = "sha256:c66011f163619cf3946182498eedd16966bf3d32a6c6cf28c73c8034dfe467d6"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.3.0/usage-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/715713437"
+url = "https://github.com/jdx/usage/releases/download/v7.4.0/usage-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/756266021"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-baseline"]
-checksum = "sha256:78d9d765bb87c9377e95fd816ab436a5001d95d28b3b9bf7e405ed3eccfe025c"
+checksum = "sha256:c66011f163619cf3946182498eedd16966bf3d32a6c6cf28c73c8034dfe467d6"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.3.0/usage-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/715713437"
+url = "https://github.com/jdx/usage/releases/download/v7.4.0/usage-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/756266021"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-musl"]
-checksum = "sha256:9af5d220332a0178c38786eac6deb9fa67b767f4c3d4b2e4c8e6bd5659975e86"
+checksum = "sha256:223f8819cc26543ffcc11161659497450c6bdbe947ad8580b70183dac4c9d182"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.3.0/usage-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/715712996"
+url = "https://github.com/jdx/usage/releases/download/v7.4.0/usage-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/756263745"
 
 [tools."aqua:jdx/usage"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:9af5d220332a0178c38786eac6deb9fa67b767f4c3d4b2e4c8e6bd5659975e86"
+checksum = "sha256:223f8819cc26543ffcc11161659497450c6bdbe947ad8580b70183dac4c9d182"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.3.0/usage-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/715712996"
+url = "https://github.com/jdx/usage/releases/download/v7.4.0/usage-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/756263745"
 
 [tools."aqua:jdx/usage"."platforms.macos-arm64"]
-checksum = "sha256:3201ab26da21e11cbbf3b75f81da65a502e7774e014bd77956cab13e61e73b87"
+checksum = "sha256:606dbdda615111940c6b39e1cb64dbf4871839304146e8e40e7302312be095d6"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.3.0/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/715718669"
+url = "https://github.com/jdx/usage/releases/download/v7.4.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/756266261"
 
 [tools."aqua:jdx/usage"."platforms.macos-x64"]
-checksum = "sha256:3201ab26da21e11cbbf3b75f81da65a502e7774e014bd77956cab13e61e73b87"
+checksum = "sha256:606dbdda615111940c6b39e1cb64dbf4871839304146e8e40e7302312be095d6"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.3.0/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/715718669"
+url = "https://github.com/jdx/usage/releases/download/v7.4.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/756266261"
 
 [tools."aqua:jdx/usage"."platforms.macos-x64-baseline"]
-checksum = "sha256:3201ab26da21e11cbbf3b75f81da65a502e7774e014bd77956cab13e61e73b87"
+checksum = "sha256:606dbdda615111940c6b39e1cb64dbf4871839304146e8e40e7302312be095d6"
 checksum_source = "mise-versions"
-url = "https://github.com/jdx/usage/releases/download/v7.3.0/usage-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/jdx/usage/releases/assets/715718669"
+url = "https://github.com/jdx/usage/releases/download/v7.4.0/usage-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/jdx/usage/releases/assets/756266261"
 
 [[tools."aqua:jesseduffield/lazygit"]]
 version = "0.66.3"
@@ -1674,7 +1674,7 @@ backend = "npm:graphql-language-service-cli"
 trust_policy_excludes = '["fastq@1.20.2"]'
 
 [[tools."npm:oxlint"]]
-version = "1.93.0"
+version = "1.94.0"
 backend = "npm:oxlint"
 
 [[tools."npm:prettier"]]
