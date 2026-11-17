@@ -7,6 +7,14 @@ This repository is the canonical configuration for two explicit macOS profiles:
 
 The shared mise layer owns pinned runtimes, portable tools, common dotfiles, macOS defaults, packages, LaunchAgents, and lifecycle tasks. Each profile owns its identity, Pi configuration, complete agent skill catalog, applications, and credential policy.
 
+Shared, locally authored skills live in `dotfiles/common/agents/skills/` and are
+linked into both profile catalogs with relative symlinks. Edit the shared source
+once; profile selection still exposes a complete catalog through `~/.agents`.
+These local skills do not need entries in the upstream `.skill-lock.json` files.
+The shared `gh-cli` skill is informed by [Trail of Bits’ authenticated GitHub routing](https://github.com/trailofbits/skills/tree/main/plugins/gh-cli)
+and [OpenAI’s focused PR workflows](https://github.com/openai/skills/tree/main/skills/.curated/gh-address-comments),
+without their harness-specific hooks or permission flags.
+
 ## Fresh Install
 
 ### Setup required credentials

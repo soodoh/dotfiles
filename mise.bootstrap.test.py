@@ -1003,6 +1003,27 @@ class MiseConfigurationTests(unittest.TestCase):
                     len({entry["skillFolderHash"] for entry in entries}), 1
                 )
 
+    def test_shared_local_skills_resolve_through_each_profile_catalog(self) -> None:
+        shared = ROOT / "dotfiles/common/agents/skills"
+        skill_files = list(shared.glob("*/SKILL.md"))
+        self.assertTrue(skill_files, "Expected shared local skills")
+        for profile, config in (("personal", self.personal), ("work", self.work)):
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory() as home:
+                # Exercise the workstation layout without changing the real HOME.
+                agents = Path(home) / ".agents"
+                agents.symlink_to(
+                    ROOT / config["dotfiles"]["~/.agents"],
+                    target_is_directory=True,
+                )
+                for source in skill_files:
+                    with self.subTest(skill=source.parent.name):
+                        exposed = agents / "skills" / source.parent.name / source.name
+                        self.assertTrue(exposed.is_file(), f"Unreachable skill: {exposed}")
+                        self.assertTrue(
+                            exposed.samefile(source),
+                            f"{profile}: edit one shared source, not a profile copy",
+                        )
+
     def test_bootstrap_loads_global_github_credentials_without_fish(self) -> None:
         mise = shutil.which("mise")
         self.assertIsNotNone(mise)
