@@ -20,6 +20,10 @@ url = "https://awscli.amazonaws.com/AWSCLIV2-2.40.4.pkg"
 checksum = "sha256:c1c579b87f777d199936ac3472e87ec07e59a0b7b66927a5899be0dc5e13f64c"
 url = "https://awscli.amazonaws.com/AWSCLIV2-2.40.4.pkg"
 
+[[tools."npm:@oliverames/mcp-server-for-ynab"]]
+version = "6.1.0"
+backend = "npm:@oliverames/mcp-server-for-ynab"
+
 [[tools."pipx:ansible-core"]]
 version = "2.22.0"
 backend = "pipx:ansible-core"

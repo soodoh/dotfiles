@@ -12,6 +12,16 @@
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
       },
       "exposure": "direct"
+    },
+    "ynab": {
+      "command": "mcp-server-for-ynab",
+      "env": {
+        "YNAB_API_TOKEN": "${YNAB_API_TOKEN}",
+        "YNAB_ALLOW_WRITES": "1",
+        "YNAB_DISABLE_AGENT_CONFIG_FALLBACK": "1"
+      },
+      "exposure": "deferred",
+      "description": "Review personal YNAB budgets and transactions. Preview writes and get explicit approval before applying them."
     }
   }
 }
