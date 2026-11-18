@@ -72,6 +72,7 @@ function createPi(
 		},
 		getSettings: vi.fn(() => effectiveSettings),
 		getThinkingLevel: vi.fn(() => thinkingLevel),
+		registerTool: vi.fn(),
 		on(eventName: string, handler: Handler) {
 			handlers.set(eventName, handler);
 		},

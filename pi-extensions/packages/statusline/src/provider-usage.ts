@@ -418,6 +418,39 @@ function providerTargetKey(
 	return `${normalizeProviderId(providerId)}:${authKind}`;
 }
 
+function credentialScopedKey(
+	targetKey: string,
+	credentialIdentity: string,
+): string {
+	return `${targetKey}:${credentialFingerprint(`${targetKey}\0${credentialIdentity}`)}`;
+}
+
+/** Model routing uses the last recorded value, without refreshing OAuth or usage. */
+export function cachedCopilotPercentUsed(
+	ctx: ProviderUsageContext,
+): number | undefined {
+	const credential = getStoredOAuthCredential(ctx, "github-copilot");
+	const identity = credential?.refresh ?? credential?.access;
+	if (!identity) return undefined;
+	const key = credentialScopedKey(
+		providerTargetKey("github-copilot", "oauth"),
+		identity,
+	);
+	const quota = readSharedCache().get(key)?.copilot?.premium;
+	if (!quota || quota.unlimited) return undefined;
+	if (quota.percentUsed !== undefined) return quota.percentUsed;
+	if (
+		quota.allowance !== undefined &&
+		quota.allowance > 0 &&
+		quota.remaining !== undefined
+	)
+		return Math.max(
+			0,
+			((quota.allowance - quota.remaining) / quota.allowance) * 100,
+		);
+	return undefined;
+}
+
 function providerCacheKey(
 	providerId: string,
 	authKind: ProviderUsageAuthKind,
@@ -829,7 +862,7 @@ async function resolveProviderUsageAccess(
 	}
 
 	const cacheKey = credentialIdentity
-		? `${targetKey}:${credentialFingerprint(`${targetKey}\0${credentialIdentity}`)}`
+		? credentialScopedKey(targetKey, credentialIdentity)
 		: targetKey;
 	const accountId =
 		isLegacyCodex(target) && token ? extractOpenAiAccountId(token) : undefined;

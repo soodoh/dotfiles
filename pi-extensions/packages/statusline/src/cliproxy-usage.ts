@@ -812,6 +812,26 @@ function usableScope(
 		: undefined;
 }
 
+/** The proxy can choose any enabled Codex account. Keep even expired recorded windows. */
+export function cachedProxyPercentUsed(): number | undefined {
+	const source = sourceKey();
+	if (!source) return undefined;
+	let max: number | undefined;
+	for (const account of readSnapshot(source)?.accounts ?? []) {
+		if (account?.provider !== "codex" || account.disabled === true) continue;
+		for (const used of [
+			account.scope?.sessionPercentUsed,
+			account.scope?.weeklyPercentUsed,
+			account.scope?.monthlyPercentUsed,
+			account.scope?.percentUsed,
+		]) {
+			if (typeof used === "number" && Number.isFinite(used) && used >= 0)
+				max = max === undefined ? used : Math.max(max, used);
+		}
+	}
+	return max;
+}
+
 export function proxyUsageAccounts(): ProxyUsageAccount[] {
 	const source = sourceKey();
 	if (!source) return [];

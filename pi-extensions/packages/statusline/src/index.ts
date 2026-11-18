@@ -33,6 +33,7 @@ import {
 	refreshProviderUsage,
 	renderProviderUsage,
 } from "./provider-usage";
+import { registerReviewModels } from "./review-models";
 
 type Theme = {
 	fg(color: string, text: string): string;
@@ -378,6 +379,7 @@ function sanitizeStatus(text: string): string {
 const PROVIDER_DISCOVERY_INTERVAL_MS = 60_000;
 
 export default function statusline(pi: ExtensionAPI): void {
+	registerReviewModels(pi);
 	let currentCtx: ExtensionContext | null = null;
 	let tuiRef: TuiLike | null = null;
 	let thinkingLevel: ThinkingLevel = "off";

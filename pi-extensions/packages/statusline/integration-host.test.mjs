@@ -19,11 +19,13 @@ if (process.argv[2] !== "worker") {
 	let footer;
 	let api;
 	let providerReads = 0;
+	let askForModels = false;
 	const fixture = await createSessionFixture(hostRoot, {
 		paths: [fileURLToPath(new URL("./index.ts", import.meta.url))],
 		settings: {
 			statusline: { sections: ["context"] },
 			compaction: { enabled: false },
+			enabledModels: ["fixture/fixture"],
 		},
 		factories: [
 			(extensionApi) => {
@@ -39,6 +41,7 @@ if (process.argv[2] !== "worker") {
 				});
 			},
 		],
+		tools: ["review_loop_models"],
 		mode: "tui",
 		uiContext: {
 			setFooter(factory) {
@@ -51,7 +54,23 @@ if (process.argv[2] !== "worker") {
 				});
 			},
 		},
-		respond: () => ({ content: [{ type: "text", text: "Done" }] }),
+		respond: () => {
+			if (askForModels) {
+				askForModels = false;
+				return {
+					stopReason: "toolUse",
+					content: [
+						{
+							type: "toolCall",
+							id: "review-models",
+							name: "review_loop_models",
+							arguments: {},
+						},
+					],
+				};
+			}
+			return { content: [{ type: "text", text: "Done" }] };
+		},
 	});
 	try {
 		assert.ok(footer);
@@ -64,6 +83,27 @@ if (process.argv[2] !== "worker") {
 			0,
 			"Omitted provider_usage performed auth/discovery",
 		);
+		askForModels = true;
+		await fixture.session.prompt("Check the review loop model candidates");
+		const modelResult = fixture.session.messages.find(
+			(message) =>
+				message.role === "toolResult" && message.toolCallId === "review-models",
+		);
+		assert.ok(
+			modelResult,
+			`Missing review model result; tools: ${api.getActiveTools().join(", ")}`,
+		);
+		assert.ok(!modelResult.isError, JSON.stringify(modelResult.content));
+		const modelList = JSON.parse(modelResult.content[0].text);
+		assert.deepEqual(
+			modelList.eligible.map(({ id }) => id),
+			["fixture/fixture"],
+		);
+		assert.equal(
+			providerReads,
+			1,
+			"The review tool should only read the model catalogue",
+		);
 		assert.equal(api.getSettings().compaction.enabled, false);
 		fixture.session.settingsManager.setCompactionEnabled(true);
 		assert.match(render(), /\u{F0068}/u);
@@ -73,6 +113,6 @@ if (process.argv[2] !== "worker") {
 		fixture.session.dispose();
 	}
 	console.log(
-		"PASS statusline: native effective layout/compaction settings and omitted-provider isolation",
+		"PASS statusline: native settings, omitted-provider isolation, and cache-only review model tool",
 	);
 }
