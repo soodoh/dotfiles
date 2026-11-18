@@ -17,6 +17,12 @@ The parent session owns the loop, verifies findings and commits, and talks to th
 2. Record the repository root, checked-out branch, baseline SHA, and expected tip SHA (initially `B`). Require an attached branch at exactly `B`, no Git operation in progress, and an empty `git status --porcelain=v1 --untracked-files=all --ignore-submodules=none`. Use this status command whenever checking that the checkout is clean. If any check fails, report the blocker; do not switch branches, stash, or reset. Check the initial diff with `git diff --quiet --no-ext-diff --no-textconv --ignore-submodules=none "$base" "$tip" --`. Exit 0 means stop without a review or commit, 1 means continue, and any other status is a blocker.
 3. Resolve the installed `code-review-expert/SKILL.md` from Pi's skill catalog and save its absolute path for the reviewer brief. Use the `pi-subagents` skill for async launch and completion handling. If either dependency is unavailable, report the blocker instead of substituting a parent review.
 
+## Launch the workflow
+
+Use this launch pattern for review, clarification, and fix. Put one fenced `js workflow` block in the same reply as `subagent({ workflow: true, async: true, cwd, args })`. Await `runs.run(...)` inside the block and let native async completion wake the parent.
+
+If Pi reports that the reply block was missing and no workflow started, use the supported fallback on hosts that drop the block: `subagent({ async: true, cwd, args, options: { script: source } })`, where `source` is the JavaScript body without fences. Omit `workflow` entirely; `options.script` replaces it. Stop and report any other launch or runtime failure rather than switching executors.
+
 ## Review the exact tip
 
 1. Recheck the branch, expected tip, and clean state. Outside the checkout, create a private temporary directory and write a complete patch for this round using `git diff --no-ext-diff --no-textconv --ignore-submodules=none --submodule=short --binary "$base" "$tip" --`. Use both SHAs even if the requested range was three-dot. If the command fails, stop rather than reviewing its output. Include a patch file even if a prior fix made the cumulative diff empty. Keep it until the round ends; then remove the temporary files.
