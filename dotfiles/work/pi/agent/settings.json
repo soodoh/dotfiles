@@ -1,7 +1,7 @@
 {
   "lastChangelogVersion": "1.5.2",
   "defaultProvider": "cliproxyapi",
-  "defaultModel": "gpt-6.1-sol",
+  "defaultModel": "gpt-6.2-sol",
   "defaultThinkingLevel": "high",
   "transport": "sse",
   "theme": "dark",
@@ -55,11 +55,11 @@
     ]
   },
   "enabledModels": [
-    "cliproxyapi/gpt-6-astra",
-    "cliproxyapi/gpt-6.1-sol",
+    "cliproxyapi/gpt-6.2-astra",
+    "cliproxyapi/gpt-6.2-sol",
     "cliproxyapi/gpt-6-luna",
-    "github-copilot/gpt-6-astra",
-    "github-copilot/gpt-6.1-sol",
+    "github-copilot/gpt-6.2-astra",
+    "github-copilot/gpt-6.2-sol",
     "github-copilot/gpt-6-luna",
     "github-copilot/claude-opus-5.5",
     "github-copilot/claude-sonnet-5.5",
