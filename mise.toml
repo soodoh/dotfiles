@@ -49,7 +49,7 @@ bun = "1.4.4"
 go = "1.27.4"
 rust = { version = "1.100.0", components = ["clippy", "rustfmt", "rust-src", "rust-analyzer"] }
 "aqua:astral-sh/uv" = "0.13.9"
-"aqua:cli/cli" = "2.104.0"
+"aqua:cli/cli" = "2.105.0"
 "aqua:jqlang/jq" = "1.8.2"
 "aqua:FiloSottile/age" = "1.3.2"
 "aqua:getsops/sops" = "3.13.3"
@@ -82,7 +82,7 @@ rust = { version = "1.100.0", components = ["clippy", "rustfmt", "rust-src", "ru
 "go:golang.org/x/tools/gopls" = "v0.24.0"
 "pipx:yamllint" = "1.38.0"
 "npm:@earendil-works/pi-coding-agent" = "1.5.2"
-"npm:@playwright/mcp" = "0.0.85"
+"npm:@playwright/mcp" = "0.0.86"
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.8.1", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:@biomejs/biome" = "2.6.8"
