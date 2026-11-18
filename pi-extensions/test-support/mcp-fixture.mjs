@@ -42,6 +42,7 @@ for await (const line of createInterface({ input: process.stdin })) {
 						"AZURE_SUBSCRIPTION_ID",
 						"AZURE_TOKEN_CREDENTIALS",
 						"PERSONAL_ACCESS_TOKEN",
+						"YNAB_API_TOKEN",
 						"GRAFANA_URL",
 						"GRAFANA_AZURE_TENANT",
 						"GRAFANA_AZURE_RESOURCE",

@@ -41,6 +41,7 @@ if (process.argv[2] !== "--worker") {
 						AZURE_CONFIG_DIR: join(root, ".azure/dev/.azure"),
 						AZURE_SUBSCRIPTION_ID: "fixture-production-subscription",
 						ADO_MCP_PAT_BASIC: "fixture-pat",
+						YNAB_API_TOKEN: "fixture-ynab-token",
 						GWS_MCP_CLIENT_SECRET: "fixture-google-oauth-secret",
 						HTTPS_PROXY: "http://127.0.0.1:1055",
 						INHERITED_SENTINEL: "fixture-inherited",
@@ -308,6 +309,8 @@ if (process.argv[2] !== "--worker") {
 				}
 				if (name === "azure-devops")
 					assert.equal(env.PERSONAL_ACCESS_TOKEN, "fixture-pat");
+				if (name === "ynab")
+					assert.equal(env.YNAB_API_TOKEN, "fixture-ynab-token");
 			} finally {
 				await connection.close();
 			}
