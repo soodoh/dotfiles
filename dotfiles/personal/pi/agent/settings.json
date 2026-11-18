@@ -45,14 +45,17 @@
   "steeringMode": "all",
   "autoSessionName": {
     "titleModel": [
-      "google-vertex/gemini-3.8-flash"
+      "cliproxyapi/gpt-6-luna"
     ]
   },
   "enabledModels": [
     "cliproxyapi/gpt-6.2-astra",
     "cliproxyapi/gpt-6.2-sol",
+    "cliproxyapi/gpt-6.1-terra",
     "cliproxyapi/gpt-6-luna",
-    "google-vertex/gemini-3.8-flash"
+    "google-vertex/gemini-4-carbon",
+    "google-vertex/gemini-4-hydrogen",
+    "google-vertex/gemini-4-argon"
   ],
   "deviceId": "0fa6f9d1-cc90-494b-ba38-317f2e095668"
 }
