@@ -299,7 +299,7 @@ class PartialEditTests(unittest.TestCase):
         rng = random.Random(seed + 1)
         compressor = module.Compressor(scale, partial=partial)
         queue = module.OutputQueue(compressor, paced=paced)
-        unanswered = 0
+        unanswered, tail = 0, b""
         model, sent, last = KittyModel(), 0, None
         for raw in self.frames(seed, 40):
             if rng.random() < 0.1:
@@ -312,7 +312,8 @@ class PartialEditTests(unittest.TestCase):
             sent += len(output)
             model.feed(output)
             # The terminal answers status requests some time after receiving them.
-            unanswered += output.count(module.PING)
+            unanswered += (tail + output).count(module.PING)
+            tail = (tail + output)[-(len(module.PING) - 1):]
             if unanswered and rng.random() < 0.5:
                 self.assertEqual(queue.replies(module.PONG * unanswered), b"")
                 unanswered = 0
@@ -321,8 +322,11 @@ class PartialEditTests(unittest.TestCase):
             output = drain(queue)
             sent += len(output)
             model.feed(output)
-            queue.replies(module.PONG * (unanswered + output.count(module.PING)))
+            unanswered += (tail + output).count(module.PING)
+            tail = (tail + output)[-(len(module.PING) - 1):]
+            queue.replies(module.PONG * unanswered)
             unanswered = 0
+        queue.replies(module.PONG * unanswered)
         if scale > 1:
             last = module.downscale(last, self.width, self.height, 4, scale)[0]
         return model, last, sent, compressor, queue

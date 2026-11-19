@@ -9,7 +9,9 @@ upload. This proxy rewrites that Kitty graphics output:
   keep their cell size, so the terminal stretches the image over the pane;
 - replaces a frame that changes only part of an image with a partial edit of
   the image already on screen (`a=f`), unless HERDR_PARTIAL_IMAGES=0;
-- drops queued frames that a newer frame replaces before they reach the link.
+- drops queued frames that a newer frame replaces before they reach the link;
+- holds each image update until the terminal answers a status request sent
+  after the previous one, unless HERDR_FRAME_ACK=0.
 """
 
 import base64

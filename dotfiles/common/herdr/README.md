@@ -77,8 +77,11 @@ SSH compression. The SSH login attach below fixes both on the Mac side.
   - sends only the changed rectangle of a frame as a Kitty partial edit (`a=f`)
     when it covers at most 60% of the image; Ghostty and Moshi both apply
     these (set `HERDR_PARTIAL_IMAGES=0` for a terminal that does not);
-  - drops a queued browser frame once a newer one replaces it, while keystrokes
-    keep flowing to Herdr.
+  - ends each image update with a status request (`CSI 5 n`) and holds the
+    next update until the terminal replies, so at most one frame waits in SSH
+    and network buffers; newer frames replace queued ones on the Mac, while
+    keystrokes keep flowing to Herdr. A terminal that never replies turns this
+    off after 2 s (or set `HERDR_FRAME_ACK=0`).
 
   In Moshi, tap **Skip** in the session picker so Fish starts this attach; its
   Herdr entries use direct attach.
@@ -89,11 +92,14 @@ SSH compression. The SSH login attach below fixes both on the Mac side.
 In loopback tests with a desktop-sized pane and 100 ms round trips, a PageDown
 repaint on a text page reached the remote terminal in 0.0–0.25 s at 0.5 MB/s.
 Partial edits cut typing into a page from 0.89 MB to 0.09 MB and PageDown
-scrolling by about a third. Pages full of photos can still take 2–3 s per frame
-at that rate. Mosh cannot display pane images. Tailscale relayed (DERP)
-connections are much slower than direct ones; check with `tailscale ping <mac>`.
-Each attached client receives its own images, and the most recently used client
-sets a shared tab's size, so detach stale sessions.
+scrolling by about a third. At 0.3 MB/s, waiting for replies brought the page
+content to its final state 1.8–2.1 s after a PageDown instead of 3.3–3.9 s
+(1.2–1.4 s with no network limit, mostly smooth scrolling). Pages full of
+photos can still take 2–3 s per frame at that rate. Mosh cannot display pane
+images. Tailscale relayed (DERP) connections are much slower than direct ones;
+check with `tailscale ping <mac>`. Each attached client receives its own
+images, and the most recently used client sets a shared tab's size, so detach
+stale sessions.
 
 ## Notification plugin provisioning
 

@@ -1,9 +1,9 @@
 #!/bin/sh
 # Attach Herdr for an SSH terminal through kitty-compress, which compresses pane
-# images, sends them at half resolution, sends only changed regions, and drops
-# frames a newer one replaces before they reach the slow link.
+# images at half resolution, sends only changed regions, drops frames a newer
+# one replaces, and waits for the terminal between frames.
 # HERDR_IMAGE_SCALE=1 keeps full resolution; HERDR_PARTIAL_IMAGES=0 sends whole
-# frames for terminals without Kitty partial edits.
+# frames; HERDR_FRAME_ACK=0 stops waiting for the terminal.
 set -eu
 
 here=$(CDPATH='' cd -- "${0%/*}" && pwd)
