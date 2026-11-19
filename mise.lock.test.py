@@ -69,10 +69,14 @@ def write_validation_repository(root: Path) -> None:
     )
 
 
-def add_http_tool(root: Path, config_name: str, *, literal: bool = False) -> None:
-    declarations = ['[tools."http:example"]', 'version = "1.2"']
+def add_http_tool(root: Path, config_name: str, *, literal: bool = False, scope: str | None = None) -> None:
+    declarations = ['[tools."http:example"]', 'version = "1.2"' if scope is None else 'version = "1.2.3"']
+    if scope is not None:
+        declarations.append(f'os = ["{scope}"]')
     archives = ['[[tools."http:example"]]', 'version = "1.2.3"', 'backend = "http:example"']
     for platform in ("linux-x64", "linux-arm64", "macos-x64", "macos-arm64"):
+        if scope and not platform.startswith(scope + "-"):
+            continue
         url = f"https://example.invalid/{platform}/1.2.3.tar.gz"
         template = url if literal else url.replace("1.2.3", "{{ version }}")
         declarations.extend([
@@ -204,6 +208,21 @@ class MiseLockTests(unittest.TestCase):
                     self.assertEqual(
                         {path.name: path.read_bytes() for path in root.iterdir()}, before
                     )
+
+    def test_check_requires_scoped_archives_even_on_the_other_os(self) -> None:
+        scope = "linux" if os.uname().sysname == "Darwin" else "macos"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_validation_repository(root)
+            add_http_tool(root, "mise.toml", scope=scope)
+            self.module.check_lockfiles(root)
+            lock = root / "mise.lock"
+            lock.write_text(lock.read_text().replace(
+                f'[tools."http:example"."platforms.{scope}-arm64"]',
+                f'[tools."http:example"."platforms.{scope}-unknown"]',
+            ))
+            with self.assertRaisesRegex(SystemExit, f"http:example.*missing {scope}-arm64 archive"):
+                self.module.check_lockfiles(root)
 
     def test_check_rejects_http_url_drift_in_declarations_or_locks(self) -> None:
         for config in ("mise.toml", "mise.work-macos.toml"):

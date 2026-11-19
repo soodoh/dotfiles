@@ -1,0 +1,15 @@
+{%- set sections = read_file(path='dotfiles/common/herdr/config.toml') | split(pat='[terminal]') -%}
+{{ sections[0] }}[terminal]
+# Keep terminal-browser from inserting its legacy graphics setting on launch.
+kitty_graphics = true{{ sections[1] }}
+[[keys.command]]
+key = "prefix+b"
+type = "shell"
+command = '/bin/sh "$HOME/.local/share/dotfiles/dotfiles/macos/herdr/browser.sh" tab'
+description = "Open browser tab"
+
+[[keys.command]]
+key = "prefix+shift+b"
+type = "shell"
+command = '/bin/sh "$HOME/.local/share/dotfiles/dotfiles/macos/herdr/browser.sh" split'
+description = "Open browser split to the right"

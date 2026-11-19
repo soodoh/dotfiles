@@ -5,6 +5,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import tomllib
 from concurrent.futures import ThreadPoolExecutor
@@ -259,7 +260,15 @@ def read_validation_input(root: Path, name: str) -> dict:
         raise ValueError(f"{name}: {error}") from error
 
 
-def validate_archive_entries(name: str, lock: dict) -> None:
+def tool_requests(specification):
+    return specification if isinstance(specification, list) else [specification]
+
+
+def supports_os(request, os_name: str) -> bool:
+    return not isinstance(request, dict) or not request.get("os") or os_name in request["os"]
+
+
+def validate_archive_entries(name: str, lock: dict, declarations: dict | None = None) -> None:
     tools = lock.get("tools")
     if not isinstance(tools, dict):
         raise TypeError(f"{name}: expected a tools table")
@@ -279,13 +288,16 @@ def validate_archive_entries(name: str, lock: dict) -> None:
             if backend != expected_backend:
                 raise ValueError(f"{context}: expected backend {expected_backend!r}, found {backend!r}")
             # Package-manager backends and rustup do not lock archive URLs.
-            # Archive backends must cover the four repository target platforms,
-            # including private runtimes (e.g. pipx's Python) in profile locks.
+            # Require every repository target supported by the tool, including
+            # all targets for private runtimes (e.g. pipx's Python in profile locks).
             archive_backend = backend.split(":", 1)[0] in {"aqua", "github", "http"}
             if archive_backend or backend in {
                 "core:node", "core:python", "core:ruby", "core:go", "core:bun",
             }:
+                requests = tool_requests((declarations or {}).get(tool))
                 for platform in PLATFORMS.split(","):
+                    if not any(supports_os(request, platform.split("-", 1)[0]) for request in requests):
+                        continue
                     artifact = entry.get(f"platforms.{platform}")
                     if artifact is None and platform in UNAVAILABLE_ARCHIVES.get(tool, set()):
                         continue
@@ -310,7 +322,10 @@ def validate_http_urls(
     lock_name = source.replace(".toml", ".lock")
     platforms = specification.get("platforms", {})
     for platform in sorted(set(PLATFORMS.split(",")) | platforms.keys()):
-        template = platforms.get(platform, {}).get("url", specification.get("url"))
+        if not supports_os(specification, platform.split("-", 1)[0]):
+            continue
+        artifact = platforms.get(platform, {})
+        template = artifact.get("url", specification.get("url"))
         if template is None:
             continue
         context = f"{source}: {tool}@{version}: {platform}: url"
@@ -328,6 +343,13 @@ def validate_http_urls(
             for entry in entries
         ):
             raise ValueError(f"{context}: {lock_name} does not match declared URL {expected!r}")
+        checksum = artifact.get("checksum", specification.get("checksum"))
+        if checksum is not None and not any(
+            entry["version"] == version
+            and entry.get(f"platforms.{platform}", {}).get("checksum") == checksum
+            for entry in entries
+        ):
+            raise ValueError(f"{source}: {tool}@{version}: {platform}: {lock_name} does not match the declared checksum")
 
 
 def validate_requests(stage: Path, profile: str | None, configs: dict[str, dict]) -> None:
@@ -369,31 +391,36 @@ def validate_requests(stage: Path, profile: str | None, configs: dict[str, dict]
 
     resolved, warnings = resolve({})
     problems = []
+    host_os = "macos" if sys.platform == "darwin" else sys.platform
     for tool, specification in tools.items():
-        specifications = specification if isinstance(specification, list) else [specification]
-        requests = [
-            item if isinstance(item, str) else item["version"]
-            for item in specifications
-        ]
-        actual = [record["requested_version"] for record in resolved.get(tool, [])]
-        if sorted(requests) != sorted(actual):
+        specifications = tool_requests(specification)
+        requests = [item if isinstance(item, str) else item["version"] for item in specifications]
+        source = sources[tool]
+        matched = [(record["requested_version"], record["version"]) for record in resolved.get(tool, [])]
+        inactive = [item for item in specifications if not supports_os(item, host_os)]
+        entries = []
+        if inactive or tool.startswith("http:"):
+            lock = read_validation_input(stage, source.replace(".toml", ".lock"))
+            entries = lock["tools"].get(tool, [])
+        # Mise skips tools not supported on this host. Require exact pins for
+        # those requests so CI can still verify the committed version and assets.
+        for item in inactive:
+            version = item["version"]
+            if any(entry["version"] == version for entry in entries):
+                matched.append((version, version))
+        if sorted(requests) != sorted(request for request, _ in matched):
             problems.append(
-                f"{sources[tool]}: {tool}: requests {requests!r} have no matching lock "
+                f"{source}: {tool}: requests {requests!r} have no matching lock "
                 "(check version, backend and options)"
             )
         elif tool.startswith("http:"):
-            # HTTP URL templates are committed declarations, not upstream
-            # metadata. mise's resolver matches options but ignores these URLs.
-            source = sources[tool]
-            lock = read_validation_input(stage, source.replace(".toml", ".lock"))
+            # Mise's resolver matches HTTP options but ignores declared URLs.
             for item in specifications:
                 if not isinstance(item, dict):
                     continue
-                for record in resolved[tool]:
-                    if record["requested_version"] == item["version"]:
-                        validate_http_urls(
-                            source, tool, item, record["version"], lock["tools"].get(tool, []),
-                        )
+                for request, version in matched:
+                    if request == item["version"]:
+                        validate_http_urls(source, tool, item, version, entries)
     # `ls --current` omits pipx's private Python runtime. Resolve each requested
     # runtime explicitly, using mise's version matching rather than hand-written
     # prefix rules. An installed runtime alone must not satisfy a missing lock.
@@ -433,7 +460,8 @@ def check_lockfiles(root: Path) -> None:
         if configs["mise.toml"].get("tool_config", {}).get("locked") is not True:
             raise ValueError("mise.toml: tool_config.locked must be true for lock validation")
         for name in LOCK_FILES:
-            validate_archive_entries(name, read_validation_input(root, name))
+            declarations = configs[name.replace(".lock", ".toml")].get("tools", {})
+            validate_archive_entries(name, read_validation_input(root, name), declarations)
         with staged_repository(root) as stage:
             for profile in (None, *PROFILES):
                 validate_requests(stage, profile, configs)

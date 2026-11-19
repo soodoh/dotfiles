@@ -112,6 +112,17 @@ linux-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-c
 macos-x64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-x86_64.tar.gz" }
 macos-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-arm.tar.gz" }
 
+# Install the pinned app bundle directly; the Herdr plugin uses an unversioned installer.
+[tools."http:terminal-browser"]
+version = "0.15.5"
+os = ["macos"]
+strip_components = 1
+bin_path = "bin"
+
+[tools."http:terminal-browser".platforms]
+macos-arm64 = { url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v{{ version }}/terminal-browser-darwin-arm64.tar.gz", checksum = "sha256:0a38baa5a1836696bb0731b059d264ad852e8ef11855d355686fe806667608ba" }
+macos-x64 = { url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v{{ version }}/terminal-browser-darwin-x64.tar.gz", checksum = "sha256:2d531105e1545488d904311360887b712ac0e32747c9131d7774eb1dd3a19628" }
+
 [bootstrap.packages]
 "apt:fish" = { version = "latest", os = "linux" }
 "apt:git" = { version = "latest", os = "linux" }

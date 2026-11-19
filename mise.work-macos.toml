@@ -119,6 +119,7 @@ bash "$repo/dotfiles/work/bootstrap-repositories.sh"
 '''
 
 [dotfiles]
+"~/.config/herdr/config.toml" = { source = "dotfiles/macos/herdr/config.toml.tera", mode = "template" }
 "~/.config/mise/miserc.toml" = "dotfiles/work/miserc.toml"
 "~/.gitconfig" = "dotfiles/work/gitconfig"
 "~/.pi/agent/settings.json" = "dotfiles/work/pi/agent/settings.json"

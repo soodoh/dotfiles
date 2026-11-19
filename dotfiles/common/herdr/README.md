@@ -10,7 +10,8 @@ mise run bootstrap:pi
 The declared Aqua registry backend is `aqua:herdrdev/herdr`; `mise.toml` owns its
 version and `mise.lock` owns release-asset checksums for Linux/macOS x64/arm64.
 
-Only `~/.config/herdr/config.toml` links into this checkout. Never link the
+Linux symlinks `~/.config/herdr/config.toml` into this checkout; both macOS
+profiles render it from the common config plus a browser overlay. Never link the
 whole directory: sockets, session snapshots, logs, plugins, and optional history
 are runtime data. The existing native cwd policy is `follow`. Native restoration
 and 10,000,000-byte scrollback defaults remain; optional `experimental.pane_history`
@@ -30,6 +31,36 @@ removing those files or affecting unrelated extensions. Reconcile dependencies
 with `bun install --cwd pi-extensions --frozen-lockfile`, then `/reload`. Do not run
 a workstation bootstrap or upstream integration installer for this change.
 `herdr integration status` checks the excluded standalone path, not our package.
+
+## Browser panes (macOS)
+
+Mise pins the terminal-browser release and both Mac archive checksums. The
+shortcuts launch it directly; do not install the upstream Herdr plugin or run
+its installer. For an existing workstation, apply only the Herdr config:
+
+```sh
+mise --no-env install http:terminal-browser
+mise --no-env dot apply '~/.config/herdr/config.toml'
+herdr server reload-config
+TERMINAL_BROWSER_NO_TELEMETRY=1 terminal-browser setup
+```
+
+Use the installed macOS mise profile (or select it with `--env`). If mise
+reports a config conflict, verify the old file is the repo-managed symlink
+before applying with `--force`. In the interactive `setup`, answer **n** to
+agent skills. The shortcuts require that opt-out before opening a browser;
+upstream setup may enable terminal images in supported editors.
+
+- **Ctrl+Space, then b** opens a new Herdr tab named **Browser**.
+- **Ctrl+Space, then Shift+b** opens a new browser split on the right.
+
+Both start at `about:blank`. They share terminal-browser's site data on the Mac
+and are independent of the signed Chrome profiles and Playwright MCP. The Herdr
+launcher opts out of browser telemetry. From another desktop, use a terminal
+with Kitty graphics and attach with
+`herdr --remote <mac-host> --remote-keybindings server` to use these shortcuts.
+The existing panes and site data remain on the Mac when you disconnect. Image
+streaming performance depends on the SSH link.
 
 ## Notification plugin provisioning
 

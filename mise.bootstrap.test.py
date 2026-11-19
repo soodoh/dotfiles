@@ -836,7 +836,20 @@ class MiseConfigurationTests(unittest.TestCase):
                             self.base["dotfiles"] | profile_config["dotfiles"]
                         ).items():
                             target = home / destination.removeprefix("~/")
-                            self.assertEqual(target.resolve(), (ROOT / source).resolve())
+                            if isinstance(source, dict):
+                                self.assertEqual(source["mode"], "template")
+                                self.assertTrue(target.is_file())
+                                self.assertFalse(target.is_symlink())
+                                rendered = tomllib.loads(target.read_text())
+                                common = tomllib.loads((ROOT / self.base["dotfiles"][destination]).read_text())
+                                # Both profile discovery paths must compose the same
+                                # overlay without losing the shared Herdr commands.
+                                self.assertEqual(rendered["keys"]["toggle_sidebar"], common["keys"]["toggle_sidebar"])
+                                commands = rendered["keys"]["command"]
+                                self.assertEqual(commands[:len(common["keys"]["command"])], common["keys"]["command"])
+                                self.assertEqual({command["key"] for command in commands} & {"prefix+b", "prefix+shift+b"}, {"prefix+b", "prefix+shift+b"})
+                            else:
+                                self.assertEqual(target.resolve(), (ROOT / source).resolve())
 
     def test_workstation_profiles_require_age_keys(self) -> None:
         mise = shutil.which("mise")

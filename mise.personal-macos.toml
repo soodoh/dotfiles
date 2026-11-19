@@ -29,6 +29,7 @@ stderr_path = "~/Library/Logs/playwright-mcp-personal-macos.error.log"
 login_shell = "/opt/homebrew/bin/fish"
 
 [dotfiles]
+"~/.config/herdr/config.toml" = { source = "dotfiles/macos/herdr/config.toml.tera", mode = "template" }
 "~/.config/mise/miserc.toml" = "dotfiles/personal/miserc.toml"
 "~/.gitconfig" = "dotfiles/personal/gitconfig"
 "~/.pi/agent/settings.json" = "dotfiles/personal/pi/agent/settings.json"
