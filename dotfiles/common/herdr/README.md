@@ -90,17 +90,24 @@ SSH compression. The SSH login attach below fixes both on the Mac side.
   runs a normal Herdr attach inside `kitty-compress`. That PTY proxy:
   - rewrites raw inline Kitty uploads as zlib-compressed (`o=z`) uploads; the
     terminal must support `o=z` (Ghostty does);
-  - sends every other pixel and row, so text stays readable but looks jagged
-    (for full resolution, detach and run
-    `HERDR_IMAGE_SCALE=1 ~/.local/share/dotfiles/dotfiles/macos/herdr/attach-over-ssh`);
+  - reports character cells half their real pixel size to Herdr, so the
+    browser renders at half density and the terminal stretches it over the
+    same cells; pixel mouse reports and cell-size replies are scaled to match.
+    While another attached client was used more recently, Herdr renders at
+    that client's density instead. For full resolution, detach and run
+    `HERDR_IMAGE_SCALE=1 ~/.local/share/dotfiles/dotfiles/macos/herdr/attach-over-ssh`;
   - sends only the changed rectangle of a frame as a Kitty partial edit (`a=f`)
     when it covers at most 60% of the image; Ghostty and Moshi both apply
     these (set `HERDR_PARTIAL_IMAGES=0` for a terminal that does not);
-  - ends each image update with a status request (`CSI 5 n`) and holds the
-    next update until the terminal replies, so at most one frame waits in SSH
-    and network buffers; newer frames replace queued ones on the Mac, while
-    keystrokes keep flowing to Herdr. A terminal that never replies turns this
-    off after 2 s (or set `HERDR_FRAME_ACK=0`).
+  - when Herdr hides an image (for example on a tab switch), deletes only its
+    placements and keeps its pixels in the terminal, so showing it again is an
+    edit; at most four hidden images are kept;
+  - ends each image update with a status request (`CSI 5 n`). An update that
+    would leave more than 32 KB unanswered waits for the terminal's reply, so
+    small edits such as typing go out at once while whole frames queue on the
+    Mac, where newer frames replace them, instead of in SSH and network
+    buffers. Keystrokes keep flowing to Herdr. A terminal that never replies
+    turns this off after 2 s (or set `HERDR_FRAME_ACK=0`).
 
   In Moshi, tap **Skip** in the session picker so Fish starts this attach; its
   Herdr entries use direct attach.

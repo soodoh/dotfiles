@@ -1,4 +1,4 @@
-"""Verify image uploads stay byte-identical after Kitty zlib compression."""
+"""Verify kitty-compress keeps the terminal showing Herdr's latest pane images."""
 
 import base64
 import importlib.machinery
@@ -7,6 +7,7 @@ import itertools
 import os
 import random
 import re
+import struct
 import unittest
 import zlib
 from pathlib import Path
@@ -55,8 +56,8 @@ def decode(stream):
     return b"".join(text), images
 
 
-def feed_in_pieces(data, seed, scale=1):
-    compressor = module.Compressor(scale)
+def feed_in_pieces(data, seed):
+    compressor = module.Compressor()
     rng = random.Random(seed)
     output, index = [], 0
     while index < len(data):
@@ -84,23 +85,6 @@ class CompressTests(unittest.TestCase):
                 self.assertEqual(placed[0], b"a=p,i=7,p=1,c=10,r=5,q=2")
                 self.assertLess(len(output), len(stream) // 20)
                 self.assertLess(output.index(placement), output.index(b"after"))
-
-    def test_scale_samples_pixels_and_rewrites_matching_placements(self):
-        width, height = 5, 3
-        pixels = [bytes((x, y, 7, 255)) for y in range(height) for x in range(width)]
-        header = b"a=t,t=d,f=32,s=5,v=3,i=9,q=2"
-        placement = APC + b"a=p,i=9,p=1,c=10,r=5,w=5,h=3,q=2" + ST
-        other = APC + b"a=p,i=8,p=1,c=10,r=5,w=5,h=3,q=2" + ST
-        output = feed_in_pieces(upload(header, b"".join(pixels), chunk=8) + placement + other, 3, scale=2)
-        _, images = decode(output)
-        (first, payload), (placed, _), (unrelated, _) = images
-        keys = module.controls(first)
-        self.assertEqual((keys[b"s"], keys[b"v"]), (b"3", b"2"))
-        expected = b"".join(pixels[y * width + x] for y in (0, 2) for x in (0, 2, 4))
-        self.assertEqual(zlib.decompress(payload), expected)
-        # The scaled image keeps its cell size; only its pixel source rect shrinks.
-        self.assertEqual(placed, b"a=p,i=9,p=1,c=10,r=5,w=3,h=2,q=2")
-        self.assertEqual(unrelated, b"a=p,i=8,p=1,c=10,r=5,w=5,h=3,q=2")
 
     def test_ineligible_or_interrupted_uploads_pass_through(self):
         raw = b"\x01\x02\x03\x04" * 3000
@@ -152,7 +136,7 @@ class KittyModel:
             data = zlib.decompress(data)
         if action == b"t":
             self.images[image] = [int(keys[b"s"]), int(keys[b"v"]), bytearray(data)]
-        elif action == b"d":
+        elif action == b"d" and keys.get(b"d") == b"I":
             self.images.pop(image, None)
         elif action == b"p":
             self.placed_missing += image not in self.images
@@ -232,7 +216,7 @@ class PacingTests(unittest.TestCase):
 
     def test_next_image_waits_for_the_terminal_and_only_the_newest_is_sent(self):
         compressor = module.Compressor(partial=True)
-        queue = module.OutputQueue(compressor, paced=True)
+        queue = module.OutputQueue(compressor, paced=True, window=0)
         queue.add(compressor.segments(self.frame(1)))
         first = drain(queue)
         self.assertTrue(first.endswith(module.PING + b"\x1b[2;3H" + APC + b"a=p,i=9,p=1,c=10,r=5,q=2;" + ST))
@@ -262,7 +246,7 @@ class PacingTests(unittest.TestCase):
 
     def test_silent_terminal_stops_pacing_but_late_replies_are_removed(self):
         compressor = module.Compressor(partial=True)
-        queue = module.OutputQueue(compressor, paced=True)
+        queue = module.OutputQueue(compressor, paced=True, window=0)
         clock = [0.0]
         with patch.object(module.time, "monotonic", lambda: clock[0]):
             queue.add(compressor.segments(self.frame(1)))
@@ -274,6 +258,96 @@ class PacingTests(unittest.TestCase):
             self.assertIn(b"a=t", drain(queue))
             self.assertFalse(queue.paced)
         self.assertEqual(queue.replies(module.PONG), b"")
+
+    def test_small_updates_fit_the_window_but_large_frames_wait(self):
+        width, height = 128, 80
+        compressor = module.Compressor(partial=True)
+        queue = module.OutputQueue(compressor, paced=True)
+        rng = random.Random(1)
+        noise = bytes(rng.getrandbits(8) for _ in range(width * height * 4))
+        queue.add(compressor.segments(herdr_frame(b"9", noise, width, height)))
+        drain(queue)
+        queue.replies(module.PONG)
+        # One-pixel changes are tiny edits; each goes out while earlier ones
+        # are still unanswered.
+        for value in (0, 1):
+            changed = bytes((value, 0, 0, 255)) + noise[4:]
+            queue.add(compressor.segments(herdr_frame(b"9", changed, width, height)))
+            self.assertIn(b"a=f", drain(queue))
+        # A whole new incompressible frame exceeds the window and waits.
+        other = bytes(rng.getrandbits(8) for _ in range(width * height * 4))
+        self.assertGreater(len(other), module.WINDOW)
+        queue.add(compressor.segments(herdr_frame(b"9", other, width, height)))
+        self.assertNotIn(APC, drain(queue))
+        queue.replies(module.PONG * 2)
+        self.assertIn(b"a=t", drain(queue))
+
+
+class HiddenImageTests(unittest.TestCase):
+    width, height = 40, 20
+
+    def pixels(self, value):
+        return bytes((value, value, value, 255)) * (self.width * self.height)
+
+    def test_hidden_image_keeps_its_pixels_and_returns_as_an_edit(self):
+        compressor = module.Compressor(partial=True)
+        queue = module.OutputQueue(compressor)
+        model = KittyModel()
+        queue.add(compressor.segments(herdr_frame(b"9", self.pixels(1), self.width, self.height)))
+        model.feed(drain(queue))
+        # Herdr deletes the image when its tab is hidden; only placements go.
+        queue.add(compressor.segments(APC + b"a=d,d=I,i=9,q=2;" + ST + b"\x1b[Hother tab"))
+        hidden = drain(queue)
+        self.assertIn(b"a=d,d=i,i=9", hidden)
+        model.feed(hidden)
+        self.assertIn(b"9", model.images)
+        # Showing the tab again re-uploads the same pixels: nothing to send.
+        queue.add(compressor.segments(herdr_frame(b"9", self.pixels(1), self.width, self.height)))
+        shown = drain(queue)
+        self.assertNotIn(b"a=t", shown)
+        self.assertEqual(compressor.edits, 1)
+        model.feed(shown)
+        self.assertEqual(model.placed_missing, 0)
+
+    def test_oldest_hidden_image_is_deleted_and_later_sent_whole(self):
+        compressor = module.Compressor(partial=True)
+        queue = module.OutputQueue(compressor)
+        model = KittyModel()
+        with patch.object(module, "MAX_HIDDEN", 1):
+            for image in (b"7", b"8"):
+                queue.add(compressor.segments(herdr_frame(image, self.pixels(1), self.width, self.height)))
+                queue.add(compressor.segments(APC + b"a=d,d=I,i=" + image + b",q=2;" + ST + b"\x1b[Hother"))
+            model.feed(drain(queue))
+            self.assertNotIn(b"7", model.images)
+            self.assertIn(b"8", model.images)
+            queue.add(compressor.segments(herdr_frame(b"7", self.pixels(1), self.width, self.height)))
+            shown = drain(queue)
+        self.assertIn(b"a=t", shown)
+        model.feed(shown)
+        self.assertEqual(model.placed_missing, 0)
+
+
+class ScalingTests(unittest.TestCase):
+    def test_reported_pixel_size_shrinks_but_cells_do_not(self):
+        size = struct.pack("HHHH", 37, 88, 2200, 1813)
+        self.assertEqual(struct.unpack("HHHH", module.scaled_size(size, 2)), (37, 88, 1100, 906))
+
+    def test_pixel_mouse_and_size_replies_are_scaled_only_when_reported_in_pixels(self):
+        scaler = module.InputScaler(2)
+        cell_mouse = b"\x1b[<0;10;20M"
+        self.assertEqual(scaler.input(cell_mouse), cell_mouse)
+        scaler.output(b"\x1b[?1006h\x1b[?1016h")
+        self.assertEqual(scaler.input(b"a\x1b[<0;101;41Mb\x1b[<0;2;2m"), b"a\x1b[<0;51;21Mb\x1b[<0;1;1m")
+        self.assertEqual(scaler.input(b"\x1b[6;49;25t"), b"\x1b[6;24;12t")
+        scaler.output(b"\x1b[?1016l")
+        self.assertEqual(scaler.input(cell_mouse), cell_mouse)
+
+    def test_split_reports_are_joined_but_escape_is_not_held(self):
+        scaler = module.InputScaler(2)
+        scaler.output(b"\x1b[?1016h")
+        self.assertEqual(scaler.input(b"x\x1b[<0;10"), b"x")
+        self.assertEqual(scaler.input(b"1;41M"), b"\x1b[<0;51;21M")
+        self.assertEqual(scaler.input(b"\x1b"), b"\x1b")
 
 
 class PartialEditTests(unittest.TestCase):
@@ -294,11 +368,11 @@ class PartialEditTests(unittest.TestCase):
                     pixels[start:start + 20] = color * 5
             yield bytes(pixels)
 
-    def run_link(self, seed, partial, scale=1, step=None, paced=False):
+    def run_link(self, seed, partial, step=None, paced=False, window=module.WINDOW):
         """Feed frames to the proxy while a slow link drains random amounts."""
         rng = random.Random(seed + 1)
-        compressor = module.Compressor(scale, partial=partial)
-        queue = module.OutputQueue(compressor, paced=paced)
+        compressor = module.Compressor(partial=partial)
+        queue = module.OutputQueue(compressor, paced=paced, window=window)
         unanswered, tail = 0, b""
         model, sent, last = KittyModel(), 0, None
         for raw in self.frames(seed, 40):
@@ -327,16 +401,14 @@ class PartialEditTests(unittest.TestCase):
             queue.replies(module.PONG * unanswered)
             unanswered = 0
         queue.replies(module.PONG * unanswered)
-        if scale > 1:
-            last = module.downscale(last, self.width, self.height, 4, scale)[0]
         return model, last, sent, compressor, queue
 
     def test_terminal_ends_on_the_newest_frame_over_any_link_speed(self):
         dropped = 0
         for seed in range(160):
-            for partial, scale, paced in itertools.product((False, True), (1, 2), (False, True)):
-                with self.subTest(seed=seed, partial=partial, scale=scale, paced=paced):
-                    model, last, _, _, queue = self.run_link(seed, partial, scale, paced=paced)
+            for partial, paced, window in itertools.product((False, True), (False, True), (0, 2000)):
+                with self.subTest(seed=seed, partial=partial, paced=paced, window=window):
+                    model, last, _, _, queue = self.run_link(seed, partial, paced=paced, window=window)
                     self.assertEqual(bytes(model.images[b"9"][2]), last)
                     self.assertEqual(model.placed_missing, 0)
                     self.assertFalse(queue.requests)
