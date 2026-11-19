@@ -104,7 +104,7 @@ height = "90%"
 [[keys.command]]
 key = "prefix+g"
 type = "popup"
-command = "lazygit"
+command = "mise exec -- lazygit"
 description = "Open LazyGit"
 width = "90%"
 height = "90%"
