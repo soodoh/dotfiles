@@ -109,8 +109,8 @@ SSH compression. The SSH login attach below fixes both on the Mac side.
   - when Herdr hides an image (for example on a tab switch), deletes only its
     placements and keeps its pixels in the terminal, so showing it again is an
     edit; at most four hidden images are kept;
-  - ends each image update with a status request (`CSI 5 n`). An update that
-    would leave more than 32 KB unanswered waits for the terminal's reply, so
+  - ends each image update with a status request (`CSI 5 n`). An ordinary
+    update that would leave more than 32 KiB unanswered waits for a reply, so
     small edits such as typing go out at once while whole frames queue on the
     Mac, where newer frames replace them, instead of in SSH and network
     buffers. Keystrokes keep flowing to Herdr. A terminal that never replies
@@ -136,6 +136,23 @@ take 2–3 s per frame at that rate. Mosh cannot display pane images. Tailscale
 relayed (DERP) connections are much slower than direct ones; check with
 `tailscale ping <mac>`. Each attached client receives its own images, and the
 most recently used client sets a shared tab's size, so detach stale sessions.
+
+#### Scroll copying
+
+Scroll copying is enabled by default for macOS SSH attaches and was tested
+with Ghostty 1.4 and Moshi in SSH mode. It uses Kitty frame composition (`a=c`)
+to shift pixels already in the terminal and uploads only the revealed or
+changed regions. It assembles the result off-screen before replacing the
+image. Repairs can be lower detail until scrolling stops. Each scroll update
+is capped at 32 KiB, with up to 64 KiB unanswered at once. Other updates keep
+their existing pacing and fallback.
+
+If your terminal doesn't support frame composition, detach with **Ctrl+Space,
+then d** and reattach from the remote shell with scroll copying disabled:
+
+```sh
+HERDR_SCROLL_COPY=0 ~/.local/share/dotfiles/dotfiles/macos/herdr/attach-over-ssh
+```
 
 ## Notification plugin provisioning
 

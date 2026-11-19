@@ -3,9 +3,11 @@
 # render at half density, compresses them, sends only changed regions, keeps
 # hidden images in the terminal, drops frames a newer one replaces, and paces
 # large frames on terminal replies. HERDR_IMAGE_SCALE=1 keeps full resolution;
-# HERDR_PARTIAL_IMAGES=0 sends whole frames; HERDR_FRAME_ACK=0 stops pacing.
+# HERDR_PARTIAL_IMAGES=0 sends whole frames; HERDR_FRAME_ACK=0 stops pacing;
+# HERDR_SCROLL_COPY=0 disables scroll copying on terminals without Kitty a=c.
 set -eu
 
 here=$(CDPATH='' cd -- "${0%/*}" && pwd)
 export HERDR_IMAGE_SCALE="${HERDR_IMAGE_SCALE:-2}"
+export HERDR_SCROLL_COPY="${HERDR_SCROLL_COPY:-1}"
 exec "$here/kitty-compress" herdr "$@"

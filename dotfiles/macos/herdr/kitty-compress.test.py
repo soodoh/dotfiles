@@ -98,6 +98,7 @@ class KittyModel:
 
     def __init__(self):
         self.images = {}
+        self.scratch = {}
         self.placed_missing = 0
         self.pending = None
         self.buffer = b""
@@ -128,16 +129,36 @@ class KittyModel:
             data = zlib.decompress(data)
         if action == b"t":
             self.images[image] = [int(keys[b"s"]), int(keys[b"v"]), bytearray(data)]
+            self.scratch.pop(image, None)
         elif action == b"d" and keys.get(b"d") == b"I":
             self.images.pop(image, None)
+            self.scratch.pop(image, None)
+        elif action == b"d" and keys.get(b"d") == b"f":
+            assert keys[b"r"] == b"2"
+            del self.scratch[image]
         elif action == b"p":
             self.placed_missing += image not in self.images
         elif action == b"f":
-            width, _, pixels = self.images[image]
+            width, height, root = self.images[image]
+            if keys.get(b"r", b"0") == b"0":
+                assert image not in self.scratch and keys[b"c"] == b"1"
+                self.scratch[image] = bytearray(root)
+            pixels = root if keys.get(b"r") == b"1" else self.scratch[image]
             x, y, w, h = (int(keys[k]) for k in (b"x", b"y", b"s", b"v"))
+            assert x + w <= width and y + h <= height and len(data) == w * h * 4
             for row in range(h):
                 start = ((y + row) * width + x) * 4
                 pixels[start:start + w * 4] = data[row * w * 4:(row + 1) * w * 4]
+        elif action == b"c":
+            width, height, root = self.images[image]
+            src, dst = (root if keys[k] == b"1" else self.scratch[image] for k in (b"r", b"c"))
+            x, y, left, top = (int(keys[k]) for k in (b"x", b"y", b"X", b"Y"))
+            w, h = int(keys[b"w"]) or width, int(keys[b"h"]) or height
+            assert src is not dst and keys[b"C"] == b"1"
+            assert max(x, left) + w <= width and max(y, top) + h <= height
+            for row in range(h):
+                start, end = ((row + dy) * width + dx for dx, dy in ((left, top), (x, y)))
+                dst[end * 4:(end + w) * 4] = src[start * 4:(start + w) * 4]
 
 
 def herdr_frame(image, raw, width, height, text=b""):
@@ -354,6 +375,103 @@ class PacingTests(unittest.TestCase):
         self.assertNotIn(APC, drain(queue))
         queue.replies(module.PONG * 2)
         self.assertIn(b"a=t", drain(queue))
+
+
+class ScrollTests(unittest.TestCase):
+    width, height = 192, 192
+
+    def page(self, start, seed=6):
+        """A moving body, stationary header and sidebar, and moving scrollbar."""
+        rng = random.Random(seed)
+        rows = [rng.randbytes((self.width - 12) * 4) for _ in range(self.height + 64)]
+        sidebar = b"\xff" * 12 * 4
+        return b"".join(rows[y] + sidebar if y < 9 else rows[start + y] + sidebar[:-4] + bytes((y == 40 + start,)) * 4
+                        for y in range(self.height))
+
+    def test_scrolls_send_exact_pixels_before_the_terminal_answers(self):
+        compressor = module.Compressor(partial=True)
+        queue = module.OutputQueue(compressor, paced=True, scroll_copy=True)
+        link = Link(queue)
+        with clock():
+            first = self.page(12)
+            queue.add(compressor.segments(herdr_frame(b"9", first, self.width, self.height)))
+            link.receive()
+            for start in (16, 20, 16):
+                raw = self.page(start)
+                queue.add(compressor.segments(herdr_frame(b"9", raw, self.width, self.height)))
+                # Stop after the scratch copy, before repairs or the final copy.
+                prefix = link.receive(limit=200, answer=False)
+                self.assertIn(b"a=c", prefix)
+                self.assertEqual(bytes(link.model.images[b"9"][2]), first)
+                output = link.receive(answer=False)
+                self.assertLess(len(prefix + output), 8 * 1024)
+                self.assertEqual(bytes(link.model.images[b"9"][2]), raw)
+                self.assertFalse(link.model.scratch)
+                first = raw
+            self.assertEqual(link.unanswered, 3)
+            self.assertEqual(link.model.placed_missing, 0)
+
+    def test_scroll_reuses_coarse_pixels_then_sharpens_the_latest_frame(self):
+        compressor = module.Compressor(partial=True)
+        queue = module.OutputQueue(compressor, paced=True, scroll_copy=True)
+        link = Link(queue)
+
+        def enqueue(start):
+            raw = self.page(start)
+            queue.add(compressor.segments(herdr_frame(b"9", raw, self.width, self.height)))
+            return raw
+
+        with clock() as now:
+            enqueue(0)
+            link.receive()
+            sharp = enqueue(32)
+            self.assertIn(b"a=c", link.receive(answer=False))
+            coarse = bytes(link.model.images[b"9"][2])
+            self.assertNotEqual(coarse, sharp)
+            enqueue(36)
+            latest = enqueue(40)
+            self.assertIn(b"a=c", link.receive())
+            # The skipped frame is not the base. Pixels in the newly exposed
+            # band from the last sent frame are still coarse after shifting.
+            stride, y = self.width * 4, self.height - 18
+            shown = bytes(link.model.images[b"9"][2])
+            self.assertEqual(shown[y * stride:(y + 1) * stride], coarse[(y + 8) * stride:(y + 9) * stride])
+            self.assertNotEqual(shown, latest)
+            link.settle(now)
+        self.assertEqual(bytes(link.model.images[b"9"][2]), latest)
+        self.assertEqual(queue.dropped, 1)
+
+    def test_scrolls_stop_sending_when_unanswered_bytes_fill_the_window(self):
+        compressor = module.Compressor(partial=True)
+        queue = module.OutputQueue(compressor, paced=True, scroll_copy=True)
+        link = Link(queue)
+        with clock():
+            queue.add(compressor.segments(herdr_frame(b"9", self.page(0), self.width, self.height)))
+            link.receive()
+            sent = 0
+            for i in range(32):
+                raw = self.page(4 * (1 + i % 2))
+                queue.add(compressor.segments(herdr_frame(b"9", raw, self.width, self.height)))
+                sent += len(link.receive(answer=False))
+            self.assertGreater(sent, 32 * 1024)  # More than ordinary edits can pipeline.
+            self.assertLessEqual(sent, 64 * 1024 + 2048)  # Placement/text bytes aren't gated.
+            latest = self.page(12)
+            queue.add(compressor.segments(herdr_frame(b"9", latest, self.width, self.height)))
+            self.assertNotIn(b"a=c", link.receive(answer=False))
+            link.receive()  # Acknowledge the in-flight deltas.
+            self.assertIn(b"a=c", link.receive())
+            self.assertEqual(bytes(link.model.images[b"9"][2]), latest)
+
+    def test_unrelated_content_keeps_the_existing_whole_frame_path(self):
+        compressor = module.Compressor(partial=True)
+        queue = module.OutputQueue(compressor, scroll_copy=True)
+        link = Link(queue)
+        for seed in (20, 70):
+            raw = self.page(0, seed)
+            queue.add(compressor.segments(herdr_frame(b"9", raw, self.width, self.height)))
+            output = link.receive()
+            self.assertNotIn(b"a=c", output)
+            self.assertEqual(bytes(link.model.images[b"9"][2]), raw)
 
 
 class MotionTests(unittest.TestCase):

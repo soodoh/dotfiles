@@ -14,6 +14,8 @@ upload. This proxy rewrites that Kitty graphics output:
   against what the terminal shows at that moment;
 - sends a frame that changes only part of an image as a partial edit of the
   image on screen (`a=f`), unless HERDR_PARTIAL_IMAGES=0;
+- with HERDR_SCROLL_COPY=1, reuses vertically shifted pixels using Kitty
+  frame composition (`a=c`) and uploads only the repairs;
 - while frames arrive faster than the link carries them (scrolling, loading),
   sends large changes in a coarser form, then a sharp edit once motion stops;
 - keeps a hidden image's pixels in the terminal, so showing it again is an
@@ -151,7 +153,7 @@ def changed_rect(old, new, width, height, depth):
     return x0, rows[0], x1 - x0 + 1, rows[-1] - rows[0] + 1
 
 
-def coarse(raw, width, height, depth):
+def coarse(raw, width, height, depth, block=BLOCK):
     """Lower-detail RGBA of the same size: pixel blocks, fewer color levels.
 
     Repeated pixels and rows compress far better, and keeping the size lets the
@@ -162,13 +164,13 @@ def coarse(raw, width, height, depth):
     stride = width * 4
     view = memoryview(raw)
     rows = []
-    for top in range(0, height, BLOCK):
-        sampled = array.array("I", view[top * stride:(top + 1) * stride].cast("I")[::BLOCK].tobytes())
-        line = array.array("I", bytes(len(sampled) * BLOCK * 4))
-        for offset in range(BLOCK):
-            line[offset::BLOCK] = sampled
+    for top in range(0, height, block):
+        sampled = array.array("I", view[top * stride:(top + 1) * stride].cast("I")[::block].tobytes())
+        line = array.array("I", bytes(len(sampled) * block * 4))
+        for offset in range(block):
+            line[offset::block] = sampled
         line = line.tobytes()[:stride]
-        rows.append(line * min(BLOCK, height - top))
+        rows.append(line * min(block, height - top))
     return b"".join(rows).translate(QUANTIZE)
 
 
@@ -192,6 +194,118 @@ def encode(control, raw):
     return b"".join(output)
 
 
+def scroll_overlap(before, after, width, height):
+    """Find a likely vertical translation from distinctive central scanlines."""
+    stride = width * 4
+    # Headers may stay fixed, and the right edge may contain a scrollbar.
+    def signatures(raw):
+        view = memoryview(raw)
+        return [zlib.crc32(view[i + stride // 4:i + stride * 3 // 4]) for i in range(0, len(raw), stride)]
+
+    old, new = signatures(before), signatures(after)
+    positions = collections.defaultdict(list)
+    for y, signature in enumerate(old):
+        positions[signature].append(y)
+    votes = collections.Counter()
+    for y, signature in enumerate(new):
+        hits = positions.get(signature, ())
+        if len(hits) <= 3:  # Repeated blank rows can outvote the page content.
+            votes.update(src - y for src in hits if 0 < abs(src - y) <= height // 2)
+    if not votes:
+        return None
+    shift, count = votes.most_common(1)[0]
+    if count < max(8, height // 32):
+        return None
+    # Trim fixed chrome at the ends. These are only hints: every differing
+    # pixel (even a hash collision) is corrected before publishing the result.
+    matches = [y for y in range(max(0, -shift), min(height, height - shift)) if old[y + shift] == new[y]]
+    top = matches[0]
+    return top + shift, top, matches[-1] - top + 1
+
+
+def repair_rects(predicted, raw, width, height):
+    """Group similar adjacent row changes without merging narrow and wide edits."""
+    stride = width * 4
+    rect = None
+    for y in range(height):
+        a, b = predicted[y * stride:(y + 1) * stride], raw[y * stride:(y + 1) * stride]
+        if a == b:
+            continue
+        x, end = first_difference(a, b) // 4, last_difference(a, b) // 4 + 1
+        if rect is not None:
+            left, top, w, h = rect
+            merged_left, merged_width = min(left, x), max(left + w, end) - min(left, x)
+            merged_height = y - top + 1
+            if merged_width * merged_height * 4 <= (w * h + end - x) * 5:
+                rect = merged_left, top, merged_width, merged_height
+                continue
+            yield rect
+        rect = x, y, end - x, 1
+    if rect is not None:
+        yield rect
+
+
+def encode_scroll(frame, base, budget):
+    """Reuse the previous scroll content, degrading only expensive repairs."""
+    width, height, _ = frame.pixels()
+    overlap = scroll_overlap(base.raw, frame.raw, width, height)
+    if overlap is None:
+        return None
+    src, dst, rows = overlap
+    stride = width * 4
+
+    def shifted(raw):
+        return raw[:dst * stride] + raw[src * stride:(src + rows) * stride] + raw[(dst + rows) * stride:]
+
+    # Match against the original content, not against earlier coarse patches.
+    # Reuse those pixels and let idle refinement restore them to full detail.
+    predicted = shifted(base.raw)
+    repairs = list(repair_rects(predicted, frame.raw, width, height))
+    if len(repairs) > 32 or sum(w * h for _, _, w, h in repairs) > EDIT_LIMIT * width * height:
+        return None
+    previous = base.shown
+    image = frame.image
+    # Clone the displayed frame into a gapless scratch frame (the seed pixel
+    # matches the original). Ghostty rejects overlapping copies in one frame.
+    # Repair off-screen, publish the result in one copy, and free the scratch.
+    start = APC + b"a=f,i=%s,c=1,z=-1,x=0,y=0,s=1,v=1,f=32,X=1,q=2;" % image + base64.b64encode(previous[:4]) + ST
+    copy = b"a=c,i=%s,r=%d,c=%d,x=0,y=%d,X=0,Y=%d,w=%d,h=%d,C=1,q=2;"
+    start += APC + copy % (image, 1, 2, dst, src, width, rows) + ST
+    publish = APC + copy % (image, 2, 1, 0, 0, 0, 0) + ST + APC + b"a=d,d=f,i=%s,r=2,q=2;" % image + ST
+    patches = [(rect, crop(frame.raw, width, 4, rect)) for rect in repairs]
+
+    def pack(patches):
+        parts = [start]
+        size = len(start) + len(publish)
+        for (x, y, w, h), pixels in patches:
+            control = b"a=f,i=%s,r=2,X=1,x=%d,y=%d,s=%d,v=%d,f=32,q=2" % (image, x, y, w, h)
+            part = encode(control, pixels)
+            size += len(part)
+            if size > budget:
+                return None
+            parts.append(part)
+        return b"".join([*parts, publish]) if size <= budget else None
+
+    output, chosen = pack(patches), patches
+    # Aim for small enough repairs to pipeline several scrolls over the RTT
+    # window, while keeping the best pixels that meet that size.
+    for block in (3, 4):
+        if output is not None and len(output) <= budget // 3:
+            break
+        smaller = [(r, coarse(pixels, r[2], r[3], 4, block)) for r, pixels in patches]
+        low_res = pack(smaller)
+        if low_res is not None and (output is None or len(low_res) < len(output)):
+            output, chosen = low_res, smaller
+    if output is None:
+        return None
+    actual = bytearray(predicted if previous is base.raw else shifted(previous))
+    for (x, y, w, h), pixels in chosen:
+        for row in range(h):
+            offset = (y + row) * stride + x * 4
+            actual[offset:offset + w * 4] = pixels[row * w * 4:(row + 1) * w * 4]
+    return output, frame.raw if actual == frame.raw else bytes(actual)
+
+
 class Frame:
     """One unencoded image frame, encoded once it reaches the head of the queue."""
 
@@ -207,6 +321,8 @@ class Frame:
         self.estimate = len(raw) // 4
         # Set once encoded; `shown` is then the pixels it leaves on screen.
         self.rendered = False
+        self.scroll_checked = False
+        self.scroll_delta = False
         self.shown = None
 
     def pixels(self):
@@ -421,8 +537,9 @@ class OutputQueue:
     replace them, instead of in SSH and network buffers.
     """
 
-    def __init__(self, compressor=None, paced=False, window=WINDOW):
+    def __init__(self, compressor=None, paced=False, window=WINDOW, scroll_copy=False):
         self.compressor = compressor
+        self.scroll_copy = scroll_copy and compressor is not None and compressor.partial
         self.segments = []
         self.offset = 0
         self.size = 0
@@ -435,6 +552,9 @@ class OutputQueue:
         self.edits = 0
         self.paced = paced
         self.window = window
+        # Scroll deltas can pipeline across a round trip without opening the
+        # window for whole uploads. Individual deltas still fit within window.
+        self.scroll_window = 2 * window
         # Status requests on the wire, oldest first: [ours, time sent, offset].
         self.requests = collections.deque()
         self.total = self.acked = 0
@@ -487,8 +607,8 @@ class OutputQueue:
                 continue
             self.blurred.discard(image)
             latest = self.compressor.latest.get(image)
-            shown = self.committed.get(image)
-            if latest is None or shown is None or shown[:3] != latest[:3]:
+            base = self.committed.get(image)
+            if latest is None or base is None or base.pixels() != latest[:3]:
                 continue
             frame = Frame(image, self.compressor.next_sequence(), b"", latest[3], *latest[:3], refine=True)
             self.add([(b"", ("frame", image, frame.sequence, frame))])
@@ -507,14 +627,13 @@ class OutputQueue:
         image, (width, height, depth) = frame.image, frame.pixels()
         partial = self.compressor is not None and self.compressor.partial
         base = self.committed.get(image)
-        if base is not None and base[:3] != (width, height, depth):
-            base = None
+        base = base.shown if base is not None and base.pixels() == frame.pixels() else None
         raw = frame.raw
         if partial and base is None and frame.refine:
             # The image was deleted meanwhile; nothing to sharpen.
             frame.shown = None
             return b""
-        rect = changed_rect(base[3], raw, width, height, depth) if base is not None else None
+        rect = changed_rect(base, raw, width, height, depth) if base is not None else None
         moving = (
             partial and not frame.refine
             and time.monotonic() - self.motion.get(image, -MOTION_HOLD) < MOTION_HOLD
@@ -522,11 +641,8 @@ class OutputQueue:
         )
         if moving:
             raw = coarse(raw, width, height, depth)
-            self.blurred.add(image)
-            rect = changed_rect(base[3], raw, width, height, depth) if base is not None else None
-        elif not frame.refine:
-            self.blurred.discard(image)
-        frame.shown = (width, height, depth, raw)
+            rect = changed_rect(base, raw, width, height, depth) if base is not None else None
+        frame.shown = raw
         small = rect is None or rect[2] * rect[3] <= EDIT_LIMIT * width * height
         if partial and base is not None and (small or frame.refine):
             self.edits += 1
@@ -549,13 +665,18 @@ class OutputQueue:
         self.started[image] = sequence
         if kind == "release":
             self.committed.pop(image, None)
+            self.blurred.discard(image)
         elif kind == "frame" and frame.shown is not None:
-            self.committed[image] = frame.shown
+            self.committed[image] = frame
+            if frame.shown is not frame.raw:
+                self.blurred.add(image)
+            else:
+                self.blurred.discard(image)
         elif kind == "frame" and frame.rendered and not frame.refine:
             # A whole upload with unknown result; never edit against stale pixels.
             self.committed.pop(image, None)
 
-    def waiting(self, size):
+    def waiting(self, size, window):
         """Whether a `size`-byte image update must wait for earlier replies."""
         for ours, sent, _ in self.requests:
             if ours:
@@ -566,7 +687,7 @@ class OutputQueue:
                     return False
                 if age >= SLOW_REPLY:
                     return False
-                return self.total - self.acked + size > self.window
+                return self.total - self.acked + size > window
         return False
 
     def gated(self, index):
@@ -574,13 +695,27 @@ class OutputQueue:
         tag = entry[1]
         return (
             self.paced and not self.offset and tag is not None and tag[0] == "frame"
-            and self.waiting(self.length(entry))
+            and self.waiting(self.length(entry), self.scroll_window if tag[3].scroll_delta else self.window)
         )
+
+    def scroll_base(self, frame):
+        if (not self.scroll_copy or frame.scroll_checked or frame.refine or frame.depth != 4
+                or frame.estimate * 16 < len(frame.raw) or self.window <= 0):
+            return None
+        base = self.committed.get(frame.image)
+        if base is not None and base.pixels() == frame.pixels():
+            return base
+        return None
 
     def ready(self):
         """Whether write() can make progress now."""
-        for index, entry in enumerate(self.segments):
-            if entry[0] or (entry[1] is not None and entry[1][0] == "frame" and not entry[1][3].rendered):
+        for index, (data, tag) in enumerate(self.segments):
+            if tag is not None and tag[0] == "frame" and not tag[3].rendered:
+                if not self.gated(index):
+                    return True
+                # A frame that looks large may really be a small scroll delta.
+                return self.scroll_base(tag[3]) is not None and not self.waiting(1, self.scroll_window)
+            if data:
                 return not self.gated(index)
         return True
 
@@ -614,11 +749,20 @@ class OutputQueue:
             entry = self.segments[0]
             data, tag = entry
             if tag is not None and tag[0] == "frame" and not tag[3].rendered:
-                if self.gated(0):
-                    break
                 frame = tag[3]
+                gated = self.gated(0)
+                scroll = None
+                if (base := self.scroll_base(frame)) is not None and (not gated or not self.waiting(1, self.scroll_window)):
+                    frame.scroll_checked = True
+                    scroll = encode_scroll(frame, base, self.window - (len(PING) if self.paced else 0))
+                if scroll is not None:
+                    data, frame.shown = scroll
+                    frame.scroll_delta = True
+                elif gated:
+                    break
+                else:
+                    data = self.render(frame)
                 self.size -= frame.estimate
-                data = self.render(frame)
                 frame.rendered = True
                 if data and self.paced:
                     data += PING
@@ -632,13 +776,13 @@ class OutputQueue:
                 self.segments.pop(0)
                 self.offset = 0
                 continue
-            if not self.offset:
-                self.begin(tag)
             remaining = len(data) - self.offset
             try:
                 count = os.write(fd, memoryview(data)[self.offset:])
             except (BlockingIOError, InterruptedError):
                 break
+            if count and not self.offset:
+                self.begin(tag)
             self.offset += count
             self.size -= count
             self.total += count
@@ -740,7 +884,10 @@ def main():
     scaler = InputScaler(scale)
     compressor = Compressor(partial=os.environ.get("HERDR_PARTIAL_IMAGES", "1") != "0")
     os.set_blocking(stdout, False)
-    queue = OutputQueue(compressor, paced=os.environ.get("HERDR_FRAME_ACK", "1") != "0")
+    queue = OutputQueue(
+        compressor, paced=os.environ.get("HERDR_FRAME_ACK", "1") != "0",
+        scroll_copy=os.environ.get("HERDR_SCROLL_COPY") == "1",
+    )
     stdin_open = True
     child_open = True
     paused = False
