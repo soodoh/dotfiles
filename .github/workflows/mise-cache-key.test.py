@@ -354,11 +354,14 @@ class MiseCacheKeyTests(unittest.TestCase):
                 self.assertNotEqual(self.keys()["restore-key"], before["restore-key"])
 
     def test_repository_tools_have_cacheable_inputs(self) -> None:
-        # Exercise the real CI entry point before a new tool reaches cache restore.
-        for os_name, arch, image in (("Linux", "X64", "ubuntu26"), ("macOS", "ARM64", "macos26")):
-            with self.subTest(platform=os_name):
-                keys = self.helper.build_keys(ROOT, os_name, arch, image, "2026.10.20")
-                self.assertTrue(keys["primary-key"].startswith(keys["restore-key"]))
+        # Exercise the real CI entry point. Mise resolves OS-scoped tools on
+        # their native runner; fixture tests exercise cross-platform key boundaries.
+        os_name, arch, image = (
+            ("macOS", "ARM64", "macos26") if sys.platform == "darwin"
+            else ("Linux", "X64", "ubuntu26")
+        )
+        keys = self.helper.build_keys(ROOT, os_name, arch, image, "2026.10.20")
+        self.assertTrue(keys["primary-key"].startswith(keys["restore-key"]))
 
     def test_http_version_urls_are_cacheable_but_environment_templates_are_not(self) -> None:
         config = self.root / "mise.toml"
