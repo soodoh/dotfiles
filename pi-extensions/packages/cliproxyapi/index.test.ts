@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { FastModeController } from "@router-for-me/pi-cliproxyapi-provider/extensions/fast";
 import { FastFooterController } from "@router-for-me/pi-cliproxyapi-provider/extensions/fast-footer";
-import { registerFastCommand } from "@router-for-me/pi-cliproxyapi-provider/extensions/index";
+import * as provider from "@router-for-me/pi-cliproxyapi-provider/extensions/index";
 import { afterEach, expect, test, vi } from "vitest";
 import {
 	FAST_CHANGED_EVENT,
@@ -13,6 +13,22 @@ import {
 	isCliproxyFast,
 } from "../statusline/src/cliproxy-fast";
 import { connectCliproxyFast } from "./index";
+
+type RegisterSpeedCommands = (options: {
+	pi: ExtensionAPI;
+	agentDir: string;
+	providerId: string;
+	fastMode: FastModeController;
+	onModeChange: () => Promise<void>;
+}) => void;
+
+const {
+	registerFastCommand,
+	registerFastCommands,
+}: {
+	registerFastCommand?: RegisterSpeedCommands;
+	registerFastCommands?: RegisterSpeedCommands;
+} = provider;
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -62,7 +78,10 @@ async function session(failRefresh = false) {
 	});
 	await connectCliproxyFast(pi, async (wrapped) => {
 		new FastFooterController("cliproxyapi", mode).register(wrapped);
-		registerFastCommand({
+		const register = registerFastCommands ?? registerFastCommand;
+		if (!register)
+			throw new Error("Provider has no speed command registration");
+		register({
 			pi: wrapped,
 			agentDir,
 			providerId: "cliproxyapi",
@@ -72,8 +91,6 @@ async function session(failRefresh = false) {
 			},
 		});
 	});
-	const command = handlers.get("fast");
-	if (!command) throw new Error("/fast not registered");
 	return {
 		get changes() {
 			return changes;
@@ -84,11 +101,14 @@ async function session(failRefresh = false) {
 				reader,
 			);
 		},
-		run: () =>
-			command("", {
+		run: (name = "fast") => {
+			const command = handlers.get(name);
+			if (!command) throw new Error(`/${name} not registered`);
+			return command("", {
 				model: { provider: "cliproxyapi", id: "gpt-fast" },
 				ui: { notify: (text: string) => notifications.push(text) },
-			} as never),
+			} as never);
+		},
 		notifications,
 	};
 }
@@ -105,6 +125,19 @@ test("two independent controllers toggle and notify only their own statusline", 
 	await first.run();
 	expect([first.fast, second.fast]).toEqual([false, true]);
 });
+
+test.runIf(Boolean(registerFastCommands))(
+	"refreshes the statusline when /ultrafast enables or disables the speed tier",
+	async () => {
+		const instance = await session();
+		await instance.run("ultrafast");
+		expect(instance.fast).toBe(true);
+		expect(instance.changes).toBe(1);
+		await instance.run("ultrafast");
+		expect(instance.fast).toBe(false);
+		expect(instance.changes).toBe(2);
+	},
+);
 
 test("restores the provider hook and publishes nothing when startup fails", async () => {
 	const register = FastFooterController.prototype.register;

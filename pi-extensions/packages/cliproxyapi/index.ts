@@ -7,15 +7,30 @@ import {
 	type FastReader,
 } from "../statusline/src/cliproxy-fast";
 
+type FastModel = Parameters<FastFooterController["isProviderModel"]>[0];
+type FastFooterReader =
+	| { getServiceTierFor(model: FastModel): string | undefined }
+	| { isEffectiveFor(model: FastModel): boolean };
+
+function createFastReader(controller: FastFooterReader): FastReader {
+	return (provider, modelId) => {
+		const model = { provider, id: modelId, reasoning: false, contextWindow: 0 };
+		// 1.5 replaced the boolean API with priority and ultrafast tiers.
+		return "getServiceTierFor" in controller
+			? controller.getServiceTierFor(model) !== undefined
+			: controller.isEffectiveFor(model);
+	};
+}
+
 /** Adapt the installed provider without copying or changing its request logic. */
 export async function connectCliproxyFast(
 	pi: ExtensionAPI,
 	loadProvider: (pi: ExtensionAPI) => Promise<void> = provider,
 ): Promise<void> {
 	// The provider creates a FastFooterController with its actual request controller.
-	// Capture that instance while its factory runs; the public isEffectiveFor method
-	// remains accurate after /fast, refreshes, and rollback. Restore the prototype
-	// immediately so no other extension inherits our instrumentation.
+	// Capture that instance while its factory runs so the reader sees changes
+	// after commands, refreshes, and rollback. Restore the prototype immediately
+	// so no other extension inherits our instrumentation.
 	const originalRegister = FastFooterController.prototype.register;
 	const captureRegister = function (
 		this: FastFooterController,
@@ -23,14 +38,7 @@ export async function connectCliproxyFast(
 	) {
 		FastFooterController.prototype.register = originalRegister;
 		const result = originalRegister.call(this, api);
-		const isFast: FastReader = (provider, modelId) =>
-			this.isEffectiveFor({
-				provider,
-				id: modelId,
-				reasoning: false,
-				contextWindow: 0,
-			});
-		pi.events.emit(FAST_READER_EVENT, isFast);
+		pi.events.emit(FAST_READER_EVENT, createFastReader(this));
 		return result;
 	};
 	FastFooterController.prototype.register = captureRegister;
@@ -42,7 +50,9 @@ export async function connectCliproxyFast(
 				name: string,
 				options: Parameters<ExtensionAPI["registerCommand"]>[1],
 			) => {
-				if (name !== "fast") return target.registerCommand(name, options);
+				if (name !== "fast" && name !== "ultrafast") {
+					return target.registerCommand(name, options);
+				}
 				target.registerCommand(name, {
 					...options,
 					async handler(args, ctx) {
