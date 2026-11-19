@@ -1,4 +1,4 @@
-"""Guard Herdr-owned plugin state; refresh the desired pin without running plugin code."""
+"""Guard Herdr-owned plugin state, link repository plugins, and refresh pins without running plugin code."""
 
 import argparse
 import hashlib
@@ -56,6 +56,10 @@ SESH = Plugin(
     ("Darwin", "Linux"),
 )
 PLUGINS = (SESH, NOTIFIER)
+# Repository-owned plugins linked in place; their code is reviewed with this checkout.
+LOCAL_PLUGINS = (
+    ("dotfiles.process-icons", Path(__file__).resolve().parent / "process-icons"),
+)
 
 
 def require(condition, message):
@@ -69,10 +73,8 @@ def git(*args):
     ).stdout.strip()
 
 
-def installed_pin(config_dir, spec):
-    """Return a healthy, owned pin or None; ambiguity is never permission to replace."""
+def registry_entries(config_dir):
     registry = config_dir / "plugins.json"
-    checkout = config_dir / "plugins/github" / spec.checkout
     # CLI plugin.list treats corrupt registries as empty; read strictly instead.
     entries = json.loads(registry.read_text()) if registry.exists() else []
     require(not registry.is_symlink(), f"symlinked registry: {registry}")
@@ -85,7 +87,13 @@ def installed_pin(config_dir, spec):
     )
     ids = [e["plugin_id"] for e in entries]
     require(len(ids) == len(set(ids)), f"duplicate plugin IDs: {registry}")
-    matches = [e for e in entries if e["plugin_id"] == spec.id]
+    return entries
+
+
+def installed_pin(config_dir, spec):
+    """Return a healthy, owned pin or None; ambiguity is never permission to replace."""
+    checkout = config_dir / "plugins/github" / spec.checkout
+    matches = [e for e in registry_entries(config_dir) if e["plugin_id"] == spec.id]
     if not matches:
         require(
             not checkout.exists() and not checkout.is_symlink(),
@@ -175,6 +183,12 @@ def install(pin, spec):
     )
 
 
+def herdr_config_dir():
+    return (
+        Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "herdr"
+    ).resolve()
+
+
 def reconcile(action, pin, spec):
     """Bootstrap and update both apply the committed pin to healthy owned state."""
     require(action in ("bootstrap", "update"), "unsupported reconciliation action")
@@ -189,9 +203,7 @@ def reconcile(action, pin, spec):
         isinstance(pin, str) and SHA.fullmatch(pin),
         "desired plugin pin must be a full commit SHA",
     )
-    config_dir = (
-        Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "herdr"
-    ).resolve()
+    config_dir = herdr_config_dir()
     current = installed_pin(config_dir, spec)
     if current == pin:
         print(f"{spec.id}: already at {pin}")
@@ -202,6 +214,30 @@ def reconcile(action, pin, spec):
         installed_pin(config_dir, spec) == pin,
         "installer did not produce the desired healthy plugin state",
     )
+
+
+def link_local(plugin_id, root):
+    """(Re)link a repository plugin; Herdr caches its manifest until the next link."""
+    config_dir = herdr_config_dir()
+    matches = [e for e in registry_entries(config_dir) if e["plugin_id"] == plugin_id]
+    if matches:
+        entry = matches[0]
+        source = entry.get("source") or {}
+        require(
+            source.get("kind", "local") == "local"
+            and isinstance(entry.get("plugin_root"), str)
+            and Path(entry["plugin_root"]).resolve() == root,
+            f"{plugin_id} is registered from another source; refusing replacement",
+        )
+        if entry.get("enabled") is not True:
+            # Linking would silently re-enable it.
+            print(f"{plugin_id}: disabled; leaving it unchanged")
+            return
+    require(shutil.which("herdr"), "missing herdr; install declared tools first")
+    subprocess.run(
+        ["herdr", "plugin", "link", str(root)], check=True, stdout=subprocess.DEVNULL
+    )
+    print(f"{plugin_id}: linked {root}")
 
 
 def refresh_pin(config, spec):
@@ -239,6 +275,9 @@ def main():
             refresh_pin(CONFIG, spec)
         else:
             reconcile(args.action, pins[spec.pin_key], spec)
+    if args.action != "refresh-pin":
+        for plugin_id, root in LOCAL_PLUGINS:
+            link_local(plugin_id, root)
 
 
 if __name__ == "__main__":

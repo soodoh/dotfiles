@@ -332,7 +332,7 @@ run = [
 run = "bun ci --cwd pi-extensions"
 
 [tasks."bootstrap:herdr-plugins"]
-description = "Reconcile Herdr plugins to committed pins; preserve unsafe or disabled state"
+description = "Reconcile Herdr plugins to committed pins and link repository plugins; preserve unsafe or disabled state"
 run = "python3 dotfiles/common/herdr/plugin.py bootstrap"
 
 [tasks."update:herdr-plugins"]
@@ -390,6 +390,7 @@ run = [
   "python3 dotfiles/work/agents/twg-skills.py check",
   "python3 .github/workflows/mise-cache-key.test.py",
   "python3 dotfiles/common/herdr/plugin.test.py",
+  "python3 dotfiles/common/herdr/process-icons/icons.test.py",
   # Remove this narrow exception once actionlint supports GitHub-hosted Ubuntu 26 upstream.
   "actionlint -ignore '^label \"ubuntu-26[.]04\" is unknown[.]'",
   '''if [ "$(uname -s)" = Darwin ]; then

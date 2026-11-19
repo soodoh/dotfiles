@@ -300,5 +300,45 @@ class InstallerTests(unittest.TestCase):
                     run.assert_not_called()
 
 
+class LocalPluginTests(unittest.TestCase):
+    plugin_id, root = plugin.LOCAL_PLUGINS[0]
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="herdr-local-plugin-test-")
+        self.addCleanup(temporary.cleanup)
+        config = Path(temporary.name).resolve()
+        self.enterContext(patch.dict(os.environ, {"XDG_CONFIG_HOME": str(config)}))
+        self.registry = config / "herdr/plugins.json"
+        self.registry.parent.mkdir()
+        self.enterContext(patch.object(plugin.shutil, "which", return_value="/bin"))
+        self.run_ = self.enterContext(patch.object(plugin.subprocess, "run"))
+
+    def register(self, **entry):
+        entry = {"plugin_id": self.plugin_id, "enabled": True, **entry}
+        self.registry.write_text(json.dumps([entry]))
+
+    def linked(self):
+        return [call.args[0] for call in self.run_.call_args_list]
+
+    def test_absent_or_owned_plugins_are_relinked_to_refresh_the_manifest(self):
+        plugin.link_local(self.plugin_id, self.root)
+        self.register(plugin_root=str(self.root), source={"kind": "local"})
+        plugin.link_local(self.plugin_id, self.root)
+        link = ["herdr", "plugin", "link", str(self.root)]
+        self.assertEqual(self.linked(), [link, link])
+
+    def test_disabled_or_foreign_registrations_are_preserved(self):
+        self.register(plugin_root=str(self.root), enabled=False)
+        plugin.link_local(self.plugin_id, self.root)
+        for root, source in (
+            ("/elsewhere", {"kind": "local"}),
+            (str(self.root), {"kind": "github", "owner": "x", "repo": "y"}),
+        ):
+            self.register(plugin_root=root, source=source)
+            with self.assertRaisesRegex(ValueError, "another source"):
+                plugin.link_local(self.plugin_id, self.root)
+        self.assertEqual(self.linked(), [])
+
+
 if __name__ == "__main__":
     unittest.main()

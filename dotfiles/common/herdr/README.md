@@ -148,6 +148,25 @@ duplicate native desktop notifications, choose `[ui.toast] delivery = "herdr"`
 (internal-only) or `"off"` when enabling the plugin. macOS notification permissions
 require manual configuration.
 
+## Process icons
+
+The repository-owned [`process-icons`](process-icons/) plugin replaces each tab label
+with Nerd Font icons for the programs running in its panes, left to right. Idle shells
+show only when nothing else runs. Text you add with P Shift+T is kept after the icons;
+Herdr's positional number labels are dropped. The icon table lives in `icons.py`.
+
+Herdr 0.9.5 does not run plugin hooks for `pane.updated` or `layout.updated`, so a
+single watcher, elected by a lock per server socket, subscribes over the API. The
+startup hook and `tab.focused`/`tab.created`/`pane.created` hooks only start it
+when none is running. Each change is checked after 150 ms and again after 1 s,
+because Fish retitles a pane before forking and wrappers can exec later.
+It classifies the foreground process-group leader, so Pi's tool commands keep the Pi icon.
+
+`bootstrap:herdr-plugins` and `update:herdr-plugins` relink it in place on Linux and
+macOS, which refreshes Herdr's cached manifest. Disabled or differently sourced
+registrations are left alone. After the first link, the watcher starts at the next
+tab focus or new pane.
+
 ## Sesh workspace picker
 
 Alt+E opens `fullerzz/herdr-plugin-sesh` as a 90% session-modal popup through
