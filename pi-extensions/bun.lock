@@ -7,8 +7,8 @@
       "dependencies": {
         "@juicesharp/rpiv-ask-user-question": "2.15.0",
         "@plannotator/pi-extension": "0.29.0",
-        "@router-for-me/pi-cliproxyapi-provider": "1.4.26",
-        "pi-subagents": "0.89.0",
+        "@router-for-me/pi-cliproxyapi-provider": "1.5.0",
+        "pi-subagents": "0.89.1",
         "pi-vim": "0.16.0",
         "pi-web-access": "0.48.0",
         "proper-lockfile": "4.1.2",
@@ -217,7 +217,7 @@
 
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.1", "", {}, "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="],
 
-    "@router-for-me/pi-cliproxyapi-provider": ["@router-for-me/pi-cliproxyapi-provider@1.4.26", "", { "peerDependencies": { "@earendil-works/pi-ai": "*", "@earendil-works/pi-coding-agent": ">=0.82.0" } }, "sha512-pgxfYHWZIaQKHfoRZfadVUBGc70arfxrUUtmxPdo63f77ViwuQ0nnJt70v21chkE9JQqVzDNFeRMBAhmi8l6uw=="],
+    "@router-for-me/pi-cliproxyapi-provider": ["@router-for-me/pi-cliproxyapi-provider@1.5.0", "", { "peerDependencies": { "@earendil-works/pi-ai": "*", "@earendil-works/pi-coding-agent": ">=0.82.0" } }, "sha512-zG5I/dWxQl6rTE8/JpaerMPhuYwlHQOjlmhvvA9qCYdly3vSiz5BVKL9shuClggSsvSb3yqFg4mP3v4dFjO4yw=="],
 
     "@shikijs/core": ["@shikijs/core@4.6.0", "", { "dependencies": { "@shikijs/primitive": "4.6.0", "@shikijs/types": "4.6.0", "@shikijs/vscode-textmate": "^10.1.0", "@types/hast": "^3.0.5", "hast-util-to-html": "^9.0.6" } }, "sha512-bfd4OKgvoyXYiYmMRuleA656P4V7M/Du9lcTl38Ngm6KszMj7bq4J1IGZwSYR4c95Tv5UQALtYNWUwaI9UT3xw=="],
 
@@ -783,7 +783,7 @@
 
     "path-to-regexp": ["path-to-regexp@8.4.2", "", {}, "sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA=="],
 
-    "pi-subagents": ["pi-subagents@0.89.0", "", { "dependencies": { "@js-temporal/polyfill": "0.5.1", "acorn": "8.18.0", "jiti": "2.7.0", "undici": "8.12.4", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=1.2.0", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "typebox": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui", "typebox"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-rYlYB993NuNpHru4ePvraR9dizlRSh6lhS895Amx8TSYaCnuBZgakxG+KpPhNwzEROHC4SnhtZuR4oNMEo1dtA=="],
+    "pi-subagents": ["pi-subagents@0.89.1", "", { "dependencies": { "@js-temporal/polyfill": "0.5.1", "acorn": "8.18.0", "jiti": "2.7.0", "undici": "8.12.4", "yaml": "2.8.3" }, "peerDependencies": { "@earendil-works/pi-agent-core": "*", "@earendil-works/pi-ai": ">=1.2.0", "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": "*", "typebox": "*" }, "optionalPeers": ["@earendil-works/pi-agent-core", "@earendil-works/pi-ai", "@earendil-works/pi-coding-agent", "@earendil-works/pi-tui", "typebox"], "bin": { "pi-subagents": "install.mjs" } }, "sha512-DLJZpQmXyoMcyOc+etnls3dthorn79YLEAW6CmzVmHYyG3hzMU9TENUE6h8aIBHBITZPZjGDrfapksiHLSqMpA=="],
 
     "pi-vim": ["pi-vim@0.16.0", "", { "peerDependencies": { "@earendil-works/pi-coding-agent": "*", "@earendil-works/pi-tui": ">=1.0.0" } }, "sha512-s8dH2R4OOmviGi5TvcqMk/N4obBPxbQZhucVmfMShxPu+uHJMu5nIs8f13wH5BIMz6mitmZfwgtPHoxONPJoYQ=="],
 
