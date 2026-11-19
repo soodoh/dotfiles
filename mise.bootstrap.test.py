@@ -6,6 +6,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import tomllib
 import unittest
@@ -39,6 +40,17 @@ def tool_version(specification: object) -> str:
     ):
         return specification["version"]
     raise TypeError(f"unsupported tool specification: {specification!r}")
+
+
+def host_tools(tools: dict) -> dict:
+    host_os = "macos" if sys.platform == "darwin" else sys.platform
+    return {
+        tool: specification
+        for tool, specification in tools.items()
+        if not isinstance(specification, dict)
+        or not specification.get("os")
+        or host_os in specification["os"]
+    }
 
 
 class MisePolicyTests(unittest.TestCase):
@@ -1028,18 +1040,22 @@ class MiseConfigurationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertNotIn("Failed to resolve", result.stderr)
             resolved = json.loads(result.stdout)
-            self.assertEqual(set(resolved), set(config_tools))
+            self.assertEqual(set(resolved), set(host_tools(config_tools)))
             for tool, specification in config_tools.items():
                 with self.subTest(profile=profile, tool=tool):
+                    requested = tool_version(specification)
+                    locked = [entry["version"] for entry in lock_tools.get(tool, [])]
+                    if tool not in resolved:
+                        # Off-platform requests must still have their exact pin.
+                        self.assertIn(requested, locked)
+                        continue
                     records = resolved[tool]
                     self.assertEqual(
-                        [record["requested_version"] for record in records],
-                        [tool_version(specification)],
+                        [record["requested_version"] for record in records], [requested]
                     )
                     for record in records:
                         self.assertIn(
-                            record["version"],
-                            [entry["version"] for entry in lock_tools.get(tool, [])],
+                            record["version"], locked,
                             f"{profile}: {tool}@{record['version']} is missing from the lock",
                         )
 
@@ -1180,7 +1196,7 @@ class MiseConfigurationTests(unittest.TestCase):
                             selected,
                             {
                                 tool: [tool_version(specification)]
-                                for tool, specification in expected.items()
+                                for tool, specification in host_tools(expected).items()
                             },
                         )
 
@@ -1204,7 +1220,7 @@ class MiseConfigurationTests(unittest.TestCase):
                 other_config = self.personal if other == "personal" else self.work
                 self.assertEqual(selected, {
                     tool: [tool_version(specification)]
-                    for tool, specification in (self.base["tools"] | other_config["tools"]).items()
+                    for tool, specification in host_tools(self.base["tools"] | other_config["tools"]).items()
                 })
 
     def test_workstation_global_settings_work_without_shell_exports(self) -> None:
