@@ -446,6 +446,7 @@ run = "dotfiles/common/nvim/tests/validate.sh"
 [tasks."validate:macos:fast"]
 run = '''
 for test in dotfiles/macos/sketchybar/plugins/tests/*_test.sh; do bash "$test"; done
+python3 dotfiles/macos/herdr/kitty-compress.test.py
 if [ "$(uname -s)" = Darwin ]; then
   bash dotfiles/macos/sketchybar/helper/build.sh test
 fi

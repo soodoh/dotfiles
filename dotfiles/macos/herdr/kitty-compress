@@ -1,0 +1,650 @@
+#!/usr/bin/env python3
+"""Run Herdr in a PTY and shrink its pane-image traffic for a slow SSH link.
+
+Herdr's SSH client path sends every pane-image repaint as a whole raw RGBA
+upload. This proxy rewrites that Kitty graphics output:
+
+- compresses uploads with zlib (`o=z`);
+- optionally sends every Nth pixel and row (HERDR_IMAGE_SCALE=N); placements
+  keep their cell size, so the terminal stretches the image over the pane;
+- replaces a frame that changes only part of an image with a partial edit of
+  the image already on screen (`a=f`), unless HERDR_PARTIAL_IMAGES=0;
+- drops queued frames that a newer frame replaces before they reach the link.
+"""
+
+import base64
+import collections
+import errno
+import fcntl
+import os
+import pty
+import select
+import signal
+import sys
+import termios
+import time
+import tty
+import zlib
+
+APC = b"\x1b_G"
+ST = b"\x1b\\"
+CHUNK = 4096
+# Queued frames that a newer one replaces are dropped, so only other output can
+# build up. Pause reads from Herdr if it ever exceeds this.
+MAX_PENDING = 8 << 20
+# Send a whole frame instead of an edit once this share of the image changed.
+EDIT_LIMIT = 0.6
+# Herdr sends delete then upload; a held delete with no upload behind it within
+# this time goes out on its own.
+HOLD_SECONDS = 0.05
+# After each image update, ask the terminal for a status report; send the next
+# image only once it answers, so at most one frame waits in network buffers.
+PING = b"\x1b[5n"
+PONG = b"\x1b[0n"
+# Frame segments that wait for the previous frame's reply. A frame's delete
+# waits too, so the old image stays on screen until its replacement can follow.
+GATED = ("delete", "upload", "edit")
+# Stop waiting for replies (but keep removing late ones) after this long.
+PING_TIMEOUT = 2.0
+# macOS discards unread PTY output when the child exits. If Herdr exits while
+# reads are paused, its own terminal restore may be lost; reset the common modes.
+RESTORE = (
+    b"\x1b[?1049l\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1016l"
+    b"\x1b[?1004l\x1b[?2004l\x1b[?2026l\x1b[?25h\x1b[0m"
+)
+
+
+def controls(header):
+    pairs = {}
+    for part in header.split(b","):
+        key, _, value = part.partition(b"=")
+        if key:
+            pairs[key] = value
+    return pairs
+
+
+def rewrite(header, updates):
+    parts = []
+    for part in header.split(b","):
+        key = part.partition(b"=")[0]
+        parts.append(key + b"=" + updates[key] if key in updates else part)
+    return b",".join(parts)
+
+
+def number(keys, key):
+    try:
+        return int(keys[key])
+    except (KeyError, ValueError):
+        return None
+
+
+def downscale(raw, width, height, depth, scale):
+    """Keep every scale-th pixel and row (nearest neighbour)."""
+    stride = width * depth
+    output = bytearray()
+    for row in range(0, height, scale):
+        line = memoryview(raw)[row * stride:(row + 1) * stride]
+        if depth == 4:
+            output += line.cast("I")[::scale].tobytes()
+        else:
+            for offset in range(0, stride, depth * scale):
+                output += line[offset:offset + depth]
+    return bytes(output), -(-width // scale), -(-height // scale)
+
+
+def scaled_rect(header, keys, scale):
+    """Map a placement's source rectangle onto the downscaled image."""
+    updates = {}
+    for key in (b"x", b"y"):
+        if (value := number(keys, key)) is not None:
+            updates[key] = str(value // scale).encode()
+    for key in (b"w", b"h"):
+        if (value := number(keys, key)) is not None:
+            updates[key] = str(max(1, -(-value // scale))).encode()
+    return rewrite(header, updates)
+
+
+def first_difference(old, new):
+    """Index of the first differing byte of two equal-length buffers."""
+    low, high = 0, len(old)
+    while high - low > 64:
+        middle = (low + high) // 2
+        if old[low:middle] == new[low:middle]:
+            low = middle
+        else:
+            high = middle
+    while old[low] == new[low]:
+        low += 1
+    return low
+
+
+def last_difference(old, new):
+    """Index of the last differing byte of two equal-length buffers."""
+    low, high = 0, len(old)
+    while high - low > 64:
+        middle = (low + high) // 2
+        if old[middle:high] == new[middle:high]:
+            high = middle
+        else:
+            low = middle
+    high -= 1
+    while old[high] == new[high]:
+        high -= 1
+    return high
+
+
+def changed_rect(old, new, width, height, depth):
+    """Bounding box (x, y, w, h) of differing pixels, or None if identical."""
+    stride = width * depth
+    old, new = memoryview(old), memoryview(new)
+    rows = [y for y in range(height) if old[y * stride:(y + 1) * stride] != new[y * stride:(y + 1) * stride]]
+    if not rows:
+        return None
+    left, right = stride, -1
+    for y in rows:
+        a, b = old[y * stride:(y + 1) * stride], new[y * stride:(y + 1) * stride]
+        if a[:left] != b[:left]:
+            left = first_difference(a, b)
+        if a[right + 1:] != b[right + 1:]:
+            right = last_difference(a, b)
+    x0, x1 = left // depth, right // depth
+    return x0, rows[0], x1 - x0 + 1, rows[-1] - rows[0] + 1
+
+
+def crop(raw, width, depth, rect):
+    x, y, w, h = rect
+    stride = width * depth
+    return b"".join(raw[(y + row) * stride + x * depth:(y + row) * stride + (x + w) * depth] for row in range(h))
+
+
+def encode(control, raw):
+    """Chunked, zlib-compressed Kitty command carrying raw pixels."""
+    # Level 6 cuts a half-resolution text frame by about a fifth over level 1
+    # for a few milliseconds of CPU; the link, not compression, is the limit.
+    encoded = base64.b64encode(zlib.compress(raw, 6))
+    chunks = [encoded[i:i + CHUNK] for i in range(0, len(encoded), CHUNK)] or [b""]
+    output = []
+    for index, chunk in enumerate(chunks):
+        last = index == len(chunks) - 1
+        head = control + b",o=z," if index == 0 else b""
+        output.append(APC + head + (b"m=0" if last else b"m=1") + b";" + chunk + ST)
+    return b"".join(output)
+
+
+class Compressor:
+    """Rewrites Kitty graphics in Herdr's output into tagged segments.
+
+    Each segment is (bytes, tag). Tags group one frame of one image into a
+    transaction: ("delete" | "upload" | "edit" | "place", image, sequence,
+    pixels). A delete that no upload follows is a "release" of its own. The
+    pixels on an upload or edit tag are the whole image after that frame, so
+    the queue can record what the terminal shows once the frame starts writing.
+    After a release, frames stay whole until a whole upload starts writing.
+    """
+
+    def __init__(self, scale=1, partial=False):
+        self.buffer = b""
+        self.upload = None
+        self.passing = False
+        self.scale = max(1, scale)
+        self.partial = partial
+        self.scaled = {}
+        self.sequence = 0
+        self.current = {}
+        # Image pixels on screen (or committed to the link), from the queue.
+        self.committed = {}
+        # Image -> sequence of the latest release; edits wait for a later upload.
+        self.needs_full = {}
+        self.held = None
+        self.held_since = 0.0
+        self.uploads = self.edits = 0
+        self.last_raw = self.last_sent = 0
+
+    def feed(self, data):
+        return b"".join(segment for segment, _ in self.segments(data))
+
+    def segments(self, data):
+        self.buffer += data
+        output = []
+        while True:
+            start = self.buffer.find(APC)
+            if start < 0:
+                keep = 2 if self.buffer.endswith(APC[:2]) else 1 if self.buffer.endswith(APC[:1]) else 0
+                self.text(output, self.buffer[:len(self.buffer) - keep])
+                self.buffer = self.buffer[len(self.buffer) - keep:]
+                break
+            end = self.buffer.find(ST, start + len(APC))
+            if end < 0:
+                self.text(output, self.buffer[:start])
+                self.buffer = self.buffer[start:]
+                break
+            self.text(output, self.buffer[:start])
+            command = self.buffer[start + len(APC):end]
+            self.buffer = self.buffer[end + len(ST):]
+            self.graphics(output, command)
+        return [segment for segment in output if segment[0]]
+
+    def text(self, output, data):
+        if data:
+            # Text between a delete and the next command means no upload follows.
+            self.release(output)
+            output.append((data, None))
+
+    def release(self, output):
+        """Emit a held delete as a real one."""
+        if self.held is None:
+            return
+        command, image = self.held
+        self.held = None
+        self.sequence += 1
+        self.needs_full[image] = self.sequence
+        output.append((APC + command + ST, ("release", image, self.sequence, None)))
+
+    def expired(self):
+        """Release a delete held longer than HOLD_SECONDS; returns segments."""
+        if self.held is None or time.monotonic() - self.held_since < HOLD_SECONDS:
+            return []
+        if self.buffer or (self.upload is not None and controls(self.upload[0]).get(b"i") == self.held[1]):
+            # The command or upload behind it is still streaming in from Herdr.
+            return []
+        output = []
+        self.release(output)
+        return output
+
+    def finish(self):
+        output = []
+        self.release(output)
+        if self.upload is not None:
+            output.append((self.passthrough(*self.upload), None))
+            self.upload = None
+        if self.buffer:
+            output.append((self.buffer, None))
+            self.buffer = b""
+        return b"".join(segment for segment, _ in output)
+
+    def graphics(self, output, command):
+        header, _, payload = command.partition(b";")
+        keys = controls(header)
+        more = keys.get(b"m") == b"1"
+        continuation = set(keys) <= {b"m", b"q"}
+        if self.passing:
+            if continuation:
+                # Continuations of an upload this filter does not rewrite.
+                self.passing = more
+                output.append((APC + command + ST, None))
+                return
+            self.passing = False
+        if self.upload is not None:
+            if continuation:
+                self.upload[1].append(payload)
+                if not more:
+                    first, parts = self.upload
+                    self.upload = None
+                    self.transmit(output, first, b"".join(parts))
+                return
+            # Anything else ends the upload, so pass the partial one through.
+            first, parts = self.upload
+            self.upload = None
+            self.release(output)
+            output.append((self.passthrough(first, parts), None))
+        image = keys.get(b"i")
+        if keys.get(b"a") == b"d" and keys.get(b"d") == b"I" and image is not None:
+            self.release(output)
+            if self.partial:
+                # Herdr deletes before re-uploading; an edit may replace both.
+                self.held = (command, image)
+                self.held_since = time.monotonic()
+                return
+            self.sequence += 1
+            self.needs_full[image] = self.sequence
+            output.append((APC + command + ST, ("release", image, self.sequence, None)))
+            return
+        eligible = (
+            keys.get(b"a", b"t") in (b"t", b"T")
+            and keys.get(b"t", b"d") == b"d"
+            and keys.get(b"f", b"32") in (b"24", b"32")
+            and b"o" not in keys
+        )
+        if eligible:
+            if more:
+                self.upload = (header, [payload])
+            else:
+                self.transmit(output, header, payload)
+            return
+        self.release(output)
+        self.passing = more
+        if keys.get(b"a") == b"p" and image is not None:
+            if image in self.scaled:
+                header = scaled_rect(header, keys, self.scaled[image])
+                command = header + (b";" + payload if payload else b"")
+            tag = ("place", image, self.current.get(image, 0), None)
+            output.append((APC + command + ST, tag))
+            return
+        output.append((APC + command + ST, None))
+
+    @staticmethod
+    def passthrough(header, parts):
+        chunks = [APC + header + b";" + parts[0] + ST]
+        chunks.extend(APC + b"m=1;" + part + ST for part in parts[1:])
+        return b"".join(chunks)
+
+    def transmit(self, output, header, payload):
+        try:
+            raw = base64.b64decode(payload, validate=False)
+        except ValueError:
+            self.release(output)
+            output.append((APC + header + b";" + payload + ST, None))
+            return
+        keys = controls(header)
+        width, height = number(keys, b"s"), number(keys, b"v")
+        depth = 3 if keys.get(b"f") == b"24" else 4
+        image = keys.get(b"i")
+        if self.scale > 1 and width and height and len(raw) == width * height * depth:
+            raw, width, height = downscale(raw, width, height, depth, self.scale)
+            header = rewrite(header, {b"s": str(width).encode(), b"v": str(height).encode()})
+            header = scaled_rect(header, keys, self.scale)
+            if image is not None:
+                self.scaled[image] = self.scale
+        elif image is not None:
+            self.scaled.pop(image, None)
+        self.uploads += 1
+        self.last_raw = len(payload)
+        transmit_only = keys.get(b"a", b"t") == b"t"
+        if image is None or not transmit_only or not width or len(raw) != width * height * depth:
+            self.release(output)
+            encoded = encode(b",".join(p for p in header.split(b",") if not p.startswith(b"m=")), raw)
+            self.last_sent = len(encoded)
+            output.append((encoded, None))
+            return
+        self.sequence += 1
+        sequence = self.current[image] = self.sequence
+        base = self.committed.get(image)
+        held = self.held is not None and self.held[1] == image
+        if (
+            held
+            and image not in self.needs_full
+            and base is not None
+            and base[:3] == (width, height, depth)
+        ):
+            rect = changed_rect(base[3], raw, width, height, depth)
+            if rect is None or rect[2] * rect[3] <= EDIT_LIMIT * width * height:
+                # Keep the image on screen and edit only the changed pixels.
+                self.held = None
+                self.edits += 1
+                data = b""
+                if rect is not None:
+                    x, y, w, h = rect
+                    control = b"a=f,i=%s,r=1,X=1,x=%d,y=%d,s=%d,v=%d,f=%d,q=2" % (image, x, y, w, h, depth * 8)
+                    data = encode(control, crop(raw, width, depth, rect))
+                self.last_sent = len(data)
+                output.append((data, ("edit", image, sequence, (width, height, depth, raw))))
+                return
+        if held:
+            command, _ = self.held
+            self.held = None
+            output.append((APC + command + ST, ("delete", image, sequence, None)))
+        else:
+            self.release(output)
+        encoded = encode(b",".join(p for p in header.split(b",") if not p.startswith(b"m=")), raw)
+        self.last_sent = len(encoded)
+        output.append((encoded, ("upload", image, sequence, (width, height, depth, raw))))
+
+
+class OutputQueue:
+    """Terminal output waiting for a slow link, minus superseded image frames.
+
+    When a newer frame for an image arrives, queued segments of older frames
+    for that image are dropped unless that frame has started writing; a
+    started frame always completes. Dropping a whole frame, delete included,
+    leaves the terminal showing the base that newer edits were computed from.
+    Releases are never dropped; the compressor sends a full frame after one.
+    When a frame starts writing, its pixels become the compressor's base for
+    later partial edits.
+
+    With pacing, each image update ends with a status request, and the next
+    image update waits for the terminal's reply. Output then queues here, where
+    newer frames can replace it, instead of in SSH and network buffers.
+    """
+
+    def __init__(self, compressor=None, paced=False):
+        self.compressor = compressor
+        self.segments = []
+        self.offset = 0
+        self.size = 0
+        self.dropped = 0
+        self.started = {}
+        self.paced = paced
+        # Status requests on the wire, oldest first: [ours, time sent].
+        self.requests = collections.deque()
+
+    def add(self, segments):
+        for data, tag in segments:
+            image_update = tag is not None and tag[0] in ("upload", "edit")
+            if image_update:
+                self.supersede(tag[1], tag[2])
+                if self.paced and data:
+                    data += PING
+            self.segments.append([data, tag])
+            self.size += len(data)
+
+    def supersede(self, image, sequence):
+        started = self.started.get(image)
+        for index, (data, tag) in enumerate(self.segments):
+            if tag is None or tag[1] != image or tag[0] == "release" or tag[2] in (started, sequence):
+                continue
+            if index == 0 and self.offset:
+                continue
+            self.size -= len(data)
+            self.segments[index] = [b"", None]
+            self.dropped += tag[0] in ("upload", "edit")
+
+    def begin(self, tag):
+        if tag is None:
+            return
+        kind, image, sequence, pixels = tag
+        self.started[image] = sequence
+        if self.compressor is None:
+            return
+        if kind in ("delete", "release"):
+            self.compressor.committed.pop(image, None)
+        elif kind == "upload":
+            self.compressor.committed[image] = pixels
+            if self.compressor.needs_full.get(image, sequence) < sequence:
+                del self.compressor.needs_full[image]
+        elif kind == "edit":
+            self.compressor.committed[image] = pixels
+
+    def waiting(self):
+        """Whether an image update must wait for an earlier one's reply."""
+        for ours, sent in self.requests:
+            if ours:
+                if time.monotonic() - sent < PING_TIMEOUT:
+                    return True
+                # This terminal does not answer; stop pacing.
+                self.paced = False
+                return False
+        return False
+
+    def ready(self):
+        """Whether write() can make progress now."""
+        for data, tag in self.segments:
+            if not data:
+                continue
+            gated = self.paced and not self.offset and tag is not None and tag[0] in GATED
+            return not (gated and self.waiting())
+        return True
+
+    def replies(self, data):
+        """Remove replies to our status requests from terminal input."""
+        if PONG not in data or not self.requests:
+            return data
+        output, start = [], 0
+        while (found := data.find(PONG, start)) >= 0 and self.requests:
+            ours, _ = self.requests.popleft()
+            output.append(data[start:found] if ours else data[start:found + len(PONG)])
+            start = found + len(PONG)
+        output.append(data[start:])
+        return b"".join(output)
+
+    def written(self, data, tag):
+        """Record status requests in a segment that finished writing."""
+        now = time.monotonic()
+        if tag is None:
+            # Herdr's own requests: their replies go back to Herdr.
+            self.requests.extend([False, now] for _ in range(data.count(PING)))
+        elif tag[0] in ("upload", "edit") and data.endswith(PING) and self.paced:
+            self.requests.append([True, now])
+
+    def write(self, fd):
+        written = 0
+        while self.segments:
+            data, tag = self.segments[0]
+            if self.offset >= len(data):
+                if not data:
+                    self.begin(tag)
+                self.segments.pop(0)
+                self.offset = 0
+                continue
+            if not self.offset:
+                if self.paced and tag is not None and tag[0] in GATED and self.waiting():
+                    break
+                self.begin(tag)
+            remaining = len(data) - self.offset
+            try:
+                count = os.write(fd, memoryview(data)[self.offset:])
+            except (BlockingIOError, InterruptedError):
+                break
+            self.offset += count
+            self.size -= count
+            written += count
+            if count < remaining:
+                break
+            self.written(data, tag)
+        return written
+
+
+def copy_size(source, target):
+    try:
+        size = fcntl.ioctl(source, termios.TIOCGWINSZ, b"\0" * 8)
+        fcntl.ioctl(target, termios.TIOCSWINSZ, size)
+    except OSError:
+        pass
+
+
+def write_all(fd, data):
+    view = memoryview(data)
+    while view:
+        try:
+            written = os.write(fd, view)
+        except InterruptedError:
+            continue
+        view = view[written:]
+
+
+class Debug:
+    """Optional timing log for diagnosing slow links (HERDR_COMPRESS_LOG=path)."""
+
+    def __init__(self, path):
+        self.file = open(path, "a", buffering=1) if path else None
+        self.start = time.monotonic()
+
+    def log(self, event, **fields):
+        if self.file:
+            fields = " ".join(f"{key}={value}" for key, value in fields.items())
+            self.file.write(f"{time.monotonic() - self.start:9.3f} {event} {fields}\n")
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit("usage: kitty-compress command [args...]")
+    stdin = sys.stdin.fileno()
+    stdout = sys.stdout.fileno()
+    pid, master = pty.fork()
+    if pid == 0:
+        os.execvp(sys.argv[1], sys.argv[1:])
+    interactive = os.isatty(stdin)
+    if interactive:
+        copy_size(stdin, master)
+        saved = termios.tcgetattr(stdin)
+        tty.setraw(stdin)
+        signal.signal(signal.SIGWINCH, lambda *_: (copy_size(stdin, master), os.kill(pid, signal.SIGWINCH)))
+    compressor = Compressor(
+        int(os.environ.get("HERDR_IMAGE_SCALE", "1") or 1),
+        partial=os.environ.get("HERDR_PARTIAL_IMAGES", "1") != "0",
+    )
+    debug = Debug(os.environ.get("HERDR_COMPRESS_LOG"))
+    os.set_blocking(stdout, False)
+    queue = OutputQueue(compressor, paced=os.environ.get("HERDR_FRAME_ACK", "1") != "0")
+    stdin_open = True
+    child_open = True
+    paused = False
+    try:
+        while child_open or queue.size:
+            # Keep forwarding keys and reading Herdr while a slow link drains,
+            # so newer frames can replace stale queued ones.
+            readers = [stdin] if stdin_open else []
+            if child_open and queue.size < MAX_PENDING:
+                readers.append(master)
+            elif child_open:
+                paused = True
+            writers = [stdout] if queue.size and queue.ready() else []
+            timeout = None
+            if compressor.held is not None:
+                timeout = HOLD_SECONDS
+            elif queue.size and not writers:
+                timeout = 0.1  # Recheck for an unanswered status request.
+            try:
+                readable, writable, _ = select.select(readers, writers, [], timeout)
+            except InterruptedError:
+                continue
+            queue.add(compressor.expired())
+            if stdin in readable:
+                try:
+                    data = os.read(stdin, 1 << 16)
+                except BlockingIOError:
+                    data = None
+                if data is None:
+                    pass
+                elif not data:
+                    stdin_open = False
+                else:
+                    debug.log("input", bytes=len(data), pending=queue.size)
+                    data = queue.replies(data)
+                    if data:
+                        write_all(master, data)
+            if master in readable:
+                try:
+                    data = os.read(master, 1 << 16)
+                except OSError as error:
+                    if error.errno != errno.EIO:
+                        raise
+                    data = b""
+                if not data:
+                    child_open = False
+                    segments = [(compressor.finish() + (RESTORE if paused else b""), None)]
+                    new = 0
+                else:
+                    before, dropped = compressor.uploads, queue.dropped
+                    segments = compressor.segments(data)
+                    new = compressor.uploads - before
+                    paused = False
+                queue.add(segments)
+                if new:
+                    debug.log(
+                        "upload", count=new, raw=compressor.last_raw, sent=compressor.last_sent,
+                        edits=compressor.edits, pending=queue.size, dropped=queue.dropped - dropped,
+                    )
+            if stdout in writable and queue.size:
+                queue.write(stdout)
+    finally:
+        os.set_blocking(stdout, True)
+        while queue.size:
+            queue.write(stdout)
+        if interactive:
+            termios.tcsetattr(stdin, termios.TCSAFLUSH, saved)
+    _, status = os.waitpid(pid, 0)
+    return os.waitstatus_to_exitcode(status)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

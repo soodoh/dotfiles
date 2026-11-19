@@ -56,11 +56,44 @@ upstream setup may enable terminal images in supported editors.
 
 Both start at `about:blank`. They share terminal-browser's site data on the Mac
 and are independent of the signed Chrome profiles and Playwright MCP. The Herdr
-launcher opts out of browser telemetry. From another desktop, use a terminal
-with Kitty graphics and attach with
-`herdr --remote <mac-host> --remote-keybindings server` to use these shortcuts.
-The existing panes and site data remain on the Mac when you disconnect. Image
-streaming performance depends on the SSH link.
+launcher opts out of browser telemetry. The existing panes and site data remain
+on the Mac when you disconnect.
+
+### Remote access over Tailscale SSH
+
+Direct Herdr attach sends every browser repaint as a full uncompressed image
+(about 11–15 MB in a desktop-sized pane) and queues them all; a page load can
+exceed 300 MB and freeze the remote terminal. Tailscale SSH does not support
+SSH compression. The SSH login attach below fixes both on the Mac side.
+
+- **SSH into the Mac** (Ghostty or Moshi's **SSH** connection type, not Mosh):
+  interactive Fish detects `SSH_CONNECTION` and runs `attach-over-ssh`, which
+  runs a normal Herdr attach inside `kitty-compress`. That PTY proxy:
+  - rewrites raw inline Kitty uploads as zlib-compressed (`o=z`) uploads; the
+    terminal must support `o=z` (Ghostty does);
+  - sends every other pixel and row, so text stays readable but looks jagged
+    (for full resolution, detach and run
+    `HERDR_IMAGE_SCALE=1 ~/.local/share/dotfiles/dotfiles/macos/herdr/attach-over-ssh`);
+  - sends only the changed rectangle of a frame as a Kitty partial edit (`a=f`)
+    when it covers at most 60% of the image; Ghostty and Moshi both apply
+    these (set `HERDR_PARTIAL_IMAGES=0` for a terminal that does not);
+  - drops a queued browser frame once a newer one replaces it, while keystrokes
+    keep flowing to Herdr.
+
+  In Moshi, tap **Skip** in the session picker so Fish starts this attach; its
+  Herdr entries use direct attach.
+- **Another computer with Herdr:** prefer a plain SSH login. `herdr --remote`
+  cannot compress images, and in testing its client delivered only about one
+  large browser frame every 2 s even without a network limit.
+
+In loopback tests with a desktop-sized pane and 100 ms round trips, a PageDown
+repaint on a text page reached the remote terminal in 0.0–0.25 s at 0.5 MB/s.
+Partial edits cut typing into a page from 0.89 MB to 0.09 MB and PageDown
+scrolling by about a third. Pages full of photos can still take 2–3 s per frame
+at that rate. Mosh cannot display pane images. Tailscale relayed (DERP)
+connections are much slower than direct ones; check with `tailscale ping <mac>`.
+Each attached client receives its own images, and the most recently used client
+sets a shared tab's size, so detach stale sessions.
 
 ## Notification plugin provisioning
 

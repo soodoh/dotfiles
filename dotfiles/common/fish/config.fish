@@ -49,7 +49,14 @@ if status is-interactive
     # Command-style startup means detach returns here without a restart loop.
     if command -q herdr; and not set -q HERDR_ENV; and not set -q HERDR_PANE_ID; and not set -q TMUX; and not set -q VSCODE_RESOLVING_ENVIRONMENT
         if test "$TERM_PROGRAM" != vscode; and test "$TERM_PROGRAM" != zed
-            command herdr
+            # Over SSH, compress pane images and drop stale frames instead of
+            # queueing every full-size frame on the slow terminal connection.
+            set -l remote_attach ~/.local/share/dotfiles/dotfiles/macos/herdr/attach-over-ssh
+            if set -q SSH_CONNECTION; and test -x $remote_attach
+                $remote_attach
+            else
+                command herdr
+            end
         end
     end
 end

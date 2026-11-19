@@ -11,7 +11,7 @@ FISH = shutil.which("fish")
 
 
 class AutostartTests(unittest.TestCase):
-    def startup(self, *, interactive=True, available=True, markers=None, exit_code=0):
+    def startup(self, *, interactive=True, available=True, markers=None, exit_code=0, remote_attach=False):
         self.assertIsNotNone(FISH, "fish must be installed")
         with tempfile.TemporaryDirectory(prefix="fish-herdr-test-") as directory:
             home = Path(directory)
@@ -28,11 +28,17 @@ class AutostartTests(unittest.TestCase):
             if available:
                 executable = bin_dir / "herdr"
                 executable.write_text(
-                    '#!/bin/sh\nprintf "herdr argc=%s\\n" "$#" >> "$CALLS"\n'
+                    '#!/bin/sh\nprintf "herdr argc=%s%s\\n" "$#" "${HERDR_IMAGE_SCALE:+ compressed}" >> "$CALLS"\n'
                     f"exit {exit_code}\n"
                 )
                 executable.chmod(0o755)
             secrets = home / ".config/fish/conf.d/00-secrets.fish"
+            if remote_attach:
+                attach = home / ".local/share/dotfiles/dotfiles/macos/herdr/attach-over-ssh"
+                attach.parent.mkdir(parents=True)
+                attach.symlink_to(CONFIG.parents[2] / "macos/herdr/attach-over-ssh")
+                attach.parent.joinpath("kitty-compress").symlink_to(CONFIG.parents[2] / "macos/herdr/kitty-compress")
+                (bin_dir / "python3").symlink_to(shutil.which("python3"))
             secrets.parent.mkdir(parents=True)
             secrets.write_text("echo SECRET_WAS_SOURCED; exit 99\n")
             env = {
@@ -71,6 +77,17 @@ class AutostartTests(unittest.TestCase):
 
     def test_unset_term_program(self):
         self.assertEqual(self.startup().count("herdr argc=0"), 1)
+
+    def test_ssh_uses_compressed_attach_when_available(self):
+        ssh = {"SSH_CONNECTION": "192.0.2.1 50000 192.0.2.2 22"}
+        calls = self.startup(markers=ssh, remote_attach=True)
+        self.assertEqual([c for c in calls if c.startswith("herdr")], ["herdr argc=0 compressed"])
+        # Without the macOS attach helper, SSH keeps the portable direct attach.
+        calls = self.startup(markers=ssh)
+        self.assertEqual([c for c in calls if c.startswith("herdr")], ["herdr argc=0"])
+        # Local shells keep the direct attach even when the helper exists.
+        calls = self.startup(remote_attach=True)
+        self.assertEqual([c for c in calls if c.startswith("herdr")], ["herdr argc=0"])
 
     def test_failed_launch_does_not_loop_or_replace_shell(self):
         self.assertEqual(self.startup(exit_code=1).count("herdr argc=0"), 1)
