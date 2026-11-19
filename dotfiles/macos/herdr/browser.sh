@@ -23,13 +23,38 @@ if ! grep -qx no "$state/terminal-browser/skills-choice" 2>/dev/null; then
 fi
 
 browser=$("$mise" -C "$repo" --no-env --no-hooks which terminal-browser) || fail 'Install terminal-browser with mise first.'
-if [ "$mode" = open ]; then
-  export TERMINAL_BROWSER_NO_TELEMETRY=1
-  exec "$browser" open --no-merge about:blank
-fi
+web_url() {
+  case "$1" in
+    http://?*|https://?*) ;;
+    *) fail 'Expected an HTTP(S) link.' ;;
+  esac
+}
+
+case "$mode" in
+  open|open-link)
+    url=about:blank
+    if [ "$mode" = open-link ]; then
+      url="${DOTFILES_HERDR_BROWSER_URL:-}"
+      web_url "$url"
+      unset DOTFILES_HERDR_BROWSER_URL
+    fi
+    export TERMINAL_BROWSER_NO_TELEMETRY=1
+    exec "$browser" open --no-merge "$url"
+    ;;
+esac
 
 herdr="${HERDR_BIN_PATH:?missing Herdr binary}"
 : "${HERDR_SOCKET_PATH:?missing Herdr socket}"
+if [ "$mode" = link ]; then
+  url="${HERDR_PLUGIN_CLICKED_URL:-}"
+  web_url "$url"
+  # A plugin pane runs argv directly in a fresh PTY; the URL is never shell input.
+  "$herdr" plugin pane open --plugin dotfiles.browser-links --entrypoint browser \
+    --workspace "${HERDR_WORKSPACE_ID:?missing clicked workspace}" --focus \
+    --env "DOTFILES_HERDR_BROWSER_URL=$url" >/dev/null || fail 'Could not open the link in a browser tab.'
+  exit 0
+fi
+
 jq=$("$mise" -C "$repo" --no-env --no-hooks which jq) || fail 'Install jq with mise first.'
 case "$mode" in
   tab)
@@ -40,7 +65,7 @@ case "$mode" in
     result=$("$herdr" pane split "${HERDR_ACTIVE_PANE_ID:?missing pane}" --direction right --focus) || fail 'Could not create a browser split.'
     pane=$(printf '%s\n' "$result" | "$jq" -er '.result.pane.pane_id') || fail 'Could not identify the new split pane.'
     ;;
-  *) fail 'Expected tab, split, or open.' ;;
+  *) fail 'Expected tab, split, open, link, or open-link.' ;;
 esac
 # Expand HOME in the destination pane, not in the detached launcher.
 # shellcheck disable=SC2016

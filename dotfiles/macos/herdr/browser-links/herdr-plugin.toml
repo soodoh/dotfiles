@@ -1,0 +1,22 @@
+id = "dotfiles.browser-links"
+name = "Browser links"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+platforms = ["macos"]
+
+[[link_handlers]]
+id = "web"
+title = "Open web link in a browser tab"
+pattern = '^https?://.+'
+action = "open"
+
+[[actions]]
+id = "open"
+title = "Open link in terminal-browser"
+command = ["/bin/sh", "../browser.sh", "link"]
+
+[[panes]]
+id = "browser"
+title = "Browser"
+placement = "tab"
+command = ["/bin/sh", "../browser.sh", "open-link"]

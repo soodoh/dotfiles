@@ -54,10 +54,29 @@ upstream setup may enable terminal images in supported editors.
 - **Ctrl+Space, then b** opens a new Herdr tab named **Browser**.
 - **Ctrl+Space, then Shift+b** opens a new browser split on the right.
 
-Both start at `about:blank`. They share terminal-browser's site data on the Mac
-and are independent of the signed Chrome profiles and Playwright MCP. The Herdr
-launcher opts out of browser telemetry. The existing panes and site data remain
+Both shortcuts start at `about:blank`. Browser panes share terminal-browser's site
+data on the Mac and are independent of the signed Chrome profiles and Playwright
+MCP. The launcher opts out of browser telemetry. Open panes and site data remain
 on the Mac when you disconnect.
+
+### Open terminal links in Browser tabs
+
+Each HTTP(S) link activated by Herdr opens terminal-browser in a fresh Herdr tab
+in the workspace you clicked in. No existing browser pane is reused. The plugin
+does not change the default macOS browser or intercept clicks handled by the outer
+terminal or a pane app. Herdr 0.9.5 routes Ctrl-click to link handlers while
+mouse capture is on (the default).
+
+The macOS `bootstrap:herdr-plugins` and `update:herdr-plugins` tasks link the
+repository-owned handler. To enable just this handler in an existing session
+without reinstalling anything, run from the checkout:
+
+```sh
+herdr plugin link "$PWD/dotfiles/macos/herdr/browser-links"
+```
+
+Use `herdr plugin disable dotfiles.browser-links` to restore Herdr's default
+link handling.
 
 ### Remote access over Tailscale SSH
 

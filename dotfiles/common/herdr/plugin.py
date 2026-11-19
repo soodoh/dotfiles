@@ -278,6 +278,9 @@ def main():
     if args.action != "refresh-pin":
         for plugin_id, root in LOCAL_PLUGINS:
             link_local(plugin_id, root)
+        if platform.system() == "Darwin":
+            root = Path(__file__).resolve().parents[2] / "macos/herdr/browser-links"
+            link_local("dotfiles.browser-links", root)
 
 
 if __name__ == "__main__":
