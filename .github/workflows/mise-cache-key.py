@@ -58,11 +58,21 @@ def install_options(specification: Any) -> dict[str, Any]:
     raise ValueError("unsupported tool declaration")
 
 
-def declared_tools(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    declarations = {"root": config.get("tools", {})}
+def declared_tools(config: dict[str, Any], operating_system: str) -> dict[str, dict[str, Any]]:
+    # Mise omits OS-scoped tools on other runners. They should affect neither
+    # cache compatibility nor reconciliation for a runner that cannot install them.
+    def active(tools: dict[str, Any]) -> dict[str, Any]:
+        return {
+            tool: specification for tool, specification in tools.items()
+            if not (supported := install_options(specification).get("os"))
+            or operating_system in supported
+        }
+
+    declarations = {"root": active(config.get("tools", {}))}
     for task_name, task in config.get("tasks", {}).items():
         if isinstance(task, dict) and isinstance(task.get("tools"), dict):
-            declarations[f"task:{task_name}"] = task["tools"]
+            if tools := active(task["tools"]):
+                declarations[f"task:{task_name}"] = tools
     return declarations
 
 
@@ -177,7 +187,7 @@ def cache_inputs(
     config = load_toml(root / "mise.toml")
     locks = load_toml(root / "mise.lock")
     platform = platform_name(os_name, architecture)
-    declarations = declared_tools(config)
+    declarations = declared_tools(config, platform.split("-", 1)[0])
     # HTTP archive URLs may interpolate the version, which is already part of
     # the identity. Hash the original URL/options below; only exempt that one
     # placeholder from the template guard, including per-platform URLs.

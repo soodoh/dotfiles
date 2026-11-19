@@ -402,6 +402,33 @@ class MiseCacheKeyTests(unittest.TestCase):
         self.assertNotEqual(self.keys()["primary-key"], before["primary-key"])
         self.assertEqual(self.keys()["restore-key"], before["restore-key"])
 
+    def test_os_scoped_tool_only_affects_caches_where_it_is_installed(self) -> None:
+        linux = self.keys()
+        on_macos = sys.platform == "darwin"
+        macos = self.keys(os_name="macOS", architecture="ARM64") if on_macos else None
+        config = self.root / "mise.toml"
+        config.write_text(config.read_text().replace(
+            "[tasks.validate]",
+            '[tools."http:mac-only"]\n'
+            'version = "1.0.0"\nos = ["macos"]\n'
+            '[tools."http:mac-only".platforms.macos-arm64]\n'
+            'url = "https://example.test/mac-only-{{ version }}.tar.gz"\n'
+            '[tasks.validate]',
+        ) + '\n[tasks.mac-check.tools]\nnode = { version = "24.1.0", os = ["macos"] }\n')
+        lock = self.root / "mise.lock"
+        lock.write_text(lock.read_text() + (
+            '[[tools."http:mac-only"]]\nversion = "1.0.0"\nbackend = "http:mac-only"\n'
+            '"platforms.macos-arm64" = { url = "https://example.test/mac-only-1.0.0.tar.gz" }\n'
+        ))
+        self.assertEqual(self.keys(), linux)
+        scoped = {"http:mac-only@1.0.0", "node@24.1.0"}
+        linux_tools = self.helper.snapshot(self.root, "Linux", "X64")["tools"]
+        self.assertTrue(scoped.isdisjoint(linux_tools))
+        if on_macos:
+            self.assertNotEqual(self.keys(os_name="macOS", architecture="ARM64"), macos)
+            macos_tools = self.helper.snapshot(self.root, "macOS", "ARM64")["tools"]
+            self.assertTrue(scoped.issubset(macos_tools))
+
     def test_reconcile_reuses_unchanged_tools_and_replaces_changed_artifacts(
         self,
     ) -> None:
