@@ -21,7 +21,7 @@ checksum = "sha256:fcc64d3b7c5425a7e236bfb2faba4cbdfa580f888c7165268715e474d9d14
 url = "https://awscli.amazonaws.com/AWSCLIV2-2.41.1.pkg"
 
 [[tools."npm:@oliverames/mcp-server-for-ynab"]]
-version = "6.1.1"
+version = "6.2.1"
 backend = "npm:@oliverames/mcp-server-for-ynab"
 
 [[tools."pipx:ansible-core"]]
