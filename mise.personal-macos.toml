@@ -1,6 +1,6 @@
 [tools]
 "aqua:aws/aws-cli" = "2.41.1"
-"npm:@oliverames/mcp-server-for-ynab" = "6.1.1"
+"npm:@oliverames/mcp-server-for-ynab" = "6.2.1"
 "pipx:ansible-core" = "2.22.0"
 "pipx:ansible-lint" = "26.11.0"
 
