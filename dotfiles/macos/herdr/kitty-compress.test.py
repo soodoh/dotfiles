@@ -4,12 +4,12 @@ import base64
 import importlib.machinery
 import importlib.util
 import itertools
-import os
 import random
 import re
 import struct
 import unittest
 import zlib
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -56,49 +56,41 @@ def decode(stream):
     return b"".join(text), images
 
 
-def feed_in_pieces(data, seed):
-    compressor = module.Compressor()
-    rng = random.Random(seed)
-    output, index = [], 0
-    while index < len(data):
-        size = rng.randint(1, 9000)
-        output.append(compressor.feed(data[index:index + size]))
-        index += size
-    output.append(compressor.finish())
-    return b"".join(output)
+@contextmanager
+def clock():
+    """A controllable monotonic clock for the module under test."""
+    now = [1000.0]
+    with patch.object(module.time, "monotonic", lambda: now[0]):
+        yield now
 
 
-class CompressTests(unittest.TestCase):
-    def test_raw_upload_is_compressed_without_changing_pixels_or_text_order(self):
-        raw = bytes(range(256)) * 300 + b"\xff" * 400000
-        header = b"a=t,t=d,f=32,s=100,v=1003,i=7,q=2"
-        placement = APC + b"a=p,i=7,p=1,c=10,r=5,q=2" + ST
-        stream = b"\x1b[?2026hbefore" + upload(header, raw) + placement + b"after\x1b[?2026l"
-        for seed in range(5):
-            with self.subTest(seed=seed):
-                output = feed_in_pieces(stream, seed)
-                text, images = decode(output)
-                self.assertEqual(text, b"\x1b[?2026hbeforeafter\x1b[?2026l")
-                (first, payload), placed = images
-                self.assertIn(b"o=z", first.split(b","))
-                self.assertEqual(zlib.decompress(payload), raw)
-                self.assertEqual(placed[0], b"a=p,i=7,p=1,c=10,r=5,q=2")
-                self.assertLess(len(output), len(stream) // 20)
-                self.assertLess(output.index(placement), output.index(b"after"))
+def drain(queue, limit=None):
+    """Write queued output to a link that accepts at most `limit` more bytes."""
+    output = bytearray()
+    budget = [float("inf") if limit is None else limit]
 
-    def test_ineligible_or_interrupted_uploads_pass_through(self):
-        raw = b"\x01\x02\x03\x04" * 3000
-        for stream in (
-            upload(b"a=t,t=d,f=100,i=1", raw),
-            upload(b"a=t,t=d,f=32,o=z,i=1", zlib.compress(raw)),
-            APC + b"a=t,t=t,f=32,i=1;" + base64.b64encode(b"/tmp/frame") + ST,
-            APC + b"a=d,d=I,i=1,q=2" + ST,
-        ):
-            with self.subTest(stream=stream[:30]):
-                self.assertEqual(feed_in_pieces(stream, 1), stream)
-        first, rest = upload(b"a=t,t=d,f=32,i=2", raw).split(ST, 1)
-        interrupted = first + ST + APC + b"a=d,i=2" + ST
-        self.assertEqual(feed_in_pieces(interrupted, 2), interrupted)
+    def link(fd, data):
+        count = int(min(len(data), budget[0]))
+        if not count:
+            raise BlockingIOError
+        output.extend(bytes(data[:count]))
+        budget[0] -= count
+        return count
+
+    with patch.object(module.os, "write", link):
+        while queue.size and budget[0]:
+            if not queue.write(-1):
+                break
+    return bytes(output)
+
+
+def proxy(stream, partial=False):
+    """Pass Herdr output through the compressor and an unthrottled queue."""
+    compressor = module.Compressor(partial=partial)
+    queue = module.OutputQueue(compressor)
+    queue.add(compressor.segments(stream))
+    queue.add([(compressor.finish(), None)])
+    return drain(queue)
 
 
 class KittyModel:
@@ -157,29 +149,81 @@ def herdr_frame(image, raw, width, height, text=b""):
     )
 
 
-def drain(queue, limit=None):
-    """Write queued output to a link that accepts at most `limit` more bytes."""
-    output = bytearray()
-    budget = [float("inf") if limit is None else limit]
+class Link:
+    """A terminal on the far end of a link: shows output and answers requests."""
 
-    def link(fd, data):
-        count = int(min(len(data), budget[0]))
-        if not count:
-            raise BlockingIOError
-        output.extend(bytes(data[:count]))
-        budget[0] -= count
-        return count
+    def __init__(self, queue):
+        self.queue, self.model, self.tail, self.unanswered = queue, KittyModel(), b"", 0
 
-    with patch.object(module.os, "write", link):
-        while queue.size and budget[0]:
-            if not queue.write(-1):
-                break
-    return bytes(output)
+    def receive(self, limit=None, answer=True):
+        output = drain(self.queue, limit)
+        self.model.feed(output)
+        self.unanswered += (self.tail + output).count(module.PING)
+        self.tail = (self.tail + output)[-(len(module.PING) - 1):]
+        if answer and self.unanswered:
+            assert self.queue.replies(module.PONG * self.unanswered) == b""
+            self.unanswered = 0
+        return output
+
+    def settle(self, now):
+        """Let motion end and everything, including sharp redraws, arrive."""
+        for _ in range(10):
+            now[0] += module.REFINE_DELAY + module.MOTION_HOLD
+            self.queue.idle()
+            self.receive()
+
+
+class CompressTests(unittest.TestCase):
+    def test_raw_upload_is_compressed_without_changing_pixels_or_text_order(self):
+        raw = bytes(range(256)) * 300 + b"\xff" * 400000
+        header = b"a=t,t=d,f=32,s=100,v=1003,i=7,q=2"
+        placement = APC + b"a=p,i=7,p=1,c=10,r=5,q=2" + ST
+        stream = b"\x1b[?2026hbefore" + upload(header, raw) + placement + b"after\x1b[?2026l"
+        output = proxy(stream)
+        text, images = decode(output)
+        self.assertEqual(text, b"\x1b[?2026hbeforeafter\x1b[?2026l")
+        (first, payload), placed = images
+        self.assertIn(b"o=z", first.split(b","))
+        self.assertEqual(zlib.decompress(payload), raw)
+        self.assertEqual(placed[0], b"a=p,i=7,p=1,c=10,r=5,q=2")
+        self.assertLess(len(output), len(stream) // 20)
+        self.assertLess(output.index(placement), output.index(b"after"))
+
+    def test_split_reads_produce_the_same_output(self):
+        raw = bytes(range(256)) * 300
+        stream = b"a" + upload(b"a=t,t=d,f=32,s=100,v=192,i=7,q=2", raw) + b"b"
+        for seed in range(5):
+            rng = random.Random(seed)
+            compressor = module.Compressor()
+            queue = module.OutputQueue(compressor)
+            index = 0
+            while index < len(stream):
+                size = rng.randint(1, 9000)
+                queue.add(compressor.segments(stream[index:index + size]))
+                index += size
+            queue.add([(compressor.finish(), None)])
+            with self.subTest(seed=seed):
+                self.assertEqual(drain(queue), proxy(stream))
+
+    def test_ineligible_or_interrupted_uploads_pass_through(self):
+        raw = b"\x01\x02\x03\x04" * 3000
+        for stream in (
+            upload(b"a=t,t=d,f=100,i=1", raw),
+            upload(b"a=t,t=d,f=32,o=z,i=1", zlib.compress(raw)),
+            APC + b"a=t,t=t,f=32,i=1;" + base64.b64encode(b"/tmp/frame") + ST,
+            APC + b"a=d,d=I,i=1,q=2" + ST,
+        ):
+            with self.subTest(stream=stream[:30]):
+                self.assertEqual(proxy(stream), stream)
+        first, rest = upload(b"a=t,t=d,f=32,i=2", raw).split(ST, 1)
+        interrupted = first + ST + APC + b"a=d,i=2" + ST
+        self.assertEqual(proxy(interrupted), interrupted)
 
 
 class QueueTests(unittest.TestCase):
     def test_unsent_frames_for_an_image_collapse_to_the_newest(self):
-        compressor, queue = module.Compressor(), module.OutputQueue()
+        compressor = module.Compressor()
+        queue = module.OutputQueue(compressor)
         stream = (
             herdr_frame(b"5", b"\x01\x02\x03\x04" * 1000, 100, 10, b"one")
             + herdr_frame(b"6", b"\x09\x09\x09\x09" * 1000, 100, 10, b"other")
@@ -197,42 +241,50 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(bytes(model.images[b"5"][2]), b"\x05\x06\x07\x08" * 1000)
         self.assertEqual(bytes(model.images[b"6"][2]), b"\x09\x09\x09\x09" * 1000)
 
-    def test_partially_written_upload_is_never_dropped(self):
-        compressor, queue = module.Compressor(), module.OutputQueue()
-        queue.add(compressor.segments(herdr_frame(b"5", b"\x01\x02\x03\x04" * 1000, 100, 10)))
-        while queue.segments[0][1] is None or queue.segments[0][1][0] != "upload":
-            queue.size -= len(queue.segments.pop(0)[0])
-        queue.offset = 1  # The link has sent part of the first upload.
+    def test_partly_written_frame_completes_before_a_newer_one(self):
+        compressor = module.Compressor()
+        queue = module.OutputQueue(compressor)
+        noise = bytes(random.Random(2).getrandbits(8) for _ in range(4000))
+        model = KittyModel()
+        queue.add(compressor.segments(herdr_frame(b"5", noise, 100, 10)))
+        model.feed(drain(queue, limit=300))
         queue.add(compressor.segments(herdr_frame(b"5", b"\x05\x06\x07\x08" * 1000, 100, 10)))
         self.assertEqual(queue.dropped, 0)
-        self.assertTrue(queue.segments[0][0])
+        model.feed(drain(queue))
+        self.assertEqual(bytes(model.images[b"5"][2]), b"\x05\x06\x07\x08" * 1000)
+        self.assertEqual(model.placed_missing, 0)
 
 
 class PacingTests(unittest.TestCase):
     width, height = 40, 20
 
+    def pixels(self, value):
+        return bytes((value, value, value, 255)) * (self.width * self.height)
+
     def frame(self, value):
-        return herdr_frame(b"9", bytes((value, value, value, 255)) * (self.width * self.height), self.width, self.height)
+        return herdr_frame(b"9", self.pixels(value), self.width, self.height)
 
     def test_next_image_waits_for_the_terminal_and_only_the_newest_is_sent(self):
         compressor = module.Compressor(partial=True)
         queue = module.OutputQueue(compressor, paced=True, window=0)
-        queue.add(compressor.segments(self.frame(1)))
-        first = drain(queue)
-        self.assertTrue(first.endswith(module.PING + b"\x1b[2;3H" + APC + b"a=p,i=9,p=1,c=10,r=5,q=2;" + ST))
-        # Two newer frames arrive before the terminal answers.
-        queue.add(compressor.segments(self.frame(2)))
-        queue.add(compressor.segments(self.frame(3)))
-        held = drain(queue)
-        # The old image stays: neither the delete nor the upload is sent yet.
-        self.assertNotIn(APC, held)
-        self.assertFalse(queue.ready())
-        # The reply is consumed here and never reaches Herdr.
-        self.assertEqual(queue.replies(b"x" + module.PONG + b"y"), b"xy")
-        self.assertTrue(queue.ready())
-        model = KittyModel()
-        model.feed(first + held + drain(queue))
-        self.assertEqual(bytes(model.images[b"9"][2]), bytes((3, 3, 3, 255)) * (self.width * self.height))
+        link = Link(queue)
+        with clock() as now:
+            queue.add(compressor.segments(self.frame(8)))
+            first = link.receive(answer=False)
+            self.assertTrue(first.endswith(module.PING + b"\x1b[2;3H" + APC + b"a=p,i=9,p=1,c=10,r=5,q=2;" + ST))
+            # Two newer frames arrive before the terminal answers.
+            queue.add(compressor.segments(self.frame(16)))
+            queue.add(compressor.segments(self.frame(24)))
+            # The old image stays: nothing for the newer frames is sent yet.
+            self.assertNotIn(APC, link.receive(answer=False))
+            self.assertFalse(queue.ready())
+            # The reply is consumed here and never reaches Herdr.
+            self.assertEqual(queue.replies(b"x" + module.PONG + b"y"), b"xy")
+            link.unanswered = 0
+            self.assertTrue(queue.ready())
+            link.receive()
+            link.settle(now)
+        self.assertEqual(bytes(link.model.images[b"9"][2]), self.pixels(24))
         self.assertEqual(queue.dropped, 1)
 
     def test_herdr_status_requests_keep_their_replies(self):
@@ -247,22 +299,43 @@ class PacingTests(unittest.TestCase):
     def test_silent_terminal_stops_pacing_but_late_replies_are_removed(self):
         compressor = module.Compressor(partial=True)
         queue = module.OutputQueue(compressor, paced=True, window=0)
-        clock = [0.0]
-        with patch.object(module.time, "monotonic", lambda: clock[0]):
+        with clock() as now:
             queue.add(compressor.segments(self.frame(1)))
             drain(queue)
             queue.add(compressor.segments(self.frame(2)))
             self.assertFalse(queue.ready())
-            clock[0] += module.PING_TIMEOUT + 1
+            now[0] += module.PING_TIMEOUT + 1
             self.assertTrue(queue.ready())
             self.assertIn(b"a=t", drain(queue))
             self.assertFalse(queue.paced)
         self.assertEqual(queue.replies(module.PONG), b"")
 
+    def test_slow_reply_from_an_answering_terminal_keeps_pacing(self):
+        compressor = module.Compressor(partial=True)
+        queue = module.OutputQueue(compressor, paced=True, window=0)
+        with clock() as now:
+            queue.add(compressor.segments(self.frame(1)))
+            drain(queue)
+            queue.replies(module.PONG)
+            queue.add(compressor.segments(self.frame(2)))
+            drain(queue)
+            # A burst delays this reply well past the no-reply timeout.
+            queue.add(compressor.segments(self.frame(3)))
+            now[0] += module.PING_TIMEOUT + 1
+            self.assertFalse(queue.ready())
+            self.assertTrue(queue.paced)
+            queue.replies(module.PONG)
+            self.assertIn(b"a=t", drain(queue))
+            # A reply that never arrives stops blocking frames, not pacing.
+            queue.add(compressor.segments(self.frame(4)))
+            now[0] += module.SLOW_REPLY + 1
+            self.assertTrue(queue.ready())
+            self.assertTrue(queue.paced)
+
     def test_small_updates_fit_the_window_but_large_frames_wait(self):
         width, height = 128, 80
         compressor = module.Compressor(partial=True)
-        queue = module.OutputQueue(compressor, paced=True)
+        queue = module.OutputQueue(compressor, paced=True, window=4096)
         rng = random.Random(1)
         noise = bytes(rng.getrandbits(8) for _ in range(width * height * 4))
         queue.add(compressor.segments(herdr_frame(b"9", noise, width, height)))
@@ -276,11 +349,48 @@ class PacingTests(unittest.TestCase):
             self.assertIn(b"a=f", drain(queue))
         # A whole new incompressible frame exceeds the window and waits.
         other = bytes(rng.getrandbits(8) for _ in range(width * height * 4))
-        self.assertGreater(len(other), module.WINDOW)
         queue.add(compressor.segments(herdr_frame(b"9", other, width, height)))
+        self.assertGreater(queue.segments[-3][1][3].estimate, queue.window)
         self.assertNotIn(APC, drain(queue))
         queue.replies(module.PONG * 2)
         self.assertIn(b"a=t", drain(queue))
+
+
+class MotionTests(unittest.TestCase):
+    width, height = 64, 48
+
+    def test_frames_in_motion_are_coarse_then_sharpened(self):
+        rng = random.Random(4)
+        frames = [bytes(rng.getrandbits(8) for _ in range(self.width * self.height * 4)) for _ in range(3)]
+        compressor = module.Compressor(partial=True)
+        queue = module.OutputQueue(compressor, paced=True, window=0)
+        link = Link(queue)
+        with clock() as now:
+            queue.add(compressor.segments(herdr_frame(b"9", frames[0], self.width, self.height)))
+            link.receive(answer=False)
+            # The next frames arrive while the first is unanswered: motion.
+            for raw in frames[1:]:
+                queue.add(compressor.segments(herdr_frame(b"9", raw, self.width, self.height)))
+            link.receive()  # Answers the first frame's request.
+            link.receive()
+            coarse = module.coarse(frames[2], self.width, self.height, 4)
+            self.assertEqual(bytes(link.model.images[b"9"][2]), coarse)
+            self.assertIn(b"9", queue.blurred)
+            # Once no frame arrives for a while, a sharp edit replaces it.
+            link.settle(now)
+        self.assertEqual(bytes(link.model.images[b"9"][2]), frames[2])
+        self.assertFalse(queue.blurred)
+
+    def test_coarse_frames_are_much_smaller(self):
+        # A photo-like gradient with slight noise in every channel.
+        rng = random.Random(4)
+        raw = b"".join(
+            bytes((x * 3 + rng.randrange(6), y * 4 + rng.randrange(6), 128 + rng.randrange(6), 255))
+            for y in range(self.height) for x in range(self.width)
+        )
+        full = len(zlib.compress(raw, 6))
+        coarse = len(zlib.compress(module.coarse(raw, self.width, self.height, 4), 6))
+        self.assertLess(coarse, full / 2)
 
 
 class HiddenImageTests(unittest.TestCase):
@@ -305,7 +415,7 @@ class HiddenImageTests(unittest.TestCase):
         queue.add(compressor.segments(herdr_frame(b"9", self.pixels(1), self.width, self.height)))
         shown = drain(queue)
         self.assertNotIn(b"a=t", shown)
-        self.assertEqual(compressor.edits, 1)
+        self.assertEqual(queue.edits, 1)
         model.feed(shown)
         self.assertEqual(model.placed_missing, 0)
 
@@ -350,7 +460,7 @@ class ScalingTests(unittest.TestCase):
         self.assertEqual(scaler.input(b"\x1b"), b"\x1b")
 
 
-class PartialEditTests(unittest.TestCase):
+class LinkTests(unittest.TestCase):
     width, height = 80, 40
 
     def frames(self, seed, count):
@@ -373,48 +483,38 @@ class PartialEditTests(unittest.TestCase):
         rng = random.Random(seed + 1)
         compressor = module.Compressor(partial=partial)
         queue = module.OutputQueue(compressor, paced=paced, window=window)
-        unanswered, tail = 0, b""
-        model, sent, last = KittyModel(), 0, None
-        for raw in self.frames(seed, 40):
-            if rng.random() < 0.1:
-                # Switching tabs deletes the image with no upload behind it.
-                queue.add(compressor.segments(APC + b"a=d,d=I,i=9,q=2;" + ST + b"\x1b[Hother tab"))
-            last = raw
-            queue.add(compressor.segments(herdr_frame(b"9", raw, self.width, self.height)))
-            queue.add(compressor.expired())
-            output = drain(queue, limit=step or rng.randrange(1, 300))
-            sent += len(output)
-            model.feed(output)
-            # The terminal answers status requests some time after receiving them.
-            unanswered += (tail + output).count(module.PING)
-            tail = (tail + output)[-(len(module.PING) - 1):]
-            if unanswered and rng.random() < 0.5:
-                self.assertEqual(queue.replies(module.PONG * unanswered), b"")
-                unanswered = 0
-        queue.add([(compressor.finish(), None)])
-        while queue.size:
-            output = drain(queue)
-            sent += len(output)
-            model.feed(output)
-            unanswered += (tail + output).count(module.PING)
-            tail = (tail + output)[-(len(module.PING) - 1):]
-            queue.replies(module.PONG * unanswered)
-            unanswered = 0
-        queue.replies(module.PONG * unanswered)
-        return model, last, sent, compressor, queue
+        link, sent, last = Link(queue), 0, None
+        with clock() as now:
+            for raw in self.frames(seed, 40):
+                now[0] += rng.random() * 0.2
+                if rng.random() < 0.1:
+                    # Switching tabs deletes the image with no upload behind it.
+                    queue.add(compressor.segments(APC + b"a=d,d=I,i=9,q=2;" + ST + b"\x1b[Hother tab"))
+                last = raw
+                queue.add(compressor.segments(herdr_frame(b"9", raw, self.width, self.height)))
+                queue.add(compressor.expired())
+                queue.idle()
+                # The terminal answers status requests some time after receiving them.
+                sent += len(link.receive(limit=step or rng.randrange(1, 300), answer=rng.random() < 0.5))
+            queue.add([(compressor.finish(), None)])
+            link.receive()
+            link.settle(now)
+        return link.model, last, sent, queue
 
     def test_terminal_ends_on_the_newest_frame_over_any_link_speed(self):
-        dropped = 0
-        for seed in range(160):
+        dropped = coarse = 0
+        for seed in range(120):
             for partial, paced, window in itertools.product((False, True), (False, True), (0, 2000)):
                 with self.subTest(seed=seed, partial=partial, paced=paced, window=window):
-                    model, last, _, _, queue = self.run_link(seed, partial, paced=paced, window=window)
+                    model, last, _, queue = self.run_link(seed, partial, paced=paced, window=window)
                     self.assertEqual(bytes(model.images[b"9"][2]), last)
                     self.assertEqual(model.placed_missing, 0)
                     self.assertFalse(queue.requests)
                     dropped += queue.dropped
-        # The random link must be slow enough to exercise frame dropping.
+                    coarse += bool(queue.motion)
+        # The random link must be slow enough to exercise dropping and motion.
         self.assertGreater(dropped, 50)
+        self.assertGreater(coarse, 50)
 
     def test_slowly_streamed_upload_still_becomes_an_edit(self):
         # Herdr streams a large upload over many PTY reads after its delete.
@@ -424,23 +524,23 @@ class PartialEditTests(unittest.TestCase):
         queue.add(compressor.segments(herdr_frame(b"9", frames[0], self.width, self.height)))
         drain(queue)
         stream = herdr_frame(b"9", frames[1], self.width, self.height)
-        clock = [0.0]
-        with patch.object(module.time, "monotonic", lambda: clock[0]):
+        with clock() as now:
             for index in range(0, len(stream), 512):
                 queue.add(compressor.segments(stream[index:index + 512]))
-                clock[0] += module.HOLD_SECONDS * 2
+                now[0] += module.HOLD_SECONDS * 2
                 queue.add(compressor.expired())
-        self.assertEqual(compressor.edits, 1)
+        output = drain(queue)
+        self.assertEqual(queue.edits, 1)
         model = KittyModel()
         model.images[b"9"] = [self.width, self.height, bytearray(frames[0])]
-        model.feed(drain(queue))
+        model.feed(output)
         self.assertEqual(bytes(model.images[b"9"][2]), frames[1])
 
     def test_small_changes_send_edits_instead_of_whole_images(self):
-        model, last, partial_bytes, compressor, _ = self.run_link(3, True, step=1 << 20)
-        _, _, full_bytes, _, _ = self.run_link(3, False, step=1 << 20)
+        model, last, partial_bytes, queue = self.run_link(3, True, step=1 << 20)
+        _, _, full_bytes, _ = self.run_link(3, False, step=1 << 20)
         self.assertEqual(bytes(model.images[b"9"][2]), last)
-        self.assertGreater(compressor.edits, 20)
+        self.assertGreater(queue.edits, 20)
         self.assertLess(partial_bytes, full_bytes / 2)
 
 

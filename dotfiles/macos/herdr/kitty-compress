@@ -9,15 +9,20 @@ upload. This proxy rewrites that Kitty graphics output:
   to Herdr, so pane images (such as terminal-browser) render at 1/N density
   and the terminal stretches them over the same cells; pixel mouse reports and
   cell-size replies are scaled to match;
-- replaces a frame that changes only part of an image with a partial edit of
-  the image already on screen (`a=f`), unless HERDR_PARTIAL_IMAGES=0;
+- queues each frame unencoded and drops it if a newer frame for the same image
+  arrives first; a frame is encoded only when it is about to be written,
+  against what the terminal shows at that moment;
+- sends a frame that changes only part of an image as a partial edit of the
+  image on screen (`a=f`), unless HERDR_PARTIAL_IMAGES=0;
+- while frames arrive faster than the link carries them (scrolling, loading),
+  sends large changes in a coarser form, then a sharp edit once motion stops;
 - keeps a hidden image's pixels in the terminal, so showing it again is an
   edit rather than a whole upload;
-- drops queued frames that a newer frame replaces before they reach the link;
 - holds large image updates until the terminal answers a status request sent
   after earlier ones, unless HERDR_FRAME_ACK=0.
 """
 
+import array
 import base64
 import collections
 import errno
@@ -49,21 +54,37 @@ HOLD_SECONDS = 0.05
 # image only once it answers, so at most one frame waits in network buffers.
 PING = b"\x1b[5n"
 PONG = b"\x1b[0n"
-# Frame segments that wait for the previous frame's reply. A frame's delete
-# waits too, so the old image stays on screen until its replacement can follow.
-GATED = ("delete", "upload", "edit")
 # Unanswered image bytes allowed on the link before an update waits for a
 # reply. Typing and other small edits go out at once; whole frames are paced.
 WINDOW = 32 * 1024
 # Hidden images whose pixels stay in the terminal; older ones are deleted.
 MAX_HIDDEN = 4
-# Stop waiting for replies (but keep removing late ones) after this long.
+# A terminal that has never answered within this long does not support status
+# requests: stop pacing (but keep removing late replies).
 PING_TIMEOUT = 2.0
+# Once a terminal has answered, a reply can be slow while a burst drains; wait
+# this long before sending anyway, but keep pacing.
+SLOW_REPLY = 10.0
+# An image is in motion for this long after a frame for it arrived while an
+# earlier one was still queued or unanswered.
+MOTION_HOLD = 0.3
+# In motion, changes covering more than this share of an image are coarse.
+MOTION_AREA = 0.25
+# Coarse frames repeat each sampled pixel over a BLOCK x BLOCK square and keep
+# the top COLOR_BITS of each channel, which roughly halves their size again.
+BLOCK = 2
+COLOR_BITS = 5
+# A coarse image is redrawn sharply once no frame for it arrived for this long.
+REFINE_DELAY = 0.25
 # macOS discards unread PTY output when the child exits. If Herdr exits while
 # reads are paused, its own terminal restore may be lost; reset the common modes.
 RESTORE = (
     b"\x1b[?1049l\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1016l"
     b"\x1b[?1004l\x1b[?2004l\x1b[?2026l\x1b[?25h\x1b[0m"
+)
+QUANTIZE = bytes(
+    (value & (0xFF << (8 - COLOR_BITS)) & 0xFF) | (0xFF >> COLOR_BITS if value & (0xFF << (8 - COLOR_BITS)) & 0xFF else 0)
+    for value in range(256)
 )
 
 
@@ -130,6 +151,27 @@ def changed_rect(old, new, width, height, depth):
     return x0, rows[0], x1 - x0 + 1, rows[-1] - rows[0] + 1
 
 
+def coarse(raw, width, height, depth):
+    """Lower-detail RGBA of the same size: pixel blocks, fewer color levels.
+
+    Repeated pixels and rows compress far better, and keeping the size lets the
+    terminal's image, placements and later edits stay as they are.
+    """
+    if depth != 4:
+        return raw
+    stride = width * 4
+    view = memoryview(raw)
+    rows = []
+    for top in range(0, height, BLOCK):
+        sampled = array.array("I", view[top * stride:(top + 1) * stride].cast("I")[::BLOCK].tobytes())
+        line = array.array("I", bytes(len(sampled) * BLOCK * 4))
+        for offset in range(BLOCK):
+            line[offset::BLOCK] = sampled
+        line = line.tobytes()[:stride]
+        rows.append(line * min(BLOCK, height - top))
+    return b"".join(rows).translate(QUANTIZE)
+
+
 def crop(raw, width, depth, rect):
     x, y, w, h = rect
     stride = width * depth
@@ -150,19 +192,36 @@ def encode(control, raw):
     return b"".join(output)
 
 
+class Frame:
+    """One unencoded image frame, encoded once it reaches the head of the queue."""
+
+    def __init__(self, image, sequence, header, raw, width, height, depth, delete=None, refine=False):
+        self.image, self.sequence, self.header = image, sequence, header
+        self.raw, self.width, self.height, self.depth = raw, width, height, depth
+        # Herdr's delete before this upload; dropped when the frame is an edit.
+        self.delete = delete
+        # A sharp redraw of a coarse image, never coarse itself.
+        self.refine = refine
+        # Encoded size is unknown until it is written; assume weak compression
+        # so whole frames wait for replies and small edits do not.
+        self.estimate = len(raw) // 4
+        # Set once encoded; `shown` is then the pixels it leaves on screen.
+        self.rendered = False
+        self.shown = None
+
+    def pixels(self):
+        return self.width, self.height, self.depth
+
+
 class Compressor:
-    """Rewrites Kitty graphics in Herdr's output into tagged segments.
+    """Splits Herdr's output into text, Kitty commands and image frames.
 
-    Each segment is (bytes, tag). Tags group one frame of one image into a
-    transaction: ("delete" | "upload" | "edit" | "place", image, sequence,
-    pixels). The pixels on an upload or edit tag are the whole image after that
-    frame, so the queue can record what the terminal shows once the frame starts
-    writing.
-
-    A delete that no upload follows hides the image: only its placements are
-    deleted ("hide"), and its pixels stay as the base for a later edit. Beyond
-    MAX_HIDDEN hidden images, the oldest is really deleted ("release"); after a
-    release, that image's frames stay whole until a whole upload starts writing.
+    Each segment is (bytes, tag). Tags group one frame of one image:
+    ("frame", image, sequence, Frame) carries the upload, and ("place", image,
+    sequence, None) its placement. A delete that no upload follows hides the
+    image: only its placements are deleted ("hide") and its pixels stay in the
+    terminal. Beyond MAX_HIDDEN hidden images, the oldest is really deleted
+    ("release").
     """
 
     def __init__(self, partial=False):
@@ -172,14 +231,15 @@ class Compressor:
         self.partial = partial
         self.sequence = 0
         self.current = {}
-        # Image pixels on screen (or committed to the link), from the queue.
-        self.committed = {}
-        # Image -> sequence of the latest release; edits wait for a later upload.
-        self.needs_full = {}
+        # Latest full-detail pixels per image, for redrawing coarse images.
+        self.latest = {}
         self.held = None
         self.held_since = 0.0
         self.hidden = []
-        self.edits = 0
+
+    def next_sequence(self):
+        self.sequence += 1
+        return self.sequence
 
     def feed(self, data):
         return b"".join(segment for segment, _ in self.segments(data))
@@ -203,7 +263,7 @@ class Compressor:
             command = self.buffer[start + len(APC):end]
             self.buffer = self.buffer[end + len(ST):]
             self.graphics(output, command)
-        return [segment for segment in output if segment[0]]
+        return [segment for segment in output if segment[0] or (segment[1] and segment[1][0] == "frame")]
 
     def text(self, output, data):
         if data:
@@ -217,20 +277,17 @@ class Compressor:
             return
         _, image = self.held
         self.held = None
-        self.sequence += 1
         if image in self.hidden:
             self.hidden.remove(image)
         self.hidden.append(image)
-        output.append((APC + b"a=d,d=i,i=" + image + b",q=2;" + ST, ("hide", image, self.sequence, None)))
+        output.append((APC + b"a=d,d=i,i=" + image + b",q=2;" + ST, ("hide", image, self.next_sequence(), None)))
         while len(self.hidden) > MAX_HIDDEN:
             self.delete(output, self.hidden.pop(0))
 
     def delete(self, output, image, command=None):
-        """Really delete an image; later frames for it start with a whole upload."""
-        self.sequence += 1
-        self.needs_full[image] = self.sequence
+        """Really delete an image; the next frame for it is a whole upload."""
         command = command or b"a=d,d=I,i=" + image + b",q=2;"
-        output.append((APC + command + ST, ("release", image, self.sequence, None)))
+        output.append((APC + command + ST, ("release", image, self.next_sequence(), None)))
 
     def expired(self):
         """Release a delete held longer than HOLD_SECONDS; returns segments."""
@@ -304,8 +361,7 @@ class Compressor:
         self.release(output)
         self.passing = more
         if keys.get(b"a") == b"p" and image is not None:
-            tag = ("place", image, self.current.get(image, 0), None)
-            output.append((APC + command + ST, tag))
+            output.append((APC + command + ST, ("place", image, self.current.get(image, 0), None)))
             return
         output.append((APC + command + ST, None))
 
@@ -326,44 +382,28 @@ class Compressor:
         width, height = number(keys, b"s"), number(keys, b"v")
         depth = 3 if keys.get(b"f") == b"24" else 4
         image = keys.get(b"i")
+        header = b",".join(p for p in header.split(b",") if not p.startswith(b"m="))
+        transmit_only = keys.get(b"a", b"t") == b"t"
+        if image is None or not transmit_only or not width or not height or len(raw) != width * height * depth:
+            self.release(output)
+            output.append((encode(header, raw), None))
+            return
         if image in self.hidden:
             self.hidden.remove(image)
-        transmit_only = keys.get(b"a", b"t") == b"t"
-        if image is None or not transmit_only or not width or len(raw) != width * height * depth:
-            self.release(output)
-            encoded = encode(b",".join(p for p in header.split(b",") if not p.startswith(b"m=")), raw)
-            output.append((encoded, None))
-            return
-        self.sequence += 1
-        sequence = self.current[image] = self.sequence
-        base = self.committed.get(image)
-        held = self.held is not None and self.held[1] == image
-        if (
-            held
-            and image not in self.needs_full
-            and base is not None
-            and base[:3] == (width, height, depth)
-        ):
-            rect = changed_rect(base[3], raw, width, height, depth)
-            if rect is None or rect[2] * rect[3] <= EDIT_LIMIT * width * height:
-                # Keep the image on screen and edit only the changed pixels.
-                self.held = None
-                self.edits += 1
-                data = b""
-                if rect is not None:
-                    x, y, w, h = rect
-                    control = b"a=f,i=%s,r=1,X=1,x=%d,y=%d,s=%d,v=%d,f=%d,q=2" % (image, x, y, w, h, depth * 8)
-                    data = encode(control, crop(raw, width, depth, rect))
-                output.append((data, ("edit", image, sequence, (width, height, depth, raw))))
-                return
-        if held:
-            command, _ = self.held
-            self.held = None
-            output.append((APC + command + ST, ("delete", image, sequence, None)))
+        delete = None
+        if self.held is not None and self.held[1] == image:
+            delete, self.held = self.held[0], None
         else:
             self.release(output)
-        encoded = encode(b",".join(p for p in header.split(b",") if not p.startswith(b"m=")), raw)
-        output.append((encoded, ("upload", image, sequence, (width, height, depth, raw))))
+        sequence = self.current[image] = self.next_sequence()
+        frame = Frame(image, sequence, header, raw, width, height, depth, delete)
+        previous = self.latest.get(image)
+        if previous is not None and previous[:3] == (width, height, depth):
+            rect = changed_rect(previous[3], raw, width, height, depth)
+            # A small change will be a small edit; gate it accordingly.
+            frame.estimate = 64 if rect is None else rect[2] * rect[3] * depth // 4 + 64
+        self.latest[image] = (width, height, depth, raw)
+        output.append((b"", ("frame", image, sequence, frame)))
 
 
 class OutputQueue:
@@ -371,11 +411,9 @@ class OutputQueue:
 
     When a newer frame for an image arrives, queued segments of older frames
     for that image are dropped unless that frame has started writing; a
-    started frame always completes. Dropping a whole frame, delete included,
-    leaves the terminal showing the base that newer edits were computed from.
-    Releases are never dropped; the compressor sends a full frame after one.
-    When a frame starts writing, its pixels become the compressor's base for
-    later partial edits.
+    started frame always completes. Frames are encoded only when they reach
+    the head of the queue, against `committed`, the pixels the terminal will
+    hold once everything before them is written.
 
     With pacing, each image update ends with a status request. An update waits
     while earlier ones are unanswered and it would put more than `window` image
@@ -390,84 +428,159 @@ class OutputQueue:
         self.size = 0
         self.dropped = 0
         self.started = {}
+        self.committed = {}
+        self.motion = {}
+        self.arrived = {}
+        self.blurred = set()
+        self.edits = 0
         self.paced = paced
         self.window = window
         # Status requests on the wire, oldest first: [ours, time sent, offset].
         self.requests = collections.deque()
         self.total = self.acked = 0
+        self.answered = False
+
+    @staticmethod
+    def length(entry):
+        data, tag = entry
+        if tag is not None and tag[0] == "frame" and not tag[3].rendered:
+            return tag[3].estimate
+        return len(data)
 
     def add(self, segments):
+        now = time.monotonic()
         for data, tag in segments:
-            image_update = tag is not None and tag[0] in ("upload", "edit")
-            if image_update:
-                self.supersede(tag[1], tag[2])
-                if self.paced and data:
-                    data += PING
-            self.segments.append([data, tag])
-            self.size += len(data)
+            if tag is not None and tag[0] == "frame":
+                image = tag[1]
+                if not tag[3].refine:
+                    busy = any(t is not None and t[0] == "frame" and t[1] == image for _, t in self.segments)
+                    if busy or any(ours for ours, _, _ in self.requests):
+                        # Frames arrive faster than the link carries them.
+                        self.motion[image] = now
+                    self.arrived[image] = now
+                self.supersede(image, tag[2])
+            entry = [data, tag]
+            self.segments.append(entry)
+            self.size += self.length(entry)
 
     def supersede(self, image, sequence):
         started = self.started.get(image)
-        for index, (data, tag) in enumerate(self.segments):
+        for index, entry in enumerate(self.segments):
+            tag = entry[1]
             if tag is None or tag[1] != image or tag[0] in ("release", "hide") or tag[2] in (started, sequence):
                 continue
             if index == 0 and self.offset:
                 continue
-            self.size -= len(data)
+            self.size -= self.length(entry)
+            self.dropped += tag[0] == "frame"
             self.segments[index] = [b"", None]
-            self.dropped += tag[0] in ("upload", "edit")
+
+    def idle(self):
+        """Queue sharp redraws of coarse images once their motion stops."""
+        if self.compressor is None:
+            return
+        now = time.monotonic()
+        for image in list(self.blurred):
+            if now - self.arrived.get(image, 0) < REFINE_DELAY:
+                continue
+            if any(tag is not None and tag[0] == "frame" and tag[1] == image for _, tag in self.segments):
+                continue
+            self.blurred.discard(image)
+            latest = self.compressor.latest.get(image)
+            shown = self.committed.get(image)
+            if latest is None or shown is None or shown[:3] != latest[:3]:
+                continue
+            frame = Frame(image, self.compressor.next_sequence(), b"", latest[3], *latest[:3], refine=True)
+            self.add([(b"", ("frame", image, frame.sequence, frame))])
+
+    def refine_due(self):
+        """Seconds until a coarse image with nothing queued needs a sharp redraw."""
+        queued = {tag[1] for _, tag in self.segments if tag is not None and tag[0] == "frame"}
+        waiting = [image for image in self.blurred if image not in queued]
+        if not waiting:
+            return None
+        now = time.monotonic()
+        return max(0.0, min(REFINE_DELAY - (now - self.arrived.get(image, 0)) for image in waiting))
+
+    def render(self, frame):
+        """Encode a frame against what the terminal shows when it is written."""
+        image, (width, height, depth) = frame.image, frame.pixels()
+        partial = self.compressor is not None and self.compressor.partial
+        base = self.committed.get(image)
+        if base is not None and base[:3] != (width, height, depth):
+            base = None
+        raw = frame.raw
+        if partial and base is None and frame.refine:
+            # The image was deleted meanwhile; nothing to sharpen.
+            frame.shown = None
+            return b""
+        rect = changed_rect(base[3], raw, width, height, depth) if base is not None else None
+        moving = (
+            partial and not frame.refine
+            and time.monotonic() - self.motion.get(image, -MOTION_HOLD) < MOTION_HOLD
+            and (base is None or (rect is not None and rect[2] * rect[3] > MOTION_AREA * width * height))
+        )
+        if moving:
+            raw = coarse(raw, width, height, depth)
+            self.blurred.add(image)
+            rect = changed_rect(base[3], raw, width, height, depth) if base is not None else None
+        elif not frame.refine:
+            self.blurred.discard(image)
+        frame.shown = (width, height, depth, raw)
+        small = rect is None or rect[2] * rect[3] <= EDIT_LIMIT * width * height
+        if partial and base is not None and (small or frame.refine):
+            self.edits += 1
+            if rect is None:
+                return b""
+            x, y, w, h = rect
+            control = b"a=f,i=%s,r=1,X=1,x=%d,y=%d,s=%d,v=%d,f=%d,q=2" % (image, x, y, w, h, depth * 8)
+            return encode(control, crop(raw, width, depth, rect))
+        if frame.refine:
+            # A refine never re-creates an image; it only edits one on screen.
+            frame.shown = None
+            return b""
+        delete = APC + frame.delete + ST if frame.delete else b""
+        return delete + encode(frame.header, raw)
 
     def begin(self, tag):
         if tag is None:
             return
-        kind, image, sequence, pixels = tag
+        kind, image, sequence, frame = tag
         self.started[image] = sequence
-        if self.compressor is None:
-            return
-        if kind in ("delete", "release"):
-            self.compressor.committed.pop(image, None)
-        elif kind == "upload":
-            self.compressor.committed[image] = pixels
-            if self.compressor.needs_full.get(image, sequence) < sequence:
-                del self.compressor.needs_full[image]
-        elif kind == "edit":
-            self.compressor.committed[image] = pixels
+        if kind == "release":
+            self.committed.pop(image, None)
+        elif kind == "frame" and frame.shown is not None:
+            self.committed[image] = frame.shown
+        elif kind == "frame" and frame.rendered and not frame.refine:
+            # A whole upload with unknown result; never edit against stale pixels.
+            self.committed.pop(image, None)
 
     def waiting(self, size):
         """Whether a `size`-byte image update must wait for earlier replies."""
         for ours, sent, _ in self.requests:
             if ours:
-                if time.monotonic() - sent >= PING_TIMEOUT:
+                age = time.monotonic() - sent
+                if not self.answered and age >= PING_TIMEOUT:
                     # This terminal does not answer; stop pacing.
                     self.paced = False
+                    return False
+                if age >= SLOW_REPLY:
                     return False
                 return self.total - self.acked + size > self.window
         return False
 
-    def frame_size(self, index):
-        """Bytes of the frame starting at a segment: a delete includes its upload."""
-        data, tag = self.segments[index]
-        size = len(data)
-        if tag[0] == "delete":
-            for later, later_tag in self.segments[index + 1:]:
-                if later_tag is not None and later_tag[1:3] == tag[1:3] and later_tag[0] in ("upload", "edit"):
-                    size += len(later)
-                    break
-        return size
-
     def gated(self, index):
-        tag = self.segments[index][1]
+        entry = self.segments[index]
+        tag = entry[1]
         return (
-            self.paced and not self.offset and tag is not None and tag[0] in GATED
-            # A frame whose delete has gone out finishes without waiting.
-            and self.started.get(tag[1]) != tag[2]
-            and self.waiting(self.frame_size(index))
+            self.paced and not self.offset and tag is not None and tag[0] == "frame"
+            and self.waiting(self.length(entry))
         )
 
     def ready(self):
         """Whether write() can make progress now."""
-        for index, (data, _) in enumerate(self.segments):
-            if data:
+        for index, entry in enumerate(self.segments):
+            if entry[0] or (entry[1] is not None and entry[1][0] == "frame" and not entry[1][3].rendered):
                 return not self.gated(index)
         return True
 
@@ -480,6 +593,7 @@ class OutputQueue:
             ours, _, offset = self.requests.popleft()
             if ours:
                 self.acked = offset
+                self.answered = True
             output.append(data[start:found] if ours else data[start:found + len(PONG)])
             start = found + len(PONG)
         output.append(data[start:])
@@ -491,13 +605,27 @@ class OutputQueue:
         if tag is None:
             # Herdr's own requests: their replies go back to Herdr.
             self.requests.extend([False, now, self.total] for _ in range(data.count(PING)))
-        elif tag[0] in ("upload", "edit") and data.endswith(PING) and self.paced:
+        elif tag[0] == "frame" and data.endswith(PING) and self.paced:
             self.requests.append([True, now, self.total])
 
     def write(self, fd):
         written = 0
         while self.segments:
-            data, tag = self.segments[0]
+            entry = self.segments[0]
+            data, tag = entry
+            if tag is not None and tag[0] == "frame" and not tag[3].rendered:
+                if self.gated(0):
+                    break
+                frame = tag[3]
+                self.size -= frame.estimate
+                data = self.render(frame)
+                frame.rendered = True
+                if data and self.paced:
+                    data += PING
+                entry[0] = data
+                self.size += len(data)
+            if not self.offset and self.gated(0):
+                break
             if self.offset >= len(data):
                 if not data:
                     self.begin(tag)
@@ -505,8 +633,6 @@ class OutputQueue:
                 self.offset = 0
                 continue
             if not self.offset:
-                if self.gated(0):
-                    break
                 self.begin(tag)
             remaining = len(data) - self.offset
             try:
@@ -628,16 +754,19 @@ def main():
             elif child_open:
                 paused = True
             writers = [stdout] if queue.size and queue.ready() else []
-            timeout = None
+            waits = [queue.refine_due()]
             if compressor.held is not None:
-                timeout = HOLD_SECONDS
-            elif queue.size and not writers:
-                timeout = 0.1  # Recheck for an unanswered status request.
+                waits.append(HOLD_SECONDS)
+            if queue.size and not writers:
+                waits.append(0.1)  # Recheck for an unanswered status request.
+            waits = [wait for wait in waits if wait is not None]
+            timeout = min(waits) if waits else None
             try:
                 readable, writable, _ = select.select(readers, writers, [], timeout)
             except InterruptedError:
                 continue
             queue.add(compressor.expired())
+            queue.idle()
             if stdin in readable:
                 try:
                     data = os.read(stdin, 1 << 16)
@@ -670,6 +799,7 @@ def main():
                 queue.write(stdout)
     finally:
         os.set_blocking(stdout, True)
+        queue.paced = False  # No more replies will be read.
         while queue.size:
             queue.write(stdout)
         if interactive:

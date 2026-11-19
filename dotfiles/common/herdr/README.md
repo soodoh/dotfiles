@@ -96,9 +96,16 @@ SSH compression. The SSH login attach below fixes both on the Mac side.
     While another attached client was used more recently, Herdr renders at
     that client's density instead. For full resolution, detach and run
     `HERDR_IMAGE_SCALE=1 ~/.local/share/dotfiles/dotfiles/macos/herdr/attach-over-ssh`;
+  - queues frames unencoded, drops a frame once a newer one for the same image
+    arrives, and encodes each frame only when it is about to be written,
+    against what the terminal shows at that moment;
   - sends only the changed rectangle of a frame as a Kitty partial edit (`a=f`)
     when it covers at most 60% of the image; Ghostty and Moshi both apply
     these (set `HERDR_PARTIAL_IMAGES=0` for a terminal that does not);
+  - while frames arrive faster than the link carries them (scrolling, page
+    loads), sends large changes coarser (2×2 pixel blocks, 5 bits per color
+    channel, about 40% of the size) and redraws the image sharply 0.25 s
+    after the last frame;
   - when Herdr hides an image (for example on a tab switch), deletes only its
     placements and keeps its pixels in the terminal, so showing it again is an
     edit; at most four hidden images are kept;
@@ -107,7 +114,8 @@ SSH compression. The SSH login attach below fixes both on the Mac side.
     small edits such as typing go out at once while whole frames queue on the
     Mac, where newer frames replace them, instead of in SSH and network
     buffers. Keystrokes keep flowing to Herdr. A terminal that never replies
-    turns this off after 2 s (or set `HERDR_FRAME_ACK=0`).
+    within 2 s turns this off (or set `HERDR_FRAME_ACK=0`); after a terminal
+    has replied, a slow reply delays the next frame by at most 10 s.
 
   In Moshi, tap **Skip** in the session picker so Fish starts this attach; its
   Herdr entries use direct attach.
@@ -120,12 +128,14 @@ repaint on a text page reached the remote terminal in 0.0–0.25 s at 0.5 MB/s.
 Partial edits cut typing into a page from 0.89 MB to 0.09 MB and PageDown
 scrolling by about a third. At 0.3 MB/s, waiting for replies brought the page
 content to its final state 1.8–2.1 s after a PageDown instead of 3.3–3.9 s
-(1.2–1.4 s with no network limit, mostly smooth scrolling). Pages full of
-photos can still take 2–3 s per frame at that rate. Mosh cannot display pane
-images. Tailscale relayed (DERP) connections are much slower than direct ones;
-check with `tailscale ping <mac>`. Each attached client receives its own
-images, and the most recently used client sets a shared tab's size, so detach
-stale sessions.
+(1.2–1.4 s with no network limit, mostly smooth scrolling). For a burst of
+six PageDowns at 0.5 MB/s, coarse frames during motion brought the page close
+to its final state in 2.0–2.2 s instead of 3.1–3.6 s, showing 8–9 frames
+instead of 6–7 (62 with no network limit). Pages full of photos can still
+take 2–3 s per frame at that rate. Mosh cannot display pane images. Tailscale
+relayed (DERP) connections are much slower than direct ones; check with
+`tailscale ping <mac>`. Each attached client receives its own images, and the
+most recently used client sets a shared tab's size, so detach stale sessions.
 
 ## Notification plugin provisioning
 
