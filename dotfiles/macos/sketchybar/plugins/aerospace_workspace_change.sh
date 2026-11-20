@@ -1,62 +1,47 @@
-#!/bin/sh
-if [ -z "${BASH_VERSION:-}" ] || shopt -oq posix; then
-  exec /bin/bash "$0" "$@"
-fi
-
+#!/bin/bash
 set -euo pipefail
 
 source "$CONFIG_DIR/plugins/aerospace_workspace_icons.sh"
 
-refresh_workspace() {
-  local workspace_id="$1"
-  [[ -z "$workspace_id" ]] && return
+generation="$1"
+shift
+state_dir="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar"
+state_file="$state_dir/workspace-apps"
+umask 077
+mkdir -p "$state_dir"
 
-  render_workspace_items "$workspace_id" "$(aerospace list-windows --workspace "$workspace_id" --format '%{workspace}|%{app-name}|%{app-bundle-id}' | extract_workspace_apps_from_windows)"
-}
+# Events and timer ticks can overlap. Let the next tick catch up rather than
+# allowing two renders (and their cached snapshots) to race.
+exec 9>>"$state_file.lock"
+case "$OSTYPE" in
+  darwin*) lockf -s -t 0 9 || exit 0 ;;
+  *) flock -n 9 || exit 0 ;; # Linux validation
+esac
 
-refresh_all_workspaces() {
-  local focused_workspace=""
-  local workspace_snapshot=""
-  focused_workspace="$(aerospace list-workspaces --focused 2>/dev/null || true)"
+# A failed query is not the same as a successful snapshot with no windows.
+windows="$(aerospace list-windows --all --format '%{workspace}|%{app-name}|%{app-bundle-id}' 2>/dev/null)" || exit 0
+snapshot="$(workspace_app_snapshot <<<"$windows")"
+current="$generation"
+[[ -z "$snapshot" ]] || current+=$'\n'"$snapshot"
 
-  if workspace_snapshot="$(aerospace list-windows --all --format '%{workspace}|%{app-name}|%{app-bundle-id}' 2>/dev/null)"; then
-    while IFS= read -r workspace_id; do
-      [[ -n "$workspace_id" ]] || continue
-
-      local workspace_apps=""
-      if [[ -n "$workspace_snapshot" ]]; then
-        workspace_apps="$(awk -F'|' -v workspace_id="$workspace_id" '
-          function trim(value) {
-            gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-            return value
-          }
-          $1 == workspace_id {
-            app_name = trim($2)
-            bundle_id = trim($3)
-            if (app_name != "" || bundle_id != "") {
-              print app_name "|" bundle_id
-            }
-          }
-        ' <<<"$workspace_snapshot")"
-      fi
-
-      render_workspace_items "$workspace_id" "$workspace_apps"
-      NAME="space.$workspace_id" FOCUSED_WORKSPACE="$focused_workspace" "$CONFIG_DIR/plugins/aerospace.sh" "$workspace_id"
-    done < <(aerospace list-workspaces --all)
-    return
-  fi
-
-  while IFS= read -r workspace_id; do
-    [[ -n "$workspace_id" ]] || continue
-
-    refresh_workspace "$workspace_id"
-    NAME="space.$workspace_id" FOCUSED_WORKSPACE="$focused_workspace" "$CONFIG_DIR/plugins/aerospace.sh" "$workspace_id"
-  done < <(aerospace list-workspaces --all)
-}
-
-if [[ "${1:-}" == "--all" ]]; then
-  refresh_all_workspaces
-elif [[ "${SENDER:-}" == "aerospace_workspace_change" ]]; then
-  refresh_workspace "${PREV_WORKSPACE:-}"
-  refresh_workspace "${FOCUSED_WORKSPACE:-}"
+previous=""
+if [[ -f "$state_file" ]]; then
+  previous="$(<"$state_file")"
 fi
+[[ "$previous" != "$current" ]] || exit 0
+previous_generation="${previous%%$'\n'*}"
+
+# Invalidate before drawing so an interrupted or partial render is repaired
+# on the next tick, even if the window set has since returned to its old state.
+rm -f "$state_file"
+for workspace_id; do
+  apps="$(workspace_apps_from_snapshot "$workspace_id" <<<"$snapshot")"
+  if [[ "$previous_generation" == "$generation" &&
+    "$apps" == "$(workspace_apps_from_snapshot "$workspace_id" <<<"$previous")" ]]; then
+    continue
+  fi
+  render_workspace_items "$workspace_id" "$apps"
+done
+
+printf '%s\n' "$current" >"$state_file.tmp"
+mv -f "$state_file.tmp" "$state_file"

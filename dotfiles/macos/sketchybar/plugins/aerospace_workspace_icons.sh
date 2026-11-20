@@ -14,37 +14,26 @@ MDFIND_BIN="${MDFIND_BIN:-mdfind}"
 PLISTBUDDY_BIN="${PLISTBUDDY_BIN:-/usr/libexec/PlistBuddy}"
 SIPS_BIN="${SIPS_BIN:-sips}"
 
-extract_workspace_apps_from_windows() {
-	awk -F'|' '
+workspace_app_snapshot() {
+	# Order by app name within each workspace so window order cannot move icons.
+	LC_ALL=C sort -t '|' -k1,1 -k2,2 -k3,3 | awk -F'|' '
 		function trim(value) {
 			gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
 			return value
 		}
-		{
+		$1 != "" {
 			app_name = trim($2)
 			bundle_id = trim($3)
-			if (app_name != "" || bundle_id != "") {
-				print app_name "|" bundle_id
+			identity = bundle_id != "" ? bundle_id : app_name
+			if (identity != "" && !seen[$1, identity]++) {
+				print $1 "|" app_name "|" bundle_id
 			}
 		}
 	'
 }
 
-ordered_distinct_apps() {
-	awk -F'|' '
-		function trim(value) {
-			gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-			return value
-		}
-		NF {
-			app_name = trim($1)
-			bundle_id = trim($2)
-			identity = bundle_id != "" ? bundle_id : app_name
-			if (identity != "" && !seen[identity]++) {
-				print app_name "|" bundle_id
-			}
-		}
-	'
+workspace_apps_from_snapshot() {
+	awk -v prefix="$1|" 'index($0, prefix) == 1 { print substr($0, length(prefix) + 1) }'
 }
 
 parse_workspace_app_record() {
@@ -266,16 +255,13 @@ hide_workspace_icon_items() {
 
 render_workspace_items() {
 	local workspace_id="$1"
-	local raw_apps="${2:-}"
-	local distinct_apps
+	local distinct_apps="$2"
 	local overflow_count
 	local slot=1
 	local app_record
 	local app_name
 	local bundle_id
 	local image_value
-
-	distinct_apps="$(printf '%s' "$raw_apps" | ordered_distinct_apps)"
 
 	if [[ -z "$distinct_apps" ]]; then
 		sketchybar --set "space.$workspace_id.group" drawing=on

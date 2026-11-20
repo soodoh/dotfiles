@@ -121,13 +121,11 @@ resolve_workspace_app_image() {
 		resolve-workspace-app-image "$app_name" "$bundle_id"
 }
 
-extract_workspace_apps_from_windows() {
-	window_records="$1"
-
-	printf '%s' "$window_records" | \
-		PATH="$tmp_dir:$PATH" \
+workspace_apps() {
+	printf '%s\n' "$2" | \
 		PLUGIN_PATH="$plugin_path" \
-		bash -c '. "$PLUGIN_PATH"; extract_workspace_apps_from_windows'
+		bash -c '. "$PLUGIN_PATH"; workspace_app_snapshot | workspace_apps_from_snapshot "$1"' \
+		workspace-apps "$1"
 }
 
 render_workspace_items 7 ""
@@ -148,27 +146,21 @@ assert_equals 'app.com.mitchellh.ghostty' "$(resolve_workspace_app_image Ghostty
 assert_equals 'app.Notes' "$(resolve_workspace_app_image Notes '')"
 assert_equals '/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns' "$(resolve_workspace_app_image '' '')"
 
-expected_extracted_records="Messages|com.apple.MobileSMS
-Ghostty|com.mitchellh.ghostty"
-assert_equals "$expected_extracted_records" "$(extract_workspace_apps_from_windows "3|Messages|com.apple.MobileSMS
-1|Ghostty|com.mitchellh.ghostty")"
-
 : >"$log_file"
-render_workspace_items 3 "Messages|com.apple.MobileSMS
-Ghostty|com.mitchellh.ghostty
-Ghostty Helper|com.mitchellh.ghostty
-Safari|com.apple.Safari
-Notes|
-Calendar|com.apple.Calendar"
+render_workspace_items 3 "$(workspace_apps 3 "3|Messages|com.apple.MobileSMS
+3|Ghostty|com.mitchellh.ghostty
+3|Ghostty Helper|com.mitchellh.ghostty
+3|Safari|com.apple.Safari
+3|Notes|
+3|Calendar|com.apple.Calendar
+1|Contacts|com.apple.AddressBook")"
 assert_call '--set space.3.group drawing=on'
 assert_call '--set space.3 drawing=on label.drawing=off label='
 assert_call '--set space.3 width=0'
-assert_call '--set space.3.app.1 drawing=on background.image=app.com.apple.MobileSMS'
+assert_call '--set space.3.app.1 drawing=on background.image=app.com.apple.Calendar'
 assert_call '--set space.3.app.2 drawing=on background.image=app.com.mitchellh.ghostty'
 assert_call_count '--set space.3.app.2 drawing=on background.image=app.com.mitchellh.ghostty' 1
-assert_call '--set space.3.app.3 drawing=on background.image=app.com.apple.Safari'
+assert_call '--set space.3.app.3 drawing=on background.image=app.com.apple.MobileSMS'
 assert_call '--set space.3.app.4 drawing=on background.image=app.Notes'
 assert_call '--set space.3.overflow drawing=on label=+1'
-assert_no_call_matching 'space\.3\.app\.[0-9].*background\.image=app\.Messages'
-assert_no_call_matching 'space\.3\.app\.[0-9].*background\.image=app\.Ghostty Helper'
-assert_no_call_matching 'space\.3\.app\.[0-9].*background\.image=app\.com\.apple\.Calendar'
+assert_no_call_matching 'space\.3\.app\.[0-9].*background\.image=app\.(com\.apple\.(AddressBook|Safari)|Ghostty Helper|Messages)'
