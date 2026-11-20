@@ -93,18 +93,6 @@ environment = { PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin
 stdout_path = "~/Library/Logs/cli-proxy-pac.log"
 stderr_path = "~/Library/Logs/cli-proxy-pac.error.log"
 
-# One server owns this profile; all Pi sessions connect through localhost HTTP.
-[bootstrap.macos.launchd.agents.playwright-mcp-work-macos]
-program = "~/.local/bin/mise"
-args = ["--env", "work-macos", "run", "browser:serve"]
-run_at_load = true
-keep_alive = true
-throttle_interval = 10
-working_directory = "~/.local/share/dotfiles"
-environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", MISE_EXEC_AUTO_INSTALL = "false" }
-stdout_path = "~/Library/Logs/playwright-mcp-work-macos.log"
-stderr_path = "~/Library/Logs/playwright-mcp-work-macos.error.log"
-
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"
 
@@ -127,17 +115,6 @@ bash "$repo/dotfiles/work/bootstrap-repositories.sh"
 "~/.pi/agent/models.json" = "dotfiles/work/pi/agent/models.json"
 "~/.pi/agent/AGENTS.md" = "dotfiles/work/pi/agent/AGENTS.md"
 "~/.agents" = "dotfiles/work/agents"
-
-[tasks."browser:serve"]
-description = "Serve the shared work Playwright MCP browser on loopback"
-env = { PLAYWRIGHT_MCP_CONFIG = "{{env.HOME}}/.config/playwright-mcp/config.json", PLAYWRIGHT_MCP_EXECUTABLE_PATH = "{{env.HOME}}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", PLAYWRIGHT_MCP_USER_DATA_DIR = "{{env.HOME}}/.local/share/playwright-mcp/profiles/work-macos", PLAYWRIGHT_MCP_OUTPUT_DIR = "{{env.HOME}}/.local/share/playwright-mcp/artifacts/work-macos", PLAYWRIGHT_MCP_HEADLESS = "false" }
-run = "exec playwright-mcp --browser chrome --host 127.0.0.1 --port 8932 --shared-browser-context --no-webmcp --codegen none --console-level error"
-
-[tasks."browser:setup"]
-description = "Open dedicated work Chrome for human sign-in and extension setup; stop the shared MCP server first"
-run = '''
-exec "${HOME}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --user-data-dir="${HOME}/.local/share/playwright-mcp/profiles/work-macos" chrome://extensions/
-'''
 
 [tasks."update:twg-skills"]
 description = "Refresh committed TWG skills from the pinned CLI without workstation setup"

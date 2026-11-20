@@ -139,7 +139,7 @@ await test("actual host: profile catalogs load once and honor skill invocation m
 	}
 });
 
-await test("actual host: both profiles discover the Playwright MCP browser skill", async (t) => {
+await test("actual host: both profiles discover the terminal-browser skill", async (t) => {
 	const root = fixture(t);
 	const pi = await import(pathToFileURL(join(host.root, "dist/index.js")).href);
 	const { formatSkillsForPrompt } = await import(
@@ -204,7 +204,6 @@ await test("actual host: both profiles discover the Playwright MCP browser skill
 				"fetch_content",
 				"tool_search",
 				"UI interaction",
-				"Bitwarden",
 			])
 				assert.ok(
 					guardrails?.includes(capability),
@@ -212,27 +211,21 @@ await test("actual host: both profiles discover the Playwright MCP browser skill
 				);
 			const { skills, diagnostics } = loader.getSkills();
 			assert.deepEqual(diagnostics, [], `${profile}: skill load diagnostics`);
-			const prompt = formatSkillsForPrompt(skills);
-			for (const name of ["playwright-browser"]) {
-				assert.equal(
-					skills.filter((skill) => skill.name === name).length,
-					1,
-					`${profile}: ${name}`,
-				);
-				assert.ok(
-					prompt.includes(`<name>${name}</name>`),
-					`${profile}: missing ${name} description`,
-				);
-			}
-			const browser = skills.find(
-				(skill) => skill.name === "playwright-browser",
+			const browserSkills = skills.filter(
+				(skill) => skill.name === "terminal-browser",
 			);
 			assert.equal(
+				browserSkills.length,
+				1,
+				`${profile}: skill missing or duplicated`,
+			);
+			assert.ok(
+				formatSkillsForPrompt(skills).includes("<name>terminal-browser</name>"),
+			);
+			const [browser] = browserSkills;
+			assert.equal(
 				realpathSync(browser.filePath),
-				join(
-					packageRoot,
-					"packages/browser/skills/playwright-browser/SKILL.md",
-				),
+				join(packageRoot, "packages/browser/skills/terminal-browser/SKILL.md"),
 				`${profile}: browser routing must come from the local skill`,
 			);
 			const skillText = readFileSync(browser.filePath, "utf8");

@@ -54,10 +54,10 @@ upstream setup may enable terminal images in supported editors.
 - **Ctrl+Space, then b** opens a new Herdr tab named **Browser**.
 - **Ctrl+Space, then Shift+b** opens a new browser split on the right.
 
-Both shortcuts start at `about:blank`. Browser panes share terminal-browser's site
-data on the Mac and are independent of the signed Chrome profiles and Playwright
-MCP. The launcher opts out of browser telemetry. Open panes and site data remain
-on the Mac when you disconnect.
+Both shortcuts start at `about:blank`. Browser panes share site data on the Mac.
+The launcher opts out of browser telemetry. Open panes and site data remain on
+the Mac when you disconnect. Pi uses the repo-owned `terminal-browser` skill
+with its own pane for each task.
 
 ### Open terminal links in Browser tabs
 

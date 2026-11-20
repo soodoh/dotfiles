@@ -24,7 +24,7 @@ const model = modelName.slice(slash + 1);
 const directory = mkdtempSync(join(tmpdir(), "pi-routing-eval-"));
 const skillPath = join(
 	packageRoot,
-	"packages/browser/skills/playwright-browser/SKILL.md",
+	"packages/browser/skills/terminal-browser/SKILL.md",
 );
 const modelRuntime = await pi.ModelRuntime.create({ refreshOnCreate: false });
 
@@ -57,6 +57,12 @@ const tools = [
 		"Discover configured MCP tools by service or capability.",
 		{ query: string },
 		["query"],
+	),
+	tool(
+		"bash",
+		"Run a shell command on the Mac in this Herdr Pi session.",
+		{ command: string },
+		["command"],
 	),
 	...[
 		["azure", "Stage, Demo, and Prod"],
@@ -180,7 +186,12 @@ try {
 				"Unexpected model fallback",
 			);
 			const active = session.getActiveToolNames();
-			for (const required of ["web_search", "fetch_content", "tool_search"])
+			for (const required of [
+				"web_search",
+				"fetch_content",
+				"tool_search",
+				"bash",
+			])
 				assert.ok(
 					active.includes(required),
 					`Missing evaluation tool: ${required}`,
@@ -202,7 +213,8 @@ try {
 				item.accept.length === 0
 					? operational.length === 0
 					: operational.length > 0 &&
-						operational.every((call) => item.accept.includes(call.name));
+						operational.every((call) => item.accept.includes(call.name)) &&
+						(!item.browser || calls[0]?.name === "read");
 			const targetMentioned = item.target
 				? JSON.stringify(operational).includes(item.target)
 				: undefined;

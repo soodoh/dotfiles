@@ -32,22 +32,24 @@
 		"accept": ["tool_search"]
 	},
 	{
-		"id": "portal-visual-check",
+		"id": "local-visual-check",
 		"profile": "work",
-		"prompt": "Take a screenshot of the signed-in Azure portal overview and verify that the subscription selector is visible. This is a visual UI check, not a resource inventory query.",
-		"accept": ["tool_search"]
+		"browser": true,
+		"prompt": "I'm running Pi in Herdr on macOS. Open my local app at http://localhost:3000 in its own browser pane, click the toggle, and verify the setting is visible in a screenshot.",
+		"accept": ["bash"]
 	},
 	{
-		"id": "browser-only-content",
+		"id": "authenticated-browser-work",
 		"profile": "personal",
-		"prompt": "The fetch tool could not retrieve my authenticated statement at https://example.com/account/statement because it needs the existing website session, and no account API tool is configured. Read that statement using the signed-in website. No download is needed.",
-		"accept": ["tool_search"]
+		"prompt": "The fetch tool could not retrieve my authenticated statement at https://example.com/account/statement because it needs an existing website session. No account API tool is configured. Use the signed-in browser to read the statement.",
+		"accept": []
 	},
 	{
 		"id": "unsupported-service-ui",
 		"profile": "work",
-		"prompt": "I need a visual walkthrough of the dark-theme setting under Appearance + startup views on https://portal.azure.com/. The configured Azure MCP tools do not expose that setting. Open the portal and show me where it is; leave the setting unchanged.",
-		"accept": ["tool_search"]
+		"browser": true,
+		"prompt": "I'm in Herdr. The public Mixpanel pricing page requires a rendered browser to show its plan comparison. The configured analytics MCP doesn't provide the marketing UI. Check whether the public comparison expands when clicked; don't sign in.",
+		"accept": ["bash"]
 	},
 	{
 		"id": "authentication-failure",

@@ -82,7 +82,6 @@ rust = { version = "1.100.0", components = ["clippy", "rustfmt", "rust-src", "ru
 "go:golang.org/x/tools/gopls" = "v0.24.0"
 "pipx:yamllint" = "1.38.0"
 "npm:@earendil-works/pi-coding-agent" = "1.6.0"
-"npm:@playwright/mcp" = "0.0.86"
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.8.1", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:@biomejs/biome" = "2.6.8"
@@ -142,7 +141,6 @@ macos-x64 = { url = "https://github.com/zenbu-labs/terminal-browser/releases/dow
 "brew:vjeantet/tap/alerter" = { version = "latest", os = "macos" }
 "brew-cask:nikitabobko/tap/aerospace" = { version = "latest", os = "macos" }
 "brew-cask:bitwarden" = { version = "latest", os = "macos" }
-"brew-cask:google-chrome" = { version = "latest", os = "macos" }
 "brew-cask:ghostty" = { version = "latest", os = "macos" }
 "brew-cask:obsidian" = { version = "latest", os = "macos" }
 "brew-cask:mindwtr" = { version = "latest", os = "macos" }
@@ -315,7 +313,6 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 "~/.config/sketchybar" = "dotfiles/macos/sketchybar"
 "~/.colima/default/colima.yaml" = "dotfiles/macos/colima/colima.yaml"
 "~/.pi/agent/keybindings.json" = "dotfiles/common/pi/agent/keybindings.json"
-"~/.config/playwright-mcp/config.json" = "dotfiles/common/playwright-mcp/config.json"
 "~/.pi/agent/web-search.json" = "dotfiles/common/pi/agent/web-search.json"
 "~/.pi/agent/extensions/subagent/config.json" = "dotfiles/common/pi/agent/extensions/subagent/config.json"
 "~/.pi/agent/pi-extensions" = "pi-extensions"

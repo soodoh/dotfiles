@@ -1667,10 +1667,6 @@ backend = "npm:@biomejs/biome"
 version = "1.6.0"
 backend = "npm:@earendil-works/pi-coding-agent"
 
-[[tools."npm:@playwright/mcp"]]
-version = "0.0.86"
-backend = "npm:@playwright/mcp"
-
 [[tools."npm:awk-language-server"]]
 version = "0.10.6"
 backend = "npm:awk-language-server"

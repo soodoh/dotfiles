@@ -70,3 +70,4 @@ esac
 # Expand HOME in the destination pane, not in the detached launcher.
 # shellcheck disable=SC2016
 "$herdr" pane run "$pane" '/bin/sh "$HOME/.local/share/dotfiles/dotfiles/macos/herdr/browser.sh" open' >/dev/null || fail 'Could not start the browser in the new pane.'
+printf '%s\n' "$pane"

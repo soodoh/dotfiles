@@ -3,7 +3,6 @@ import importlib.util
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -197,109 +196,6 @@ class MiseConfigurationTests(unittest.TestCase):
                 with self.subTest(config=config_name, package=package):
                     self.assertIsInstance(specification, dict)
                     self.assertEqual(specification.get("os"), "macos")
-
-    def test_native_browser_setup_and_mcp_share_isolated_profiles(self) -> None:
-        # A typo here opens a fresh profile instead of the one containing the
-        # human's extension/login. Exercise quoting with spaces in HOME too.
-        profiles = set()
-        for profile, config in (("personal", self.personal), ("work", self.work)):
-            with self.subTest(profile=profile), tempfile.TemporaryDirectory() as directory:
-                home = Path(directory) / "home with spaces"
-                home.mkdir()
-                environment = config["tasks"]["browser:serve"]["env"]
-                script = config["tasks"]["browser:setup"]["run"]
-                executable = environment["PLAYWRIGHT_MCP_EXECUTABLE_PATH"].replace(
-                    "{{env.HOME}}", "${HOME}"
-                )
-                self.assertIn(f'"{executable}"', script)
-                probe = home / "fake Chrome"
-                probe.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
-                probe.chmod(0o755)
-                result = subprocess.run(
-                    ["sh", "-c", script.replace(f'"{executable}"', f'"{probe}"')],
-                    env={"HOME": str(home), "PATH": os.defpath},
-                    capture_output=True, text=True, check=True, timeout=5,
-                )
-                data = environment["PLAYWRIGHT_MCP_USER_DATA_DIR"]
-                profiles.add(data)
-                resolved = data.replace("{{env.HOME}}", str(home))
-                self.assertEqual(
-                    result.stdout.splitlines(),
-                    [f"--user-data-dir={resolved}", "chrome://extensions/"],
-                )
-                # Persistent data and artifacts stay outside checkouts and
-                # outside Chrome's everyday profile directory.
-                for variable in (
-                    "PLAYWRIGHT_MCP_USER_DATA_DIR", "PLAYWRIGHT_MCP_OUTPUT_DIR"
-                ):
-                    self.assertTrue(environment[variable].startswith("{{env.HOME}}/.local/share/"))
-                    self.assertIn(f"/{profile}-macos", environment[variable])
-                target = environment["PLAYWRIGHT_MCP_CONFIG"].replace("{{env.HOME}}", "~")
-                self.assertTrue((ROOT / self.base["dotfiles"][target]).is_file())
-
-                # Run the real mise task with a launcher probe: an unrendered
-                # HOME template would select a different, unauthenticated profile.
-                tools = home / "bin"
-                tools.mkdir()
-                launcher = tools / "playwright-mcp"
-                launcher.write_text(
-                    '#!/bin/sh\nprintf "%s\\n" '
-                    + " ".join(f'\"${variable}\"' for variable in environment)
-                    + "\n"
-                )
-                launcher.chmod(0o755)
-                task = config["tasks"]["browser:serve"]
-                task_env = ", ".join(
-                    f"{key} = {json.dumps(value)}" for key, value in task["env"].items()
-                )
-                (home / "mise.toml").write_text(
-                    '[tasks."browser:serve"]\n'
-                    f"env = {{ {task_env} }}\nrun = {json.dumps(task['run'])}\n"
-                )
-                mise = shutil.which("mise")
-                self.assertIsNotNone(mise)
-                result = subprocess.run(
-                    [mise, "run", "browser:serve"], cwd=home,
-                    env={
-                        "HOME": str(home), "PATH": f"{tools}:{os.defpath}",
-                        "MISE_GLOBAL_CONFIG_FILE": str(home / "global.toml"),
-                        "MISE_TRUSTED_CONFIG_PATHS": str(home),
-                    },
-                    capture_output=True, text=True, check=True, timeout=10,
-                )
-                self.assertEqual(
-                    result.stdout.splitlines(),
-                    [value.replace("{{env.HOME}}", str(home)) for value in environment.values()],
-                )
-        self.assertEqual(len(profiles), 2, "personal and work must not share authentication")
-
-    def test_shared_browser_endpoints_match_profile_services(self) -> None:
-        # A mismatched port disconnects every client; a shared endpoint/profile
-        # crosses personal/work authentication. Sharing must be explicit upstream.
-        endpoints = set()
-        for profile, config in (("personal", self.personal), ("work", self.work)):
-            with self.subTest(profile=profile):
-                server = json.loads(
-                    (ROOT / f"dotfiles/{profile}/pi/agent/mcp.json").read_text()
-                )["mcpServers"]["playwright"]
-                endpoint = urlsplit(server["url"])
-                endpoints.add(server["url"])
-                command = shlex.split(config["tasks"]["browser:serve"]["run"])
-                self.assertEqual(endpoint.scheme, "http")
-                self.assertEqual(endpoint.hostname, "127.0.0.1")
-                self.assertEqual(endpoint.path, "/mcp")
-                self.assertEqual(command[command.index("--host") + 1], endpoint.hostname)
-                self.assertEqual(int(command[command.index("--port") + 1]), endpoint.port)
-                self.assertIn("--shared-browser-context", command)
-                agent = config["bootstrap"]["macos"]["launchd"]["agents"][
-                    f"playwright-mcp-{profile}-macos"
-                ]
-                self.assertEqual(
-                    agent["args"], ["--env", f"{profile}-macos", "run", "browser:serve"]
-                )
-                self.assertTrue(agent["run_at_load"])
-                self.assertTrue(agent["keep_alive"])
-        self.assertEqual(len(endpoints), 2)
 
     def test_work_tailscale_control_proxy_is_profile_scoped(self) -> None:
         self.assertIn("brew:gost", self.work["bootstrap"]["packages"])

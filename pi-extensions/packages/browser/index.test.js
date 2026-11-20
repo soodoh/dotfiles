@@ -20,9 +20,8 @@ test("browser routing appends to host and work-environment guidance", async () =
 		"tool_search",
 		"UI interaction",
 		"authentication/authorization",
-		"playwright-browser",
-		"Bitwarden",
-		"human credential entry",
+		"terminal-browser",
+		"Authenticated browser work is out of scope",
 	])
 		expect(guardrails).toContain(capability);
 });

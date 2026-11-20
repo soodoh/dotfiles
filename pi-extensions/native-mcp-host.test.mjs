@@ -1,7 +1,6 @@
 // Actual mise Pi client/codemode, synthetic credentials, local MCP servers only.
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
-import { once } from "node:events";
+import { spawnSync } from "node:child_process";
 import {
 	mkdtempSync,
 	readFileSync,
@@ -95,96 +94,7 @@ if (process.argv[2] !== "--worker") {
 
 	const personal = config("personal");
 	const work = config("work");
-	for (const servers of [personal, work])
-		assert.equal(
-			getMcpToolExposure(servers.playwright, "browser_navigate"),
-			"deferred",
-		);
 
-	// Exercise two real Pi HTTP clients against the pinned upstream MCP server.
-	// Tool discovery is lazy: this never launches Chrome or opens a real profile.
-	const browserServer = spawn(
-		"playwright-mcp",
-		[
-			"--host",
-			"127.0.0.1",
-			"--port",
-			"0",
-			"--shared-browser-context",
-			"--user-data-dir",
-			join(process.env.HOME, "browser-profile"),
-			"--config",
-			join(repo, "dotfiles/common/playwright-mcp/config.json"),
-		],
-		{ cwd: process.cwd(), stdio: ["ignore", "ignore", "pipe"] },
-	);
-	const clients = [];
-	try {
-		const url = await new Promise((resolve, reject) => {
-			let stderr = "";
-			const timer = setTimeout(
-				() => reject(new Error(`MCP startup timed out: ${stderr}`)),
-				10000,
-			);
-			const finish = (error, url) => {
-				clearTimeout(timer);
-				if (error) reject(error);
-				else resolve(url);
-			};
-			browserServer.once("error", (error) => finish(error));
-			browserServer.once("exit", (code) =>
-				finish(new Error(`MCP exited ${code}: ${stderr}`)),
-			);
-			browserServer.stderr.on("data", (data) => {
-				stderr += data;
-				const match = stderr.match(/Listening on (http:\/\/127\.0\.0\.1:\d+)/);
-				if (match) finish(null, `${match[1]}/mcp`);
-			});
-		});
-		for (const servers of [personal, work]) {
-			const connection = new McpServerConnection({
-				entry: {
-					name: "playwright",
-					config: { ...servers.playwright, url },
-					source: "fixture",
-					scope: "global",
-				},
-				cwd: process.cwd(),
-				createTransport: createDefaultTransport,
-				credentials: new McpOAuthCredentialStore(),
-				onTools: () => {},
-			});
-			clients.push(connection);
-		}
-		await Promise.all(clients.map((connection) => connection.getClient()));
-		for (const connection of clients)
-			assert.ok(
-				connection.tools.some((tool) => tool.name === "browser_navigate"),
-			);
-		await clients[0].close();
-		const survivor = await clients[1].getClient();
-		assert.ok(
-			(await survivor.listTools()).some(
-				(tool) => tool.name === "browser_navigate",
-			),
-		);
-		console.log(
-			"playwright: concurrent HTTP discovery and independent client disconnect verified (no browser launch)",
-		);
-	} finally {
-		await Promise.allSettled(clients.map((connection) => connection.close()));
-		if (
-			browserServer.pid &&
-			browserServer.exitCode === null &&
-			browserServer.signalCode === null
-		) {
-			const stopped = once(browserServer, "exit");
-			const forceStop = setTimeout(() => browserServer.kill("SIGKILL"), 5000);
-			browserServer.kill("SIGTERM");
-			await stopped;
-			clearTimeout(forceStop);
-		}
-	}
 	// Exercise the actual host resolver: a schema-valid OAuth config can still
 	// send an unresolved placeholder or silently ignore a misspelled scope key.
 	for (const [name, server] of Object.entries(work)) {

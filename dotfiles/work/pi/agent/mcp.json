@@ -1,10 +1,5 @@
 {
   "mcpServers": {
-    "playwright": {
-      "url": "http://127.0.0.1:8932/mcp",
-      "exposure": "deferred",
-      "description": "Browser UI interaction and visual verification through a shared localhost Playwright MCP server. Dedicated signed Google Chrome profile with Chrome-managed Bitwarden; prefer specialized API/search tools."
-    },
     "context7": {
       "description": "Look up current library and framework documentation and code examples.",
       "url": "https://mcp.context7.com/mcp",

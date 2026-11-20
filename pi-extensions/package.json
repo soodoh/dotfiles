@@ -24,7 +24,7 @@
 		],
 		"skills": [
 			"node_modules/pi-subagents/skills",
-			"./packages/browser/skills/playwright-browser/SKILL.md"
+			"./packages/browser/skills/terminal-browser/SKILL.md"
 		],
 		"prompts": [
 			"node_modules/pi-subagents/prompts"
