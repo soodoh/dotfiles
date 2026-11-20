@@ -1664,7 +1664,7 @@ version = "2.6.8"
 backend = "npm:@biomejs/biome"
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
-version = "1.5.2"
+version = "1.6.0"
 backend = "npm:@earendil-works/pi-coding-agent"
 
 [[tools."npm:@playwright/mcp"]]
