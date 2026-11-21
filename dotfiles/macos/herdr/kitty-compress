@@ -365,10 +365,6 @@ class ImageLifecycle:
         # Scroll deltas can pipeline across a round trip without opening the
         # window for whole uploads. Individual deltas still fit within window.
         self.scroll_window = 2 * window
-        # Status requests on the wire, oldest first: [ours, time sent, offset].
-        self.requests = collections.deque()
-        self.total = self.acked = 0
-        self.answered = False
 
     def receive(self, data):
         """Accept the next bytes from Herdr, possibly ending mid-command."""
@@ -577,7 +573,7 @@ class ImageLifecycle:
                 image = tag[1]
                 if not tag[3].refine:
                     busy = any(t is not None and t[0] == "frame" and t[1] == image for _, t in self.segments)
-                    if busy or any(ours for ours, _, _ in self.requests):
+                    if busy or self._terminal.oldest_image_request is not None:
                         # Frames arrive faster than the link carries them.
                         self.motion[image] = now
                     self.arrived[image] = now
@@ -676,25 +672,31 @@ class ImageLifecycle:
 
     def _waiting(self, size, window):
         """Whether a `size`-byte image update must wait for earlier replies."""
-        for ours, sent, _ in self.requests:
-            if ours:
-                age = time.monotonic() - sent
-                if not self.answered and age >= PING_TIMEOUT:
-                    # This terminal does not answer; stop pacing.
-                    self.paced = False
-                    return False
-                if age >= SLOW_REPLY:
-                    return False
-                return self.total - self.acked + size > window
-        return False
+        sent = self._terminal.oldest_image_request
+        if sent is None:
+            return False
+        age = time.monotonic() - sent
+        if not self._terminal.image_answered and age >= PING_TIMEOUT:
+            # This terminal does not answer; stop pacing but keep routing replies.
+            self.paced = False
+            return False
+        return age < SLOW_REPLY and self._terminal.unacknowledged_bytes + size > window
 
-    def _gated(self, index):
-        entry = self.segments[index]
-        tag = entry[1]
-        return (
-            self.paced and not self.offset and tag is not None and tag[0] == "frame"
-            and self._waiting(self._length(entry), self.scroll_window if tag[3].scroll_delta else self.window)
-        )
+    def _eligibility(self, entry):
+        """Return whether a normal write is gated and any scroll base it can try."""
+        _, tag = entry
+        if self.offset or tag is None or tag[0] != "frame":
+            return False, None
+        frame = tag[3]
+        window = self.scroll_window if frame.scroll_delta else self.window
+        gated = self.paced and self._waiting(self._length(entry), window)
+        # An estimated whole frame might fit the link as a small scroll delta.
+        if (
+            not frame.rendered and (base := self._scroll_base(frame)) is not None
+            and (not gated or not self._waiting(1, self.scroll_window))
+        ):
+            return gated, base
+        return gated, None
 
     def _scroll_base(self, frame):
         if (not self.scroll_copy or frame.scroll_checked or frame.refine or frame.depth != 4
@@ -707,45 +709,20 @@ class ImageLifecycle:
 
     def _ready(self):
         """Whether write() can make progress now."""
-        for index, (data, tag) in enumerate(self.segments):
-            if tag is not None and tag[0] == "frame" and not tag[3].rendered:
-                if not self._gated(index):
-                    return True
-                # A frame that looks large may really be a small scroll delta.
-                return self._scroll_base(tag[3]) is not None and not self._waiting(1, self.scroll_window)
-            if data:
-                return not self._gated(index)
+        for entry in self.segments:
+            data, tag = entry
+            if data or (tag is not None and tag[0] == "frame" and not tag[3].rendered):
+                gated, base = self._eligibility(entry)
+                return not gated or base is not None
         return True
 
     def terminal_input(self, data):
         """Forward terminal input with image acknowledgements removed and pixel reports scaled."""
-        return self._terminal.input(data, self._consume_reply if self.requests else None)
+        return self._terminal.input(data)
 
     def finish_input(self):
         """Forward an unfinished input sequence when the terminal closes stdin."""
         return self._terminal.finish_input()
-
-    def _consume_reply(self):
-        if not self.requests:
-            return False
-        ours, _, offset = self.requests.popleft()
-        if ours:
-            self.acked = offset
-            self.answered = True
-        return ours
-
-    def _written(self, data, tag, start, end):
-        """Record status requests only once their bytes reach the terminal."""
-        if tag is None:
-            # Herdr's own requests: their replies go back to Herdr.
-            if count := self._terminal.observe_output(data[start:end]):
-                now = time.monotonic()
-                self.requests.extend([False, now, self.total] for _ in range(count))
-        else:
-            if start == 0:
-                self._terminal.interrupt_output()
-            if end == len(data) and tag[0] == "frame" and data.endswith(PING) and self.paced:
-                self.requests.append([True, time.monotonic(), self.total])
 
     def write(self, send):
         """Send bytes via a writer that returns the count accepted so far."""
@@ -753,11 +730,11 @@ class ImageLifecycle:
         while self.segments:
             entry = self.segments[0]
             data, tag = entry
+            gated, base = self._eligibility(entry)
             if tag is not None and tag[0] == "frame" and not tag[3].rendered:
                 frame = tag[3]
-                gated = self._gated(0)
                 scroll = None
-                if (base := self._scroll_base(frame)) is not None and (not gated or not self._waiting(1, self.scroll_window)):
+                if base is not None:
                     frame.scroll_checked = True
                     scroll = encode_scroll(frame, base, self.window - (len(PING) if self.paced else 0))
                 if scroll is not None:
@@ -773,7 +750,9 @@ class ImageLifecycle:
                     data += PING
                 entry[0] = data
                 self.pending_bytes += len(data)
-            if not self.offset and self._gated(0):
+                # The encoded length can exceed the estimate used before rendering.
+                gated, _ = self._eligibility(entry)
+            if gated:
                 break
             if self.offset >= len(data):
                 if not data:
@@ -791,10 +770,9 @@ class ImageLifecycle:
                 self._begin(tag)
             self.offset += count
             self.pending_bytes -= count
-            self.total += count
             written += count
             if count:
-                self._written(data, tag, start, self.offset)
+                self._terminal.written(data, start, self.offset, graphics=tag is not None)
             if count < remaining:
                 break
         return written
@@ -819,7 +797,7 @@ _OUTPUT_CONTROLS = (PING, _PIXEL_MOUSE_ON, b"\x1b[?1016l")
 
 
 class TerminalControls:
-    """Frame only the terminal controls used for pacing and pixel scaling.
+    """Frame control sequences, route status replies, and scale pixel reports.
 
     Output is observed as written, never delayed. Input holds recognized
     prefixes after CSI, but a lone Escape is forwarded immediately.
@@ -839,39 +817,65 @@ class TerminalControls:
         self.pixel_mouse = False
         self._output_tail = b""
         self._input_tail = b""
+        # Sent requests, oldest first: None for Herdr, (sent, byte offset) for images.
+        self._requests = collections.deque()
+        self._written_bytes = self._acked_bytes = 0
 
-    def observe_output(self, data):
-        """Track pixel mouse mode and count completed Herdr status requests."""
+    @property
+    def oldest_image_request(self):
+        """Monotonic send time of the oldest unanswered image probe, if any."""
+        return next((request[0] for request in self._requests if request is not None), None)
+
+    @property
+    def image_answered(self):
+        return self._acked_bytes != 0
+
+    @property
+    def unacknowledged_bytes(self):
+        return self._written_bytes - self._acked_bytes
+
+    def written(self, data, start, end, *, graphics):
+        """Observe accepted bytes; an opaque graphics segment may end in our probe."""
+        self._written_bytes += end - start
+        if not graphics:
+            self._observe_output(data[start:end])
+            return
+        if not start:
+            self._output_tail = b""
+        if end == len(data) and data.endswith(PING):
+            self._requests.append((time.monotonic(), self._written_bytes))
+
+    def _observe_output(self, data):
         data = self._output_tail + data
         self._output_tail = b""
         escape = data.rfind(b"\x1b", max(0, len(data) - len(_PIXEL_MOUSE_ON)))
         if escape >= 0 and data[escape:] in self.OUTPUT_PREFIXES:
             self._output_tail = data[escape:]
-        pings = 0
         for match in self.OUTPUT.finditer(data):
             control = match.group()
             if control == PING:
-                pings += 1
+                self._requests.append(None)
             else:
                 self.pixel_mouse = control == _PIXEL_MOUSE_ON
-        return pings
 
-    def interrupt_output(self):
-        """An intervening Kitty command ends any partial text control."""
-        self._output_tail = b""
+    def _consume_reply(self):
+        if self._requests and (request := self._requests.popleft()) is not None:
+            _, self._acked_bytes = request
+            return True
+        return False
 
     def finish_input(self):
         tail, self._input_tail = self._input_tail, b""
         return tail
 
-    def input(self, data, consume_reply):
+    def input(self, data):
         data = self.finish_input() + data
-        if self.scale == 1 and consume_reply is None:
+        if self.scale == 1 and not self._requests:
             return data
         escape = data.rfind(b"\x1b", max(0, len(data) - self.MAX_PREFIX))
         if escape >= 0:
             tail = data[escape:]
-            if (consume_reply is not None and tail in (PONG[:2], PONG[:3])) or (
+            if (self._requests and tail in (PONG[:2], PONG[:3])) or (
                 self.scale != 1 and self.SCALE_PREFIX.fullmatch(tail)
             ):
                 self._input_tail, data = tail, data[:escape]
@@ -879,7 +883,7 @@ class TerminalControls:
         def replace(match):
             control, kind, first, second, final = match.groups()
             if control == b"0n":
-                return b"" if consume_reply and consume_reply() else match.group()
+                return b"" if self._consume_reply() else match.group()
             mouse = kind.startswith(b"<")
             if self.scale == 1 or (mouse and not self.pixel_mouse):
                 return match.group()

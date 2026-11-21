@@ -359,6 +359,28 @@ class PacingTests(unittest.TestCase):
         self.assertEqual(queue.terminal_input(module.PONG), b"")
         self.assertEqual(queue.terminal_input(module.PONG), module.PONG)
 
+    def test_queued_probe_keeps_its_reply_after_pacing_stops(self):
+        queue = module.ImageLifecycle(partial=True, paced=True)
+
+        def blocked(_):
+            raise BlockingIOError
+
+        with clock() as now:
+            queue.receive(self.frame(1))
+            self.assertEqual(drain(queue).count(module.PING), 1)
+            queue.receive(self.frame(2) + module.PING)
+            # The second frame prepares a probe, but stdout won't accept it yet.
+            self.assertEqual(queue.write(blocked), 0)
+            now[0] += module.PING_TIMEOUT + 1
+            self.assertTrue(queue.poll()[0])
+            # The queued probe and Herdr's own request both reach the terminal.
+            self.assertEqual(drain(queue).count(module.PING), 2)
+        pong = module.PONG
+        self.assertEqual(
+            queue.terminal_input(pong + b"a" + pong + b"b" + pong + b"c"),
+            b"ab" + pong + b"c",
+        )
+
     def test_slow_reply_from_an_answering_terminal_keeps_pacing(self):
         queue = module.ImageLifecycle(partial=True, paced=True, window=0)
         with clock() as now:
@@ -422,6 +444,8 @@ class ScrollTests(unittest.TestCase):
             for start in (16, 20, 16):
                 raw = self.page(start)
                 queue.receive(herdr_frame(b"9", raw, self.width, self.height))
+                # The poll path must allow the scratch copy to bypass the whole-frame gate.
+                self.assertTrue(queue.poll()[0])
                 # Stop after the scratch copy, before repairs or the final copy.
                 prefix = link.receive(limit=200, answer=False)
                 self.assertIn(b"a=c", prefix)
