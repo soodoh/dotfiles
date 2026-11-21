@@ -4,9 +4,14 @@ import base64
 import importlib.machinery
 import importlib.util
 import itertools
+import os
 import random
 import re
+import select
 import struct
+import subprocess
+import sys
+import time
 import unittest
 import zlib
 from contextlib import contextmanager
@@ -321,8 +326,10 @@ class PacingTests(unittest.TestCase):
             # The old image stays: nothing for the newer frames is sent yet.
             self.assertNotIn(APC, link.receive(answer=False))
             self.assertFalse(queue.poll()[0])
-            # The reply is consumed here and never reaches Herdr.
-            self.assertEqual(queue.terminal_input(b"x" + module.PONG + b"y"), b"xy")
+            # A fragmented reply must be consumed before the next frame can go.
+            self.assertEqual(queue.terminal_input(b"x\x1b[0"), b"x")
+            self.assertFalse(queue.poll()[0])
+            self.assertEqual(queue.terminal_input(b"ny"), b"y")
             link.unanswered = 0
             self.assertTrue(queue.poll()[0])
             self.assertEqual(link.receive().count(b"a=p,i=9,"), 1)
@@ -585,27 +592,116 @@ class HiddenImageTests(unittest.TestCase):
         self.assertEqual(model.placed_missing, 0)
 
 
+class PtyControlTests(unittest.TestCase):
+    @contextmanager
+    def wrapper(self, fixture, *args, scale="2", paced="1"):
+        command = [sys.executable, loader.path, sys.executable, "-c", fixture, *args]
+        with subprocess.Popen(
+            command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            env={**os.environ, "HERDR_IMAGE_SCALE": scale, "HERDR_FRAME_ACK": paced},
+        ) as child:
+            try:
+                yield child
+                self.assertEqual(child.wait(timeout=5), 0)
+            finally:
+                if child.poll() is None:
+                    child.kill()
+
+    def read_through(self, child, suffix):
+        output = bytearray()
+        deadline = time.monotonic() + 5
+        while not output.endswith(suffix):
+            ready, _, _ = select.select([child.stdout], [], [], max(0, deadline - time.monotonic()))
+            if not ready or not (data := os.read(child.stdout.fileno(), 1)):
+                self.fail(f"Expected {suffix!r} at end of {bytes(output[-512:])!r}")
+            output.extend(data)
+        return bytes(output)
+
+    def send(self, child, data):
+        child.stdin.write(data)
+        child.stdin.flush()
+
+    def test_fragmented_pixel_mode_toggles_and_standalone_escape(self):
+        fixture = r'''
+import os, sys, tty
+
+tty.setraw(0)
+for mode in (b"h", b"l"):
+    os.write(1, b"\x1b[?10")
+    assert sys.stdin.buffer.read(1) == b"s"
+    os.write(1, b"16" + mode)
+    report = b""
+    while not report.endswith(b"!"):
+        report += sys.stdin.buffer.read(1)
+    os.write(1, report + b"\n")
+assert sys.stdin.buffer.read(1) == b"\x1b"
+os.write(1, b"escape\n")
+'''
+        # A handshake after each prefix forces separate reads by the wrapper.
+        # Also check scale-one passthrough.
+        for scale, pixel in (("1", b"101;41"), ("2", b"51;21")):
+            with self.subTest(scale=scale), self.wrapper(fixture, scale=scale, paced="0") as child:
+                for mode, expected in ((b"h", pixel), (b"l", b"101;41")):
+                    self.read_through(child, b"\x1b[?10")
+                    self.send(child, b"s")
+                    self.read_through(child, b"16" + mode)
+                    self.send(child, b"\x1b[<0;101;41M!")
+                    self.assertEqual(self.read_through(child, b"\n"), b"\x1b[<0;" + expected + b"M!\n")
+                self.send(child, b"\x1b")
+                self.assertEqual(self.read_through(child, b"\n"), b"escape\n")
+
+    def test_split_replies_go_only_to_their_request_owner(self):
+        fixture = r'''
+import os, sys, tty
+
+tty.setraw(0)
+read = sys.stdin.buffer.read
+os.write(1, b"\x1b[5")
+assert read(1) == b"s"
+os.write(1, b"n" + bytes.fromhex(sys.argv[1]))
+for marker in (b"a", b"b"):
+    assert read(1) == marker
+    os.write(1, marker.upper())
+    if marker == b"a":
+        assert read(4) == b"\x1b[0n"
+assert read(1) == b"c"
+os.write(1, b"done\n")
+'''
+        frame = upload(b"a=t,t=d,f=32,s=2,v=2,i=7,q=2", bytes(16))
+        with self.wrapper(fixture, frame.hex(), scale="1") as child:
+            self.read_through(child, b"\x1b[5")
+            self.send(child, b"s")
+            self.read_through(child, module.PING)  # Wrapper's request after the frame.
+            # Each marker proves the preceding write reached the wrapper before
+            # we send the rest of the reply, without relying on timing sleeps.
+            for marker in (b"a", b"b"):
+                self.send(child, marker + b"\x1b[0")
+                self.assertEqual(self.read_through(child, marker.upper()), marker.upper())
+                self.send(child, b"n" + (b"c" if marker == b"b" else b""))
+            self.assertEqual(self.read_through(child, b"\n"), b"done\n")
+
+
 class ScalingTests(unittest.TestCase):
     def test_reported_pixel_size_shrinks_but_cells_do_not(self):
         size = struct.pack("HHHH", 37, 88, 2200, 1813)
         self.assertEqual(struct.unpack("HHHH", module.scaled_size(size, 2)), (37, 88, 1100, 906))
 
-    def test_pixel_mouse_and_size_replies_are_scaled_only_when_reported_in_pixels(self):
-        scaler = module.InputScaler(2)
-        cell_mouse = b"\x1b[<0;10;20M"
-        self.assertEqual(scaler.input(cell_mouse), cell_mouse)
-        scaler.output(b"\x1b[?1006h\x1b[?1016h")
-        self.assertEqual(scaler.input(b"a\x1b[<0;101;41Mb\x1b[<0;2;2m"), b"a\x1b[<0;51;21Mb\x1b[<0;1;1m")
-        self.assertEqual(scaler.input(b"\x1b[6;49;25t"), b"\x1b[6;24;12t")
-        scaler.output(b"\x1b[?1016l")
-        self.assertEqual(scaler.input(cell_mouse), cell_mouse)
+    def test_pixel_reports_keep_mouse_origin_and_floor_size_replies(self):
+        queue = module.ImageLifecycle(scale=2)
+        queue.receive(b"\x1b[?1016h")
+        drain(queue)
+        self.assertEqual(queue.terminal_input(b"a\x1b[<0;1;2mb\x1b[6;49;25t"), b"a\x1b[<0;1;1mb\x1b[6;24;12t")
 
-    def test_split_reports_are_joined_but_escape_is_not_held(self):
-        scaler = module.InputScaler(2)
-        scaler.output(b"\x1b[?1016h")
-        self.assertEqual(scaler.input(b"x\x1b[<0;10"), b"x")
-        self.assertEqual(scaler.input(b"1;41M"), b"\x1b[<0;51;21M")
-        self.assertEqual(scaler.input(b"\x1b"), b"\x1b")
+    def test_split_reports_preserve_surrounding_and_unrecognized_input(self):
+        queue = module.ImageLifecycle(scale=2)
+        queue.receive(b"\x1b[?1016h")
+        drain(queue)
+        self.assertEqual(queue.terminal_input(b"x\x1b[<0;10"), b"x")
+        self.assertEqual(queue.terminal_input(b"1;41M"), b"\x1b[<0;51;21M")
+        self.assertEqual(queue.terminal_input(b"\x1b["), b"")
+        self.assertEqual(queue.terminal_input(b"A"), b"\x1b[A")
+        self.assertEqual(queue.terminal_input(b"\x1b[6;"), b"")
+        self.assertEqual(queue.finish_input(), b"\x1b[6;")
 
 
 class LinkTests(unittest.TestCase):

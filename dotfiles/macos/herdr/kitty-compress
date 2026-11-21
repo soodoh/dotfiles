@@ -339,7 +339,8 @@ class ImageLifecycle:
     terminal input after we consume replies to our own status requests.
     """
 
-    def __init__(self, partial=False, paced=False, window=WINDOW, scroll_copy=False):
+    def __init__(self, partial=False, paced=False, window=WINDOW, scroll_copy=False, scale=1):
+        self._terminal = TerminalControls(scale)
         self.partial = partial
         self.scroll_copy = scroll_copy and partial
         self.buffer = b""
@@ -717,28 +718,34 @@ class ImageLifecycle:
         return True
 
     def terminal_input(self, data):
-        """Remove replies to our status requests from terminal input."""
-        if PONG not in data or not self.requests:
-            return data
-        output, start = [], 0
-        while (found := data.find(PONG, start)) >= 0 and self.requests:
-            ours, _, offset = self.requests.popleft()
-            if ours:
-                self.acked = offset
-                self.answered = True
-            output.append(data[start:found] if ours else data[start:found + len(PONG)])
-            start = found + len(PONG)
-        output.append(data[start:])
-        return b"".join(output)
+        """Forward terminal input with image acknowledgements removed and pixel reports scaled."""
+        return self._terminal.input(data, self._consume_reply if self.requests else None)
 
-    def _written(self, data, tag):
-        """Record status requests in a segment that finished writing."""
-        now = time.monotonic()
+    def finish_input(self):
+        """Forward an unfinished input sequence when the terminal closes stdin."""
+        return self._terminal.finish_input()
+
+    def _consume_reply(self):
+        if not self.requests:
+            return False
+        ours, _, offset = self.requests.popleft()
+        if ours:
+            self.acked = offset
+            self.answered = True
+        return ours
+
+    def _written(self, data, tag, start, end):
+        """Record status requests only once their bytes reach the terminal."""
         if tag is None:
             # Herdr's own requests: their replies go back to Herdr.
-            self.requests.extend([False, now, self.total] for _ in range(data.count(PING)))
-        elif tag[0] == "frame" and data.endswith(PING) and self.paced:
-            self.requests.append([True, now, self.total])
+            if count := self._terminal.observe_output(data[start:end]):
+                now = time.monotonic()
+                self.requests.extend([False, now, self.total] for _ in range(count))
+        else:
+            if start == 0:
+                self._terminal.interrupt_output()
+            if end == len(data) and tag[0] == "frame" and data.endswith(PING) and self.paced:
+                self.requests.append([True, time.monotonic(), self.total])
 
     def write(self, send):
         """Send bytes via a writer that returns the count accepted so far."""
@@ -779,15 +786,17 @@ class ImageLifecycle:
                 count = send(memoryview(data)[self.offset:])
             except (BlockingIOError, InterruptedError):
                 break
-            if count and not self.offset:
+            start = self.offset
+            if count and not start:
                 self._begin(tag)
             self.offset += count
             self.pending_bytes -= count
             self.total += count
             written += count
+            if count:
+                self._written(data, tag, start, self.offset)
             if count < remaining:
                 break
-            self._written(data, tag)
         return written
 
 
@@ -805,53 +814,83 @@ def copy_size(source, target, scale=1):
         pass
 
 
-class InputScaler:
-    """Divides pixel coordinates the terminal reports by the cell scale.
+_PIXEL_MOUSE_ON = b"\x1b[?1016h"
+_OUTPUT_CONTROLS = (PING, _PIXEL_MOUSE_ON, b"\x1b[?1016l")
 
-    Herdr sees cells `scale` times smaller in pixels than the terminal does, so
-    SGR pixel mouse reports (mode 1016) and cell or window size replies
-    (CSI 6/4 ; height ; width t) must shrink by the same factor.
+
+class TerminalControls:
+    """Frame only the terminal controls used for pacing and pixel scaling.
+
+    Output is observed as written, never delayed. Input holds recognized
+    prefixes after CSI, but a lone Escape is forwarded immediately.
     """
 
-    REPORT = re.compile(rb"\x1b\[(<\d+;|[46];)(\d+);(\d+)([Mmt])")
-    PARTIAL = re.compile(rb"\x1b(\[(<?[\d;]*)?)?$")
+    OUTPUT = re.compile(b"|".join(map(re.escape, _OUTPUT_CONTROLS)))
+    OUTPUT_PREFIXES = frozenset(
+        control[:i] for control in _OUTPUT_CONTROLS for i in range(1, len(control))
+    )
+    INPUT = re.compile(rb"\x1b\[(0n|(<\d+;|[46];)(\d+);(\d+)([Mmt]))")
+    SCALE_PREFIX = re.compile(rb"\x1b\[(?:(?:<\d*|[46])(?:;\d*){0,2})?")
+    # Bound retained input to well beyond an ordinary mouse/size report.
+    MAX_PREFIX = 64
 
     def __init__(self, scale):
         self.scale = scale
         self.pixel_mouse = False
-        self.pending = b""
+        self._output_tail = b""
+        self._input_tail = b""
 
-    def output(self, data):
-        """Track Herdr enabling or disabling SGR pixel mouse reports."""
-        on, off = data.rfind(b"\x1b[?1016h"), data.rfind(b"\x1b[?1016l")
-        if on > off:
-            self.pixel_mouse = True
-        elif off > on:
-            self.pixel_mouse = False
+    def observe_output(self, data):
+        """Track pixel mouse mode and count completed Herdr status requests."""
+        data = self._output_tail + data
+        self._output_tail = b""
+        escape = data.rfind(b"\x1b", max(0, len(data) - len(_PIXEL_MOUSE_ON)))
+        if escape >= 0 and data[escape:] in self.OUTPUT_PREFIXES:
+            self._output_tail = data[escape:]
+        pings = 0
+        for match in self.OUTPUT.finditer(data):
+            control = match.group()
+            if control == PING:
+                pings += 1
+            else:
+                self.pixel_mouse = control == _PIXEL_MOUSE_ON
+        return pings
 
-    def input(self, data):
-        if self.scale == 1:
+    def interrupt_output(self):
+        """An intervening Kitty command ends any partial text control."""
+        self._output_tail = b""
+
+    def finish_input(self):
+        tail, self._input_tail = self._input_tail, b""
+        return tail
+
+    def input(self, data, consume_reply):
+        data = self.finish_input() + data
+        if self.scale == 1 and consume_reply is None:
             return data
-        data = self.pending + data
-        partial = self.PARTIAL.search(data)
-        # Hold an unfinished report, but never a lone Escape key press.
-        if partial and partial.group(0) != b"\x1b":
-            self.pending, data = data[partial.start():], data[:partial.start()]
-        else:
-            self.pending = b""
-        return self.REPORT.sub(self.replace, data)
+        escape = data.rfind(b"\x1b", max(0, len(data) - self.MAX_PREFIX))
+        if escape >= 0:
+            tail = data[escape:]
+            if (consume_reply is not None and tail in (PONG[:2], PONG[:3])) or (
+                self.scale != 1 and self.SCALE_PREFIX.fullmatch(tail)
+            ):
+                self._input_tail, data = tail, data[:escape]
 
-    def replace(self, match):
-        kind, first, second, final = match.groups()
-        mouse = kind.startswith(b"<")
-        if mouse and not self.pixel_mouse:
-            return match.group(0)
-        if mouse:
-            # Mouse coordinates are 1-based pixels: x, then y.
-            first, second = ((int(v) - 1) // self.scale + 1 for v in (first, second))
-        else:
-            first, second = (int(v) // self.scale for v in (first, second))
-        return b"\x1b[" + kind + b"%d;%d" % (first, second) + final
+        def replace(match):
+            control, kind, first, second, final = match.groups()
+            if control == b"0n":
+                return b"" if consume_reply and consume_reply() else match.group()
+            mouse = kind.startswith(b"<")
+            if self.scale == 1 or (mouse and not self.pixel_mouse):
+                return match.group()
+            if mouse:
+                # Mouse coordinates are 1-based pixels: x, then y.
+                first, second = ((int(v) - 1) // self.scale + 1 for v in (first, second))
+            else:
+                first, second = (int(v) // self.scale for v in (first, second))
+            return b"\x1b[" + kind + b"%d;%d" % (first, second) + final
+
+        return self.INPUT.sub(replace, data)
 
 
 def write_all(fd, data):
@@ -879,9 +918,9 @@ def main():
         saved = termios.tcgetattr(stdin)
         tty.setraw(stdin)
         signal.signal(signal.SIGWINCH, lambda *_: (copy_size(stdin, master, scale), os.kill(pid, signal.SIGWINCH)))
-    scaler = InputScaler(scale)
     os.set_blocking(stdout, False)
     images = ImageLifecycle(
+        scale=scale,
         partial=os.environ.get("HERDR_PARTIAL_IMAGES", "1") != "0",
         paced=os.environ.get("HERDR_FRAME_ACK", "1") != "0",
         scroll_copy=os.environ.get("HERDR_SCROLL_COPY") == "1",
@@ -918,8 +957,10 @@ def main():
                     pass
                 elif not data:
                     stdin_open = False
+                    if child_open and (tail := images.finish_input()):
+                        write_all(master, tail)
                 else:
-                    data = scaler.input(images.terminal_input(data))
+                    data = images.terminal_input(data)
                     if data:
                         write_all(master, data)
             if master in readable:
@@ -933,7 +974,6 @@ def main():
                     child_open = False
                     images.finish(RESTORE if paused else b"")
                 else:
-                    scaler.output(data)
                     images.receive(data)
                     paused = False
             if stdout in writable and images.pending_bytes:
