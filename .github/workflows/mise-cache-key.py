@@ -7,10 +7,15 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import tomllib
 from pathlib import Path
 from typing import Any
+
+# Executing this helper by path puts .github/workflows, not the root, on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from mise_resolution import expand_http_url, read_mise_resolution
 
 # v3 archives exclude the CLI binary, which is selected before tool restoration.
 SCHEMA = "mise-tools-v3"
@@ -136,33 +141,12 @@ def resolved_versions(
             for key, value in projection.items()
         ) + "\n")
         (stage / "mise.lock").write_bytes((root / "mise.lock").read_bytes())
-        # Workstation globals, profiles and per-tool environment overrides must
-        # not affect the identity of this repository's CI cache.
-        environment = {
-            key: value for key, value in os.environ.items()
-            if not key.startswith("MISE_")
-        }
-        environment.update({
-            "MISE_CONFIG_DIR": str(stage / ".global"),
-            "MISE_GLOBAL_CONFIG_FILE": str(stage / ".empty.toml"),
-            "MISE_SYSTEM_CONFIG_FILE": str(stage / ".empty.toml"),
-            "MISE_OVERRIDE_CONFIG_FILENAMES": "mise.toml",
-            "MISE_ENV": "",
-            "MISE_SAFE": "1",
-            "MISE_TRUSTED_CONFIG_PATHS": str(stage),
-        })
-        output = subprocess.check_output(
-            ["mise", "--cd", str(stage), "--no-env", "--no-hooks",
-             "ls", "--current", "--offline", "--json"],
-            cwd=stage, env=environment, text=True, timeout=30,
-        )
+        records, diagnostics = read_mise_resolution(stage, root_config_only=True)
+    if diagnostics:
+        print(diagnostics, file=sys.stderr)
     resolved: dict[tuple[str, str], str] = {}
-    for tool, records in json.loads(output).items():
-        for record in records:
-            request = record.get("requested_version")
-            version = record.get("version")
-            if not isinstance(request, str) or not isinstance(version, str):
-                raise TypeError(f"mise returned no version identity for {tool}")
+    for tool, versions in records.items():
+        for request, version in versions:
             key = (tool, request)
             if key in resolved and resolved[key] != version:
                 raise ValueError(f"mise returned ambiguous versions for {tool}@{request}")
@@ -196,8 +180,14 @@ def cache_inputs(
         for tool, specification in tools.items():
             if tool.startswith("http:") and isinstance(specification, dict):
                 for options in (specification, *specification.get("platforms", {}).values()):
-                    if isinstance(options.get("url"), str):
-                        options["url"] = options["url"].replace("{{ version }}", "")
+                    url = options.get("url")
+                    if isinstance(url, str):
+                        try:
+                            options["url"] = expand_http_url(url, version="")
+                        except ValueError as error:
+                            raise ValueError(
+                                f"{tool}: templated tool inputs require a cache-key policy review"
+                            ) from error
     # Other templates can depend on arbitrary env/vars/files, which this
     # projection intentionally does not hash. Fail closed rather than reuse.
     if "{{" in json.dumps(reviewed):

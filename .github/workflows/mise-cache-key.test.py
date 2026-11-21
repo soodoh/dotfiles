@@ -285,7 +285,8 @@ class MiseCacheKeyTests(unittest.TestCase):
         output = json.dumps({"asdf:example": [{
             "requested_version": "v1.2.3", "version": "v1.2.3",
         }]})
-        with patch.object(self.helper.subprocess, "check_output", return_value=output):
+        result = subprocess.CompletedProcess([], 0, stdout=output, stderr="")
+        with patch.object(self.helper.subprocess, "run", return_value=result):
             _, identity = self.helper.cache_inputs(self.root, "Linux", "X64")
         selected = identity["declarations"]["root"]["asdf:example"]
         self.assertEqual(selected["version"], "v1.2.3")
@@ -363,24 +364,31 @@ class MiseCacheKeyTests(unittest.TestCase):
         keys = self.helper.build_keys(ROOT, os_name, arch, image, "2026.10.20")
         self.assertTrue(keys["primary-key"].startswith(keys["restore-key"]))
 
-    def test_http_version_urls_are_cacheable_but_environment_templates_are_not(self) -> None:
+    def test_http_version_urls_are_cacheable_but_other_templates_are_not(self) -> None:
         config = self.root / "mise.toml"
         lock = self.root / "mise.lock"
-        config.write_text(
+        original = (
             '[tools."http:fixture"]\nversion = "1.0.0"\n'
-            'url = "https://example.test/tool-{{ version }}.tar.gz"\n'
+            'url = "https://example.test/tool-{{version}}.tar.gz"\n'
+            '[tools."http:fixture".platforms.linux-x64]\n'
+            'url = "https://example.test/linux/tool-{{  version  }}.tar.gz"\n'
         )
+        config.write_text(original)
         lock.write_text(
             '[[tools."http:fixture"]]\nversion = "1.0.0"\nbackend = "http:fixture"\n'
-            '"platforms.linux-x64" = { url = "https://example.test/tool-1.0.0.tar.gz" }\n'
+            '"platforms.linux-x64" = { url = "https://example.test/linux/tool-1.0.0.tar.gz" }\n'
         )
         before = self.keys()
-        original = config.read_text()
         config.write_text(original.replace("example.test", "mirror.test"))
         self.assertNotEqual(self.keys()["restore-key"], before["restore-key"])
-        config.write_text(original.replace("{{ version }}", "{{ env.VERSION }}"))
-        with self.assertRaisesRegex(ValueError, "policy review"):
-            self.keys()
+        for version, unsupported in (
+            ("{{version}}", "{{ env.VERSION }}"),
+            ("{{  version  }}", "{% if env.VERSION %}x{% endif %}"),
+        ):
+            with self.subTest(unsupported=unsupported):
+                config.write_text(original.replace(version, unsupported))
+                with self.assertRaisesRegex(ValueError, "policy review"):
+                    self.keys()
 
     def test_templates_fail_closed(self) -> None:
         path = self.root / "mise.toml"

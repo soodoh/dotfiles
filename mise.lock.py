@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 import re
 import shutil
@@ -12,6 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
+
+from mise_resolution import expand_http_url, read_mise_resolution
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_FILES = (
@@ -334,9 +335,10 @@ def validate_http_urls(
         # Repository HTTP URLs are literals or use only mise's version variable.
         # Fail closed on richer templates instead of silently skipping validation;
         # never evaluate arbitrary template functions during offline validation.
-        expected = re.sub(r"{{\s*version\s*}}", lambda _: version, template)
-        if any(marker in expected for marker in ("{{", "{%", "{#")):
-            raise ValueError(f"{context}: offline validation supports only literal URLs and {{{{ version }}}}")
+        try:
+            expected = expand_http_url(template, version)
+        except ValueError as error:
+            raise ValueError(f"{context}: offline validation {error}") from error
         if not any(
             entry["version"] == version
             and entry.get(f"platforms.{platform}", {}).get("url") == expected
@@ -357,19 +359,6 @@ def validate_requests(stage: Path, profile: str | None, configs: dict[str, dict]
     # to committed locks. Unlike `mise lock`, offline `ls` never refreshes URLs
     # for unchanged versions. It can warn and omit unresolved tools with exit 0,
     # so require every declared request to appear in its output as well.
-    environment = {
-        key: value for key, value in os.environ.items() if not key.startswith("MISE_")
-    }
-    environment.update({
-        "MISE_CONFIG_DIR": str(stage / ".global"),
-        "MISE_GLOBAL_CONFIG_FILE": str(stage / ".empty.toml"),
-        "MISE_SYSTEM_CONFIG_FILE": str(stage / ".empty.toml"),
-        "MISE_ENV": "",
-        "MISE_SAFE": "1",
-        "MISE_TRUSTED_CONFIG_PATHS": str(stage),
-        "MISE_SELF_UPDATE_AUTO": "false",
-    })
-    arguments = ["mise", "--cd", str(stage), "--no-env", "--no-hooks"]
     tools = dict(configs["mise.toml"].get("tools", {}))
     sources = {tool: "mise.toml" for tool in tools}
     if profile:
@@ -377,26 +366,15 @@ def validate_requests(stage: Path, profile: str | None, configs: dict[str, dict]
         overrides = configs[name].get("tools", {})
         tools.update(overrides)
         sources.update({tool: name for tool in overrides})
-        arguments.extend(["--env", profile])
 
-    def resolve(overrides: dict[str, str]) -> tuple[dict, str]:
-        result = subprocess.run(
-            [*arguments, "ls", "--current", "--offline", "--json"],
-            cwd=stage, env=environment | overrides, capture_output=True, text=True,
-            check=False, timeout=30,
-        )
-        if result.returncode:
-            raise ValueError(f"{profile or 'shared'}: mise resolution failed:\n{result.stderr.strip()}")
-        return json.loads(result.stdout), result.stderr.strip()
-
-    resolved, warnings = resolve({})
+    resolved, warnings = read_mise_resolution(stage, profile=profile)
     problems = []
     host_os = "macos" if sys.platform == "darwin" else sys.platform
     for tool, specification in tools.items():
         specifications = tool_requests(specification)
         requests = [item if isinstance(item, str) else item["version"] for item in specifications]
         source = sources[tool]
-        matched = [(record["requested_version"], record["version"]) for record in resolved.get(tool, [])]
+        matched = resolved.get(tool, []).copy()
         inactive = [item for item in specifications if not supports_os(item, host_os)]
         entries = []
         if inactive or tool.startswith("http:"):
@@ -437,11 +415,11 @@ def validate_requests(stage: Path, profile: str | None, configs: dict[str, dict]
         for entry in read_validation_input(stage, name)["tools"].get("python", [])
     }
     for request in sorted(python_requests):
-        runtimes, _ = resolve({"MISE_PYTHON_VERSION": request})
+        runtimes, _ = read_mise_resolution(stage, profile=profile, python_request=request)
         records = runtimes.get("python", [])
         if not records or any(
-            record["requested_version"] != request or record["version"] not in python_versions
-            for record in records
+            requested != request or version not in python_versions
+            for requested, version in records
         ):
             problems.append(f"{profile or 'shared'}: private python@{request} has no matching lock")
     if problems:
