@@ -16,6 +16,7 @@ from typing import Any
 # Executing this helper by path puts .github/workflows, not the root, on sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from mise_declarations import ToolRequest, read_tool_declarations
+from mise_lock_records import LockRecords, project_record
 from mise_resolution import expand_http_url, read_mise_resolution
 
 # v4 hashes ordered requests per tool instead of one request per tool.
@@ -69,16 +70,6 @@ def platform_name(os_name: str, architecture: str) -> str:
     if operating_system is None or machine is None:
         raise ValueError(f"unsupported cache platform: {os_name}/{architecture}")
     return f"{operating_system}-{machine}"
-
-
-def relevant_lock_entry(entry: dict[str, Any], platform: str) -> dict[str, Any]:
-    selected = {
-        key: value for key, value in entry.items() if not key.startswith("platforms.")
-    }
-    platform_key = f"platforms.{platform}"
-    if platform_key in entry:
-        selected[platform_key] = entry[platform_key]
-    return selected
 
 
 def toml_value(value: Any) -> str:
@@ -138,17 +129,6 @@ def resolved_versions(
     return resolved
 
 
-def matching_lock_entries(
-    locks: dict[str, Any], tool: str, version: str, platform: str
-) -> list[dict[str, Any]]:
-    entries = locks.get("tools", {}).get(tool, [])
-    return [
-        relevant_lock_entry(entry, platform)
-        for entry in entries
-        if entry.get("version") == version
-    ]
-
-
 def check_template_inputs(source: str, tool: str, request: ToolRequest) -> None:
     # Exempt only version placeholders in HTTP archive URLs. Hash the original
     # options; other templates can depend on inputs this projection cannot hash.
@@ -170,7 +150,7 @@ def cache_inputs(
     root: Path, os_name: str, architecture: str
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     config = load_toml(root / "mise.toml")
-    locks = load_toml(root / "mise.lock")
+    locks = LockRecords("mise.lock", load_toml(root / "mise.lock"))
     platform = platform_name(os_name, architecture)
     declarations = declared_tools(config, platform.split("-", 1)[0])
     for source, tools in declarations.items():
@@ -191,7 +171,9 @@ def cache_inputs(
                 version = versions.get((tool, request.version))
                 if version is None:
                     raise ValueError(f"mise did not resolve {tool}@{request.version}")
-                entries = matching_lock_entries(locks, tool, version, platform)
+                entries = [
+                    project_record(record, platform) for record in locks.matching(tool, version)
+                ]
                 if source == "root" and not entries:
                     raise ValueError(f"{tool}@{version} has no matching mise.lock entry")
                 policy_requests.append({

@@ -339,6 +339,17 @@ class MiseCacheKeyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no matching mise.lock entry"):
             self.keys()
 
+    def test_cache_key_rejects_matching_lock_with_invalid_backend(self) -> None:
+        path = self.root / "mise.lock"
+        original = path.read_text()
+        for replacement in ('backend = "core:ruby"', 'backend = 42', ''):
+            with self.subTest(replacement=replacement):
+                path.write_text(original.replace('backend = "core:node"', replacement))
+                with contextlib.redirect_stderr(io.StringIO()), self.assertRaisesRegex(
+                    (TypeError, ValueError), r"mise\.lock: node@24\.0\.0:.*backend",
+                ):
+                    self.keys()
+
     def test_install_option_change_invalidates_fallback(self) -> None:
         before = self.keys()
         config = (
@@ -484,6 +495,12 @@ class MiseCacheKeyTests(unittest.TestCase):
             self.assertNotEqual(self.keys(os_name="macOS", architecture="ARM64"), macos)
             macos_tools = self.helper.snapshot(self.root, "macOS", "ARM64")["tools"]
             self.assertTrue(scoped.issubset(macos_tools))
+        # Cache validation only checks the records the runner would use.
+        lock.write_text(lock.read_text().replace('backend = "http:mac-only"', 'backend = "http:other"'))
+        self.assertEqual(self.keys(), linux)
+        if on_macos:
+            with self.assertRaisesRegex(ValueError, "http:mac-only@1.0.0: expected backend"):
+                self.keys(os_name="macOS", architecture="ARM64")
 
     def test_reconcile_reuses_unchanged_tools_and_replaces_changed_artifacts(
         self,

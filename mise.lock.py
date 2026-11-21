@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from mise_declarations import ToolRequest, read_tool_declarations
+from mise_lock_records import LockRecords, platform_artifact
 from mise_resolution import expand_http_url, read_mise_resolution
 
 ROOT = Path(__file__).resolve().parent
@@ -262,28 +263,6 @@ def read_validation_input(root: Path, name: str) -> dict:
         raise ValueError(f"{name}: {error}") from error
 
 
-def locked_tools(name: str, lock: dict) -> dict[str, list[dict]]:
-    tools = lock.get("tools")
-    if not isinstance(tools, dict):
-        raise TypeError(f"{name}: expected a tools table")
-    for tool, entries in tools.items():
-        if not isinstance(entries, list) or not entries:
-            raise ValueError(f"{name}: {tool}: expected locked version entries")
-        for entry in entries:
-            if not isinstance(entry, dict):
-                raise TypeError(f"{name}: {tool}: expected locked version tables")
-            context = f"{name}: {tool}@{entry.get('version', '?')}"
-            backend = entry.get("backend")
-            if not isinstance(backend, str) or not isinstance(entry.get("version"), str):
-                raise TypeError(f"{context}: missing version or backend")
-            # This repository uses core short names and explicitly qualified
-            # non-core tools. Do not let a lock redirect a declaration's backend.
-            expected_backend = tool if ":" in tool else f"core:{tool}"
-            if backend != expected_backend:
-                raise ValueError(f"{context}: expected backend {expected_backend!r}, found {backend!r}")
-    return tools
-
-
 def validate_archive_entries(
     name: str, tools: dict[str, list[dict]],
     declarations: dict[str, list[ToolRequest]],
@@ -306,7 +285,7 @@ def validate_archive_entries(
                         request.supports_os(platform.split("-", 1)[0]) for request in requests
                     ):
                         continue
-                    artifact = entry.get(f"platforms.{platform}")
+                    artifact = platform_artifact(entry, platform)
                     if artifact is None and platform in UNAVAILABLE_ARCHIVES.get(tool, set()):
                         continue
                     if not isinstance(artifact, dict):
@@ -347,8 +326,8 @@ def validate_http_urls(
         except ValueError as error:
             raise ValueError(f"{context}: offline validation {error}") from error
         locked_artifacts = [
-            locked for entry in entries if entry["version"] == version
-            if isinstance(locked := entry.get(f"platforms.{platform}"), dict)
+            locked for entry in entries
+            if isinstance(locked := platform_artifact(entry, platform), dict)
         ]
         if not any(locked.get("url") == expected for locked in locked_artifacts):
             raise ValueError(f"{context}: {lock_name} does not match declared URL {expected!r}")
@@ -437,10 +416,11 @@ def check_lockfiles(root: Path) -> None:
             name: read_tool_declarations(config.get("tools", {}), name)
             for name, config in configs.items()
         }
-        locks = {
-            name: locked_tools(name, read_validation_input(root, name))
+        records = {
+            name: LockRecords(name, read_validation_input(root, name))
             for name in LOCK_FILES
         }
+        locks = {name: lock.checked_tools() for name, lock in records.items()}
         matches = {name: {} for name in LOCK_FILES}
         with staged_repository(root) as stage:
             for profile in (None, *PROFILES):
@@ -454,8 +434,9 @@ def check_lockfiles(root: Path) -> None:
             # Native resolution checks HTTP options but ignores declared URLs.
             for (tool, version), requests in matches[name].items():
                 if tool.startswith("http:"):
+                    entries = records[name].matching(tool, version)
                     for request in requests:
-                        validate_http_urls(source, tool, request, version, tools.get(tool, []))
+                        validate_http_urls(source, tool, request, version, entries)
     except (ValueError, TypeError, OSError, subprocess.TimeoutExpired) as error:
         raise SystemExit(
             f"mise lock validation failed:\n{error}\n"
