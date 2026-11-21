@@ -493,49 +493,49 @@ url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/758513912"
 provenance = "github-attestations"
 
 [[tools."aqua:atuinsh/atuin"]]
-version = "18.25.0"
+version = "18.25.1"
 backend = "aqua:atuinsh/atuin"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-arm64"]
-checksum = "sha256:0cfaa7ec4bb18c894791689661d17f15ff2505d5fabf1557359d233bfc42b092"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.25.0/atuin-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/770087129"
+checksum = "sha256:19713ba9447f6429412c349379a62b98f519bc311b38c31c95c06bdbfceb4ed8"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.25.1/atuin-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/773455323"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-arm64-musl"]
-checksum = "sha256:1dc0cb006252cb4f0b4441fc885f7cba9798af0ed0c4df28c99f13cdacc15613"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.25.0/atuin-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/770087130"
+checksum = "sha256:a76aff915be408f15eca033dfbd555bb8d1237e83b09562f7481636f7894555f"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.25.1/atuin-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/773455319"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-x64"]
-checksum = "sha256:1ee01017e27d5968b6b3e9c35f0e190fcec918591ec808f3f090ee7d97fc87a7"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.25.0/atuin-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/770087356"
+checksum = "sha256:bd586c8c5ba631c3e545b1665fdd0bfc1d8aa4954e6b6a488dc712c8d8a89f10"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.25.1/atuin-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/773455537"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-x64-baseline"]
-checksum = "sha256:1ee01017e27d5968b6b3e9c35f0e190fcec918591ec808f3f090ee7d97fc87a7"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.25.0/atuin-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/770087356"
+checksum = "sha256:bd586c8c5ba631c3e545b1665fdd0bfc1d8aa4954e6b6a488dc712c8d8a89f10"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.25.1/atuin-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/773455537"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-x64-musl"]
-checksum = "sha256:9ebfb49d9f5cc5fb03588315f8f54277fe9e3648bd98de7666a350000670cd19"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.25.0/atuin-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/770087386"
+checksum = "sha256:f2bc97588d5aa91f49b992298544e13776df044cb4baf606875c7cc8444e9e00"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.25.1/atuin-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/773455551"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:9ebfb49d9f5cc5fb03588315f8f54277fe9e3648bd98de7666a350000670cd19"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.25.0/atuin-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/770087386"
+checksum = "sha256:f2bc97588d5aa91f49b992298544e13776df044cb4baf606875c7cc8444e9e00"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.25.1/atuin-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/773455551"
 provenance = "github-attestations"
 
 [tools."aqua:atuinsh/atuin"."platforms.macos-arm64"]
-checksum = "sha256:fbd4f848a1620c9bcd51fd7a4292a2b1ad9a8b400967f0f7d7745b7234b3b3a3"
-url = "https://github.com/atuinsh/atuin/releases/download/v18.25.0/atuin-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/770087128"
+checksum = "sha256:c2d94ae74da55c644de08ce3eedb0abd5f4a32340f3e9b8e2dade29764ac524c"
+url = "https://github.com/atuinsh/atuin/releases/download/v18.25.1/atuin-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/atuinsh/atuin/releases/assets/773455322"
 provenance = "github-attestations"
 
 [[tools."aqua:cli/cli"]]
@@ -1538,20 +1538,26 @@ url = "https://github.com/docker/docker-language-server/releases/download/v0.20.
 url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/767505698"
 
 [[tools."github:zenbu-labs/terminal-browser"]]
-version = "0.15.5"
+version = "0.15.9"
 backend = "github:zenbu-labs/terminal-browser"
 
 [tools."github:zenbu-labs/terminal-browser"."platforms.macos-arm64"]
-checksum = "sha256:0a38baa5a1836696bb0731b059d264ad852e8ef11855d355686fe806667608ba"
+checksum = "sha256:fa0b29716b04c7ad47d0825d4885443f273f6dcd2bbb6bebd88f2a9525133771"
 checksum_source = "mise-versions"
-url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v0.15.5/terminal-browser-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/zenbu-labs/terminal-browser/releases/assets/756846008"
+url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v0.15.9/terminal-browser-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/zenbu-labs/terminal-browser/releases/assets/772587639"
 
 [tools."github:zenbu-labs/terminal-browser"."platforms.macos-x64"]
-checksum = "sha256:2d531105e1545488d904311360887b712ac0e32747c9131d7774eb1dd3a19628"
+checksum = "sha256:3628a3e55e766f4641b6a63a6e76c5ab474b83fd2e0dff2b491e386d776f4973"
 checksum_source = "mise-versions"
-url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v0.15.5/terminal-browser-darwin-x64.tar.gz"
-url_api = "https://api.github.com/repos/zenbu-labs/terminal-browser/releases/assets/756846006"
+url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v0.15.9/terminal-browser-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/zenbu-labs/terminal-browser/releases/assets/772587638"
+
+[tools."github:zenbu-labs/terminal-browser"."platforms.macos-x64-baseline"]
+checksum = "sha256:3628a3e55e766f4641b6a63a6e76c5ab474b83fd2e0dff2b491e386d776f4973"
+checksum_source = "mise-versions"
+url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v0.15.9/terminal-browser-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/zenbu-labs/terminal-browser/releases/assets/772587638"
 
 [[tools.go]]
 version = "1.27.4"
