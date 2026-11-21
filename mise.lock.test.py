@@ -339,12 +339,12 @@ class MiseLockTests(unittest.TestCase):
             tool = "aqua:atuinsh/atuin"
             entry["backend"] = tool
             artifact = entry.pop("platforms.macos-x64")
-            lock = {"tools": {tool: [entry]}}
-            self.module.validate_archive_entries("mise.lock", lock)
+            tools = {tool: [entry]}
+            self.module.validate_archive_entries("mise.lock", tools, {}, {})
             artifact["checksum"] = "invalid"
             entry["platforms.macos-x64"] = artifact
             with self.assertRaisesRegex(ValueError, "checksum"):
-                self.module.validate_archive_entries("mise.lock", lock)
+                self.module.validate_archive_entries("mise.lock", tools, {}, {})
 
     def test_check_reports_missing_or_malformed_input_file(self) -> None:
         for name in ("mise.work-macos.lock", "mise.personal-macos.toml"):

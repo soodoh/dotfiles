@@ -1,9 +1,12 @@
+import contextlib
 import glob
 import importlib.util
 import io
+import itertools
 import json
 import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -236,18 +239,58 @@ class MiseCacheKeyTests(unittest.TestCase):
         lock = self.root / "mise.lock"
         config.write_text(
             '[tools]\nnode = "v24.0.0"\n'
-            '[tasks.check.tools]\nnode = "v24.1.0"\n'
+            '[tasks.check.tools]\nnode = ["v24.1.0", "v24.2.0"]\n'
         )
-        lock.write_text(
-            '[[tools.node]]\nversion = "24.0.0"\nbackend = "core:node"\n'
-            '[[tools.node]]\nversion = "24.1.0"\nbackend = "core:node"\n'
+        lock.write_text(''.join(
+            f'[[tools.node]]\nversion = "{version}"\nbackend = "core:node"\n'
+            f'"platforms.linux-x64" = {{ url = "https://example.test/{version}" }}\n'
+            for version in ("24.0.0", "24.1.0", "24.2.0")
+        ))
+        before = self.helper.snapshot(self.root, "Linux", "X64")
+        self.assertEqual(set(before["tools"]), {"node@24.0.0", "node@24.1.0", "node@24.2.0"})
+        lock.write_text(lock.read_text().replace("example.test/24.1.0", "mirror.test/24.1.0"))
+        self.assertEqual(
+            self.helper.reinstall_tools(before, self.helper.snapshot(self.root, "Linux", "X64")),
+            ["node@24.1.0"],
         )
-        _, identity = self.helper.cache_inputs(self.root, "Linux", "X64")
-        for source, expected in (("root", "24.0.0"), ("task:check", "24.1.0")):
-            with self.subTest(source=source):
-                node = identity["declarations"][source]["node"]
-                self.assertEqual(node["version"], expected)
-                self.assertEqual([entry["version"] for entry in node["lock"]], [expected])
+
+    def test_version_lists_agree_with_lock_validation_and_scope_cache_inputs(self) -> None:
+        host, other = ("macos", "linux") if sys.platform == "darwin" else ("linux", "macos")
+        check = runpy.run_path(str(ROOT / "mise.lock.py"))["check_lockfiles"]
+        for profile in ("personal-macos", "work-macos"):
+            (self.root / f"mise.{profile}.toml").write_text("[tools]\n")
+            (self.root / f"mise.{profile}.lock").write_text("[tools]\n")
+
+        def write_versions(active, inactive):
+            (self.root / "mise.toml").write_text(
+                '[settings]\nlockfile = true\n[tool_config]\nlocked = true\n[tools]\n'
+                f'node = ["24.0.0", {{version = "{active}", os = ["{host}"]}}, '
+                f'{{version = "{inactive}", os = "{other}"}}]\n'
+            )
+            entries = []
+            for version, systems in (("24.0.0", (host, other)), (active, (host,)), (inactive, (other,))):
+                entries.append(f'[[tools.node]]\nversion = "{version}"\nbackend = "core:node"\n')
+                for os_name, arch in itertools.product(systems, ("x64", "arm64")):
+                    entries.append(
+                        f'"platforms.{os_name}-{arch}" = {{ url = "https://example.test/{version}", '
+                        f'checksum = "sha256:{"a" * 64}" }}\n'
+                    )
+            (self.root / "mise.lock").write_text(''.join(entries))
+            with contextlib.redirect_stdout(io.StringIO()):
+                check(self.root)
+            return self.keys(os_name=host)
+
+        before = write_versions("24.1.0", "24.2.0")
+        snapshot = self.helper.snapshot(self.root, host, "x64")
+        self.assertEqual(set(snapshot["tools"]), {"node@24.0.0", "node@24.1.0"})
+        self.assertEqual(write_versions("24.1.0", "24.3.0"), before)
+        after = write_versions("24.4.0", "24.3.0")
+        self.assertNotEqual(after["primary-key"], before["primary-key"])
+        self.assertEqual(after["restore-key"], before["restore-key"])
+        self.assertEqual(
+            self.helper.reinstall_tools(snapshot, self.helper.snapshot(self.root, host, "x64")),
+            ["node@24.4.0"],
+        )
 
     def test_native_resolution_ignores_workstation_configs_and_overrides(self) -> None:
         before = self.keys()
@@ -287,10 +330,8 @@ class MiseCacheKeyTests(unittest.TestCase):
         }]})
         result = subprocess.CompletedProcess([], 0, stdout=output, stderr="")
         with patch.object(self.helper.subprocess, "run", return_value=result):
-            _, identity = self.helper.cache_inputs(self.root, "Linux", "X64")
-        selected = identity["declarations"]["root"]["asdf:example"]
-        self.assertEqual(selected["version"], "v1.2.3")
-        self.assertEqual([entry["version"] for entry in selected["lock"]], ["v1.2.3"])
+            snapshot = self.helper.snapshot(self.root, "Linux", "X64")
+        self.assertEqual(set(snapshot["tools"]), {"asdf:example@v1.2.3"})
 
     def test_genuinely_stale_lock_fails_closed_with_a_prefixed_request(self) -> None:
         config = self.root / "mise.toml"
@@ -392,11 +433,15 @@ class MiseCacheKeyTests(unittest.TestCase):
 
     def test_templates_fail_closed(self) -> None:
         path = self.root / "mise.toml"
-        path.write_text(
-            path.read_text().replace('node = "24.0.0"', 'node = "{{ env.VERSION }}"')
-        )
-        with self.assertRaisesRegex(ValueError, "policy review"):
-            self.keys()
+        original = path.read_text()
+        for declaration in (
+            'node = ["24.0.0", "{{ env.VERSION }}"]',
+            '"{{ env.TOOL }}" = "24.0.0"',
+        ):
+            with self.subTest(declaration=declaration):
+                path.write_text(original.replace('node = "24.0.0"', declaration))
+                with self.assertRaisesRegex(ValueError, "policy review"):
+                    self.keys()
 
     def test_task_tools_are_part_of_the_identity_and_policy(self) -> None:
         path = self.root / "mise.toml"

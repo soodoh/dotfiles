@@ -15,10 +15,11 @@ from typing import Any
 
 # Executing this helper by path puts .github/workflows, not the root, on sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from mise_declarations import ToolRequest, read_tool_declarations
 from mise_resolution import expand_http_url, read_mise_resolution
 
-# v3 archives exclude the CLI binary, which is selected before tool restoration.
-SCHEMA = "mise-tools-v3"
+# v4 hashes ordered requests per tool instead of one request per tool.
+SCHEMA = "mise-tools-v4"
 # Default to invalidating on new settings; these only govern workstation state.
 NON_INSTALL_SETTINGS = {"age", "dotfiles"}
 
@@ -43,40 +44,21 @@ def installed_mise_version() -> str:
     return match[1]
 
 
-def requested_version(specification: Any) -> str:
-    if isinstance(specification, str):
-        return specification
-    if isinstance(specification, dict) and isinstance(
-        specification.get("version"), str
-    ):
-        return specification["version"]
-    raise ValueError("tool declaration has no string version")
-
-
-def install_options(specification: Any) -> dict[str, Any]:
-    if isinstance(specification, str):
-        return {}
-    if isinstance(specification, dict):
+def declared_tools(
+    config: dict[str, Any], operating_system: str
+) -> dict[str, dict[str, list[ToolRequest]]]:
+    # Inactive requests affect neither cache compatibility nor reconciliation.
+    def active(tools: object, source: str) -> dict[str, list[ToolRequest]]:
         return {
-            key: value for key, value in specification.items() if key != "version"
-        }
-    raise ValueError("unsupported tool declaration")
-
-
-def declared_tools(config: dict[str, Any], operating_system: str) -> dict[str, dict[str, Any]]:
-    # Mise omits OS-scoped tools on other runners. They should affect neither
-    # cache compatibility nor reconciliation for a runner that cannot install them.
-    def active(tools: dict[str, Any]) -> dict[str, Any]:
-        return {
-            tool: specification for tool, specification in tools.items()
-            if not (supported := install_options(specification).get("os"))
-            or operating_system in supported
+            tool: selected
+            for tool, requests in read_tool_declarations(tools, source).items()
+            if (selected := [r for r in requests if r.supports_os(operating_system)])
         }
 
-    declarations = {"root": active(config.get("tools", {}))}
+    declarations = {"root": active(config.get("tools", {}), "mise.toml")}
     for task_name, task in config.get("tasks", {}).items():
-        if isinstance(task, dict) and isinstance(task.get("tools"), dict):
-            if tools := active(task["tools"]):
+        if isinstance(task, dict) and "tools" in task:
+            if tools := active(task["tools"], f"mise.toml: task {task_name}"):
                 declarations[f"task:{task_name}"] = tools
     return declarations
 
@@ -112,17 +94,19 @@ def toml_value(value: Any) -> str:
 
 
 def resolved_versions(
-    root: Path, config: dict[str, Any], declarations: dict[str, dict[str, Any]]
+    root: Path, config: dict[str, Any], declarations: dict[str, dict[str, list[ToolRequest]]]
 ) -> dict[tuple[str, str], str]:
     # `mise ls` does not include task tools. Project every distinct declaration
     # into [tools] so root and task requests use the same native resolver, even
     # when they request different versions of one tool. Never modify the checkout.
     tools: dict[str, list[Any]] = {}
     for source_tools in declarations.values():
-        for tool, specification in source_tools.items():
+        for tool, requests in source_tools.items():
             versions = tools.setdefault(tool, [])
-            if specification not in versions:
-                versions.append(specification)
+            for request in requests:
+                specification = request.to_toml_value()
+                if specification not in versions:
+                    versions.append(specification)
     projection = {
         key: config[key] for key in ("settings", "tool_config", "alias", "plugins")
         if key in config
@@ -165,6 +149,23 @@ def matching_lock_entries(
     ]
 
 
+def check_template_inputs(source: str, tool: str, request: ToolRequest) -> None:
+    # Exempt only version placeholders in HTTP archive URLs. Hash the original
+    # options; other templates can depend on inputs this projection cannot hash.
+    error_message = f"{tool}: templated tool inputs require a cache-key policy review"
+    reviewed = copy.deepcopy(request.options)
+    if tool.startswith("http:"):
+        for options in (reviewed, *reviewed.get("platforms", {}).values()):
+            if isinstance(url := options.get("url"), str):
+                try:
+                    options["url"] = expand_http_url(url, version="")
+                except ValueError as error:
+                    raise ValueError(error_message) from error
+    encoded = json.dumps([source, tool, request.version, reviewed])
+    if any(marker in encoded for marker in ("{{", "{%", "{#")):
+        raise ValueError(error_message)
+
+
 def cache_inputs(
     root: Path, os_name: str, architecture: str
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -172,52 +173,35 @@ def cache_inputs(
     locks = load_toml(root / "mise.lock")
     platform = platform_name(os_name, architecture)
     declarations = declared_tools(config, platform.split("-", 1)[0])
-    # HTTP archive URLs may interpolate the version, which is already part of
-    # the identity. Hash the original URL/options below; only exempt that one
-    # placeholder from the template guard, including per-platform URLs.
-    reviewed = copy.deepcopy(declarations)
-    for tools in reviewed.values():
-        for tool, specification in tools.items():
-            if tool.startswith("http:") and isinstance(specification, dict):
-                for options in (specification, *specification.get("platforms", {}).values()):
-                    url = options.get("url")
-                    if isinstance(url, str):
-                        try:
-                            options["url"] = expand_http_url(url, version="")
-                        except ValueError as error:
-                            raise ValueError(
-                                f"{tool}: templated tool inputs require a cache-key policy review"
-                            ) from error
-    # Other templates can depend on arbitrary env/vars/files, which this
-    # projection intentionally does not hash. Fail closed rather than reuse.
-    if "{{" in json.dumps(reviewed):
-        raise ValueError("templated tool inputs require a cache-key policy review")
+    for source, tools in declarations.items():
+        for tool, requests in tools.items():
+            for request in requests:
+                check_template_inputs(source, tool, request)
 
     versions = resolved_versions(root, config, declarations)
     policy_tools: dict[str, Any] = {}
     identity_tools: dict[str, Any] = {}
-    for source, tools in sorted(declarations.items()):
+    for source, tools in declarations.items():
         policy_tools[source] = {}
         identity_tools[source] = {}
-        for tool, specification in sorted(tools.items()):
-            request = requested_version(specification)
-            version = versions.get((tool, request))
-            if version is None:
-                raise ValueError(f"mise did not resolve {tool}@{request}")
-            entries = matching_lock_entries(locks, tool, version, platform)
-            if source == "root" and not entries:
-                raise ValueError(f"{tool}@{version} has no matching mise.lock entry")
-            policy_tools[source][tool] = {
-                "options": install_options(specification),
-                "backend": [
-                    {key: entry[key] for key in ("backend", "options") if key in entry}
-                    for entry in entries
-                ] if source == "root" else [],
-            }
-            identity_tools[source][tool] = {
-                "version": version,
-                "lock": entries,
-            }
+        for tool, requests in tools.items():
+            policy_requests = policy_tools[source][tool] = []
+            identity_requests = identity_tools[source][tool] = []
+            for request in requests:
+                version = versions.get((tool, request.version))
+                if version is None:
+                    raise ValueError(f"mise did not resolve {tool}@{request.version}")
+                entries = matching_lock_entries(locks, tool, version, platform)
+                if source == "root" and not entries:
+                    raise ValueError(f"{tool}@{version} has no matching mise.lock entry")
+                policy_requests.append({
+                    "options": request.options,
+                    "backend": [
+                        {key: entry[key] for key in ("backend", "options") if key in entry}
+                        for entry in entries
+                    ] if source == "root" else [],
+                })
+                identity_requests.append({"version": version, "lock": entries})
 
     settings = config.get("settings", {})
     policy = {
@@ -285,7 +269,8 @@ def snapshot(root: Path, os_name: str, architecture: str) -> dict[str, Any]:
         "tools": {
             f"{tool}@{entry['version']}": canonical_hash(entry)
             for tools in identity["declarations"].values()
-            for tool, entry in tools.items()
+            for tool, requests in tools.items()
+            for entry in requests
         },
     }
 
