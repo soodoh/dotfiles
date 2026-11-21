@@ -56,7 +56,7 @@ rust = { version = "1.100.0", components = ["clippy", "rustfmt", "rust-src", "ru
 "aqua:BurntSushi/ripgrep" = "15.2.0"
 "aqua:junegunn/fzf" = "0.75.0"
 "aqua:jdx/usage" = "7.4.0"
-"aqua:atuinsh/atuin" = "18.25.0"
+"aqua:atuinsh/atuin" = "18.25.1"
 "aqua:jesseduffield/lazygit" = "0.66.3"
 "aqua:starship/starship" = "1.27.0"
 "aqua:ajeetdsouza/zoxide" = "0.10.0"
@@ -112,7 +112,7 @@ macos-x64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-clo
 macos-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-arm.tar.gz" }
 
 [tools."github:zenbu-labs/terminal-browser"]
-version = "0.15.5"
+version = "v0.15.9"
 os = ["macos"]
 strip_components = 1
 bin_path = "bin"
