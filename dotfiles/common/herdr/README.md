@@ -34,30 +34,59 @@ a workstation bootstrap or upstream integration installer for this change.
 
 ## Browser panes (macOS)
 
-Mise pins the terminal-browser release and both Mac archive checksums. The
-shortcuts launch it directly; do not install the upstream Herdr plugin or run
-its installer. For an existing workstation, apply only the Herdr config:
+Renovate updates the mise-pinned browser release and archive checksums.
+Bootstrap and the grouped update link the bundled skill into Pi, so it follows
+the browser rather than the separate `npx skills` catalog.
+
+On an existing workstation, run these from the checkout with the installed
+macOS profile (or select it with `--env`):
 
 ```sh
-mise --no-env install http:terminal-browser
-mise --no-env dot apply '~/.config/herdr/config.toml'
+mise --no-env install --locked github:zenbu-labs/terminal-browser
+mise --no-env run configure:terminal-browser-skill
+mise dot apply '~/.config/herdr/config.toml'
 herdr server reload-config
-TERMINAL_BROWSER_NO_TELEMETRY=1 terminal-browser setup
 ```
 
-Use the installed macOS mise profile (or select it with `--env`). If mise
-reports a config conflict, verify the old file is the repo-managed symlink
-before applying with `--force`. In the interactive `setup`, answer **n** to
-agent skills. The shortcuts require that opt-out before opening a browser;
-upstream setup may enable terminal images in supported editors.
+If mise reports a Herdr config conflict, verify that the old file is the
+repo-managed symlink before applying with `--force`. The skill task opts out of
+upstream's automatic installer on first use to keep it out of the tracked
+profile catalog. If you previously opted in, run `terminal-browser setup` and
+answer **n** to installing agent skills, then rerun the skill task. Restart Pi
+and use `/skill:terminal-browser`. No upstream Herdr plugin is needed.
+
+The GitHub backend installs under a different path from the old HTTP backend.
+Terminal-browser keys site data by install path, so the new install starts with
+fresh site data; the old install and its data are not removed.
 
 - **Ctrl+Space, then b** opens a new Herdr tab named **Browser**.
 - **Ctrl+Space, then Shift+b** opens a new browser split on the right.
 
 Both shortcuts start at `about:blank`. Browser panes share site data on the Mac.
 The launcher opts out of browser telemetry. Open panes and site data remain on
-the Mac when you disconnect. Pi uses the repo-owned `terminal-browser` skill
-with its own pane for each task.
+the Mac when you disconnect.
+
+### Retire an existing managed browser
+
+If this Mac previously ran the Playwright MCP service, stop any foreground
+`browser:serve` task and unload the old LaunchAgent. Substitute `work-macos`
+for a work Mac:
+
+```sh
+label=dev.mise.playwright-mcp-personal-macos
+job="gui/$(id -u)/$label"
+plist="$HOME/Library/LaunchAgents/$label.plist"
+if launchctl print "$job" >/dev/null 2>&1; then
+  launchctl bootout "$job"
+fi
+# After verifying the job is unloaded, remove its plist if present.
+rm -f "$plist"
+mise uninstall --all npm:@playwright/mcp
+```
+
+If `~/.config/playwright-mcp/config.json` is still a symlink into this checkout,
+unlink it. Preserve old browser profiles and artifacts under
+`~/.local/share/playwright-mcp/`.
 
 ### Open terminal links in Browser tabs
 

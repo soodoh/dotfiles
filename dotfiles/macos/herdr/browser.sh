@@ -19,7 +19,7 @@ case "${XDG_STATE_HOME:-}" in
 esac
 # Upstream otherwise installs agent skills automatically on first launch.
 if ! grep -qx no "$state/terminal-browser/skills-choice" 2>/dev/null; then
-  fail 'Run terminal-browser setup in a terminal and answer n to agent skills.'
+  fail 'Run mise run configure:terminal-browser-skill first.'
 fi
 
 browser=$("$mise" -C "$repo" --no-env --no-hooks which terminal-browser) || fail 'Install terminal-browser with mise first.'

@@ -3,7 +3,9 @@
 // services, UI, or native background execution. Keep subagents-host.test.mjs and manual native completion.
 // Node permissions guard accidental startup effects, not malicious dependencies.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import {
+	copyFileSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -13,7 +15,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { hideDeniedExistenceChecks } from "./test-support/exists-sync.mjs";
@@ -139,106 +141,103 @@ await test("actual host: profile catalogs load once and honor skill invocation m
 	}
 });
 
-await test("actual host: both profiles discover the terminal-browser skill", async (t) => {
+await test("actual host: both macOS profiles discover the bundled browser skill", {
+	skip: process.platform !== "darwin",
+}, async (t) => {
 	const root = fixture(t);
+	const repo = join(packageRoot, "..");
+	const browser = execFileSync(
+		"mise",
+		["--no-env", "which", "terminal-browser"],
+		{
+			cwd: repo,
+			encoding: "utf8",
+		},
+	).trim();
+	const install = dirname(dirname(browser));
+	const config = join(root, "project");
+	mkdirSync(config);
+	for (const file of ["mise.toml", "mise.lock"])
+		copyFileSync(join(repo, file), join(config, file));
+	const emptyConfig = join(root, "empty.toml");
+	writeFileSync(emptyConfig, "");
+	const upstream = realpathSync(
+		join(install, "skills/default/terminal-browser/SKILL.md"),
+	);
 	const pi = await import(pathToFileURL(join(host.root, "dist/index.js")).href);
 	const { formatSkillsForPrompt } = await import(
 		pathToFileURL(join(host.root, "dist/core/skills.js")).href
 	);
 	const previousHome = process.env.HOME;
-	process.env.HOME = root;
 	try {
 		for (const profile of ["personal", "work"]) {
+			const home = join(root, profile);
+			mkdirSync(home);
+			const profileRoot = join(repo, "dotfiles", profile);
+			symlinkSync(join(profileRoot, "agents"), join(home, ".agents"));
+			if (profile === "work") {
+				// A tool upgrade may already have removed the old install.
+				const skillsDir = join(home, ".pi/agent/skills");
+				mkdirSync(skillsDir, { recursive: true });
+				symlinkSync(
+					join(root, "old-release"),
+					join(skillsDir, "terminal-browser"),
+				);
+			}
+			execFileSync(
+				"mise",
+				["--no-env", "--no-hooks", "run", "configure:terminal-browser-skill"],
+				{
+					cwd: config,
+					env: {
+						...process.env,
+						HOME: home,
+						XDG_STATE_HOME: join(home, "state"),
+						MISE_DATA_DIR: join(install, "../../.."),
+						MISE_CONFIG_DIR: join(home, ".config/mise"),
+						MISE_GLOBAL_CONFIG_FILE: emptyConfig,
+						MISE_SYSTEM_CONFIG_FILE: emptyConfig,
+						MISE_TRUSTED_CONFIG_PATHS: config,
+					},
+				},
+			);
+			process.env.HOME = home;
 			const settings = JSON.parse(
-				readFileSync(
-					join(
-						packageRoot,
-						"..",
-						"dotfiles",
-						profile,
-						"pi/agent/settings.json",
-					),
-					"utf8",
-				),
+				readFileSync(join(profileRoot, "pi/agent/settings.json"), "utf8"),
 			);
 			const entry = settings.packages.find(
 				(pkg) => pkg.source === "./pi-extensions",
 			);
 			const loader = new pi.DefaultResourceLoader({
-				cwd: root,
-				agentDir: join(root, profile, ".pi/agent"),
+				cwd: home,
+				agentDir: join(home, ".pi/agent"),
 				settingsManager: pi.SettingsManager.inMemory({
 					packages: [
 						{ ...entry, source: packageRoot, extensions: [], prompts: [] },
 					],
 				}),
 				noExtensions: true,
-				additionalExtensionPaths: [
-					join(packageRoot, "packages/browser/index.ts"),
-				],
 				noPromptTemplates: true,
 				noThemes: true,
 				noContextFiles: true,
 			});
 			await loader.reload();
-			const loaded = loader.getExtensions();
-			assert.deepEqual(loaded.errors, []);
-			const basePrompt =
-				profile === "work"
-					? readFileSync(
-							join(packageRoot, "../dotfiles/work/pi/agent/AGENTS.md"),
-							"utf8",
-						)
-					: "Personal host instructions";
-			let systemPrompt = basePrompt;
-			for (const extension of loaded.extensions)
-				for (const hook of extension.handlers.get("before_agent_start") ?? [])
-					systemPrompt =
-						(await hook({ systemPrompt }))?.systemPrompt ?? systemPrompt;
-			assert.ok(systemPrompt.startsWith(basePrompt));
-			const guardrails = systemPrompt.split(
-				"## Guardrails for this session",
-			)[1];
-			for (const capability of [
-				"web_search",
-				"fetch_content",
-				"tool_search",
-				"UI interaction",
-			])
-				assert.ok(
-					guardrails?.includes(capability),
-					`${profile}: missing ${capability} guidance`,
-				);
 			const { skills, diagnostics } = loader.getSkills();
-			assert.deepEqual(diagnostics, [], `${profile}: skill load diagnostics`);
+			assert.deepEqual(
+				diagnostics,
+				[],
+				`${profile}: skill discovery diagnostics`,
+			);
 			const browserSkills = skills.filter(
 				(skill) => skill.name === "terminal-browser",
 			);
-			assert.equal(
-				browserSkills.length,
-				1,
-				`${profile}: skill missing or duplicated`,
+			assert.deepEqual(
+				browserSkills.map((skill) => realpathSync(skill.filePath)),
+				[upstream],
 			);
 			assert.ok(
 				formatSkillsForPrompt(skills).includes("<name>terminal-browser</name>"),
 			);
-			const [browser] = browserSkills;
-			assert.equal(
-				realpathSync(browser.filePath),
-				join(packageRoot, "packages/browser/skills/terminal-browser/SKILL.md"),
-				`${profile}: browser routing must come from the local skill`,
-			);
-			const skillText = readFileSync(browser.filePath, "utf8");
-			const links = [...skillText.matchAll(/\]\(([^)]+)\)/g)];
-			assert.ok(
-				links.length > 0,
-				"Browser helper documentation must be reachable",
-			);
-			for (const [, link] of links)
-				assert.ok(
-					readFileSync(new URL(link, pathToFileURL(browser.filePath))).length >
-						0,
-				);
 		}
 	} finally {
 		if (previousHome === undefined) delete process.env.HOME;
@@ -489,7 +488,7 @@ await test("local package declares host-provided dependencies as peers", () => {
 	}
 });
 
-await test("actual host: profile filters expose review and browser guidance", async (t) => {
+await test("actual host: profile filters expose the review command", async (t) => {
 	for (const profile of ["personal", "work"]) {
 		await t.test(profile, () => {
 			const settings = JSON.parse(

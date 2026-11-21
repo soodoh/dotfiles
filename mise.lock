@@ -1537,6 +1537,22 @@ checksum_source = "mise-versions"
 url = "https://github.com/docker/docker-language-server/releases/download/v0.20.2/docker-language-server-darwin-amd64-v0.20.2"
 url_api = "https://api.github.com/repos/docker/docker-language-server/releases/assets/767505698"
 
+[[tools."github:zenbu-labs/terminal-browser"]]
+version = "0.15.5"
+backend = "github:zenbu-labs/terminal-browser"
+
+[tools."github:zenbu-labs/terminal-browser"."platforms.macos-arm64"]
+checksum = "sha256:0a38baa5a1836696bb0731b059d264ad852e8ef11855d355686fe806667608ba"
+checksum_source = "mise-versions"
+url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v0.15.5/terminal-browser-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/zenbu-labs/terminal-browser/releases/assets/756846008"
+
+[tools."github:zenbu-labs/terminal-browser"."platforms.macos-x64"]
+checksum = "sha256:2d531105e1545488d904311360887b712ac0e32747c9131d7774eb1dd3a19628"
+checksum_source = "mise-versions"
+url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v0.15.5/terminal-browser-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/zenbu-labs/terminal-browser/releases/assets/756846006"
+
 [[tools.go]]
 version = "1.27.4"
 backend = "core:go"
@@ -1603,21 +1619,6 @@ url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-583.0.0
 [tools."http:gcloud"."platforms.macos-x64"]
 checksum = "sha256:44c73d179d9e61aa3a191bedb852d580d78049c35134749755abd21b9bd4bdf0"
 url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-583.0.0-darwin-x86_64.tar.gz"
-
-[[tools."http:terminal-browser"]]
-version = "0.15.5"
-backend = "http:terminal-browser"
-
-[tools."http:terminal-browser".options]
-strip_components = "1"
-
-[tools."http:terminal-browser"."platforms.macos-arm64"]
-checksum = "sha256:0a38baa5a1836696bb0731b059d264ad852e8ef11855d355686fe806667608ba"
-url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v0.15.5/terminal-browser-darwin-arm64.tar.gz"
-
-[tools."http:terminal-browser"."platforms.macos-x64"]
-checksum = "sha256:2d531105e1545488d904311360887b712ac0e32747c9131d7774eb1dd3a19628"
-url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v0.15.5/terminal-browser-darwin-x64.tar.gz"
 
 [[tools.node]]
 version = "26.13.1"

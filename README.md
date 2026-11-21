@@ -157,13 +157,10 @@ bootstrap can install it.
 
 ### Browser automation (terminal-browser)
 
-Mise pins terminal-browser for macOS. [Set up the Herdr browser panes](dotfiles/common/herdr/README.md#browser-panes-macos)
-and decline the upstream agent skill. Pi ships one repo-owned `terminal-browser`
-skill for UI checks and screenshots using the bundled CLI. It does not need a
-browser MCP server or a managed Chrome install. Restart Pi to load the skill.
-
-If you previously ran the managed browser service, see the
-[one-time cleanup](pi-extensions/packages/browser/README.md#retire-an-existing-managed-browser).
+Both macOS profiles use the upstream `terminal-browser` skill bundled with
+the mise-pinned browser. Renovate updates the browser pin and lock, so the skill
+and CLI stay in sync. See [Herdr browser setup](dotfiles/common/herdr/README.md#browser-panes-macos)
+for setup and [one-time Playwright cleanup](dotfiles/common/herdr/README.md#retire-an-existing-managed-browser).
 
 ### Other Manual Steps
 

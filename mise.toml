@@ -111,16 +111,11 @@ linux-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-c
 macos-x64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-x86_64.tar.gz" }
 macos-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-arm.tar.gz" }
 
-# Install the pinned app bundle directly; the Herdr plugin uses an unversioned installer.
-[tools."http:terminal-browser"]
+[tools."github:zenbu-labs/terminal-browser"]
 version = "0.15.5"
 os = ["macos"]
 strip_components = 1
 bin_path = "bin"
-
-[tools."http:terminal-browser".platforms]
-macos-arm64 = { url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v{{ version }}/terminal-browser-darwin-arm64.tar.gz", checksum = "sha256:0a38baa5a1836696bb0731b059d264ad852e8ef11855d355686fe806667608ba" }
-macos-x64 = { url = "https://github.com/zenbu-labs/terminal-browser/releases/download/v{{ version }}/terminal-browser-darwin-x64.tar.gz", checksum = "sha256:2d531105e1545488d904311360887b712ac0e32747c9131d7774eb1dd3a19628" }
 
 [bootstrap.packages]
 "apt:fish" = { version = "latest", os = "linux" }
@@ -321,12 +316,41 @@ defaults write com.apple.finder NewWindowTargetPath -string "file://${HOME}/Proj
 description = "Install repository dependencies and configure managed integrations"
 run = [
   { task = "bootstrap:pi" },
+  { task = "configure:terminal-browser-skill" },
   { task = "bootstrap:herdr-plugins" },
   { task = "configure:docker-compose-plugin" },
 ]
 
 [tasks."bootstrap:pi"]
 run = "bun ci --cwd pi-extensions"
+
+[tasks."configure:terminal-browser-skill"]
+description = "Link terminal-browser's bundled skill into Pi on macOS"
+run = '''
+set -eu
+[ "$(uname -s)" = Darwin ] || exit 0
+browser=$(mise which terminal-browser)
+skill="${browser%/bin/terminal-browser}/skills/default/terminal-browser"
+target="$HOME/.pi/agent/skills/terminal-browser"
+test -f "$skill/SKILL.md" || { printf 'Missing bundled skill: %s\n' "$skill" >&2; exit 1; }
+if [ -e "$target" ] && [ ! -L "$target" ]; then
+  printf 'Refusing to replace %s\n' "$target" >&2
+  exit 1
+fi
+# The CLI otherwise installs into ~/.agents/skills on first use.
+case "${XDG_STATE_HOME:-}" in
+  /*) state="$XDG_STATE_HOME" ;;
+  *) state="$HOME/.local/state" ;;
+esac
+choice="$state/terminal-browser/skills-choice"
+if [ ! -e "$choice" ] && [ ! -L "$choice" ]; then
+  mkdir -p "${choice%/*}"
+  (set -C; printf 'no\n' > "$choice")
+fi
+grep -qx no "$choice" || { printf 'Run terminal-browser setup and decline agent skill installation.\n' >&2; exit 1; }
+mkdir -p "${target%/*}"
+ln -sfn "$skill" "$target"
+'''
 
 [tasks."bootstrap:herdr-plugins"]
 description = "Reconcile Herdr plugins to committed pins and link repository plugins; preserve unsafe or disabled state"
@@ -465,6 +489,7 @@ esac''',
   mise run update:twg-skills
 fi''',
   { task = "configure:docker-compose-plugin" },
+  { task = "configure:terminal-browser-skill" },
   { task = "update:agents" },
   { task = "update:skills" },
   { task = "update:neovim" },
