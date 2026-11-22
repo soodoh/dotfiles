@@ -85,6 +85,13 @@ navigate_pane_down = "j"
 navigate_pane_up = "k"
 navigate_pane_right = "l"
 
+# Move the focused pane into a new tab.
+[[keys.command]]
+key = "alt+shift+t"
+type = "shell"
+command = '"$HERDR_BIN_PATH" pane move "$HERDR_ACTIVE_PANE_ID" --new-tab --focus'
+description = "Move pane to new tab"
+
 # Sesh workspace/session picker
 [[keys.command]]
 key = "alt+e"
