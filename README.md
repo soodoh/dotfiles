@@ -160,7 +160,7 @@ bootstrap can install it.
 Both macOS profiles use the upstream `terminal-browser` skill bundled with
 the mise-pinned browser. Renovate updates the browser pin and lock, so the skill
 and CLI stay in sync. See [Herdr browser setup](dotfiles/common/herdr/README.md#browser-panes-macos)
-for setup and [one-time Playwright cleanup](dotfiles/common/herdr/README.md#retire-an-existing-managed-browser).
+for installation and usage.
 
 ### Other Manual Steps
 
