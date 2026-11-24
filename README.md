@@ -265,6 +265,29 @@ mise run validate:integration
 mise run validate
 ```
 
+## Workstation cleanup
+
+`mise bootstrap` forgets stale config records after the install and relink tasks.
+It does not uninstall software. Run bootstrap first so the current versions and
+integration links are in place, then use your selected workstation profile to run:
+
+```bash
+mise run cleanup:plan  # preview removals and any blockers
+mise run cleanup       # apply the cleanup if the preflight passes
+```
+
+The task prunes unused mise tool versions (including old Herdr, Pi, and browser
+versions), stale cache files, and, on macOS, undeclared Homebrew formulae,
+unchanged mise-owned casks, and native `brew cleanup` candidates. Declare any
+formula you intend to keep. Casks whose ownership mise cannot verify are reported,
+not force-removed.
+
+The preflight stops before pruning if mise reports a superseded version still
+running, it finds an open file under a removal target on macOS, or a retained pipx
+environment still needs a Python version marked for removal. It does not stop any
+processes. This is a snapshot: start cleanup between sessions and avoid installing
+or launching software while it runs.
+
 ## Updates
 
 Updates remain explicit and grouped:

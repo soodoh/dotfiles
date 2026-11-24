@@ -319,7 +319,16 @@ run = [
   { task = "configure:terminal-browser-skill" },
   { task = "bootstrap:herdr-plugins" },
   { task = "configure:docker-compose-plugin" },
+  "mise prune --configs",
 ]
+
+[tasks.cleanup]
+description = "Prune unused mise tools and Homebrew packages after checking whether they are in use"
+run = "python3 dotfiles/common/mise/cleanup.py apply"
+
+[tasks."cleanup:plan"]
+description = "Preview workstation cleanup and report anything that blocks it"
+run = "python3 dotfiles/common/mise/cleanup.py plan"
 
 [tasks."bootstrap:pi"]
 run = "bun ci --cwd pi-extensions"
@@ -407,6 +416,7 @@ depends = [
 run = [
   "python3 mise.bootstrap.test.py",
   "python3 mise.lock.test.py",
+  "python3 dotfiles/common/mise/cleanup.test.py",
   "python3 dotfiles/work/agents/twg-skills.test.py",
   "python3 dotfiles/work/agents/twg-skills.py check",
   "python3 .github/workflows/mise-cache-key.test.py",
