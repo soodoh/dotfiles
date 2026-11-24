@@ -170,11 +170,10 @@ for installation and usage.
     - Borders
     - Lunar
 - Sign in to Nextcloud and enable **Open on Login**.
-- Configure the Homebrew-formula Tailscale CLI:
-    - Install the [Homebrew CLI](https://brew.sh) separately if absent; mise package bootstrap no longer installs it.
-    - Register and start its root launch daemon with `sudo brew services start tailscale`; launchd will start it automatically on future boots.
-    - Authenticate once with `tailscale up` (add `--login-server=https://headscale.example.com` when using Headscale).
-    - Enable Tailscale SSH with `tailscale set --ssh`.
+- Configure Tailscale on either macOS profile:
+    - Mise installs the Homebrew CLI. On a fresh workstation, run `mise run tailscale:deploy` locally to install the root daemon outside Homebrew.
+    - Authenticate once with `tailscale up` (add `--login-server=https://headscale.example.com` when using Headscale), then enable inbound Tailscale SSH with `tailscale set --ssh`.
+    - See [Tailscale deployment](dotfiles/macos/tailscale/README.md) for details.
 - Open Amphetamine:
     - Launch Amphetamine at Login
     - Hide Amphetamine in the Dock
@@ -267,36 +266,55 @@ mise run validate
 
 ## Workstation cleanup
 
-`mise bootstrap` forgets stale config records after the install and relink tasks.
-It does not uninstall software. Run bootstrap first so the current versions and
-integration links are in place, then use your selected workstation profile to run:
+`mise bootstrap` installs and reconciles; it does not prune. Once the desired
+versions are installed, select your workstation profile and run:
 
 ```bash
-mise run cleanup:plan  # preview removals and any blockers
-mise run cleanup       # apply the cleanup if the preflight passes
+mise run cleanup:plan  # read-only: preview removals, blockers, and service changes
+mise run cleanup       # pause blockers, prune, verify, then refresh stale services
 ```
 
-The task prunes unused mise tool versions (including old Herdr, Pi, and browser
-versions), stale cache files, and, on macOS, undeclared Homebrew formulae,
-unchanged mise-owned casks, and native `brew cleanup` candidates. Declare any
-formula you intend to keep. Casks whose ownership mise cannot verify are reported,
-not force-removed.
+On macOS, run apply **locally at the Mac, not over SSH or with sudo**. From Fish
+or Herdr it opens a separate Ghostty maintenance window that does not start the
+login shell. Save terminal work and stop important Docker workloads before
+confirming there. Apply closes blocking Homebrew Fish shells and restarts stale
+Herdr servers; restored layouts do not preserve live pane jobs. A current Herdr
+server stays running. Opening the maintenance window does **not** mean cleanup
+succeeded. The window reports the result and waits for Enter before closing, so
+there is time to read warnings and errors.
 
-The preflight stops before pruning if mise reports a superseded version still
-running, it finds an open file under a removal target on macOS, or a retained pipx
-environment still needs a Python version marked for removal. It does not stop any
-processes. This is a snapshot: start cleanup between sessions and avoid installing
-or launching software while it runs.
+Apply pauses running managed services only when they hold a planned removal
+open. Other services with stale executables restart after verified pruning;
+current services that do not block a removal stay running. This covers
+AeroSpace, SketchyBar, Borders, Colima/Lima, Moshi Hook, the work-only PAC and
+GOST proxy. The root Tailscale daemon is outside Homebrew and is not restarted
+by cleanup. Colima is shut down gracefully. Cleanup attempts to restore
+stopped services even if pruning fails, and reports any removals still pending.
+It does not start unloaded services or kill unrelated processes. Avoid starting
+apps or installs during cleanup.
+
+Cleanup forgets stale mise config records, prunes unused tool versions and cache
+files, and, on macOS, removes undeclared Homebrew formulae, unchanged mise-owned
+casks, and native `brew cleanup` candidates. Declare any formula you intend to
+keep. Packages are not pruned if an unhandled process remains or a retained pipx
+environment still needs an old Python. Linux retains the preflight-only behavior:
+cleanup does not stop processes or restart services there.
 
 ## Updates
 
-Updates remain explicit and grouped:
+For routine workstation upgrades, run locally with the selected macOS profile:
 
 ```bash
-mise --env personal-macos run update
-mise --env work-macos run update
+mise --env personal-macos run upgrade
+mise --env work-macos run upgrade
 ```
 
+This runs `mise bootstrap --upgrade`, then offers to refresh the running managed
+Tailscale daemon if its source binary changed. Plain `mise bootstrap --upgrade`
+leaves the daemon alone, as does `mise run cleanup`.
+
+The separate `mise run update` task refreshes repository dependencies, locks,
+skills, plugins, and packages. It isn't needed for routine workstation upgrades.
 The weekly repository-updates job refreshes TWG's committed work skills after
 updating its CLI pin and locks. It installs only the pinned binary, runs
 `twg skills install --local --yes --no-prune` in a disposable directory with an
