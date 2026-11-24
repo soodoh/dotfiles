@@ -348,11 +348,6 @@ description = "Install or update the root macOS Tailscale daemon outside Homebre
 raw = true
 run = "python3 dotfiles/common/mise/tailscale_macos.py"
 
-[tasks."migrate:tailscale"]
-description = "One-time Tailscale cutover and removal of the retired Homebrew setup"
-raw = true
-run = "python3 dotfiles/common/mise/tailscale_migrate_macos.py"
-
 [tasks."bootstrap:pi"]
 run = "bun ci --cwd pi-extensions"
 
@@ -441,7 +436,6 @@ run = [
   "python3 mise.lock.test.py",
   "python3 dotfiles/common/mise/cleanup.test.py",
   "python3 dotfiles/common/mise/tailscale_macos.test.py",
-  "python3 dotfiles/common/mise/tailscale_migrate_macos.test.py",
   "python3 dotfiles/work/agents/twg-skills.test.py",
   "python3 dotfiles/work/agents/twg-skills.py check",
   "python3 .github/workflows/mise-cache-key.test.py",

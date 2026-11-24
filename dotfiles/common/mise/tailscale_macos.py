@@ -27,17 +27,12 @@ TEE = "/usr/bin/tee"
 SUDO = "/usr/bin/sudo"
 
 
-def check_authorized(command):
-    subprocess.run(
-        (SUDO, "-n", "-l", "--", *command), check=True, stdout=subprocess.DEVNULL
-    )
-
-
 def authorize(commands):
-    if commands:
-        subprocess.run((SUDO, "-v"), check=True)
-        for command in dict.fromkeys(commands):
-            check_authorized(command)
+    subprocess.run((SUDO, "-v"), check=True)
+    for command in dict.fromkeys(commands):
+        subprocess.run(
+            (SUDO, "-n", "-l", "--", *command), check=True, stdout=subprocess.DEVNULL
+        )
 
 
 def root(command, data=None):
@@ -359,7 +354,7 @@ def deploy(*, refresh=False):
         return
     if live and not plan.loaded:
         raise ValueError(
-            "another Tailscale daemon is running; use its supported cutover procedure"
+            "another Tailscale daemon is running; stop it through its service manager before deploying"
         )
     if live == candidate.version and plan.loaded and not plan.binary_changed:
         print(f"System Tailscale daemon is already on {candidate.version}.")
@@ -385,7 +380,11 @@ def deploy(*, refresh=False):
     print(f"System Tailscale daemon {candidate.version} is running from {DAEMON}.")
 
 
-def run_local(action, *, interactive=True):
+def main():
+    if sys.argv[1:] not in ([], ["--refresh"]):
+        print("usage: tailscale_macos.py [--refresh]", file=sys.stderr)
+        return 2
+    refresh = bool(sys.argv[1:])
     if sys.platform != "darwin" or os.environ.get("MISE_ENV") not in {
         "personal-macos",
         "work-macos",
@@ -402,10 +401,10 @@ def run_local(action, *, interactive=True):
     signal.signal(signal.SIGHUP, interrupt)
     signal.signal(signal.SIGTERM, interrupt)
     try:
-        if interactive:
+        if not refresh:
             macos.require_local_terminal()
         with macos.maintenance_lock():
-            action()
+            deploy(refresh=refresh)
     except (
         EOFError,
         KeyboardInterrupt,
@@ -417,14 +416,6 @@ def run_local(action, *, interactive=True):
         print(f"Tailscale maintenance stopped: {exc or 'interrupted'}", file=sys.stderr)
         return 1
     return 0
-
-
-def main():
-    if sys.argv[1:] not in ([], ["--refresh"]):
-        print("usage: tailscale_macos.py [--refresh]", file=sys.stderr)
-        return 2
-    refresh = bool(sys.argv[1:])
-    return run_local(lambda: deploy(refresh=refresh), interactive=not refresh)
 
 
 if __name__ == "__main__":
