@@ -175,11 +175,6 @@ check-further-callbacks = true
 run = ['move-node-to-workspace 3']
 
 [[on-window-detected]]
-if.app-id = 'app.zen-browser.zen'
-check-further-callbacks = true
-run = ['move-node-to-workspace 4']
-
-[[on-window-detected]]
 if.app-id = 'com.apple.Music'
 check-further-callbacks = true
 run = ['move-node-to-workspace 4']
