@@ -70,7 +70,7 @@ def write_validation_repository(root: Path) -> None:
 
 
 def add_http_tool(root: Path, config_name: str, *, literal: bool = False, scope: str | None = None) -> None:
-    declarations = ['[tools."http:example"]', 'version = "1.2"' if scope is None else 'version = "1.2.3"']
+    declarations = ['[tools."http:example"]', 'version = "1.2"']
     if scope is not None:
         declarations.append(f'os = ["{scope}"]')
     archives = ['[[tools."http:example"]]', 'version = "1.2.3"', 'backend = "http:example"']
@@ -223,6 +223,50 @@ class MiseLockTests(unittest.TestCase):
             ))
             with self.assertRaisesRegex(SystemExit, f"http:example.*missing {scope}-arm64 archive"):
                 self.module.check_lockfiles(root)
+
+    def test_check_resolves_other_os_requests_through_mise_for_versions_and_options(self) -> None:
+        scope = "linux" if os.uname().sysname == "Darwin" else "macos"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_validation_repository(root)
+            config = root / "mise.toml"
+            config.write_text(
+                config.read_text().replace(
+                    'rust = { version = "1.99.1", components = ["rustfmt", "clippy"] }',
+                    f'rust = {{ version = "1.99.1", components = ["rustfmt", "clippy"], os = ["{scope}"] }}',
+                )
+                + '\n[tools."github:example/tool"]\n'
+                + 'version = "v0.16.2"\n'
+                + f'os = ["{scope}"]\n'
+                + 'strip_components = 1\n'
+                + 'bin_path = "bin"\n'
+            )
+            lock = root / "mise.lock"
+            archives = "\n".join(
+                f'[tools."github:example/tool"."platforms.{scope}-{arch}"]\n'
+                f'url = "https://example.invalid/v0.16.2/tool-{scope}-{arch}.tar.gz"\n'
+                f'checksum = "sha256:{"a" * 64}"\n'
+                for arch in ("x64", "arm64")
+            )
+            lock.write_text(
+                lock.read_text()
+                + '\n[[tools."github:example/tool"]]\n'
+                + 'version = "0.16.2"\n'
+                + 'backend = "github:example/tool"\n'
+                + archives
+            )
+            self.module.check_lockfiles(root)
+
+            original = config.read_text()
+            for old, new, tool in (
+                ('version = "v0.16.2"', 'version = "v0.16.3"', "github:example/tool"),
+                ('components = ["rustfmt", "clippy"]', 'components = ["rustfmt"]', "rust"),
+            ):
+                with self.subTest(tool=tool):
+                    config.write_text(original.replace(old, new))
+                    with self.assertRaisesRegex(SystemExit, tool):
+                        self.module.check_lockfiles(root)
+                    config.write_text(original)
 
     def test_check_rejects_http_url_drift_in_declarations_or_locks(self) -> None:
         for config in ("mise.toml", "mise.work-macos.toml"):

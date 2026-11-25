@@ -5,8 +5,27 @@ import os
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
 
 _VERSION_PLACEHOLDER = re.compile(r"{{\s*version\s*}}")
+
+
+def toml_value(value: Any) -> str:
+    """Serialize JSON-compatible TOML configuration values for projected stages."""
+    if isinstance(value, dict):
+        return "{ " + ", ".join(
+            f"{toml_value(key)} = {toml_value(item)}" for key, item in value.items()
+        ) + " }"
+    if isinstance(value, list):
+        return "[" + ", ".join(toml_value(item) for item in value) + "]"
+    return json.dumps(value, ensure_ascii=False, allow_nan=False)
+
+
+def write_projected_config(path: Path, data: dict[str, Any]) -> None:
+    """Write a projected mise TOML config preserving backend options."""
+    path.write_text(
+        "".join(f"{toml_value(key)} = {toml_value(value)}\n" for key, value in data.items())
+    )
 
 
 def expand_http_url(template: str, version: str) -> str:

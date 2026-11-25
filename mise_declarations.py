@@ -15,6 +15,14 @@ class ToolRequest:
             return os_name == scope
         return scope is None or os_name in scope
 
+    def without_os(self) -> "ToolRequest":
+        if "os" not in self.options:
+            return self
+        return ToolRequest(
+            self.version,
+            {key: value for key, value in self.options.items() if key != "os"},
+        )
+
     def to_toml_value(self) -> str | dict[str, Any]:
         return {"version": self.version, **self.options} if self.options else self.version
 

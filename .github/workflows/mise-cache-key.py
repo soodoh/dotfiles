@@ -17,7 +17,11 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from mise_declarations import ToolRequest, read_tool_declarations
 from mise_lock_records import LockRecords, project_record
-from mise_resolution import expand_http_url, read_mise_resolution
+from mise_resolution import (
+    expand_http_url,
+    read_mise_resolution,
+    write_projected_config,
+)
 
 # v4 hashes ordered requests per tool instead of one request per tool.
 SCHEMA = "mise-tools-v4"
@@ -72,18 +76,6 @@ def platform_name(os_name: str, architecture: str) -> str:
     return f"{operating_system}-{machine}"
 
 
-def toml_value(value: Any) -> str:
-    # The resolver projection uses only TOML's JSON-compatible configuration
-    # values. Keep backend options intact instead of inventing version rules.
-    if isinstance(value, dict):
-        return "{ " + ", ".join(
-            f"{toml_value(key)} = {toml_value(item)}" for key, item in value.items()
-        ) + " }"
-    if isinstance(value, list):
-        return "[" + ", ".join(toml_value(item) for item in value) + "]"
-    return json.dumps(value, ensure_ascii=False, allow_nan=False)
-
-
 def resolved_versions(
     root: Path, config: dict[str, Any], declarations: dict[str, dict[str, list[ToolRequest]]]
 ) -> dict[tuple[str, str], str]:
@@ -111,10 +103,7 @@ def resolved_versions(
     projection["tools"] = tools
     with tempfile.TemporaryDirectory(prefix="mise-cache-resolve-") as directory:
         stage = Path(directory)
-        (stage / "mise.toml").write_text("\n".join(
-            f"{toml_value(key)} = {toml_value(value)}"
-            for key, value in projection.items()
-        ) + "\n")
+        write_projected_config(stage / "mise.toml", projection)
         (stage / "mise.lock").write_bytes((root / "mise.lock").read_bytes())
         records, diagnostics = read_mise_resolution(stage, root_config_only=True)
     if diagnostics:

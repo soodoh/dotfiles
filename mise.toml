@@ -112,7 +112,7 @@ macos-x64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-clo
 macos-arm64 = { url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-{{ version }}-darwin-arm.tar.gz" }
 
 [tools."github:zenbu-labs/terminal-browser"]
-version = "0.15.5"
+version = "v0.15.5"
 os = ["macos"]
 strip_components = 1
 bin_path = "bin"
