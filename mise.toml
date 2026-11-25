@@ -331,7 +331,7 @@ description = "Preview cleanup removals, running blockers, and macOS service int
 run = "python3 dotfiles/common/mise/cleanup.py plan"
 
 [tasks.upgrade]
-description = "Upgrade the macOS workstation and refresh a changed Tailscale daemon"
+description = "Upgrade the macOS workstation and refresh Homebrew metadata and Tailscale"
 raw = true
 run = '''
 set -eu
@@ -341,6 +341,10 @@ case "$(uname -s):${MISE_ENV:-}" in
 esac
 mise --env "$MISE_ENV" bootstrap --upgrade
 python3 dotfiles/common/mise/tailscale_macos.py --refresh
+# Native brew cleanup uses Homebrew's local taps, not mise's package metadata.
+if command -v brew >/dev/null 2>&1; then
+  brew update
+fi
 '''
 
 [tasks."tailscale:deploy"]
