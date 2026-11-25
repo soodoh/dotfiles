@@ -18,7 +18,12 @@ vi.mock("@earendil-works/pi-coding-agent", async (original) => ({
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import statusline from "./index";
-import { FAST_CHANGED_EVENT, FAST_READER_EVENT } from "./src/cliproxy-fast";
+import {
+	FAST_CHANGED_EVENT,
+	FAST_READER_EVENT,
+	type SpeedMode,
+	type SpeedReader,
+} from "./src/cliproxy-fast";
 import * as gitStatus from "./src/git-status";
 import * as providerUsage from "./src/provider-usage";
 
@@ -283,27 +288,38 @@ describe("statusline extension", () => {
 		expect(h.render()).toContain("<thinkingXhigh>\uF0EB xhigh</thinkingXhigh>");
 	});
 
-	test("Fast bolt follows the current process reader, not the stored preference", async () => {
-		const h = harness({
-			model: { name: "gpt-fast", id: "gpt-fast", provider: "cliproxyapi" },
-		});
-		let enabled = false;
-		h.pi.events.emit(
-			FAST_READER_EVENT,
-			(provider: string, id: string) =>
-				enabled && provider === "cliproxyapi" && id === "gpt-fast",
-		);
-		expect(h.render()).not.toContain("\uF0E7");
-		enabled = true;
-		h.pi.events.emit(FAST_CHANGED_EVENT, undefined);
-		expect(h.render()).toContain("\uF0E7");
+	test("shows one or two bolts for the selected model’s live speed, not the stored preference", async () => {
 		const agentDir = await tempDir("pi-statusline-cliproxy");
 		vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
 		await writeFile(join(agentDir, "cliproxyapi.json"), '{"fast":false}');
-		expect(h.render()).toContain("\uF0E7");
-		enabled = false;
+		const model = { name: "gpt-fast", id: "gpt-fast", provider: "cliproxyapi" };
+		const h = harness({ model });
+		const bolts = () => h.render().match(/\uF0E7+/g);
+		let speed: SpeedMode | undefined;
+		const readSpeed: SpeedReader = (provider, id) =>
+			provider === model.provider && id === model.id ? speed : undefined;
+		h.pi.events.emit(FAST_READER_EVENT, readSpeed);
+		expect(bolts()).toBeNull();
+
+		speed = "fast";
 		h.pi.events.emit(FAST_CHANGED_EVENT, undefined);
-		expect(h.render()).not.toContain("\uF0E7");
+		expect(bolts()).toEqual(["\uF0E7"]);
+		h.requestRender.mockClear();
+		speed = "ultrafast";
+		h.pi.events.emit(FAST_CHANGED_EVENT, undefined);
+		expect(h.requestRender).toHaveBeenCalledOnce();
+		expect(bolts()).toEqual(["\uF0E7\uF0E7"]);
+
+		h.ctx.model = { ...model, id: "gpt-standard" };
+		h.emit("model_select");
+		expect(bolts()).toBeNull();
+		h.ctx.model = model;
+		h.emit("model_select");
+		expect(bolts()).toEqual(["\uF0E7\uF0E7"]);
+
+		speed = undefined;
+		h.pi.events.emit(FAST_CHANGED_EVENT, undefined);
+		expect(bolts()).toBeNull();
 	});
 
 	test("reads native effective compaction settings without a context settings manager", () => {

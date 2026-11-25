@@ -1,25 +1,26 @@
 import { expect, test, vi } from "vitest";
-import { isCliproxyFast } from "./cliproxy-fast";
+import { getCliproxySpeed, type SpeedReader } from "./cliproxy-fast";
 
 const model = { provider: "cliproxyapi", id: "gpt-fast" };
 
-test("asks the local session's Fast reader about the selected model", () => {
-	const isFast = vi.fn(
-		(provider: string, id: string) =>
-			provider === model.provider && id === model.id,
+test("asks the local speed reader about the selected model", () => {
+	const readSpeed = vi.fn<SpeedReader>((provider, id) =>
+		provider === model.provider && id === model.id ? "ultrafast" : undefined,
 	);
-	expect(isCliproxyFast(model, isFast)).toBe(true);
-	expect(isFast).toHaveBeenCalledWith("cliproxyapi", "gpt-fast");
-	expect(isCliproxyFast({ ...model, id: "gpt-other" }, isFast)).toBe(false);
-	expect(isCliproxyFast({ ...model, provider: "openai-codex" }, isFast)).toBe(
-		false,
-	);
+	expect(getCliproxySpeed(model, readSpeed)).toBe("ultrafast");
+	expect(readSpeed).toHaveBeenCalledWith("cliproxyapi", "gpt-fast");
+	expect(
+		getCliproxySpeed({ ...model, id: "gpt-other" }, readSpeed),
+	).toBeUndefined();
+	expect(
+		getCliproxySpeed({ ...model, provider: "openai-codex" }, readSpeed),
+	).toBeUndefined();
 });
 
-test("hides the bolt when the reader or model is unavailable", () => {
-	const isFast = vi.fn(() => true);
-	expect(isCliproxyFast(model, undefined)).toBe(false);
-	expect(isCliproxyFast(undefined, isFast)).toBe(false);
-	expect(isCliproxyFast({ ...model, id: "" }, isFast)).toBe(false);
-	expect(isFast).not.toHaveBeenCalled();
+test("returns no speed when the reader or model is unavailable", () => {
+	const readSpeed = vi.fn<SpeedReader>(() => "fast");
+	expect(getCliproxySpeed(model, undefined)).toBeUndefined();
+	expect(getCliproxySpeed(undefined, readSpeed)).toBeUndefined();
+	expect(getCliproxySpeed({ ...model, id: "" }, readSpeed)).toBeUndefined();
+	expect(readSpeed).not.toHaveBeenCalled();
 });

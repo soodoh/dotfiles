@@ -4,34 +4,19 @@ import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { FastModeController } from "@router-for-me/pi-cliproxyapi-provider/extensions/fast";
 import { FastFooterController } from "@router-for-me/pi-cliproxyapi-provider/extensions/fast-footer";
-import * as provider from "@router-for-me/pi-cliproxyapi-provider/extensions/index";
+import { registerFastCommands } from "@router-for-me/pi-cliproxyapi-provider/extensions/index";
+import { resolveFastDefault } from "@router-for-me/pi-cliproxyapi-provider/extensions/lib";
 import { afterEach, expect, test, vi } from "vitest";
 import {
 	FAST_CHANGED_EVENT,
 	FAST_READER_EVENT,
-	type FastReader,
-	isCliproxyFast,
+	type SpeedReader,
 } from "../statusline/src/cliproxy-fast";
 import { connectCliproxyFast } from "./index";
 
-type RegisterSpeedCommands = (options: {
-	pi: ExtensionAPI;
-	agentDir: string;
-	providerId: string;
-	fastMode: FastModeController;
-	onModeChange: () => Promise<void>;
-}) => void;
-
-const {
-	registerFastCommand,
-	registerFastCommands,
-}: {
-	registerFastCommand?: RegisterSpeedCommands;
-	registerFastCommands?: RegisterSpeedCommands;
-} = provider;
-
 const directories: string[] = [];
 afterEach(async () => {
+	vi.unstubAllEnvs();
 	await Promise.all(
 		directories
 			.splice(0)
@@ -39,10 +24,15 @@ afterEach(async () => {
 	);
 });
 
-async function session(failRefresh = false) {
+async function createAgentDir() {
 	const agentDir = await mkdtemp(join(tmpdir(), "pi-fast-wrapper-"));
 	directories.push(agentDir);
-	const mode = new FastModeController(false);
+	return agentDir;
+}
+
+async function session(agentDir: string, failRefresh = false) {
+	vi.stubEnv("CLIPROXYAPI_FAST", undefined);
+	const mode = new FastModeController(resolveFastDefault(agentDir));
 	mode.setSupportedModelIds(["gpt-fast"]);
 	const notifications: string[] = [];
 	const handlers = new Map<
@@ -50,7 +40,7 @@ async function session(failRefresh = false) {
 		(args: string, ctx: never) => Promise<void>
 	>();
 	const listeners = new Map<string, (value: unknown) => void>();
-	let reader: FastReader | undefined;
+	let reader: SpeedReader | undefined;
 	let changes = 0;
 	const pi = {
 		events: {
@@ -71,17 +61,14 @@ async function session(failRefresh = false) {
 		},
 	} as unknown as ExtensionAPI;
 	pi.events.on(FAST_READER_EVENT, (value) => {
-		reader = value as FastReader;
+		reader = value as SpeedReader;
 	});
 	pi.events.on(FAST_CHANGED_EVENT, () => {
 		changes++;
 	});
 	await connectCliproxyFast(pi, async (wrapped) => {
 		new FastFooterController("cliproxyapi", mode).register(wrapped);
-		const register = registerFastCommands ?? registerFastCommand;
-		if (!register)
-			throw new Error("Provider has no speed command registration");
-		register({
+		registerFastCommands({
 			pi: wrapped,
 			agentDir,
 			providerId: "cliproxyapi",
@@ -95,11 +82,8 @@ async function session(failRefresh = false) {
 		get changes() {
 			return changes;
 		},
-		get fast() {
-			return isCliproxyFast(
-				{ provider: "cliproxyapi", id: "gpt-fast" },
-				reader,
-			);
+		get speed() {
+			return reader?.("cliproxyapi", "gpt-fast");
 		},
 		run: (name = "fast") => {
 			const command = handlers.get(name);
@@ -113,31 +97,34 @@ async function session(failRefresh = false) {
 	};
 }
 
-test("two independent controllers toggle and notify only their own statusline", async () => {
-	const first = await session();
-	const second = await session();
-	expect([first.fast, second.fast]).toEqual([false, false]);
+test("instances sharing a config toggle Fast independently", async () => {
+	const agentDir = await createAgentDir();
+	const first = await session(agentDir);
+	const second = await session(agentDir);
+	expect([first.speed, second.speed]).toEqual([undefined, undefined]);
 	await first.run();
-	expect([first.fast, second.fast]).toEqual([true, false]);
+	expect([first.speed, second.speed]).toEqual(["fast", undefined]);
 	expect([first.changes, second.changes]).toEqual([1, 0]);
 	await second.run();
-	expect([first.fast, second.fast]).toEqual([true, true]);
+	expect([first.speed, second.speed]).toEqual(["fast", "fast"]);
 	await first.run();
-	expect([first.fast, second.fast]).toEqual([false, true]);
+	expect([first.speed, second.speed]).toEqual([undefined, "fast"]);
 });
 
-test.runIf(Boolean(registerFastCommands))(
-	"refreshes the statusline when /ultrafast enables or disables the speed tier",
-	async () => {
-		const instance = await session();
-		await instance.run("ultrafast");
-		expect(instance.fast).toBe(true);
-		expect(instance.changes).toBe(1);
-		await instance.run("ultrafast");
-		expect(instance.fast).toBe(false);
-		expect(instance.changes).toBe(2);
-	},
-);
+test("switches to Ultrafast locally and persists it for new instances", async () => {
+	const agentDir = await createAgentDir();
+	const instance = await session(agentDir);
+	await instance.run("fast");
+	const other = await session(agentDir);
+	await instance.run("ultrafast");
+	expect([instance.speed, other.speed]).toEqual(["ultrafast", "fast"]);
+	expect([instance.changes, other.changes]).toEqual([2, 0]);
+	const later = await session(agentDir);
+	expect(later.speed).toBe("ultrafast");
+	await instance.run("ultrafast");
+	expect([instance.speed, later.speed]).toEqual([undefined, "ultrafast"]);
+	expect(instance.changes).toBe(3);
+});
 
 test("restores the provider hook and publishes nothing when startup fails", async () => {
 	const register = FastFooterController.prototype.register;
@@ -155,9 +142,9 @@ test("restores the provider hook and publishes nothing when startup fails", asyn
 });
 
 test("reads the provider's rolled-back state after a failed refresh", async () => {
-	const instance = await session(true);
+	const instance = await session(await createAgentDir(), true);
 	await instance.run();
-	expect(instance.fast).toBe(false);
+	expect(instance.speed).toBeUndefined();
 	expect(instance.changes).toBe(1);
 	expect(
 		instance.notifications.some((message) =>

@@ -15,8 +15,8 @@ import {
 import {
 	FAST_CHANGED_EVENT,
 	FAST_READER_EVENT,
-	type FastReader,
-	isCliproxyFast,
+	getCliproxySpeed,
+	type SpeedReader,
 } from "./cliproxy-fast";
 import {
 	GIT_REFRESH_INTERVAL_MS,
@@ -48,7 +48,7 @@ const SEPARATOR_COLOR = "\x1b[38;5;244m";
 const POWERLINE_THIN_LEFT = "\uE0B1";
 const ICONS = {
 	model: "\uEC19",
-	fast: "\uF0E7",
+	bolt: "\uF0E7",
 	thinking: "\uF0EB",
 	branch: "\uF126",
 	context: "\uE70F",
@@ -199,15 +199,16 @@ function displayLength(text: string): number {
 function renderModel(
 	ctx: ExtensionContext,
 	theme: Theme,
-	fastReader: FastReader | undefined,
+	speedReader: SpeedReader | undefined,
 ): string {
 	let modelName = ctx.model?.name || ctx.model?.id || "no-model";
 	if (modelName.startsWith("Claude ")) modelName = modelName.slice(7);
 
 	const model = color(theme, "model", withIcon(ICONS.model, modelName));
-	return isCliproxyFast(ctx.model, fastReader)
-		? `${model} ${theme.fg("warning", ICONS.fast)}`
-		: model;
+	const speed = getCliproxySpeed(ctx.model, speedReader);
+	if (!speed) return model;
+	const bolts = ICONS.bolt.repeat(speed === "ultrafast" ? 2 : 1);
+	return `${model} ${theme.fg("warning", bolts)}`;
 }
 
 function thinkingColor(level: ThinkingLevel): ThemeColor {
@@ -318,7 +319,7 @@ function buildStatusLines(
 	providerUsageTargets: ProviderUsageTarget[],
 	width: number,
 	thinkingLevel: ThinkingLevel,
-	fastReader: FastReader | undefined,
+	speedReader: SpeedReader | undefined,
 	autoCompactEnabled: boolean,
 ): string[] {
 	// Width fallback may render sections twice; query Pi's context estimate once.
@@ -332,7 +333,7 @@ function buildStatusLines(
 		sections.map((section) => {
 			switch (section) {
 				case "model":
-					return renderModel(ctx, theme, fastReader);
+					return renderModel(ctx, theme, speedReader);
 				case "thinking":
 					return renderThinking(thinkingLevel, theme);
 				case "git":
@@ -383,14 +384,14 @@ export default function statusline(pi: ExtensionAPI): void {
 	let currentCtx: ExtensionContext | null = null;
 	let tuiRef: TuiLike | null = null;
 	let thinkingLevel: ThinkingLevel = "off";
-	let fastReader: FastReader | undefined;
+	let speedReader: SpeedReader | undefined;
 	let disposeFooter: (() => void) | undefined;
 	let refreshGit: (() => void) | undefined;
 	let refreshProviders: ((rediscover?: boolean) => void) | undefined;
 	const requestRender = () => tuiRef?.requestRender?.();
 	pi.events.on(FAST_READER_EVENT, (value) => {
-		fastReader =
-			typeof value === "function" ? (value as FastReader) : undefined;
+		speedReader =
+			typeof value === "function" ? (value as SpeedReader) : undefined;
 		requestRender();
 	});
 	pi.events.on(FAST_CHANGED_EVENT, requestRender);
@@ -495,7 +496,7 @@ export default function statusline(pi: ExtensionAPI): void {
 						targets,
 						width,
 						thinkingLevel,
-						fastReader,
+						speedReader,
 						pi.getSettings().compaction?.enabled ?? true,
 					);
 					const statuses = [...extensionStatuses.entries()]
@@ -517,7 +518,7 @@ export default function statusline(pi: ExtensionAPI): void {
 	pi.on("session_shutdown", () => {
 		disposeFooter?.();
 		currentCtx = null;
-		fastReader = undefined;
+		speedReader = undefined;
 	});
 	const updateContext = (_event: unknown, ctx: ExtensionContext) => {
 		if (!disposeFooter) return;

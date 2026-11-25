@@ -4,7 +4,7 @@ import provider from "@router-for-me/pi-cliproxyapi-provider/extensions/index";
 import {
 	FAST_CHANGED_EVENT,
 	FAST_READER_EVENT,
-	type FastReader,
+	type SpeedReader,
 } from "../statusline/src/cliproxy-fast";
 
 type FastModel = Parameters<FastFooterController["isProviderModel"]>[0];
@@ -12,13 +12,17 @@ type FastFooterReader =
 	| { getServiceTierFor(model: FastModel): string | undefined }
 	| { isEffectiveFor(model: FastModel): boolean };
 
-function createFastReader(controller: FastFooterReader): FastReader {
+function createSpeedReader(controller: FastFooterReader): SpeedReader {
 	return (provider, modelId) => {
 		const model = { provider, id: modelId, reasoning: false, contextWindow: 0 };
 		// 1.5 replaced the boolean API with priority and ultrafast tiers.
-		return "getServiceTierFor" in controller
-			? controller.getServiceTierFor(model) !== undefined
-			: controller.isEffectiveFor(model);
+		if (!("getServiceTierFor" in controller)) {
+			return controller.isEffectiveFor(model) ? "fast" : undefined;
+		}
+		const tier = controller.getServiceTierFor(model);
+		if (tier === "priority") return "fast";
+		if (tier === "ultrafast") return "ultrafast";
+		return undefined;
 	};
 }
 
@@ -38,7 +42,7 @@ export async function connectCliproxyFast(
 	) {
 		FastFooterController.prototype.register = originalRegister;
 		const result = originalRegister.call(this, api);
-		pi.events.emit(FAST_READER_EVENT, createFastReader(this));
+		pi.events.emit(FAST_READER_EVENT, createSpeedReader(this));
 		return result;
 	};
 	FastFooterController.prototype.register = captureRegister;
