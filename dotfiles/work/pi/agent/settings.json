@@ -1,7 +1,7 @@
 {
   "lastChangelogVersion": "1.6.0",
-  "defaultProvider": "cliproxyapi",
-  "defaultModel": "gpt-6.2-sol",
+  "defaultProvider": "google-vertex",
+  "defaultModel": "gemini-4-neon",
   "defaultThinkingLevel": "high",
   "transport": "sse",
   "theme": "dark",
@@ -64,6 +64,7 @@
     "github-copilot/claude-opus-5.5",
     "github-copilot/claude-sonnet-5.5",
     "github-copilot/claude-haiku-5.5",
+    "google-vertex/gemini-4-neon",
     "google-vertex/gemini-4-carbon",
     "google-vertex/gemini-4-hydrogen",
     "google-vertex/gemini-4-argon"
