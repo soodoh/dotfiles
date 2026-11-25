@@ -149,6 +149,55 @@ class CleanupTests(unittest.TestCase):
         job.restore.assert_not_called()
         run.assert_not_called()
 
+    def test_preview_reports_the_replacement_blocker_that_prevents_apply(self):
+        keg = self.root / "Cellar/borders/1.9.0"
+        binary = keg / "bin/borders"
+        binary.parent.mkdir(parents=True)
+        binary.touch(mode=0o755)
+        link = self.root / "bin/borders"
+        link.parent.mkdir()
+        link.symlink_to(binary)
+        job = macos.Job(
+            "gui/501", "dev.mise.borders", self.root / "borders.plist", (link,)
+        )
+        changes = [macos.Change(job, {42}, True, "holds a planned removal target")]
+        for missing in (False, True):
+            with self.subTest(missing=missing):
+                if missing:
+                    binary.unlink()
+                plan = cleanup.Plan([], [keg], [], [])
+                with (
+                    patch.object(cleanup.sys, "platform", "darwin"),
+                    patch.dict(os.environ, MISE_ENV="personal-macos"),
+                    patch.object(cleanup, "preflight", return_value=plan),
+                    patch.object(
+                        cleanup,
+                        "maintenance_plan",
+                        return_value=(changes, [], [], {}, []),
+                    ),
+                    patch.object(cleanup, "run") as run,
+                    patch("builtins.input") as confirm,
+                    patch.object(macos, "paused") as pause,
+                    contextlib.redirect_stdout(io.StringIO()),
+                    contextlib.redirect_stderr(io.StringIO()) as err,
+                ):
+                    self.assertEqual(cleanup.cleanup(apply=False), 0)
+                    with self.assertRaisesRegex(
+                        ValueError, "no retained replacement"
+                    ) as refusal:
+                        cleanup.macos_cleanup(plan, "personal-macos")
+                self.assertIn(str(refusal.exception), err.getvalue())
+                self.assertIn(str(link), str(refusal.exception))
+                if missing:
+                    self.assertIn("no executable file", str(refusal.exception))
+                else:
+                    self.assertIn(f"planned removal: {keg}", str(refusal.exception))
+                run.assert_called_once_with(
+                    *cleanup.MISE_CACHE_PRUNE, "--dry-run", show=True
+                )
+                confirm.assert_not_called()
+                pause.assert_not_called()
+
     def test_cleanup_rechecks_while_stopped_and_restores_after_refusal_or_failure(self):
         for blocker in (cleanup.Blocker("unmanaged process"), None):
             with self.subTest(blocker=blocker):

@@ -243,6 +243,14 @@ def show_maintenance(changes, before, after, fish):
         print("No managed services or sessions need to be stopped or restarted.")
 
 
+def maintenance_programs(changes, before, after, fish):
+    programs = [program for change in changes for program in change.job.programs]
+    programs.extend(session.binary for session in (*before, *after))
+    if fish:
+        programs.append(BREW_PREFIX / "bin/fish")
+    return programs
+
+
 def macos_cleanup(plan, profile):
     if plan.references:
         report("Cleanup blocked by retained environments:", plan.references)
@@ -257,10 +265,7 @@ def macos_cleanup(plan, profile):
         return 1
     jobs = [change.job for change in changes if change.blocking]
     refresh = [change.job for change in changes if not change.blocking]
-    programs = [program for change in changes for program in change.job.programs]
-    programs.extend(session.binary for session in (*before, *after))
-    if fish:
-        programs.append(BREW_PREFIX / "bin/fish")
+    programs = maintenance_programs(changes, before, after, fish)
     macos.check_replacements(programs, plan.targets)
 
     if changes or before or after or fish:
@@ -323,6 +328,12 @@ def cleanup(*, apply: bool, worker: bool = False) -> int:
     if darwin:
         changes, before, after, fish, unknown = maintenance_plan(plan, profile)
         show_maintenance(changes, before, after, fish)
+        try:
+            macos.check_replacements(
+                maintenance_programs(changes, before, after, fish), plan.targets
+            )
+        except ValueError as exc:
+            report("Service replacements blocking cleanup:", [str(exc)])
     else:
         unknown = [item.message for item in plan.processes]
     report("Retained environments blocking cleanup:", plan.references)

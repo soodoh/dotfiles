@@ -331,11 +331,17 @@ def check_replacements(programs, targets):
     roots = {path for target in targets for path in (target, target.resolve())}
     for program in programs:
         binary = program.resolve()
-        if not os.access(binary, os.X_OK) or roots.intersection(
-            (binary, *binary.parents)
+        if not binary.is_file() or not os.access(binary, os.X_OK):
+            raise ValueError(
+                f"no retained replacement for {program}: no executable file at {binary}; "
+                "install or relink the selected version first"
+            )
+        if removal := next(
+            (path for path in (binary, *binary.parents) if path in roots), None
         ):
             raise ValueError(
-                f"no retained replacement for {program}; install the selected versions first"
+                f"no retained replacement for {program}: {binary} is covered by planned "
+                f"removal: {removal}; correct the removal plan or link a retained version first"
             )
 
 
