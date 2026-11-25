@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import lockfile from "proper-lockfile";
 import { afterEach, expect, test, vi } from "vitest";
 import {
 	parseProxyAccounts,
@@ -16,9 +17,11 @@ import {
 	refreshProxyUsage,
 	resetProxyUsageForTests,
 } from "./cliproxy-usage";
+import * as fileLease from "./file-lease";
 import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
 import {
 	discoverProviderUsageTargets,
+	discoverProviderUsageTargetsAsync,
 	formatDirectProviderUsage,
 	formatProviderUsage,
 	invalidateProviderUsageCache,
@@ -46,13 +49,30 @@ if (process.env.CLIPROXY_TEST_REQUESTS) {
 let status = 200;
 let body;
 if (endpoint.endsWith("/credentials")) {
-  status = Number(process.env.CLIPROXY_TEST_CREDENTIALS_STATUS ?? 200);
+  if (process.env.CLIPROXY_TEST_EXIT_CODE) {
+    process.exit(Number(process.env.CLIPROXY_TEST_EXIT_CODE));
+  }
+  if (process.env.CLIPROXY_TEST_OVERSIZED_CREDENTIALS) {
+    process.stdout.write("x".repeat(2 * 1024 * 1024 + 1024) + "\\n200");
+    process.exit(0);
+  }
+  if (process.env.CLIPROXY_TEST_CREDENTIALS_SEQUENCE) {
+    const seq = JSON.parse(fs.readFileSync(process.env.CLIPROXY_TEST_CREDENTIALS_SEQUENCE, "utf8"));
+    status = Number(seq.length > 1 ? seq.shift() : seq[0] ?? 200);
+    fs.writeFileSync(process.env.CLIPROXY_TEST_CREDENTIALS_SEQUENCE, JSON.stringify(seq));
+  } else {
+    status = Number(process.env.CLIPROXY_TEST_CREDENTIALS_STATUS ?? 200);
+  }
   if (process.env.CLIPROXY_TEST_ENDPOINT) fs.writeFileSync(process.env.CLIPROXY_TEST_ENDPOINT, endpoint);
   body = JSON.parse(fs.readFileSync(process.env.CLIPROXY_TEST_FIXTURE, "utf8"));
 } else {
   const fixture = data?.url?.endsWith("/chatpass/apps") ? process.env.CLIPROXY_TEST_APPS : data?.url?.endsWith("/usage") ? process.env.CLIPROXY_TEST_USAGE : process.env.CLIPROXY_TEST_RESETS;
   const responses = fixture ? JSON.parse(fs.readFileSync(fixture, "utf8")) : {};
-  const response = responses[data?.auth_index];
+  let response = responses[data?.auth_index];
+  if (Array.isArray(response)) {
+    response = response.length > 1 ? response.shift() : response[0];
+    fs.writeFileSync(fixture, JSON.stringify(responses));
+  }
   status = response?.management_status ?? 200;
   body = response ?? {status_code: 404, body: "{}"};
 }
@@ -101,7 +121,7 @@ afterEach(() => {
 		/* missing */
 	}
 	try {
-		rmSync(`${path}.refresh.lock`);
+		rmSync(`${path}.refresh.lock`, { recursive: true, force: true });
 	} catch {
 		/* missing */
 	}
@@ -1096,8 +1116,8 @@ test("a fresh management snapshot does not mark an older, unexpired quota stale"
 });
 
 test.each([
-	[5.5, false],
-	[7, true],
+	[7.5, false],
+	[9, true],
 ] as const)(
 	"warns after the grace period for a %s-minute proxy snapshot, then hides expired cache",
 	(ageMinutes, stale) => {
@@ -1324,6 +1344,40 @@ test("native auth changes cannot reuse another registration's quota or fall back
 	const targets = discoverProviderUsageTargets(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(formatProviderUsage(targets, true)).toContain("W47%");
+	// Logging out prunes the process-local proxy binding so re-enabling does not
+	// reuse the previous verified binding before async auth verification finishes.
+	const loggedOutCtx: ProviderUsageContext = {
+		...ctx,
+		model: undefined,
+		readStoredCredential: () => undefined,
+		modelRegistry: {
+			...ctx.modelRegistry,
+			getAvailable: async () => [],
+			getProviderAuthStatus: () => ({ configured: false }),
+		},
+	};
+	expect(await discoverProviderUsageTargetsAsync(loggedOutCtx)).toEqual([]);
+	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(formatProviderUsage(targets, true)).toContain("W47%");
+	// An older slow discovery settling out of order must not prune bindings established by a newer discovery.
+	let resolveStaleDiscovery!: (models: { provider: string }[]) => void;
+	const staleDiscoveryCtx: ProviderUsageContext = {
+		...loggedOutCtx,
+		modelRegistry: {
+			...loggedOutCtx.modelRegistry,
+			getAvailable: () =>
+				new Promise((resolve) => {
+					resolveStaleDiscovery = resolve;
+				}),
+		},
+	};
+	const staleDiscovery = discoverProviderUsageTargetsAsync(staleDiscoveryCtx);
+	await discoverProviderUsageTargetsAsync(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	resolveStaleDiscovery([]);
+	await staleDiscovery;
+	expect(formatProviderUsage(targets, true)).toContain("W47%");
 	setCredential({
 		type: "oauth",
 		access: "different-access",
@@ -1387,7 +1441,284 @@ test.each([
 	},
 );
 
-test("associations expire before stale proxy quota and cannot cross management base paths", async () => {
+test("waits across multi-second lock contention and does not mark contended refreshes as stale errors", async () => {
+	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+	process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+	process.env.PATH = `${directory}:${originalEnv.PATH}`;
+	writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 47)] }));
+	await refreshProxyUsage(() => {});
+	const cached = JSON.parse(readFileSync(path, "utf8"));
+	cached.fetchedAt = Date.now() - 6 * 60_000;
+	writeFileSync(path, JSON.stringify(cached));
+	resetProxyUsageForTests();
+
+	// Hold the refresh lock across multiple retry intervals, then publish a fresh snapshot.
+	const release = await lockfile.lock(`${path}.refresh`, { realpath: false });
+	const updates = vi.fn();
+	const waiting = refreshProxyUsage(updates);
+	await new Promise((resolve) => setTimeout(resolve, 250));
+	writeFileSync(
+		path,
+		JSON.stringify({
+			...cached,
+			fetchedAt: Date.now(),
+		}),
+	);
+	await release();
+	await waiting;
+	expect(updates).toHaveBeenCalledOnce();
+	expect(proxyUsageAccounts()[0]?.stale).toBe(false);
+
+	// Even if lock acquisition itself fails with ELOCKED, keep grace-window data
+	// non-stale, avoid cascading queued waiters, and leave the next call unthrottled.
+	const graceCached = JSON.parse(readFileSync(path, "utf8"));
+	graceCached.fetchedAt = Date.now() - 6 * 60_000;
+	writeFileSync(path, JSON.stringify(graceCached));
+	resetProxyUsageForTests();
+	let rejectLease!: (error: Error) => void;
+	const leaseSpy = vi
+		.spyOn(fileLease, "acquireSharedFileLease")
+		.mockImplementationOnce(
+			() =>
+				new Promise<fileLease.SharedFileLease>((_resolve, reject) => {
+					rejectLease = reject;
+				}),
+		);
+	const firstContended = refreshProxyUsage(() => {});
+	const joinedContended = refreshProxyUsage(() => {});
+	rejectLease(Object.assign(new Error("ELOCKED"), { code: "ELOCKED" }));
+	await Promise.all([firstContended, joinedContended]);
+	expect(leaseSpy).toHaveBeenCalledTimes(1);
+	expect(proxyUsageAccounts()[0]?.stale).toBe(false);
+
+	// Because contention clears the throttle, the next call can immediately refresh.
+	const refreshed = vi.fn();
+	await refreshProxyUsage(refreshed);
+	expect(refreshed).toHaveBeenCalledOnce();
+	expect(proxyUsageAccounts()[0]?.stale).toBe(false);
+
+	// Non-contention lock errors (e.g. EACCES) must fail, notify both leader and
+	// joined waiters, and throttle subsequent retries.
+	const errorCached = JSON.parse(readFileSync(path, "utf8"));
+	errorCached.fetchedAt = Date.now() - 6 * 60_000;
+	writeFileSync(path, JSON.stringify(errorCached));
+	resetProxyUsageForTests();
+	leaseSpy.mockClear();
+	let rejectFailure!: (error: Error) => void;
+	leaseSpy.mockImplementationOnce(
+		() =>
+			new Promise<fileLease.SharedFileLease>((_resolve, reject) => {
+				rejectFailure = reject;
+			}),
+	);
+	const failedUpdates = vi.fn();
+	const joinedFailedUpdates = vi.fn();
+	const failedLeader = refreshProxyUsage(failedUpdates);
+	const failedWaiter = refreshProxyUsage(joinedFailedUpdates);
+	rejectFailure(
+		Object.assign(new Error("permission denied"), { code: "EACCES" }),
+	);
+	await Promise.all([failedLeader, failedWaiter]);
+	expect(failedUpdates).toHaveBeenCalledOnce();
+	expect(joinedFailedUpdates).toHaveBeenCalledOnce();
+	expect(proxyUsageAccounts()[0]?.stale).toBe(true);
+	await refreshProxyUsage(() => {});
+	expect(leaseSpy).toHaveBeenCalledTimes(1);
+
+	// Contention after a failed refresh's cooldown must keep the failure warning visible
+	// while still allowing an immediate subsequent retry.
+	const now = Date.now();
+	vi.spyOn(Date, "now").mockReturnValue(now + 65_000);
+	leaseSpy.mockRejectedValueOnce(
+		Object.assign(new Error("ELOCKED"), { code: "ELOCKED" }),
+	);
+	await refreshProxyUsage(() => {});
+	expect(proxyUsageAccounts()[0]?.stale).toBe(true);
+	const recovered = vi.fn();
+	await refreshProxyUsage(recovered);
+	expect(recovered).toHaveBeenCalledOnce();
+	expect(proxyUsageAccounts()[0]?.stale).toBe(false);
+});
+
+test("notifies a stricter waiter when a peer publishes a fresh snapshot during a weaker in-flight refresh", async () => {
+	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+	process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+	process.env.PATH = `${directory}:${originalEnv.PATH}`;
+	writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 47)] }));
+	await refreshProxyUsage(() => {});
+	const cached = JSON.parse(readFileSync(path, "utf8"));
+	cached.fetchedAt = Date.now() - 6 * 60_000;
+	delete cached.openaiRegistrations;
+	writeFileSync(path, JSON.stringify(cached));
+	resetProxyUsageForTests();
+
+	let resolveLock!: (release: () => Promise<void>) => void;
+	vi.spyOn(lockfile, "lock").mockImplementationOnce(
+		() =>
+			new Promise<() => Promise<void>>((resolve) => {
+				resolveLock = resolve;
+			}),
+	);
+	const weakerUpdates = vi.fn();
+	const nativeUpdates = vi.fn();
+	const first = refreshProxyUsage(weakerUpdates);
+	const second = refreshProxyUsage(nativeUpdates, "native");
+	writeFileSync(
+		path,
+		JSON.stringify({
+			...cached,
+			fetchedAt: Date.now(),
+			openaiRegistrations: {},
+		}),
+	);
+	resolveLock(async () => {});
+	await Promise.all([first, second]);
+	expect(weakerUpdates).toHaveBeenCalledOnce();
+	expect(nativeUpdates).toHaveBeenCalledOnce();
+});
+
+test("aborts cache write without throwing or falsely marking fresh peer data stale if the refresh lease is compromised", async () => {
+	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+	process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+	process.env.PATH = `${directory}:${originalEnv.PATH}`;
+	writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 47)] }));
+	await refreshProxyUsage(() => {});
+	const cached = JSON.parse(readFileSync(path, "utf8"));
+	cached.fetchedAt = Date.now() - 6 * 60_000;
+	writeFileSync(path, JSON.stringify(cached));
+	resetProxyUsageForTests();
+
+	const newerSnapshot = {
+		...cached,
+		fetchedAt: Date.now() - 10,
+	};
+	vi.spyOn(lockfile, "lock").mockImplementationOnce(async (_target, opts) => {
+		writeFileSync(path, JSON.stringify(newerSnapshot));
+		opts?.onCompromised?.(
+			Object.assign(new Error("lock compromised"), { code: "ECOMPROMISED" }),
+		);
+		return async () => {};
+	});
+	const updates = vi.fn();
+	await refreshProxyUsage(updates);
+	expect(updates).toHaveBeenCalledOnce();
+	expect(proxyUsageAccounts()[0]?.stale).toBe(false);
+	expect(JSON.parse(readFileSync(path, "utf8")).fetchedAt).toBe(
+		newerSnapshot.fetchedAt,
+	);
+});
+
+test("failed proxy refreshes enforce cooldown across stricter lookup modes", async () => {
+	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+	process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+	const requestsPath = join(directory, "failed-lookup-requests.jsonl");
+	process.env.CLIPROXY_TEST_REQUESTS = requestsPath;
+	process.env.CLIPROXY_TEST_CREDENTIALS_STATUS = "401";
+	process.env.PATH = `${directory}:${originalEnv.PATH}`;
+	writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 47)] }));
+
+	await Promise.all([
+		refreshProxyUsage(() => {}),
+		refreshProxyUsage(() => {}, "native"),
+	]);
+	await refreshProxyUsage(() => {}, "native");
+	const requests = readFileSync(requestsPath, "utf8").trim().split("\n");
+	expect(requests).toHaveLength(1);
+});
+
+test("retries transient management and upstream errors within a single attempt budget and does not retry oversized responses", async () => {
+	process.env.CLIPROXYAPI_MANAGEMENT_KEY = "test-key";
+	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+	process.env.PI_CLIPROXY_USAGE_CACHE_PATH = path;
+	process.env.CLIPROXY_TEST_FIXTURE = fixturePath;
+	const sequencePath = join(directory, "retry-sequence.json");
+	const usagePath = join(directory, "retry-usage.json");
+	const requestsPath = join(directory, "retry-requests.jsonl");
+	process.env.CLIPROXY_TEST_CREDENTIALS_SEQUENCE = sequencePath;
+	process.env.CLIPROXY_TEST_USAGE = usagePath;
+	process.env.CLIPROXY_TEST_REQUESTS = requestsPath;
+	process.env.PATH = `${directory}:${originalEnv.PATH}`;
+	writeFileSync(fixturePath, JSON.stringify({ files: [account("a", 47)] }));
+	writeFileSync(sequencePath, JSON.stringify([503, 200]));
+	writeFileSync(
+		usagePath,
+		JSON.stringify({
+			a: [
+				{ management_status: 503 },
+				{ status_code: 503, body: "{}" },
+				{
+					status_code: 200,
+					body: JSON.stringify({
+						rate_limit: {
+							primary_window: {
+								used_percent: 61,
+								limit_window_seconds: 604800,
+								reset_at: Math.floor(Date.now() / 1000) + 3600,
+							},
+						},
+					}),
+				},
+			],
+		}),
+	);
+	await refreshProxyUsage(() => {});
+	expect(proxyUsageAccounts()).toHaveLength(1);
+	expect(proxyUsageAccounts()[0]?.stale).toBe(false);
+	expect(proxyUsageAccounts()[0]?.scope.weeklyPercentUsed).toBe(61);
+	const usageRequests = readFileSync(requestsPath, "utf8")
+		.trim()
+		.split("\n")
+		.map((line) => JSON.parse(line))
+		.filter((entry) => entry.data?.url?.endsWith("/usage"));
+	expect(usageRequests).toHaveLength(3);
+
+	// Oversized responses must fail fast without retrying.
+	resetProxyUsageForTests();
+	rmSync(path);
+	rmSync(requestsPath);
+	delete process.env.CLIPROXY_TEST_CREDENTIALS_SEQUENCE;
+	process.env.CLIPROXY_TEST_OVERSIZED_CREDENTIALS = "1";
+	await refreshProxyUsage(() => {});
+	const oversizedRequests = readFileSync(requestsPath, "utf8")
+		.trim()
+		.split("\n");
+	expect(oversizedRequests).toHaveLength(1);
+	expect(proxyUsageAccounts()).toEqual([]);
+
+	// Permanent curl failures (e.g. TLS cert error 60) fail fast, while transient timeouts (28) retry.
+	resetProxyUsageForTests();
+	rmSync(requestsPath);
+	delete process.env.CLIPROXY_TEST_OVERSIZED_CREDENTIALS;
+	process.env.CLIPROXY_TEST_EXIT_CODE = "60";
+	await refreshProxyUsage(() => {});
+	expect(readFileSync(requestsPath, "utf8").trim().split("\n")).toHaveLength(1);
+
+	resetProxyUsageForTests();
+	rmSync(requestsPath);
+	process.env.CLIPROXY_TEST_EXIT_CODE = "28";
+	await refreshProxyUsage(() => {});
+	expect(readFileSync(requestsPath, "utf8").trim().split("\n")).toHaveLength(3);
+
+	// Exhausting the shared refresh budget aborts further retries immediately.
+	resetProxyUsageForTests();
+	rmSync(requestsPath);
+	const perfTimes = [1_000, 2_000, 50_000];
+	vi.spyOn(performance, "now").mockImplementation(
+		() => perfTimes.shift() ?? 50_000,
+	);
+	await refreshProxyUsage(() => {});
+	expect(readFileSync(requestsPath, "utf8").trim().split("\n")).toHaveLength(1);
+});
+
+test("associations stay grouped across grace and stale windows until expiry or base path change", async () => {
 	const { ctx } = nativeProxyFixture();
 	const targets = discoverProviderUsageTargets(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
@@ -1396,12 +1727,33 @@ test("associations expire before stale proxy quota and cannot cross management b
 		"https://proxy.example.test/another-installation";
 	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
 	process.env.CLIPROXYAPI_BASE_URL = "https://proxy.example.test/";
+
+	// Within grace window (6m): grouped and fresh.
 	const cached = JSON.parse(readFileSync(path, "utf8"));
 	cached.fetchedAt = Date.now() - 6 * 60_000;
 	writeFileSync(path, JSON.stringify(cached));
 	resetProxyUsageForTests();
-	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
+	expect(formatDirectProviderUsage(targets)).toBe("");
+	expect(formatProviderUsage(targets, true)).toMatch(
+		/^\u{F0004} \uF120 .*W47%[^!]*$/u,
+	);
+
+	// Past grace window but before expiry (9m): still grouped, marked stale.
+	cached.fetchedAt = Date.now() - 9 * 60_000;
+	writeFileSync(path, JSON.stringify(cached));
+	resetProxyUsageForTests();
+	expect(formatDirectProviderUsage(targets)).toBe("");
+	expect(formatProviderUsage(targets, true)).toMatch(
+		/^\u{F0004} \uF120 .*W47%.* !$/u,
+	);
 	expect(proxyUsageAccounts()).toHaveLength(2);
+
+	// Past expiry (16m): ungrouped and hidden.
+	cached.fetchedAt = Date.now() - 16 * 60_000;
+	writeFileSync(path, JSON.stringify(cached));
+	resetProxyUsageForTests();
+	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
+	expect(proxyUsageAccounts()).toEqual([]);
 });
 
 test("a failed registration refresh invalidates association without hiding existing proxy quota", async () => {
@@ -1509,7 +1861,7 @@ test("legacy Codex prefers matching proxy quota from a cold cache and does not f
 	expect(readFileSync(path, "utf8")).not.toContain("private-account-");
 });
 
-test.each(["missing", "ambiguous", "unconfigured", "stale"])(
+test.each(["missing", "ambiguous", "unconfigured", "expired"])(
 	"legacy Codex falls back to direct reads when proxy association is %s",
 	async (reason) => {
 		const { ctx, direct, files, setAccount } = legacyProxyFixture();
@@ -1518,11 +1870,11 @@ test.each(["missing", "ambiguous", "unconfigured", "stale"])(
 		if (reason === "unconfigured")
 			delete process.env.CLIPROXYAPI_MANAGEMENT_KEY;
 		const targets = discoverProviderUsageTargets(ctx);
-		if (reason === "stale") {
+		if (reason === "expired") {
 			await refreshProviderUsage(ctx, targets, () => {});
 			expect(direct).not.toHaveBeenCalled();
 			const cached = JSON.parse(readFileSync(path, "utf8"));
-			cached.fetchedAt = Date.now() - 6 * 60_000;
+			cached.fetchedAt = Date.now() - 16 * 60_000;
 			writeFileSync(path, JSON.stringify(cached));
 			resetProxyUsageForTests();
 			process.env.CLIPROXY_TEST_CREDENTIALS_STATUS = "503";
@@ -1532,6 +1884,30 @@ test.each(["missing", "ambiguous", "unconfigured", "stale"])(
 		expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} 91% (1d ↻4)");
 	},
 );
+
+test("legacy Codex falls back to fresher direct quota in the same grouped entry when proxy refresh fails", async () => {
+	const { ctx, direct } = legacyProxyFixture();
+	const targets = discoverProviderUsageTargets(ctx);
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(direct).not.toHaveBeenCalled();
+
+	// Mark the cached proxy snapshot due for refresh and fail the management endpoint.
+	const cached = JSON.parse(readFileSync(path, "utf8"));
+	const old = Date.now() - 6 * 60_000;
+	cached.fetchedAt = old;
+	for (const entry of cached.accounts) entry.observedAt = old;
+	writeFileSync(path, JSON.stringify(cached));
+	resetProxyUsageForTests();
+	process.env.CLIPROXY_TEST_CREDENTIALS_STATUS = "503";
+
+	await refreshProviderUsage(ctx, targets, () => {});
+	expect(direct).toHaveBeenCalledTimes(2);
+	expect(formatDirectProviderUsage(targets)).toBe("");
+	expect(formatProviderUsage(targets, true)).toBe(
+		"\u{F0004} \uF120 91% (1d ↻4)",
+	);
+	expect(providerUsageProxyAccounts(targets)).toHaveLength(2);
+});
 
 test("a matched disabled account with missing proxy quota uses direct fallback in the same single account entry", async () => {
 	const { ctx, direct, files } = legacyProxyFixture();

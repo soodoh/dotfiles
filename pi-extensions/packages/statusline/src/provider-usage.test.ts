@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import lockfile from "proper-lockfile";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
@@ -641,11 +642,15 @@ describe("provider usage", () => {
 			await started.promise;
 			expect(render(targets)).toBe("Anthropic 42%");
 
-			vi.setSystemTime(start + 6 * 60_000 + 1);
+			vi.setSystemTime(start + 8 * 60_000 + 1);
 			expect(render(targets)).toBe("Anthropic 42% !");
 			response.resolve(Response.json({ five_hour: { used_percent: 43 } }));
 			await refreshing;
 			expect(render(targets)).toBe("Anthropic 43%");
+			// Both fetchedAt and lastAttemptAt reflect completion time, not when the slow request started.
+			vi.setSystemTime(start + 12 * 60_000);
+			await refreshAndWait(ctx, targets);
+			expect(attempts).toBe(2);
 		} finally {
 			response.resolve(Response.json({ five_hour: { used_percent: 43 } }));
 			await refreshing;
@@ -1660,5 +1665,90 @@ describe("provider usage", () => {
 
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(render(targets)).toBe("");
+	});
+
+	test("classifies lock errors accurately and hydrates peer cache on lease compromise without duplicate release errors", async () => {
+		const cachePath = process.env.PI_PROVIDER_USAGE_CACHE_PATH as string;
+		const errors: string[] = [];
+		const ctx: ProviderUsageContext = {
+			model: { provider: "anthropic" },
+			modelRegistry: {
+				getAvailable: () => [{ provider: "anthropic" }],
+				getApiKeyForProvider: async () => "anth-token",
+				isUsingOAuth: () => true,
+			},
+			readStoredCredential: (provider) =>
+				provider === "anthropic"
+					? {
+							type: "oauth",
+							access: "anth-token",
+							refresh: "refresh",
+							expires: Date.now() + 60_000,
+						}
+					: undefined,
+			reportError: (message) => errors.push(message),
+		};
+		const targets = discoverProviderUsageTargets(ctx);
+		fetchCalls(() => Response.json({ five_hour: { used_percent: 12 } }));
+		await refreshAndWait(ctx, targets);
+		const seeded = JSON.parse(readFileSync(cachePath, "utf8")) as {
+			entries: Record<string, Record<string, unknown>>;
+		};
+		const [cacheKey] = Object.keys(seeded.entries);
+		const staleAt = Date.now() - 6 * 60_000;
+		seeded.entries[cacheKey].fetchedAt = staleAt;
+		seeded.entries[cacheKey].lastAttemptAt = staleAt;
+		invalidateProviderUsageCache();
+		writeFileSync(cachePath, JSON.stringify(seeded));
+
+		const lockSpy = vi.spyOn(lockfile, "lock");
+
+		// Non-contention lock error must not misreport contention timeout.
+		lockSpy.mockRejectedValueOnce(
+			Object.assign(new Error("permission denied"), { code: "EACCES" }),
+		);
+		await refreshAndWait(ctx, targets);
+		expect(errors).toEqual([
+			"Provider usage (anthropic): failed to acquire refresh lease: permission denied",
+		]);
+
+		// Compromised lease hydrates fresh peer cache, notifies onUpdate even if an
+		// intervening render already hydrated memory, and skips redundant release errors.
+		errors.length = 0;
+		const freshAt = Date.now();
+		lockSpy.mockImplementationOnce(async (_target, opts) => {
+			writeFileSync(
+				cachePath,
+				JSON.stringify({
+					entries: {
+						[cacheKey]: {
+							providerId: "anthropic",
+							authKind: "oauth",
+							state: "ready",
+							scope: { sessionPercentUsed: 27 },
+							fetchedAt: freshAt,
+							lastAttemptAt: freshAt,
+						},
+					},
+				}),
+			);
+			// Simulate a concurrent render hydrating the peer cache mid-flight.
+			expect(render(targets)).toBe("Anthropic 27%");
+			opts?.onCompromised?.(
+				Object.assign(new Error("lock compromised"), { code: "ECOMPROMISED" }),
+			);
+			return async () => {
+				throw Object.assign(new Error("not acquired"), {
+					code: "ENOTACQUIRED",
+				});
+			};
+		});
+		const onUpdate = vi.fn();
+		await refreshProviderUsage(ctx, targets, onUpdate);
+		expect(onUpdate).toHaveBeenCalled();
+		expect(render(targets)).toBe("Anthropic 27%");
+		expect(errors).toEqual([
+			"Provider usage (anthropic): refresh lease was compromised: lock compromised",
+		]);
 	});
 });

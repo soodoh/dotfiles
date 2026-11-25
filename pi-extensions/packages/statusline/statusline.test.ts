@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,6 +25,10 @@ import {
 	type SpeedMode,
 	type SpeedReader,
 } from "./src/cliproxy-fast";
+import {
+	openAiRegistrationKey,
+	resetProxyUsageForTests,
+} from "./src/cliproxy-usage";
 import * as gitStatus from "./src/git-status";
 import * as providerUsage from "./src/provider-usage";
 
@@ -187,6 +192,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
 	for (const dispose of disposers.splice(0)) dispose();
+	resetProxyUsageForTests();
 	vi.useRealTimers();
 	vi.restoreAllMocks();
 	vi.unstubAllEnvs();
@@ -623,6 +629,92 @@ describe("statusline extension", () => {
 		vi.useRealTimers();
 		await vi.waitFor(() => expect(h.render()).toContain("Anthropic 12%"));
 		expect(fetchMock).toHaveBeenCalledOnce();
+	});
+
+	test("preserves OpenAI proxy grouping across periodic rediscovery before refresh resolves", async () => {
+		const proxyDir = await tempDir("pi-statusline-proxy-cache");
+		const proxyCachePath = join(proxyDir, "cliproxy-usage.json");
+		const baseUrl = "https://proxy.example.test";
+		const managementKey = "test-management-key";
+		const source = createHash("sha256")
+			.update(`${baseUrl}\0${managementKey}`)
+			.digest("hex");
+		const identity = createHash("sha256").update("acct-a").digest("hex");
+		const registration = "oaiapp_periodic-rediscovery";
+		await writeFile(
+			proxyCachePath,
+			JSON.stringify({
+				source,
+				fetchedAt: Date.now(),
+				accounts: [
+					{
+						provider: "codex",
+						identity,
+						scope: { weeklyPercentUsed: 47 },
+						observedAt: Date.now(),
+					},
+				],
+				openaiRegistrations: {
+					[openAiRegistrationKey(registration)]: identity,
+				},
+			}),
+		);
+		vi.stubEnv("CLIPROXYAPI_BASE_URL", baseUrl);
+		vi.stubEnv("CLIPROXYAPI_MANAGEMENT_KEY", managementKey);
+		vi.stubEnv("PI_CLIPROXY_USAGE_CACHE_PATH", proxyCachePath);
+		vi.useFakeTimers();
+
+		let authCalls = 0;
+		let resolveSecondAuth:
+			| ((value: { auth: { apiKey: string } }) => void)
+			| undefined;
+		const h = harness({
+			settings: settings(["provider_usage"]),
+			model: { provider: "openai" },
+			modelRegistry: {
+				getAvailable: async () => [{ provider: "openai" }],
+				getProviderAuthStatus: (provider) => ({
+					configured: provider === "openai",
+					source: "OAuth",
+				}),
+				getProviderAuth: () => {
+					authCalls++;
+					if (authCalls === 1) {
+						return Promise.resolve({ auth: { apiKey: "native-token" } });
+					}
+					return new Promise((resolve) => {
+						resolveSecondAuth = resolve;
+					});
+				},
+				isUsingOAuth: () => true,
+			},
+			readStoredCredential: (provider) =>
+				provider === "openai"
+					? {
+							type: "oauth",
+							access: "native-token",
+							refresh: "refresh-token",
+							expires: Date.now() + 120_000,
+							clientId: registration,
+							scopes: ["chatgpt.tokens.use.direct"],
+						}
+					: undefined,
+		});
+		const stripAnsi = (value: string) =>
+			value.replaceAll(
+				new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g"),
+				"",
+			);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(stripAnsi(h.render())).toContain("\u{F0004} \uF120 47%");
+
+		await vi.advanceTimersByTimeAsync(60_000);
+		// Rediscovery must keep the grouped badge while the follow-up auth verification is still pending.
+		expect(authCalls).toBe(2);
+		expect(stripAnsi(h.render())).toContain("\u{F0004} \uF120 47%");
+		expect(stripAnsi(h.render())).not.toContain("?");
+		resolveSecondAuth?.({ auth: { apiKey: "native-token" } });
+		await vi.advanceTimersByTimeAsync(0);
 	});
 
 	test("ignores late git callbacks after footer disposal", () => {

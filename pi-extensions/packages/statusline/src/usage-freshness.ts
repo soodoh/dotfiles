@@ -1,6 +1,6 @@
 export const USAGE_SUCCESS_TTL_MS = 5 * 60_000;
 export const USAGE_FAILURE_TTL_MS = 60_000;
-export const USAGE_STALE_GRACE_MS = 60_000;
+export const USAGE_STALE_GRACE_MS = 3 * 60_000;
 export const USAGE_STALE_MAX_MS = 15 * 60_000;
 
 export type UsageCacheTiming = {

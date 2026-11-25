@@ -4,8 +4,8 @@ import { isUsageCacheFresh, usageSnapshotFreshness } from "./usage-freshness";
 test.each([
 	[5 * 60_000, "fresh"],
 	[5 * 60_000 + 1, "fresh"],
-	[6 * 60_000, "fresh"],
-	[6 * 60_000 + 1, "stale"],
+	[8 * 60_000, "fresh"],
+	[8 * 60_000 + 1, "stale"],
 ] as const)(
 	"refreshes without warning until the grace period ends at age %i",
 	(age, freshness) => {

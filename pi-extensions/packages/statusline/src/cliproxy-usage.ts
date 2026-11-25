@@ -1,15 +1,14 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-	mkdirSync,
-	readFileSync,
-	renameSync,
-	unlinkSync,
-	writeFileSync,
-} from "node:fs";
+import { readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import lockfile from "proper-lockfile";
+import { join } from "node:path";
+import {
+	acquireSharedFileLease,
+	isLockCompromisedError,
+	isLockContentionError,
+	type SharedFileLease,
+} from "./file-lease";
 import {
 	formatProviderScope,
 	PROVIDER_BADGE_SEPARATOR,
@@ -17,8 +16,33 @@ import {
 	parseOpenAiUsageBody,
 } from "./provider-usage";
 import { isUsageCacheFresh, usageSnapshotFreshness } from "./usage-freshness";
+import {
+	RETRYABLE_USAGE_STATUS_CODES,
+	usageRetryDelayMs,
+	waitForRetry,
+} from "./usage-retry";
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+const PROXY_REFRESH_LOCK_STALE_MS = 20_000;
+const PROXY_REFRESH_LOCK_UPDATE_MS = 5_000;
+const PROXY_REFRESH_LOCK_RETRY_MS = 100;
+const PROXY_REFRESH_LOCK_RETRIES = 550;
+const PROXY_REFRESH_BUDGET_MS = 45_000;
+const CLIPROXY_REQUEST_TIMEOUT_SECONDS = 10;
+const CLIPROXY_FETCH_MAX_ATTEMPTS = 3;
+const CLIPROXY_TRANSIENT_RETRY_BASE_MS = 50;
+const CLIPROXY_THROTTLE_RETRY_BASE_MS = 500;
+const CLIPROXY_RETRY_MAX_DELAY_MS = 5_000;
+// Transient curl network, timeout, proxy, TLS handshake, and HTTP/2 stream errors.
+const RETRYABLE_CURL_EXIT_CODES = new Set([
+	5, 6, 7, 16, 18, 28, 35, 52, 55, 56, 92, 97,
+]);
+const RETRYABLE_SPAWN_ERROR_CODES = new Set([
+	"EAGAIN",
+	"EMFILE",
+	"ENFILE",
+	"ENOMEM",
+]);
 export const CODEX_PROXY_LOGO = "\uF120"; // nf-fa-terminal
 
 type ResetCredit = {
@@ -76,13 +100,31 @@ type Snapshot = {
 	/** Hashed ChatGPT account ID -> hashed proxy identity; ambiguous accounts are omitted. */
 	codexAccounts?: Record<string, string>;
 };
-let snapshot: Snapshot | undefined;
-let pending: Promise<void> | undefined;
-let lastAttemptAt = 0;
-let lastAttemptSource: string | undefined;
-let lastAttemptFailed = false;
 type AccountLookup = "native" | "codex";
-let lastAttemptLookup: AccountLookup | undefined;
+type ProxyConfig = {
+	source: string;
+	url: string;
+	key: string;
+};
+type ProxyState = {
+	snapshot?: Snapshot;
+	pending?: Promise<ProxyUpdateOutcome>;
+	pendingSource?: string;
+	pendingLookup?: AccountLookup;
+	lastAttemptAt: number;
+	lastAttemptSource?: string;
+	lastAttemptFailed: boolean;
+	lastAttemptLookup?: AccountLookup;
+};
+
+function createProxyState(): ProxyState {
+	return {
+		lastAttemptAt: 0,
+		lastAttemptFailed: false,
+	};
+}
+
+let state: ProxyState = createProxyState();
 
 function cachePath(): string {
 	return (
@@ -95,7 +137,7 @@ function cachePath(): string {
 	);
 }
 
-function sourceKey(): string | undefined {
+function proxyConfig(): ProxyConfig | undefined {
 	const url = process.env.CLIPROXYAPI_BASE_URL;
 	const key = process.env.CLIPROXYAPI_MANAGEMENT_KEY;
 	if (!url || !key || /[\r\n"\\]/.test(key)) return undefined;
@@ -114,12 +156,20 @@ function sourceKey(): string | undefined {
 		const basePath = parsed.pathname
 			.replace(/\/+$/, "")
 			.replace(/\/(?:v1|backend-api)$/, "");
-		return createHash("sha256")
-			.update(`${parsed.origin}${basePath}\0${key}`)
-			.digest("hex");
+		return {
+			url,
+			key,
+			source: createHash("sha256")
+				.update(`${parsed.origin}${basePath}\0${key}`)
+				.digest("hex"),
+		};
 	} catch {
 		return undefined;
 	}
+}
+
+function sourceKey(): string | undefined {
+	return proxyConfig()?.source;
 }
 
 function readSnapshot(source: string): Snapshot | undefined {
@@ -147,12 +197,12 @@ function currentSnapshot(source: string): Snapshot | undefined {
 	const disk = readSnapshot(source);
 	if (
 		disk &&
-		(!snapshot ||
-			snapshot.source !== source ||
-			disk.fetchedAt > snapshot.fetchedAt)
+		(!state.snapshot ||
+			state.snapshot.source !== source ||
+			disk.fetchedAt > state.snapshot.fetchedAt)
 	)
-		snapshot = disk;
-	return snapshot?.source === source ? snapshot : undefined;
+		state.snapshot = disk;
+	return state.snapshot?.source === source ? state.snapshot : undefined;
 }
 
 function isProxySnapshotFresh(
@@ -361,11 +411,23 @@ export function parseProxyAccounts(body: unknown, now = Date.now()): Account[] {
 		.filter((account) => usableScope(account, now) !== undefined);
 }
 
-function requestManagement(
+function proxyRetryDelayMs(retry: number, status?: number): number {
+	return usageRetryDelayMs(retry, {
+		status,
+		transientBaseMs: CLIPROXY_TRANSIENT_RETRY_BASE_MS,
+		throttleBaseMs: CLIPROXY_THROTTLE_RETRY_BASE_MS,
+		maxDelayMs: CLIPROXY_RETRY_MAX_DELAY_MS,
+	});
+}
+
+class ProxyTransportError extends Error {}
+
+function requestManagementOnce(
 	url: string,
 	key: string,
 	path: string,
 	data?: Record<string, unknown>,
+	timeoutSeconds = CLIPROXY_REQUEST_TIMEOUT_SECONDS,
 ): Promise<{ status: number; body: unknown }> {
 	return new Promise((resolve, reject) => {
 		const endpoint = new URL(
@@ -382,7 +444,7 @@ function requestManagement(
 				"-",
 				"--silent",
 				"--max-time",
-				"10",
+				String(timeoutSeconds),
 				"--write-out",
 				"\n%{http_code}",
 				endpoint,
@@ -403,12 +465,24 @@ function requestManagement(
 		child.stdin.on("error", () => {
 			/* curl can exit before consuming its config */
 		});
-		child.on("error", () =>
-			reject(new Error("CLIProxyAPI transport unavailable")),
+		child.on("error", (error: NodeJS.ErrnoException) =>
+			reject(
+				error.code && RETRYABLE_SPAWN_ERROR_CODES.has(error.code)
+					? new ProxyTransportError("CLIProxyAPI transport unavailable")
+					: new Error("CLIProxyAPI transport unavailable"),
+			),
 		);
 		child.on("close", (code) => {
-			if (code !== 0 || bytes > MAX_RESPONSE_BYTES) {
-				reject(new Error("CLIProxyAPI request failed"));
+			if (bytes > MAX_RESPONSE_BYTES) {
+				reject(new Error("CLIProxyAPI response exceeded size limit"));
+				return;
+			}
+			if (code !== 0) {
+				reject(
+					code !== null && RETRYABLE_CURL_EXIT_CODES.has(code)
+						? new ProxyTransportError("CLIProxyAPI request failed")
+						: new Error("CLIProxyAPI request failed"),
+				);
 				return;
 			}
 			const boundary = output.lastIndexOf("\n");
@@ -440,11 +514,81 @@ function requestManagement(
 	});
 }
 
+async function requestManagement(
+	url: string,
+	key: string,
+	path: string,
+	data?: Record<string, unknown>,
+	options?: {
+		deadlineMs?: number;
+		retryStatus?: (response: {
+			status: number;
+			body: unknown;
+		}) => number | undefined;
+	},
+): Promise<{ status: number; body: unknown }> {
+	const deadlineMs = options?.deadlineMs;
+	for (let attempt = 0; attempt < CLIPROXY_FETCH_MAX_ATTEMPTS; attempt++) {
+		let timeoutSeconds = CLIPROXY_REQUEST_TIMEOUT_SECONDS;
+		if (deadlineMs !== undefined) {
+			const remainingMs = deadlineMs - performance.now();
+			if (remainingMs <= 0) {
+				throw new ProxyTransportError("CLIProxyAPI refresh budget exceeded");
+			}
+			timeoutSeconds = Math.max(
+				1,
+				Math.min(
+					CLIPROXY_REQUEST_TIMEOUT_SECONDS,
+					Math.ceil(remainingMs / 1000),
+				),
+			);
+		}
+		try {
+			const response = await requestManagementOnce(
+				url,
+				key,
+				path,
+				data,
+				timeoutSeconds,
+			);
+			const status = RETRYABLE_USAGE_STATUS_CODES.has(response.status)
+				? response.status
+				: options?.retryStatus?.(response);
+			if (
+				attempt === CLIPROXY_FETCH_MAX_ATTEMPTS - 1 ||
+				status === undefined ||
+				!RETRYABLE_USAGE_STATUS_CODES.has(status)
+			) {
+				return response;
+			}
+			const delay = proxyRetryDelayMs(attempt, status);
+			if (deadlineMs !== undefined && deadlineMs - performance.now() <= delay) {
+				return response;
+			}
+			await waitForRetry(delay);
+		} catch (error) {
+			if (
+				!(error instanceof ProxyTransportError) ||
+				attempt === CLIPROXY_FETCH_MAX_ATTEMPTS - 1
+			) {
+				throw error;
+			}
+			const delay = proxyRetryDelayMs(attempt);
+			if (deadlineMs !== undefined && deadlineMs - performance.now() <= delay) {
+				throw error;
+			}
+			await waitForRetry(delay);
+		}
+	}
+	throw new Error("CLIProxyAPI retry attempts exhausted");
+}
+
 async function fetchCodexBody(
 	url: string,
 	key: string,
 	entry: AccountEntry,
 	endpoint: "usage" | "rate-limit-reset-credits" | "usage/chatpass/apps",
+	deadlineMs: number,
 ): Promise<unknown> {
 	try {
 		const header: Record<string, string> = {
@@ -454,6 +598,7 @@ async function fetchCodexBody(
 			originator: "Codex Desktop",
 		};
 		if (entry.accountId) header["chatgpt-account-id"] = entry.accountId;
+		// Share one attempt budget across management and upstream transient failures.
 		const response = await requestManagement(
 			url,
 			key,
@@ -463,6 +608,15 @@ async function fetchCodexBody(
 				method: "GET",
 				url: `https://chatgpt.com/backend-api/wham/${endpoint}`,
 				header,
+			},
+			{
+				deadlineMs,
+				retryStatus: (res) => {
+					if (res.status !== 200 || !res.body || typeof res.body !== "object")
+						return undefined;
+					const statusCode = (res.body as Record<string, unknown>).status_code;
+					return typeof statusCode === "number" ? statusCode : undefined;
+				},
 			},
 		);
 		if (
@@ -484,6 +638,7 @@ async function fetchResetCredits(
 	url: string,
 	key: string,
 	entry: AccountEntry,
+	deadlineMs: number,
 ): Promise<{ count: number; credits: ResetCredit[] } | undefined> {
 	try {
 		const body = await fetchCodexBody(
@@ -491,6 +646,7 @@ async function fetchResetCredits(
 			key,
 			entry,
 			"rate-limit-reset-credits",
+			deadlineMs,
 		);
 		if (!body || typeof body !== "object") return undefined;
 		const credits = body as Record<string, unknown>;
@@ -555,10 +711,13 @@ async function fetchProxyAccounts(
 ): Promise<
 	Pick<Snapshot, "accounts" | "openaiRegistrations" | "codexAccounts">
 > {
+	const deadlineMs = performance.now() + PROXY_REFRESH_BUDGET_MS;
 	const response = await requestManagement(
 		url,
 		key,
 		"v8/management/credentials",
+		undefined,
+		{ deadlineMs },
 	);
 	if (response.status !== 200)
 		throw new Error("CLIProxyAPI returned a non-OK response");
@@ -589,7 +748,13 @@ async function fetchProxyAccounts(
 				const entry = entries[next++];
 				if (includeRegistrations) {
 					const keys = registrationKeys(
-						await fetchCodexBody(url, key, entry, "usage/chatpass/apps"),
+						await fetchCodexBody(
+							url,
+							key,
+							entry,
+							"usage/chatpass/apps",
+							deadlineMs,
+						),
 					);
 					if (!keys) registrationsComplete = false;
 					for (const registration of keys ?? []) {
@@ -613,7 +778,13 @@ async function fetchProxyAccounts(
 					: undefined;
 				// /usage is authoritative for every account, even if it has never
 				// served inference and therefore has no management quota headers.
-				const usageBody = await fetchCodexBody(url, key, entry, "usage");
+				const usageBody = await fetchCodexBody(
+					url,
+					key,
+					entry,
+					"usage",
+					deadlineMs,
+				);
 				entry.account.creditBalance = parseCreditBalance(usageBody);
 				const quota = parseOpenAiUsageBody(usageBody);
 				const headerQuota = hasQuota(usableScope(entry.account, Date.now()));
@@ -635,7 +806,7 @@ async function fetchProxyAccounts(
 					entry.account.quotaLookupFailed = true;
 				}
 				entry.account.plan ??= previous?.plan;
-				const resets = await fetchResetCredits(url, key, entry);
+				const resets = await fetchResetCredits(url, key, entry, deadlineMs);
 				if (resets) {
 					entry.account.scope.availableResets = resets.count;
 					entry.account.resetCredits = resets.credits;
@@ -669,30 +840,47 @@ async function fetchProxyAccounts(
 	};
 }
 
+type ProxyUpdateOutcome = "updated" | "fresh" | "contended" | "failed";
+
+function lookupCovers(
+	covered: AccountLookup | undefined,
+	requested: AccountLookup | undefined,
+): boolean {
+	return !requested || covered === requested || covered === "native";
+}
+
 async function update(
-	source: string,
+	config: ProxyConfig,
 	lookup?: AccountLookup,
-): Promise<boolean> {
-	const key = process.env.CLIPROXYAPI_MANAGEMENT_KEY;
-	const url = process.env.CLIPROXYAPI_BASE_URL;
-	if (!key || !url) return false;
+): Promise<ProxyUpdateOutcome> {
+	const { source, url, key } = config;
 	const path = cachePath();
-	mkdirSync(dirname(path), { recursive: true });
-	let release: (() => Promise<void>) | undefined;
+	let lease: SharedFileLease;
 	try {
-		release = await lockfile.lock(`${path}.refresh`, {
-			realpath: false,
-			stale: 20_000,
-			retries: { retries: 10, minTimeout: 100, maxTimeout: 100, factor: 1 },
+		lease = await acquireSharedFileLease(`${path}.refresh`, {
+			stale: PROXY_REFRESH_LOCK_STALE_MS,
+			update: PROXY_REFRESH_LOCK_UPDATE_MS,
+			retries: PROXY_REFRESH_LOCK_RETRIES,
+			retryMs: PROXY_REFRESH_LOCK_RETRY_MS,
 		});
+	} catch (error) {
+		if (!isLockContentionError(error)) return "failed";
+		// Another process owns the refresh lease; re-check disk without flagging an error.
+		return isProxySnapshotFresh(currentSnapshot(source), lookup)
+			? "fresh"
+			: "contended";
+	}
+	try {
+		lease.assertOwned();
 		const cached = currentSnapshot(source);
-		if (isProxySnapshotFresh(cached, lookup)) return false;
+		if (isProxySnapshotFresh(cached, lookup)) return "fresh";
 		const accounts = await fetchProxyAccounts(
 			url,
 			key,
 			cached,
 			lookup === "native",
 		);
+		lease.assertOwned();
 		const updated: Snapshot = {
 			source,
 			fetchedAt: Date.now(),
@@ -701,6 +889,7 @@ async function update(
 		const temporary = `${path}.${process.pid}.tmp`;
 		try {
 			writeFileSync(temporary, `${JSON.stringify(updated)}\n`, { mode: 0o600 });
+			lease.assertOwned();
 			renameSync(temporary, path);
 		} finally {
 			try {
@@ -709,50 +898,135 @@ async function update(
 				/* renamed */
 			}
 		}
-		snapshot = updated;
-		return true;
-	} catch {
+		state.snapshot = updated;
+		return "updated";
+	} catch (error) {
+		if (isLockCompromisedError(error)) {
+			return isProxySnapshotFresh(currentSnapshot(source), lookup)
+				? "fresh"
+				: "contended";
+		}
 		// A failing read never erases a recent, usable snapshot.
-		return false;
+		return "failed";
 	} finally {
-		if (release) await release().catch(() => {});
+		await lease.release().catch(() => {});
 	}
+}
+
+function recordProxyRefreshOutcome(
+	source: string,
+	lookup: AccountLookup | undefined,
+	outcome: ProxyUpdateOutcome,
+	before: Snapshot | undefined,
+	beforeFetchedAt: number,
+	onUpdate: () => void,
+): ProxyUpdateOutcome {
+	if (outcome === "updated") {
+		state.lastAttemptSource = source;
+		state.lastAttemptLookup = lookup;
+		state.lastAttemptFailed = false;
+		state.lastAttemptAt = state.snapshot?.fetchedAt ?? Date.now();
+		onUpdate();
+	} else if (outcome === "fresh") {
+		state.lastAttemptSource = source;
+		state.lastAttemptLookup = lookup;
+		state.lastAttemptFailed = false;
+		const after = currentSnapshot(source);
+		state.lastAttemptAt = after?.fetchedAt ?? 0;
+		if ((after?.fetchedAt ?? 0) > beforeFetchedAt) onUpdate();
+	} else if (outcome === "contended") {
+		const after = currentSnapshot(source);
+		const hasActiveFailure =
+			state.lastAttemptSource === source &&
+			state.lastAttemptFailed &&
+			(after?.fetchedAt ?? 0) < state.lastAttemptAt;
+		if (!hasActiveFailure) {
+			state.lastAttemptSource = source;
+			state.lastAttemptLookup = lookup;
+			state.lastAttemptFailed = false;
+			state.lastAttemptAt = 0;
+		}
+		if ((after?.fetchedAt ?? 0) > beforeFetchedAt) onUpdate();
+	} else {
+		state.lastAttemptSource = source;
+		state.lastAttemptLookup = lookup;
+		state.lastAttemptFailed = true;
+		state.lastAttemptAt = Date.now();
+		if (before) onUpdate();
+	}
+	return outcome;
 }
 
 export function refreshProxyUsage(
 	onUpdate: () => void,
 	lookup?: AccountLookup,
 ): Promise<void> {
-	const source = sourceKey();
-	if (!source) return Promise.resolve();
-	if (isProxySnapshotFresh(currentSnapshot(source), lookup))
-		return Promise.resolve();
-	if (pending) return pending.then(() => refreshProxyUsage(onUpdate, lookup));
+	const config = proxyConfig();
+	if (!config) return Promise.resolve();
+	const { source } = config;
+	const before = currentSnapshot(source);
+	if (isProxySnapshotFresh(before, lookup)) return Promise.resolve();
+	const beforeFetchedAt = before?.fetchedAt ?? 0;
+	if (state.pending) {
+		const joinedSource = state.pendingSource;
+		const joinedLookup = state.pendingLookup;
+		return state.pending.then((outcome) => {
+			const after = currentSnapshot(source);
+			if (
+				(after?.fetchedAt ?? 0) > beforeFetchedAt ||
+				(joinedSource === source &&
+					outcome === "failed" &&
+					before !== undefined)
+			)
+				onUpdate();
+			if (
+				isProxySnapshotFresh(after, lookup) ||
+				(joinedSource === source &&
+					(lookupCovers(joinedLookup, lookup) ||
+						outcome === "contended" ||
+						outcome === "failed"))
+			) {
+				return;
+			}
+			return refreshProxyUsage(onUpdate, lookup);
+		});
+	}
 	if (
-		lastAttemptSource === source &&
-		(!lookup ||
-			lastAttemptLookup === lookup ||
-			lastAttemptLookup === "native") &&
+		state.lastAttemptSource === source &&
+		(state.lastAttemptFailed ||
+			lookupCovers(state.lastAttemptLookup, lookup)) &&
 		isUsageCacheFresh({
-			lastAttemptAt,
-			state: lastAttemptFailed ? "error" : "ready",
+			lastAttemptAt: state.lastAttemptAt,
+			state: state.lastAttemptFailed
+				? "error"
+				: !before || before.accounts.length === 0
+					? "unknown"
+					: "ready",
 		})
 	)
-		return pending ?? Promise.resolve();
-	if (!pending) {
-		lastAttemptSource = source;
-		lastAttemptAt = Date.now();
-		lastAttemptLookup = lookup;
-		pending = update(source, lookup)
-			.then((changed) => {
-				lastAttemptFailed = !changed;
-				if (changed) onUpdate();
-			})
-			.finally(() => {
-				pending = undefined;
-			});
-	}
-	return pending;
+		return Promise.resolve();
+	const run = update(config, lookup)
+		.then((outcome) =>
+			recordProxyRefreshOutcome(
+				source,
+				lookup,
+				outcome,
+				before,
+				beforeFetchedAt,
+				onUpdate,
+			),
+		)
+		.finally(() => {
+			if (state.pending === run) {
+				state.pending = undefined;
+				state.pendingSource = undefined;
+				state.pendingLookup = undefined;
+			}
+		});
+	state.pending = run;
+	state.pendingSource = source;
+	state.pendingLookup = lookup;
+	return run.then(() => {});
 }
 
 function usableScope(
@@ -832,22 +1106,35 @@ export function cachedProxyPercentUsed(): number | undefined {
 	return max;
 }
 
-export function proxyUsageAccounts(): ProxyUsageAccount[] {
-	const source = sourceKey();
-	if (!source) return [];
-	const data = currentSnapshot(source);
-	const freshness = usageSnapshotFreshness(
+function proxySnapshotFreshness(
+	source: string,
+	data: Snapshot | undefined,
+): "fresh" | "stale" | "expired" {
+	return usageSnapshotFreshness(
 		data && {
 			fetchedAt: data.fetchedAt,
-			lastAttemptAt,
+			lastAttemptAt: state.lastAttemptAt,
 			state:
-				lastAttemptSource === source &&
-				lastAttemptFailed &&
-				lastAttemptAt > data.fetchedAt
+				state.lastAttemptSource === source &&
+				state.lastAttemptFailed &&
+				state.lastAttemptAt > data.fetchedAt
 					? "error"
 					: "ready",
 		},
 	);
+}
+
+export function isProxySnapshotStale(): boolean {
+	const source = sourceKey();
+	if (!source) return true;
+	return proxySnapshotFreshness(source, currentSnapshot(source)) !== "fresh";
+}
+
+function proxyUsageAccountsFromSnapshot(
+	source: string,
+	data: Snapshot | undefined,
+): ProxyUsageAccount[] {
+	const freshness = proxySnapshotFreshness(source, data);
 	if (freshness === "expired" || !data || !Array.isArray(data.accounts))
 		return [];
 	return data.accounts.flatMap((account) => {
@@ -918,7 +1205,13 @@ export function proxyUsageAccounts(): ProxyUsageAccount[] {
 	});
 }
 
-/** A registration association must be fresh; ordinary proxy quotas retain their own staleness policy. */
+export function proxyUsageAccounts(): ProxyUsageAccount[] {
+	const source = sourceKey();
+	if (!source) return [];
+	return proxyUsageAccountsFromSnapshot(source, currentSnapshot(source));
+}
+
+/** Keep account associations alive across grace and stale windows until snapshot expiry or replacement. */
 function associatedProxyAccount(
 	key: string,
 	field: "openaiRegistrations" | "codexAccounts",
@@ -926,8 +1219,8 @@ function associatedProxyAccount(
 	const source = sourceKey();
 	if (!source) return undefined;
 	const data = currentSnapshot(source);
-	if (!isProxySnapshotFresh(data)) return undefined;
-	const matches = data?.[field];
+	if (!data) return undefined;
+	const matches = data[field];
 	if (
 		!matches ||
 		typeof matches !== "object" ||
@@ -935,7 +1228,9 @@ function associatedProxyAccount(
 		!Object.hasOwn(matches, key)
 	)
 		return undefined;
-	return proxyUsageAccounts().find((account) => account.key === matches[key]);
+	return proxyUsageAccountsFromSnapshot(source, data).find(
+		(account) => account.key === matches[key],
+	);
 }
 
 export function proxyUsageForRegistration(
@@ -972,10 +1267,5 @@ export function proxyUsageBadges(
 }
 
 export function resetProxyUsageForTests(): void {
-	snapshot = undefined;
-	pending = undefined;
-	lastAttemptAt = 0;
-	lastAttemptSource = undefined;
-	lastAttemptFailed = false;
-	lastAttemptLookup = undefined;
+	state = createProxyState();
 }
