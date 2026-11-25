@@ -15,7 +15,7 @@ permissions before changing the service. Authenticate a fresh node with
 
 ## Updates and cleanup
 
-Run `mise run upgrade` locally. It runs native `mise bootstrap --upgrade`, then
+Run `mise run upgrade` locally. It runs native `mise bootstrap --upgrade --yes`, then
 offers to refresh the running daemon only if the source binary differs from the
 protected copy. It does not start a deliberately stopped service or restart
 Tailscale over SSH. Use `mise run tailscale:deploy` if you need to retry or start

@@ -309,7 +309,7 @@ mise --env personal-macos run upgrade
 mise --env work-macos run upgrade
 ```
 
-This runs `mise bootstrap --upgrade`, offers to refresh the managed Tailscale
+This runs `mise bootstrap --upgrade --yes`, offers to refresh the managed Tailscale
 daemon if its source binary changed, and runs `brew update` when Homebrew is
 installed so cleanup sees current tap metadata. Plain `mise bootstrap --upgrade`
 does not refresh the daemon or Homebrew's local taps. `mise run cleanup` also

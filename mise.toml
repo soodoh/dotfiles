@@ -339,7 +339,7 @@ case "$(uname -s):${MISE_ENV:-}" in
   Darwin:personal-macos|Darwin:work-macos) ;;
   *) printf 'error: choose a macOS profile with --env\n' >&2; exit 64 ;;
 esac
-mise --env "$MISE_ENV" bootstrap --upgrade
+mise --env "$MISE_ENV" bootstrap --upgrade --yes
 python3 dotfiles/common/mise/tailscale_macos.py --refresh
 # Native brew cleanup uses Homebrew's local taps, not mise's package metadata.
 if command -v brew >/dev/null 2>&1; then
