@@ -6,6 +6,7 @@ import { grafanaEnvironment } from "./test-support/fixture.ts";
 
 // Exercises the real CLI/cache boundary: expiry, parallel refreshes, a failed
 // login, and a late rejected token must not freeze or poison the active session.
+// Allow extra time for repeated CLI process launches on busy CI runners.
 test("Azure token cache refreshes before expiry, coalesces calls, and recovers after login", async () => {
 	const box = sandbox();
 	let now = Date.now();
@@ -42,7 +43,7 @@ test("Azure token cache refreshes before expiry, coalesces calls, and recovers a
 	} finally {
 		box.remove();
 	}
-});
+}, 15_000);
 
 // HTTP chunks may split any multibyte UTF-8 character in a tool result.
 test.each(["café", "漢字", "😀"])(

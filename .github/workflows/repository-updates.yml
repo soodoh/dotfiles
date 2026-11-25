@@ -42,6 +42,9 @@ jobs:
           install_args: "aqua:neovim/neovim aqua:rhysd/actionlint bun"
           cache: true
 
+      - name: Install locked Python for gcloud upgrades
+        run: mise install --locked python
+
       - name: Update Renovate-unsupported mise tools
         run: python3 mise.lock.py update-unsupported
 
