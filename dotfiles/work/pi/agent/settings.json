@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.6.0",
+  "lastChangelogVersion": "1.6.1",
   "defaultProvider": "google-vertex",
   "defaultModel": "gemini-4-neon",
   "defaultThinkingLevel": "high",
