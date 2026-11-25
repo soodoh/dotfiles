@@ -1,8 +1,8 @@
 [tools]
-"aqua:aws/aws-cli" = "2.41.2"
+"aqua:aws/aws-cli" = "2.42.4"
 "npm:@oliverames/mcp-server-for-ynab" = "6.2.1"
 "pipx:ansible-core" = "2.22.0"
-"pipx:ansible-lint" = "26.11.0"
+"pipx:ansible-lint" = "26.11.1"
 
 [bootstrap.packages]
 "brew-cask:discord" = { version = "latest", os = "macos" }
