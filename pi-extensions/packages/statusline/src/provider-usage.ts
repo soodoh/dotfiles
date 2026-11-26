@@ -5,15 +5,11 @@ import { join } from "node:path";
 import {
 	createProxyUsageStore,
 	type DirectProxyFallback,
+	type ProxyRequestFn,
 	type ProxySnapshotView,
 	type ProxyUsageAccount,
 	type ProxyUsageStore,
 } from "./cliproxy-usage";
-import {
-	type CopilotUsageDetails,
-	parseCachedCopilotUsage,
-	parseCopilotUsage,
-} from "./copilot-usage";
 import {
 	isUsageCacheFresh,
 	runLeasedRefresh,
@@ -31,6 +27,31 @@ import {
 	parseUtilization,
 } from "./usage-quota";
 import { retryUsageRequest } from "./usage-retry";
+
+/** Sanitized account data only: never retain identity, organizations, SKU or tokens. */
+export type CopilotQuota = {
+	unit: "credits" | "requests" | "unknown";
+	unlimited?: boolean;
+	percentUsed?: number;
+	allowance?: number;
+	remaining?: number;
+	used?: number;
+	creditsUsed?: number;
+	overagePermitted?: boolean;
+	overageUsed?: number;
+	resetAt?: number;
+};
+
+export type CopilotUsageDetails = {
+	plan?: string;
+	premium?: CopilotQuota;
+};
+
+export type ProviderUsageStoreOptions = {
+	fetch?: typeof globalThis.fetch;
+	requestProxy?: ProxyRequestFn;
+	env?: NodeJS.ProcessEnv;
+};
 
 export type ModelLike = {
 	name?: string;
@@ -158,6 +179,8 @@ type AvailableModelsCacheEntry = {
 
 type ProviderUsageStoreState = {
 	proxyStore: ProxyUsageStore;
+	fetchFn?: typeof globalThis.fetch;
+	env?: NodeJS.ProcessEnv;
 	cache: Map<string, ProviderUsageCacheEntry>;
 	refreshes: Map<string, Promise<void>>;
 	resolvedCacheKeys: Map<string, string>;
@@ -169,10 +192,15 @@ type ProviderUsageStoreState = {
 };
 
 function createStoreState(
-	proxyStore: ProxyUsageStore,
+	options?: ProviderUsageStoreOptions,
 ): ProviderUsageStoreState {
 	return {
-		proxyStore,
+		proxyStore: createProxyUsageStore({
+			requestProxy: options?.requestProxy,
+			env: options?.env,
+		}),
+		fetchFn: options?.fetch,
+		env: options?.env,
 		cache: new Map(),
 		refreshes: new Map(),
 		resolvedCacheKeys: new Map(),
@@ -184,15 +212,191 @@ function createStoreState(
 	};
 }
 
-function sharedCachePath(): string {
+function sharedCachePath(env?: NodeJS.ProcessEnv): string {
+	const source = env ?? process.env;
 	return (
-		process.env.PI_PROVIDER_USAGE_CACHE_PATH ??
+		source.PI_PROVIDER_USAGE_CACHE_PATH ??
 		join(
-			process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"),
+			source.XDG_CACHE_HOME ?? join(homedir(), ".cache"),
 			"pi",
 			"provider-usage.json",
 		)
 	);
+}
+
+function copilotNonNegativeNumber(value: unknown): number | undefined {
+	const parsed = numericField(value);
+	return parsed !== undefined && parsed >= 0 ? parsed : undefined;
+}
+
+function copilotBoolean(value: unknown): boolean | undefined {
+	return typeof value === "boolean" ? value : undefined;
+}
+
+function copilotPercent(value: unknown): number | undefined {
+	const parsed = copilotNonNegativeNumber(value);
+	return parsed !== undefined && parsed <= 100 ? parsed : undefined;
+}
+
+function copilotDate(value: unknown): number | undefined {
+	if (typeof value !== "string") return undefined;
+	// Date-only resets mean midnight UTC; never interpret a zone-less time locally.
+	if (!/^\d{4}-\d{2}-\d{2}(?:T.*(?:Z|[+-]\d{2}:\d{2}))?$/.test(value))
+		return undefined;
+	const parsed = Date.parse(value);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function copilotPlan(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const plans: Record<string, string> = {
+		free: "Free",
+		individual: "Pro",
+		pro: "Pro",
+		individual_pro: "Pro+",
+		pro_plus: "Pro+",
+		"pro+": "Pro+",
+		business: "Business",
+		enterprise: "Enterprise",
+		student: "Student",
+		max: "Max",
+	};
+	const key = value.toLowerCase();
+	return Object.hasOwn(plans, key) ? plans[key] : undefined;
+}
+
+/** Parse the existing read-only copilot_internal/user response, in either casing. */
+function parseCopilotUsage(value: unknown): CopilotUsageDetails | undefined {
+	if (!isRecord(value)) return undefined;
+	const snapshots = isRecord(value.quota_snapshots ?? value.quotaSnapshots)
+		? ((value.quota_snapshots ?? value.quotaSnapshots) as Record<
+				string,
+				unknown
+			>)
+		: undefined;
+	const rawCandidate =
+		snapshots?.premium_interactions ?? snapshots?.premiumInteractions;
+	const raw = isRecord(rawCandidate) ? rawCandidate : undefined;
+	const details: CopilotUsageDetails = {
+		plan: copilotPlan(value.copilot_plan ?? value.copilotPlan),
+	};
+	if (raw) {
+		const billing =
+			copilotBoolean(raw.token_based_billing ?? raw.tokenBasedBilling) ??
+			copilotBoolean(value.token_based_billing ?? value.tokenBasedBilling);
+		const unlimited =
+			copilotBoolean(raw.unlimited) ??
+			(Number(raw.entitlement) === -1 ? true : undefined);
+		const allowance = unlimited
+			? undefined
+			: copilotNonNegativeNumber(raw.entitlement);
+		// quota_remaining has the entitlement's basis and more precision than remaining.
+		// credits_used is an aggregate with no denominator (microsoft/vscode#319589).
+		const remaining = unlimited
+			? undefined
+			: copilotNonNegativeNumber(
+					raw.quota_remaining ?? raw.quotaRemaining ?? raw.remaining,
+				);
+		const reportedUsed = copilotPercent(
+			raw.percent_used ?? raw.used_percent ?? raw.usedPercentage,
+		);
+		const reportedRemaining = copilotPercent(
+			raw.percent_remaining ?? raw.remaining_percent ?? raw.remainingPercentage,
+		);
+		const percentUsed = unlimited
+			? undefined
+			: (reportedUsed ??
+				(reportedRemaining !== undefined
+					? 100 - reportedRemaining
+					: undefined));
+		const seconds = copilotNonNegativeNumber(
+			raw.quota_reset_at ?? raw.quotaResetAt,
+		);
+		const resetAt =
+			seconds && Number.isFinite(seconds * 1000)
+				? seconds * 1000
+				: (copilotDate(value.quota_reset_date_utc ?? value.quotaResetDateUtc) ??
+					copilotDate(value.quota_reset_date ?? value.quotaResetDate));
+		details.premium = {
+			unit:
+				billing === true
+					? "credits"
+					: billing === false
+						? "requests"
+						: "unknown",
+			unlimited,
+			allowance,
+			remaining,
+			used:
+				allowance !== undefined &&
+				remaining !== undefined &&
+				remaining <= allowance
+					? allowance - remaining
+					: undefined,
+			percentUsed,
+			creditsUsed: copilotNonNegativeNumber(
+				raw.credits_used ?? raw.creditsUsed,
+			),
+			overagePermitted: copilotBoolean(
+				raw.overage_permitted ?? raw.overagePermitted,
+			),
+			overageUsed: copilotNonNegativeNumber(
+				raw.overage_count ?? raw.overageCount,
+			),
+			resetAt,
+		};
+	}
+	if (
+		details.premium &&
+		details.premium.unit === "unknown" &&
+		Object.entries(details.premium).every(
+			([key, item]) => key === "unit" || item === undefined,
+		)
+	) {
+		delete details.premium;
+	}
+	return details.plan || details.premium ? details : undefined;
+}
+
+/** Validate the normalized cache independently from the provider's response shape. */
+function parseCachedCopilotUsage(
+	value: unknown,
+): CopilotUsageDetails | undefined {
+	if (!isRecord(value)) return undefined;
+	const details: CopilotUsageDetails = {
+		plan:
+			typeof value.plan === "string" &&
+			[
+				"Free",
+				"Pro",
+				"Pro+",
+				"Business",
+				"Enterprise",
+				"Student",
+				"Max",
+			].includes(value.plan)
+				? value.plan
+				: undefined,
+	};
+	const raw = nestedRecord(value, "premium");
+	if (raw) {
+		details.premium = {
+			unit:
+				raw.unit === "credits" || raw.unit === "requests"
+					? raw.unit
+					: "unknown",
+			unlimited: copilotBoolean(raw.unlimited),
+			percentUsed: copilotPercent(raw.percentUsed),
+			allowance: copilotNonNegativeNumber(raw.allowance),
+			remaining: copilotNonNegativeNumber(raw.remaining),
+			used: copilotNonNegativeNumber(raw.used),
+			creditsUsed: copilotNonNegativeNumber(raw.creditsUsed),
+			overagePermitted: copilotBoolean(raw.overagePermitted),
+			overageUsed: copilotNonNegativeNumber(raw.overageUsed),
+			resetAt: copilotNonNegativeNumber(raw.resetAt),
+		};
+	}
+	return details.plan || details.premium ? details : undefined;
 }
 
 function isProviderUsageAuthKind(
@@ -275,10 +479,14 @@ function parseCacheEntry(value: unknown): ProviderUsageCacheEntry | undefined {
 	};
 }
 
-function readSharedCache(): Map<string, ProviderUsageCacheEntry> {
+function readSharedCache(
+	env?: NodeJS.ProcessEnv,
+): Map<string, ProviderUsageCacheEntry> {
 	const entries = new Map<string, ProviderUsageCacheEntry>();
 	try {
-		const parsed: unknown = JSON.parse(readFileSync(sharedCachePath(), "utf8"));
+		const parsed: unknown = JSON.parse(
+			readFileSync(sharedCachePath(env), "utf8"),
+		);
 		if (!isRecord(parsed) || !isRecord(parsed.entries)) return entries;
 		for (const [key, value] of Object.entries(parsed.entries)) {
 			const entry = parseCacheEntry(value);
@@ -297,7 +505,7 @@ function readSharedCache(): Map<string, ProviderUsageCacheEntry> {
 }
 
 function hydrateSharedCache(state: ProviderUsageStoreState): void {
-	const path = sharedCachePath();
+	const path = sharedCachePath(state.env);
 	if (state.cachePath !== path) {
 		state.cache.clear();
 		state.resolvedCacheKeys.clear();
@@ -305,7 +513,7 @@ function hydrateSharedCache(state: ProviderUsageStoreState): void {
 		state.resolutionIds.clear();
 		state.cachePath = path;
 	}
-	for (const [key, diskEntry] of readSharedCache()) {
+	for (const [key, diskEntry] of readSharedCache(state.env)) {
 		const memoryEntry = state.cache.get(key);
 		if ((diskEntry.lastAttemptAt ?? 0) > (memoryEntry?.lastAttemptAt ?? 0)) {
 			state.cache.set(key, diskEntry);
@@ -317,9 +525,9 @@ async function persistSharedCache(
 	state: ProviderUsageStoreState,
 ): Promise<void> {
 	await updateLeasedJsonFile(
-		sharedCachePath(),
+		sharedCachePath(state.env),
 		() => {
-			const merged = readSharedCache();
+			const merged = readSharedCache(state.env);
 			for (const [key, memoryEntry] of state.cache) {
 				const diskEntry = merged.get(key);
 				if (
@@ -354,8 +562,11 @@ function credentialFingerprint(value: string): string {
 	return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
-function providerRefreshLeasePath(cacheKey: string): string {
-	return `${sharedCachePath()}.refresh-${credentialFingerprint(cacheKey)}`;
+function providerRefreshLeasePath(
+	cacheKey: string,
+	env?: NodeJS.ProcessEnv,
+): string {
+	return `${sharedCachePath(env)}.refresh-${credentialFingerprint(cacheKey)}`;
 }
 
 function normalizeProviderId(providerId: string): string {
@@ -912,12 +1123,13 @@ function retryAfterMs(response: Response): number | undefined {
 }
 
 async function fetchProviderUsageResponse(
+	fetchFn: typeof globalThis.fetch,
 	url: string,
 	init: RequestInit,
 ): Promise<Response> {
 	return retryUsageRequest(
 		() =>
-			fetch(url, {
+			fetchFn(url, {
 				...init,
 				signal: AbortSignal.timeout(PROVIDER_USAGE_FETCH_TIMEOUT_MS),
 			}),
@@ -933,18 +1145,20 @@ async function fetchProviderUsageResponse(
 }
 
 async function fetchJson(
+	fetchFn: typeof globalThis.fetch,
 	url: string,
 	init: RequestInit,
 ): Promise<unknown | undefined> {
-	const response = await fetchProviderUsageResponse(url, init);
+	const response = await fetchProviderUsageResponse(fetchFn, url, init);
 	if (!response.ok) return undefined;
 	return response.json();
 }
 
 async function fetchOpenRouterKeyStatus(
+	fetchFn: typeof globalThis.fetch,
 	token: string,
 ): Promise<ProviderUsageScope | undefined> {
-	const body = await fetchJson("https://openrouter.ai/api/v1/key", {
+	const body = await fetchJson(fetchFn, "https://openrouter.ai/api/v1/key", {
 		headers: { Authorization: `Bearer ${token}` },
 	});
 	if (!isRecord(body) || !isRecord(body.data)) return undefined;
@@ -977,11 +1191,16 @@ function parseOpenRouterCreditsBody(
 }
 
 async function fetchOpenRouterCredits(
+	fetchFn: typeof globalThis.fetch,
 	token: string,
 ): Promise<ProviderUsageScope | undefined> {
-	const body = await fetchJson("https://openrouter.ai/api/v1/credits", {
-		headers: { Authorization: `Bearer ${token}` },
-	});
+	const body = await fetchJson(
+		fetchFn,
+		"https://openrouter.ai/api/v1/credits",
+		{
+			headers: { Authorization: `Bearer ${token}` },
+		},
+	);
 	return parseOpenRouterCreditsBody(body);
 }
 
@@ -1001,10 +1220,12 @@ function parseLlmHubSpend(body: unknown): ProviderUsageScope | undefined {
 }
 
 async function fetchLlmHubSpend(
+	fetchFn: typeof globalThis.fetch,
 	baseUrl: string,
 	token: string,
 ): Promise<ProviderUsageScope | undefined> {
 	const response = await fetchProviderUsageResponse(
+		fetchFn,
 		`${normalizeBaseUrl(baseUrl)}/key/info`,
 		{ headers: { Authorization: `Bearer ${token}` } },
 	);
@@ -1033,16 +1254,21 @@ function extractOpenAiAccountId(token: string): string | undefined {
 }
 
 async function fetchAnthropicOAuthUsage(
+	fetchFn: typeof globalThis.fetch,
 	token: string,
 ): Promise<ProviderUsageScope | undefined> {
-	const body = await fetchJson("https://api.anthropic.com/api/oauth/usage", {
-		headers: {
-			Authorization: `Bearer ${token}`,
-			"anthropic-beta": "oauth-2025-04-20",
-			"anthropic-version": "2023-06-01",
-			"User-Agent": "pi-statusline",
+	const body = await fetchJson(
+		fetchFn,
+		"https://api.anthropic.com/api/oauth/usage",
+		{
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"anthropic-beta": "oauth-2025-04-20",
+				"anthropic-version": "2023-06-01",
+				"User-Agent": "pi-statusline",
+			},
 		},
-	});
+	);
 	if (!isRecord(body)) return undefined;
 
 	const fiveHour = nestedRecord(body, "five_hour");
@@ -1086,6 +1312,7 @@ function parseOpenAiResetCreditsBody(
 }
 
 async function fetchOpenAiCodexUsage(
+	fetchFn: typeof globalThis.fetch,
 	token: string,
 ): Promise<ProviderUsageScope | undefined> {
 	const accountId = extractOpenAiAccountId(token);
@@ -1097,16 +1324,20 @@ async function fetchOpenAiCodexUsage(
 	if (accountId) headers["chatgpt-account-id"] = accountId;
 
 	const [usageBody, resetCreditsBody] = await Promise.all([
-		fetchJson("https://chatgpt.com/backend-api/wham/usage", {
+		fetchJson(fetchFn, "https://chatgpt.com/backend-api/wham/usage", {
 			headers,
 		}).catch(() => undefined),
-		fetchJson("https://chatgpt.com/backend-api/wham/rate-limit-reset-credits", {
-			headers: {
-				...headers,
-				"OpenAI-Beta": "codex-1",
-				originator: "Codex Desktop",
+		fetchJson(
+			fetchFn,
+			"https://chatgpt.com/backend-api/wham/rate-limit-reset-credits",
+			{
+				headers: {
+					...headers,
+					"OpenAI-Beta": "codex-1",
+					originator: "Codex Desktop",
+				},
 			},
-		}).catch(() => undefined),
+		).catch(() => undefined),
 	]);
 	const usageScope = parseOpenAiUsageBody(usageBody);
 	const resetCreditsScope = parseOpenAiResetCreditsBody(resetCreditsBody);
@@ -1116,9 +1347,11 @@ async function fetchOpenAiCodexUsage(
 }
 
 async function fetchGitHubCopilotUsage(
+	fetchFn: typeof globalThis.fetch,
 	token: string,
 ): Promise<CopilotUsageDetails | undefined> {
 	const response = await fetchProviderUsageResponse(
+		fetchFn,
 		"https://api.github.com/copilot_internal/user",
 		{
 			headers: {
@@ -1136,6 +1369,7 @@ async function fetchGitHubCopilotUsage(
 }
 
 async function fetchProviderUsage(
+	fetchFn: typeof globalThis.fetch,
 	target: ProviderUsageTarget,
 	access: ResolvedProviderUsageAccess,
 ): Promise<ProviderUsageStatus> {
@@ -1152,7 +1386,7 @@ async function fetchProviderUsage(
 		let scope: ProviderUsageScope | undefined;
 		if (target.providerId === "github-copilot") {
 			const copilot = access.token
-				? await fetchGitHubCopilotUsage(access.token)
+				? await fetchGitHubCopilotUsage(fetchFn, access.token)
 				: undefined;
 			const percentUsed = copilot?.premium?.percentUsed;
 			// Reset/count details are popup-only; keep Pi's compact badge unchanged.
@@ -1169,9 +1403,9 @@ async function fetchProviderUsage(
 			const token = access.token;
 
 			if (target.providerId === "anthropic") {
-				scope = await fetchAnthropicOAuthUsage(token);
+				scope = await fetchAnthropicOAuthUsage(fetchFn, token);
 			} else if (target.providerId === "openai-codex") {
-				scope = await fetchOpenAiCodexUsage(token);
+				scope = await fetchOpenAiCodexUsage(fetchFn, token);
 			} else {
 				return makeStatus({ state: "unsupported" });
 			}
@@ -1190,7 +1424,7 @@ async function fetchProviderUsage(
 			return makeStatus({ state: "unknown" });
 		}
 
-		const scope = await fetchLlmHubSpend(access.baseUrl, access.token);
+		const scope = await fetchLlmHubSpend(fetchFn, access.baseUrl, access.token);
 		return scope
 			? makeStatus({ state: "ready", scope })
 			: makeStatus({ state: "unknown" });
@@ -1200,8 +1434,12 @@ async function fetchProviderUsage(
 		if (!access.token) return makeStatus({ state: "unknown" });
 
 		const scope =
-			(await fetchOpenRouterKeyStatus(access.token).catch(() => undefined)) ??
-			(await fetchOpenRouterCredits(access.token).catch(() => undefined));
+			(await fetchOpenRouterKeyStatus(fetchFn, access.token).catch(
+				() => undefined,
+			)) ??
+			(await fetchOpenRouterCredits(fetchFn, access.token).catch(
+				() => undefined,
+			));
 		return scope
 			? makeStatus({ state: "ready", scope })
 			: makeStatus({ state: "unknown" });
@@ -1245,7 +1483,7 @@ async function refreshProviderUsageTarget(
 ): Promise<boolean> {
 	const beforeAttemptAt = state.cache.get(access.cacheKey)?.lastAttemptAt ?? 0;
 	const outcome = await runLeasedRefresh(
-		providerRefreshLeasePath(access.cacheKey),
+		providerRefreshLeasePath(access.cacheKey, state.env),
 		async (lease) => {
 			// Another process may have refreshed while this process acquired the lease.
 			const advanced = hydrateEntryIfAdvanced(
@@ -1259,7 +1497,11 @@ async function refreshProviderUsageTarget(
 			const previousEntry = hydratedEntry;
 			let entry: ProviderUsageCacheEntry;
 			try {
-				const status = await fetchProviderUsage(target, access);
+				const status = await fetchProviderUsage(
+					state.fetchFn ?? globalThis.fetch,
+					target,
+					access,
+				);
 				const completedAt = status.fetchedAt ?? Date.now();
 				entry = {
 					...status,
@@ -1440,7 +1682,7 @@ async function queueProviderUsageRefresh(
 		return;
 	}
 
-	const refreshKey = `${sharedCachePath()}\0${access.cacheKey}`;
+	const refreshKey = `${sharedCachePath(state.env)}\0${access.cacheKey}`;
 	const existing = state.refreshes.get(refreshKey);
 	if (existing) {
 		const beforeAttemptAt =
@@ -1830,12 +2072,10 @@ export type ProviderUsageStore = {
 	invalidateDiscovery(): void;
 };
 
-export function createProviderUsageStore(options?: {
-	proxyStore?: ProxyUsageStore;
-}): ProviderUsageStore {
-	const state = createStoreState(
-		options?.proxyStore ?? createProxyUsageStore(),
-	);
+export function createProviderUsageStore(
+	options?: ProviderUsageStoreOptions,
+): ProviderUsageStore {
+	const state = createStoreState(options);
 	return {
 		discoverTargetsAsync(ctx) {
 			return discoverProviderUsageTargetsAsyncInStore(state, ctx);

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import lockfile from "proper-lockfile";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -12,7 +13,6 @@ import {
 	type ProviderUsageStore,
 	type ProviderUsageTarget,
 } from "./provider-usage";
-import * as usageCache from "./usage-cache";
 import { formatProviderScope, parseOpenAiUsageBody } from "./usage-quota";
 
 let store: ProviderUsageStore = createProviderUsageStore();
@@ -1720,14 +1720,12 @@ describe("provider usage", () => {
 		resetStore(false);
 		writeFileSync(cachePath, JSON.stringify(seeded));
 
-		const refreshSpy = vi.spyOn(usageCache, "runLeasedRefresh");
+		const lockSpy = vi.spyOn(lockfile, "lock");
 
 		// Non-contention lock error must not misreport contention timeout.
-		refreshSpy.mockResolvedValueOnce({
-			status: "error",
-			phase: "acquire",
-			error: Object.assign(new Error("permission denied"), { code: "EACCES" }),
-		});
+		lockSpy.mockRejectedValueOnce(
+			Object.assign(new Error("permission denied"), { code: "EACCES" }),
+		);
 		await refreshAndWait(ctx, targets);
 		expect(errors).toEqual([
 			"Provider usage (anthropic): failed to acquire refresh lease: permission denied",
@@ -1737,7 +1735,7 @@ describe("provider usage", () => {
 		// intervening render already hydrated memory.
 		errors.length = 0;
 		const freshAt = Date.now();
-		refreshSpy.mockImplementationOnce(async () => {
+		lockSpy.mockImplementationOnce(async (_path, options) => {
 			writeFileSync(
 				cachePath,
 				JSON.stringify({
@@ -1755,12 +1753,12 @@ describe("provider usage", () => {
 			);
 			// Simulate a concurrent render hydrating the peer cache mid-flight.
 			expect(render(targets)).toBe("Anthropic 27%");
-			return {
-				status: "compromised",
-				error: Object.assign(new Error("lock compromised"), {
+			options?.onCompromised?.(
+				Object.assign(new Error("lock compromised"), {
 					code: "ECOMPROMISED",
 				}),
-			};
+			);
+			return async () => {};
 		});
 		const onUpdate = vi.fn();
 		await refreshProviderUsage(ctx, targets, onUpdate);
@@ -1769,6 +1767,314 @@ describe("provider usage", () => {
 		expect(errors).toEqual([
 			"Provider usage (anthropic): refresh lease was compromised: lock compromised",
 		]);
+	});
+
+	test("Copilot usage normalizes entitlement, camelCase requests, reset precedence, unlimited sentinels, invalid fields, and cache validation through ProviderUsageStore", async () => {
+		const target: ProviderUsageTarget = {
+			providerId: "github-copilot",
+			authKind: "oauth",
+			active: true,
+		};
+		const fetchCopilotDetails = async (body: unknown, suffix: string) => {
+			const cachePath = join(sharedTestRoot, `copilot-detail-${suffix}.json`);
+			const isolated = createProviderUsageStore({
+				env: { PI_PROVIDER_USAGE_CACHE_PATH: cachePath },
+				fetch: (async () => Response.json(body)) as typeof globalThis.fetch,
+			});
+			const ctx: ProviderUsageContext = {
+				readStoredCredential: (provider) =>
+					provider === "github-copilot"
+						? { type: "oauth", refresh: `grant-${suffix}`, access: "tok" }
+						: undefined,
+			};
+			await isolated.refresh(ctx, [target], () => {});
+			return {
+				account: isolated.cliSnapshot([target]).copilot,
+				cachePath,
+				ctx,
+			};
+		};
+
+		// Entitlement basis stays separate from aggregate credits and rounded percents.
+		const credits = await fetchCopilotDetails(
+			{
+				copilot_plan: "business",
+				token_based_billing: true,
+				quota_reset_date: "2035-02-01",
+				quota_reset_date_utc: "2035-02-01T00:00:00.000Z",
+				quota_snapshots: {
+					premium_interactions: {
+						entitlement: 1000,
+						quota_remaining: 749.25,
+						remaining: 749,
+						percent_remaining: 75,
+						credits_used: 4000,
+						overage_count: 0,
+						overage_permitted: true,
+						quota_reset_at: 0,
+					},
+				},
+			},
+			"credits",
+		);
+		expect(credits.account?.details).toMatchObject({
+			plan: "Business",
+			premium: {
+				unit: "credits",
+				allowance: 1000,
+				remaining: 749.25,
+				used: 250.75,
+				percentUsed: 25,
+				creditsUsed: 4000,
+				overagePermitted: true,
+				overageUsed: 0,
+				resetAt: Date.parse("2035-02-01T00:00:00Z"),
+			},
+		});
+
+		// Cache round-trip preserves sanitized details across fresh store instances.
+		const rehydrated = createProviderUsageStore({
+			env: { PI_PROVIDER_USAGE_CACHE_PATH: credits.cachePath },
+		});
+		await rehydrated.refresh(credits.ctx, [target], () => {});
+		expect(rehydrated.cliSnapshot([target]).copilot?.details).toEqual(
+			credits.account?.details,
+		);
+
+		// Legacy camelCase requests + plan-only responses.
+		const legacy = await fetchCopilotDetails(
+			{
+				copilotPlan: "individual_pro",
+				tokenBasedBilling: false,
+				quotaResetDate: "2035-03-01",
+				quotaSnapshots: {
+					premiumInteractions: {
+						entitlement: "300",
+						remaining: "0",
+						usedPercentage: 100,
+						overagePermitted: false,
+						overageCount: 2.5,
+					},
+				},
+			},
+			"legacy",
+		);
+		expect(legacy.account?.details).toMatchObject({
+			plan: "Pro+",
+			premium: {
+				unit: "requests",
+				allowance: 300,
+				remaining: 0,
+				used: 300,
+				percentUsed: 100,
+				overagePermitted: false,
+				overageUsed: 2.5,
+				resetAt: Date.parse("2035-03-01T00:00:00Z"),
+			},
+		});
+		expect(
+			(await fetchCopilotDetails({ copilot_plan: "pro" }, "plan-only")).account
+				?.details,
+		).toEqual({ plan: "Pro" });
+
+		// Reset precedence: per-quota seconds -> UTC timestamp -> date-only UTC -> undefined.
+		const seconds = Date.parse("2035-02-02T04:00:00Z") / 1000;
+		expect(
+			(
+				await fetchCopilotDetails(
+					{
+						quota_reset_date: "2035-02-01",
+						quota_reset_date_utc: "2035-02-03T12:00:00Z",
+						quota_snapshots: {
+							premium_interactions: { quota_reset_at: seconds },
+						},
+					},
+					"reset-sec",
+				)
+			).account?.details?.premium?.resetAt,
+		).toBe(seconds * 1000);
+		expect(
+			(
+				await fetchCopilotDetails(
+					{
+						quota_reset_date: "2035-02-01",
+						quota_reset_date_utc: "invalid",
+						quota_snapshots: {
+							premium_interactions: { percent_remaining: 100 },
+						},
+					},
+					"reset-date",
+				)
+			).account?.details?.premium?.resetAt,
+		).toBe(Date.parse("2035-02-01T00:00:00Z"));
+		expect(
+			(
+				await fetchCopilotDetails(
+					{
+						quota_snapshots: {
+							premium_interactions: { percent_remaining: 100 },
+						},
+					},
+					"reset-none",
+				)
+			).account?.details?.premium?.resetAt,
+		).toBeUndefined();
+
+		// Unlimited sentinels never appear as zero usage or allowances.
+		for (const [idx, quota] of [
+			{ unlimited: true, entitlement: 0, remaining: 0 },
+			{ entitlement: -1, remaining: -1 },
+		].entries()) {
+			const premium = (
+				await fetchCopilotDetails(
+					{
+						copilot_plan: "enterprise",
+						token_based_billing: true,
+						quota_snapshots: {
+							premium_interactions: {
+								...quota,
+								percent_remaining: 100,
+								credits_used: 12.5,
+							},
+						},
+					},
+					`unlimited-${idx}`,
+				)
+			).account?.details?.premium;
+			expect(premium).toMatchObject({ unlimited: true, creditsUsed: 12.5 });
+			expect(premium?.percentUsed).toBeUndefined();
+			expect(premium?.allowance).toBeUndefined();
+			expect(premium?.remaining).toBeUndefined();
+			expect(premium?.used).toBeUndefined();
+		}
+
+		// Invalid numeric fields, empty/inconsistent shapes, and malformed cache entries.
+		for (const [idx, bad] of [
+			null,
+			false,
+			"",
+			" ",
+			"invalid",
+			-5,
+			{},
+		].entries()) {
+			const premium = (
+				await fetchCopilotDetails(
+					{
+						copilot_plan: "business",
+						token_based_billing: true,
+						quota_snapshots: {
+							premium_interactions: {
+								entitlement: bad,
+								remaining: bad,
+								percent_remaining: bad,
+								overage_count: bad,
+								credits_used: bad,
+							},
+						},
+					},
+					`bad-${idx}`,
+				)
+			).account?.details?.premium;
+			for (const key of [
+				"allowance",
+				"remaining",
+				"used",
+				"percentUsed",
+				"overageUsed",
+				"creditsUsed",
+			] as const) {
+				expect(premium?.[key]).toBeUndefined();
+			}
+		}
+		expect((await fetchCopilotDetails(null, "null")).account?.state).toBe(
+			"unknown",
+		);
+		expect(
+			(
+				await fetchCopilotDetails(
+					{ quota_snapshots: { premium_interactions: {} } },
+					"empty",
+				)
+			).account?.state,
+		).toBe("unknown");
+		expect(
+			(await fetchCopilotDetails({ copilot_plan: "constructor" }, "proto"))
+				.account?.state,
+		).toBe("unknown");
+		const inconsistent = (
+			await fetchCopilotDetails(
+				{
+					quota_snapshots: {
+						premium_interactions: {
+							entitlement: 100,
+							remaining: 110,
+							percent_remaining: 101,
+							overage_permitted: "false",
+						},
+					},
+				},
+				"inconsistent",
+			)
+		).account?.details?.premium;
+		expect(inconsistent).toMatchObject({
+			unit: "unknown",
+			allowance: 100,
+			remaining: 110,
+		});
+		expect(inconsistent?.used).toBeUndefined();
+		expect(inconsistent?.percentUsed).toBeUndefined();
+		expect(inconsistent?.overagePermitted).toBeUndefined();
+
+		// Malformed cached Copilot details sanitize bad plans/units/numbers.
+		const malformedCache = join(sharedTestRoot, "copilot-malformed.json");
+		const stamp = Date.now();
+		const targetKey = "github-copilot:oauth";
+		const grantHash = createHash("sha256")
+			.update(`${targetKey}\0malformed-grant`)
+			.digest("hex")
+			.slice(0, 16);
+		writeFileSync(
+			malformedCache,
+			JSON.stringify({
+				entries: {
+					[`${targetKey}:${grantHash}`]: {
+						providerId: "github-copilot",
+						authKind: "oauth",
+						state: "ready",
+						fetchedAt: stamp,
+						lastAttemptAt: stamp,
+						copilot: {
+							plan: "private-name",
+							premium: {
+								unit: "bad",
+								used: -1,
+								allowance: "",
+								remaining: null,
+								percentUsed: 150,
+							},
+						},
+					},
+				},
+			}),
+		);
+		const fromMalformed = createProviderUsageStore({
+			env: { PI_PROVIDER_USAGE_CACHE_PATH: malformedCache },
+		});
+		await fromMalformed.refresh(
+			{
+				readStoredCredential: (provider) =>
+					provider === "github-copilot"
+						? { type: "oauth", refresh: "malformed-grant", access: "tok" }
+						: undefined,
+			},
+			[target],
+			() => {},
+		);
+		expect(fromMalformed.cliSnapshot([target]).copilot?.details).toMatchObject({
+			plan: undefined,
+			premium: { unit: "unknown" },
+		});
 	});
 
 	test("cachedProviderPercentUsed reads recorded Copilot and proxy values across expired TTLs while ignoring mismatched credentials and disabled accounts", () => {

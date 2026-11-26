@@ -12,6 +12,7 @@ import {
 import {
 	formatProviderScope,
 	hasQuota,
+	numericField,
 	type ProviderUsageScope,
 	parseOpenAiUsageBody,
 } from "./usage-quota";
@@ -140,7 +141,30 @@ type ProxyTargetLink = {
 	hash: string;
 };
 
+export type ProxyRequest = {
+	url: string;
+	endpoint: string;
+	key: string;
+	path: string;
+	data?: Record<string, unknown>;
+	timeoutSeconds: number;
+};
+
+export type ProxyResponse = {
+	status: number;
+	body: unknown;
+};
+
+export type ProxyRequestFn = (request: ProxyRequest) => Promise<ProxyResponse>;
+
+export type ProxyStoreOptions = {
+	requestProxy?: ProxyRequestFn;
+	env?: NodeJS.ProcessEnv;
+};
+
 type ProxyState = {
+	env?: NodeJS.ProcessEnv;
+	requestProxy: ProxyRequestFn;
 	snapshot?: Snapshot;
 	pending?: Promise<ProxyUpdateOutcome>;
 	pendingSource?: string;
@@ -153,28 +177,36 @@ type ProxyState = {
 	targetLinks: Map<string, ProxyTargetLink>;
 };
 
-function createProxyState(): ProxyState {
+function createProxyState(options?: ProxyStoreOptions): ProxyState {
 	return {
+		env: options?.env,
+		requestProxy: options?.requestProxy ?? requestManagementViaCurl,
 		lastAttemptAt: 0,
 		lastAttemptFailed: false,
 		targetLinks: new Map(),
 	};
 }
 
-function cachePath(): string {
+function resolveEnv(env?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+	return env ?? process.env;
+}
+
+function cachePath(env?: NodeJS.ProcessEnv): string {
+	const source = resolveEnv(env);
 	return (
-		process.env.PI_CLIPROXY_USAGE_CACHE_PATH ??
+		source.PI_CLIPROXY_USAGE_CACHE_PATH ??
 		join(
-			process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"),
+			source.XDG_CACHE_HOME ?? join(homedir(), ".cache"),
 			"pi",
 			"cliproxy-usage.json",
 		)
 	);
 }
 
-function proxyConfig(): ProxyConfig | undefined {
-	const url = process.env.CLIPROXYAPI_BASE_URL;
-	const key = process.env.CLIPROXYAPI_MANAGEMENT_KEY;
+function proxyConfig(env?: NodeJS.ProcessEnv): ProxyConfig | undefined {
+	const source = resolveEnv(env);
+	const url = source.CLIPROXYAPI_BASE_URL;
+	const key = source.CLIPROXYAPI_MANAGEMENT_KEY;
 	if (!url || !key || /[\r\n"\\]/.test(key)) return undefined;
 	try {
 		const parsed = new URL(url);
@@ -203,13 +235,16 @@ function proxyConfig(): ProxyConfig | undefined {
 	}
 }
 
-function sourceKey(): string | undefined {
-	return proxyConfig()?.source;
+function sourceKey(env?: NodeJS.ProcessEnv): string | undefined {
+	return proxyConfig(env)?.source;
 }
 
-function readSnapshot(source: string): Snapshot | undefined {
+function readSnapshot(
+	source: string,
+	env?: NodeJS.ProcessEnv,
+): Snapshot | undefined {
 	try {
-		const value: unknown = JSON.parse(readFileSync(cachePath(), "utf8"));
+		const value: unknown = JSON.parse(readFileSync(cachePath(env), "utf8"));
 		if (
 			typeof value !== "object" ||
 			!value ||
@@ -232,7 +267,7 @@ function currentSnapshot(
 	state: ProxyState,
 	source: string,
 ): Snapshot | undefined {
-	const disk = readSnapshot(source);
+	const disk = readSnapshot(source, state.env);
 	if (
 		disk &&
 		(!state.snapshot ||
@@ -317,14 +352,6 @@ function registrationKeys(body: unknown): string[] | undefined {
 	return [...keys];
 }
 
-function numeric(value: unknown): number | undefined {
-	const number =
-		typeof value === "number" || (typeof value === "string" && value.trim())
-			? Number(value)
-			: NaN;
-	return Number.isFinite(number) ? number : undefined;
-}
-
 function planName(value: unknown): string | undefined {
 	return typeof value === "string" && /^[a-z][a-z0-9_-]{0,31}$/i.test(value)
 		? value
@@ -356,10 +383,10 @@ function codexScope(
 		["Primary", "primary_window"],
 		["Secondary", "secondary_window"],
 	] as const) {
-		const used = numeric(headers[`X-Codex-${name}-Used-Percent`]);
+		const used = numericField(headers[`X-Codex-${name}-Used-Percent`]);
 		if (used === undefined) continue;
-		const resetAt = numeric(headers[`X-Codex-${name}-Reset-At`]);
-		const after = numeric(headers[`X-Codex-${name}-Reset-After-Seconds`]);
+		const resetAt = numericField(headers[`X-Codex-${name}-Reset-At`]);
+		const after = numericField(headers[`X-Codex-${name}-Reset-After-Seconds`]);
 		const resetTimestamp =
 			resetAt !== undefined && resetAt > 0
 				? resetAt * (resetAt < 1e12 ? 1000 : 1)
@@ -373,7 +400,7 @@ function codexScope(
 				"expired"
 		)
 			continue;
-		const minutes = numeric(headers[`X-Codex-${name}-Window-Minutes`]);
+		const minutes = numericField(headers[`X-Codex-${name}-Window-Minutes`]);
 		rateLimit[slot] = {
 			used_percent: used,
 			limit_window_seconds: minutes === undefined ? undefined : minutes * 60,
@@ -447,20 +474,20 @@ function parseAccountEntries(body: unknown, now = Date.now()): AccountEntry[] {
 	);
 }
 
-class ProxyTransportError extends Error {}
+export class ProxyTransportError extends Error {}
 
-function requestManagementOnce(
-	url: string,
-	key: string,
-	path: string,
-	data?: Record<string, unknown>,
-	timeoutSeconds = CLIPROXY_REQUEST_TIMEOUT_SECONDS,
-): Promise<{ status: number; body: unknown }> {
+function resolveManagementEndpoint(url: string, path: string): string {
+	return new URL(
+		path,
+		`${url.replace(/\/+$/, "").replace(/\/(?:v1|backend-api)$/, "")}/`,
+	).toString();
+}
+
+export function requestManagementViaCurl(
+	request: ProxyRequest,
+): Promise<ProxyResponse> {
 	return new Promise((resolve, reject) => {
-		const endpoint = new URL(
-			path,
-			`${url.replace(/\/+$/, "").replace(/\/(?:v1|backend-api)$/, "")}/`,
-		).toString();
+		const { endpoint, key, data, timeoutSeconds } = request;
 		// curl honors the work profile's HTTPS_PROXY, HTTP_PROXY and NO_PROXY. The key
 		// travels on stdin, not argv, and neither stderr nor the raw body is logged.
 		const child = spawn(
@@ -542,6 +569,7 @@ function requestManagementOnce(
 }
 
 async function requestManagement(
+	requestProxy: ProxyRequestFn,
 	url: string,
 	key: string,
 	path: string,
@@ -555,6 +583,7 @@ async function requestManagement(
 	},
 ): Promise<{ status: number; body: unknown }> {
 	const deadlineMs = options?.deadlineMs;
+	const endpoint = resolveManagementEndpoint(url, path);
 	return retryUsageRequest(
 		() => {
 			let timeoutSeconds = CLIPROXY_REQUEST_TIMEOUT_SECONDS;
@@ -571,7 +600,14 @@ async function requestManagement(
 					),
 				);
 			}
-			return requestManagementOnce(url, key, path, data, timeoutSeconds);
+			return requestProxy({
+				url,
+				endpoint,
+				key,
+				path,
+				data,
+				timeoutSeconds,
+			});
 		},
 		{
 			maxAttempts: CLIPROXY_FETCH_MAX_ATTEMPTS,
@@ -589,6 +625,7 @@ async function requestManagement(
 }
 
 async function fetchCodexBody(
+	requestProxy: ProxyRequestFn,
 	url: string,
 	key: string,
 	entry: AccountEntry,
@@ -605,6 +642,7 @@ async function fetchCodexBody(
 		if (entry.accountId) header["chatgpt-account-id"] = entry.accountId;
 		// Share one attempt budget across management and upstream transient failures.
 		const response = await requestManagement(
+			requestProxy,
 			url,
 			key,
 			"v8/management/requests/api-call",
@@ -640,6 +678,7 @@ async function fetchCodexBody(
 }
 
 async function fetchResetCredits(
+	requestProxy: ProxyRequestFn,
 	url: string,
 	key: string,
 	entry: AccountEntry,
@@ -647,6 +686,7 @@ async function fetchResetCredits(
 ): Promise<{ count: number; credits: ResetCredit[] } | undefined> {
 	try {
 		const body = await fetchCodexBody(
+			requestProxy,
 			url,
 			key,
 			entry,
@@ -655,7 +695,9 @@ async function fetchResetCredits(
 		);
 		if (!body || typeof body !== "object") return undefined;
 		const credits = body as Record<string, unknown>;
-		const count = numeric(credits.available_count ?? credits.availableCount);
+		const count = numericField(
+			credits.available_count ?? credits.availableCount,
+		);
 		if (count === undefined) return undefined;
 		const available = Array.isArray(credits.credits)
 			? credits.credits.flatMap((value: unknown) => {
@@ -695,11 +737,13 @@ function parseCreditBalance(body: unknown): CreditBalance | undefined {
 	if (!credits || typeof credits !== "object") return undefined;
 	const record = credits as Record<string, unknown>;
 	if (record.unlimited === true) return "unlimited";
-	if (record.balance != null) return creditBalance(numeric(record.balance));
+	if (record.balance != null)
+		return creditBalance(numericField(record.balance));
 	return record.has_credits === false ? 0 : undefined;
 }
 
 async function fetchProxyAccounts(
+	requestProxy: ProxyRequestFn,
 	url: string,
 	key: string,
 	cached: Snapshot | undefined,
@@ -709,6 +753,7 @@ async function fetchProxyAccounts(
 > {
 	const deadlineMs = performance.now() + PROXY_REFRESH_BUDGET_MS;
 	const response = await requestManagement(
+		requestProxy,
 		url,
 		key,
 		"v8/management/credentials",
@@ -745,6 +790,7 @@ async function fetchProxyAccounts(
 				if (includeRegistrations) {
 					const keys = registrationKeys(
 						await fetchCodexBody(
+							requestProxy,
 							url,
 							key,
 							entry,
@@ -775,6 +821,7 @@ async function fetchProxyAccounts(
 				// /usage is authoritative for every account, even if it has never
 				// served inference and therefore has no management quota headers.
 				const usageBody = await fetchCodexBody(
+					requestProxy,
 					url,
 					key,
 					entry,
@@ -802,7 +849,13 @@ async function fetchProxyAccounts(
 					entry.account.quotaLookupFailed = true;
 				}
 				entry.account.plan ??= previous?.plan;
-				const resets = await fetchResetCredits(url, key, entry, deadlineMs);
+				const resets = await fetchResetCredits(
+					requestProxy,
+					url,
+					key,
+					entry,
+					deadlineMs,
+				);
 				if (resets) {
 					entry.account.scope.availableResets = resets.count;
 					entry.account.resetCredits = resets.credits;
@@ -851,11 +904,12 @@ async function update(
 	lookup?: AccountLookup,
 ): Promise<ProxyUpdateOutcome> {
 	const { source, url, key } = config;
-	const path = cachePath();
+	const path = cachePath(state.env);
 	const outcome = await runLeasedRefresh(`${path}.refresh`, async (lease) => {
 		const cached = currentSnapshot(state, source);
 		if (isProxySnapshotFresh(cached, lookup)) return "fresh" as const;
 		const accounts = await fetchProxyAccounts(
+			state.requestProxy,
 			url,
 			key,
 			cached,
@@ -932,7 +986,7 @@ function refreshProxySnapshotState(
 	onUpdate: () => void,
 	lookup?: AccountLookup,
 ): Promise<void> {
-	const config = proxyConfig();
+	const config = proxyConfig(state.env);
 	if (!config) return Promise.resolve();
 	const { source } = config;
 	const before = currentSnapshot(state, source);
@@ -1038,7 +1092,7 @@ function usableScope(
 			scope[resetKey] = resetAt;
 	}
 	if (scope.percentUsed !== undefined)
-		scope.windowSeconds = numeric(account.scope.windowSeconds);
+		scope.windowSeconds = numericField(account.scope.windowSeconds);
 	const resets = account.scope.availableResets;
 	if (
 		typeof resets === "number" &&
@@ -1059,11 +1113,11 @@ function usableScope(
 }
 
 /** The proxy can choose any enabled Codex account. Keep even expired recorded windows. */
-function cachedProxyPercentUsed(): number | undefined {
-	const source = sourceKey();
+function cachedProxyPercentUsed(env?: NodeJS.ProcessEnv): number | undefined {
+	const source = sourceKey(env);
 	if (!source) return undefined;
 	let max: number | undefined;
-	for (const account of readSnapshot(source)?.accounts ?? []) {
+	for (const account of readSnapshot(source, env)?.accounts ?? []) {
 		if (account?.provider !== "codex" || account.disabled === true) continue;
 		for (const used of [
 			account.scope?.sessionPercentUsed,
@@ -1241,7 +1295,7 @@ function linkedAccountKeyInSnapshot(
 function readProxySnapshotState(
 	state: ProxyState,
 ): ProxySnapshotView | undefined {
-	const source = sourceKey();
+	const source = sourceKey(state.env);
 	if (!source) return undefined;
 	const data = currentSnapshot(state, source);
 	const freshness = proxySnapshotFreshness(state, source, data);
@@ -1286,8 +1340,10 @@ function readProxySnapshotState(
 	};
 }
 
-export function createProxyUsageStore(): ProxyUsageStore {
-	const state = createProxyState();
+export function createProxyUsageStore(
+	options?: ProxyStoreOptions,
+): ProxyUsageStore {
+	const state = createProxyState(options);
 	return {
 		setTargetLink(
 			targetKey: string,
@@ -1344,7 +1400,7 @@ export function createProxyUsageStore(): ProxyUsageStore {
 			return readProxySnapshotState(state);
 		},
 		cachedPercentUsed(): number | undefined {
-			return cachedProxyPercentUsed();
+			return cachedProxyPercentUsed(state.env);
 		},
 	};
 }
