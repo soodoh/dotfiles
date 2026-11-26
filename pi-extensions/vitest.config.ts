@@ -13,7 +13,6 @@ export default defineConfig({
 				"**/node_modules/**",
 				"**/.pi-lens/**",
 				"coverage/**",
-				"packages/auto-session-name/index.ts",
 				"packages/statusline/index.ts",
 			],
 			include: ["packages/**/*.{ts,tsx}"],

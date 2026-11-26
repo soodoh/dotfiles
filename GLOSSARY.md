@@ -15,3 +15,5 @@
 **Workstation cleanup maintenance**: The macOS plan that stops user LaunchAgents, Herdr sessions, and blocking Fish shells holding pruned targets, verifies retained replacements, and refreshes stale ones afterward without mutating system daemons.
 
 **Shared usage cache**: A disposable, cross-process disk snapshot of provider or CLIProxyAPI quota shared by Pi and SketchyBar, coordinated by a file lease and freshness policy so concurrent processes avoid duplicate lookups without storing credentials.
+
+**Proxy target link**: The association between a direct OpenAI or legacy Codex provider target and its matching CLIProxyAPI account, tracked by hashed identity so Pi and external renderers merge quota into one entry without exposing raw credentials.

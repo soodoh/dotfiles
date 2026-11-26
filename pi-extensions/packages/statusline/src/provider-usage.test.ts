@@ -8,7 +8,7 @@ import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
 
 import {
 	cachedProviderPercentUsed,
-	discoverProviderUsageTargets,
+	discoverProviderUsageTargetsAsync,
 	formatProviderUsage,
 	invalidateProviderUsageCache,
 	mappedProviderUsageFamily,
@@ -190,7 +190,7 @@ afterEach(() => {
 describe("provider usage", () => {
 	test.each(["openai", "openai-codex"])(
 		"keeps %s as the usage target when both OAuth logins exist",
-		(providerId) => {
+		async (providerId) => {
 			const ctx: ProviderUsageContext = {
 				model: { provider: providerId },
 				readStoredCredential: (provider) =>
@@ -198,7 +198,7 @@ describe("provider usage", () => {
 						? { type: "oauth", access: `${provider}-token` }
 						: undefined,
 			};
-			expect(discoverProviderUsageTargets(ctx)).toEqual([
+			expect(await discoverProviderUsageTargetsAsync(ctx)).toEqual([
 				{ providerId, authKind: "oauth", active: true },
 			]);
 		},
@@ -221,7 +221,7 @@ describe("provider usage", () => {
 						}
 					: undefined,
 		};
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 		await refreshAndWait(ctx, targets);
 		expect(render(targets)).toBe(`${OPENAI_LOGO} ?`);
 		expect(fetchMock).not.toHaveBeenCalled();
@@ -492,13 +492,8 @@ describe("provider usage", () => {
 				},
 			},
 		};
-		const onUpdate = vi.fn();
-
-		expect(discoverProviderUsageTargets(ctx)).toEqual([]);
-		refreshProviderUsage(ctx, [], onUpdate);
-		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
-
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
+		expect(getAvailable).toHaveBeenCalledOnce();
 		expect(targets).toEqual([
 			{ providerId: "openrouter", authKind: "api_key", active: false },
 		]);
@@ -798,7 +793,7 @@ describe("provider usage", () => {
 					? { type: "oauth", access: "stored-anthropic-token" }
 					: undefined,
 		};
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 
 		expect(targets).toEqual([
 			{ providerId: "anthropic", authKind: "oauth", active: false },
@@ -1189,13 +1184,13 @@ describe("provider usage", () => {
 		const fetchMock = vi.fn();
 		vi.stubGlobal("fetch", fetchMock);
 
-		expect(discoverProviderUsageTargets(ctx)).toEqual([]);
+		expect(await discoverProviderUsageTargetsAsync(ctx)).toEqual([]);
 		await refreshAndWait(ctx, unsupportedTargets);
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(render(unsupportedTargets)).toBe("");
 	});
 
-	test("orders provider targets consistently regardless of active provider", () => {
+	test("orders provider targets consistently regardless of active provider", async () => {
 		const credentials = new Map<string, AuthCredentialLike>([
 			["openrouter", { type: "api_key" }],
 			["anthropic", { type: "oauth", access: "anthropic-token" }],
@@ -1222,7 +1217,9 @@ describe("provider usage", () => {
 		};
 
 		expect(
-			discoverProviderUsageTargets(ctx).map((target) => target.providerId),
+			(await discoverProviderUsageTargetsAsync(ctx)).map(
+				(target) => target.providerId,
+			),
 		).toEqual([
 			"llm-hub",
 			"github-copilot",
@@ -1445,8 +1442,8 @@ describe("provider usage", () => {
 		expect(render(targets)).toContain(" 50%");
 	});
 
-	test("discovers an authenticated static LLM Hub provider from Pi", () => {
-		const targets = discoverProviderUsageTargets(llmHubContext());
+	test("discovers an authenticated static LLM Hub provider from Pi", async () => {
+		const targets = await discoverProviderUsageTargetsAsync(llmHubContext());
 
 		expect(targets).toEqual([
 			{ providerId: "llm-hub", authKind: "api_key", active: false },
@@ -1461,7 +1458,7 @@ describe("provider usage", () => {
 			baseUrl: "https://llmhub.example.com/",
 			token: "pi-resolved-token",
 		});
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 
 		await refreshAndWait(ctx, targets);
 
@@ -1500,7 +1497,7 @@ describe("provider usage", () => {
 		];
 
 		for (const ctx of contexts) {
-			await refreshAndWait(ctx, discoverProviderUsageTargets(ctx));
+			await refreshAndWait(ctx, await discoverProviderUsageTargetsAsync(ctx));
 		}
 
 		expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -1525,24 +1522,26 @@ describe("provider usage", () => {
 			),
 		);
 		const ctx = llmHubContext();
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 
 		await refreshAndWait(ctx, targets);
 
 		expect(render(targets)).toBe("LLMHub $322.29");
 	});
 
-	test("does not discover LLM Hub when the Pi provider is absent", () => {
+	test("does not discover LLM Hub when the Pi provider is absent", async () => {
 		const ctx = llmHubContext({ includeProvider: false });
 		ctx.readStoredCredential = (provider) =>
 			provider === "llm-hub" ? { type: "api_key" } : undefined;
 
-		expect(discoverProviderUsageTargets(ctx)).toEqual([]);
+		expect(await discoverProviderUsageTargetsAsync(ctx)).toEqual([]);
 	});
 
-	test("does not discover LLM Hub without configured Pi authentication", () => {
+	test("does not discover LLM Hub without configured Pi authentication", async () => {
 		expect(
-			discoverProviderUsageTargets(llmHubContext({ authenticated: false })),
+			await discoverProviderUsageTargetsAsync(
+				llmHubContext({ authenticated: false }),
+			),
 		).toEqual([]);
 	});
 
@@ -1571,7 +1570,7 @@ describe("provider usage", () => {
 		).toBeUndefined();
 	});
 
-	test("activates the resolved OpenAI family badge only while rendering", () => {
+	test("activates the resolved OpenAI family badge only while rendering", async () => {
 		const ctx: ProviderUsageContext = {
 			model: { provider: "litellm", id: "chatgpt/gpt-5.6-sol" },
 			modelRegistry: { getAvailable: () => [] },
@@ -1582,7 +1581,7 @@ describe("provider usage", () => {
 				return provider === "openai" ? { type: "api_key" } : undefined;
 			},
 		};
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 		const activeFamily = mappedProviderUsageFamily(ctx.model);
 
 		expect(targets).toEqual([
@@ -1597,7 +1596,7 @@ describe("provider usage", () => {
 		);
 	});
 
-	test("does not fabricate an OpenAI target for mapped LiteLLM models", () => {
+	test("does not fabricate an OpenAI target for mapped LiteLLM models", async () => {
 		const ctx: ProviderUsageContext = {
 			model: { provider: "litellm", id: "openai/gpt-5" },
 			modelRegistry: { getAvailable: () => [] },
@@ -1607,7 +1606,7 @@ describe("provider usage", () => {
 					: undefined;
 			},
 		};
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 		const activeFamily = mappedProviderUsageFamily(ctx.model);
 
 		expect(targets).toEqual([
@@ -1628,7 +1627,7 @@ describe("provider usage", () => {
 					: undefined;
 			},
 		};
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 
 		await refreshAndWait(ctx, targets);
 
@@ -1659,7 +1658,7 @@ describe("provider usage", () => {
 			},
 		};
 
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 		expect(targets).toEqual([]);
 		await refreshProviderUsage(ctx, targets, vi.fn());
 
@@ -1688,7 +1687,7 @@ describe("provider usage", () => {
 					: undefined,
 			reportError: (message) => errors.push(message),
 		};
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 		fetchCalls(() => Response.json({ five_hour: { used_percent: 12 } }));
 		await refreshAndWait(ctx, targets);
 		const seeded = JSON.parse(readFileSync(cachePath, "utf8")) as {

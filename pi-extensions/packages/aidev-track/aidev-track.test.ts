@@ -9,7 +9,7 @@ import type {
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { agentSettledEvent } from "../../test-support/events";
-import { createAidevTrackExtension, runAidevTrack } from "./aidev-track";
+import { createAidevTrackExtension } from "./index";
 
 type SpawnOptions = { cwd: string; stdio: ["pipe", "ignore", "ignore"] };
 type ErrorListener = (error: NodeJS.ErrnoException) => void;
@@ -114,7 +114,13 @@ function lastPayload(call: SpawnCall): Record<string, unknown> {
 	return JSON.parse(raw.trim());
 }
 
-const ctx = {
+type HarnessContext = {
+	cwd: string;
+	signal?: AbortSignal;
+	sessionManager: { getSessionId: () => string };
+};
+
+const ctx: HarnessContext = {
 	cwd: "/repo",
 	sessionManager: { getSessionId: () => "session-xyz" },
 };
@@ -184,8 +190,20 @@ type Handlers = {
 	) => void | Promise<void>;
 };
 
-function createHarness(behavior: SpawnBehavior = "close") {
-	const { spawn, calls } = createFakeSpawn(behavior);
+function createHarness(
+	behaviorOrSpawn:
+		| SpawnBehavior
+		| ((
+				command: string,
+				args: string[],
+				options: SpawnOptions,
+		  ) => FakeChild) = "close",
+	timeoutMs = 1_000,
+) {
+	const fake =
+		typeof behaviorOrSpawn === "string"
+			? createFakeSpawn(behaviorOrSpawn)
+			: { spawn: behaviorOrSpawn, calls: [] as SpawnCall[] };
 	const handlers: Handlers = {};
 
 	function on(
@@ -253,75 +271,20 @@ function createHarness(behavior: SpawnBehavior = "close") {
 		}
 	}
 
-	createAidevTrackExtension({ spawn, timeoutMs: 1_000 })({ on });
+	createAidevTrackExtension({ spawn: fake.spawn, timeoutMs })({ on });
 
-	return { calls, handlers };
+	return { calls: fake.calls, handlers };
 }
 
-describe("runAidevTrack", () => {
-	test.each([7, null])("reports unsuccessful exit %s", async (code) => {
-		const { spawn, calls } = createFakeSpawn("hang");
-		const result = runAidevTrack(
-			{ spawn, timeoutMs: 1000 },
-			"checkpoint",
-			{},
-			"/repo",
-		);
-		calls[0].child.emitClose(code);
-		expect(await result).toBe("error");
+describe("createAidevTrackExtension", () => {
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
-	test("absorbs asynchronous stdin errors and terminates the writer", async () => {
-		const { spawn, calls } = createFakeSpawn("hang");
-		const result = runAidevTrack(
-			{ spawn, timeoutMs: 1000 },
-			"checkpoint",
-			{},
-			"/repo",
-		);
-		calls[0].child.emitStdinError(
-			Object.assign(new Error("pipe closed"), { code: "EPIPE" }),
-		);
-		expect(calls[0].child.killSignal).toBe("SIGKILL");
-		calls[0].child.emitClose(0);
-		expect(await result).toBe("error");
-	});
+	test("spawns aidev-track with expected args, cwd, stdio, and JSON stdin payload", async () => {
+		const { calls, handlers } = createHarness();
+		await handlers.before_agent_start?.(beforeAgentStart("do the thing"), ctx);
 
-	test("cancellation terminates an active hook and skips cancelled launches", async () => {
-		const { spawn, calls } = createFakeSpawn("hang");
-		const controller = new AbortController();
-		const result = runAidevTrack(
-			{ spawn, timeoutMs: 1000 },
-			"checkpoint",
-			{},
-			"/repo",
-			controller.signal,
-		);
-		controller.abort();
-		expect(calls[0].child.killSignal).toBe("SIGKILL");
-		calls[0].child.emitClose(null);
-		expect(await result).toBe("cancelled");
-		expect(
-			await runAidevTrack(
-				{ spawn, timeoutMs: 1000 },
-				"checkpoint",
-				{},
-				"/repo",
-				controller.signal,
-			),
-		).toBe("cancelled");
-		expect(calls).toHaveLength(1);
-	});
-	test("resolves ok, writes JSON payload to stdin, and passes correct args", async () => {
-		const { spawn, calls } = createFakeSpawn("close");
-		const status = await runAidevTrack(
-			{ spawn, timeoutMs: 1_000 },
-			"turn-start",
-			{ session_id: "s1", hook_event_name: "UserPromptSubmit" },
-			"/repo",
-		);
-
-		expect(status).toBe("ok");
 		expect(calls).toHaveLength(1);
 		expect(calls[0].command).toBe("aidev-track");
 		expect(calls[0].args).toEqual([
@@ -334,82 +297,105 @@ describe("runAidevTrack", () => {
 		expect(calls[0].options.stdio).toEqual(["pipe", "ignore", "ignore"]);
 		expect(calls[0].child.stdinEnded).toBe(true);
 		expect(lastPayload(calls[0])).toEqual({
-			session_id: "s1",
+			session_id: "session-xyz",
+			cwd: "/repo",
 			hook_event_name: "UserPromptSubmit",
+			prompt: "do the thing",
 		});
 	});
 
-	test("resolves missing on ENOENT error event", async () => {
-		const { spawn } = createFakeSpawn("error-missing");
-		const status = await runAidevTrack(
-			{ spawn, timeoutMs: 1_000 },
-			"checkpoint",
-			{},
-			"/repo",
+	test.each([7, null])(
+		"absorbs unsuccessful exit %s without disabling later hooks",
+		async (code) => {
+			const { calls, handlers } = createHarness("hang");
+			const first = handlers.tool_result?.(toolResult("edit", "a.ts"), ctx);
+			await vi.waitFor(() => expect(calls).toHaveLength(1));
+			calls[0].child.emitClose(code);
+			await first;
+
+			const second = handlers.tool_result?.(toolResult("edit", "b.ts"), ctx);
+			await vi.waitFor(() => expect(calls).toHaveLength(2));
+			calls[1].child.emitClose(0);
+			await second;
+		},
+	);
+
+	test("absorbs asynchronous stdin errors, kills the child, and keeps later hooks enabled", async () => {
+		const { calls, handlers } = createHarness("hang");
+		const first = handlers.tool_result?.(toolResult("edit", "a.ts"), ctx);
+		await vi.waitFor(() => expect(calls).toHaveLength(1));
+		calls[0].child.emitStdinError(
+			Object.assign(new Error("pipe closed"), { code: "EPIPE" }),
 		);
-		expect(status).toBe("missing");
+		expect(calls[0].child.killSignal).toBe("SIGKILL");
+		calls[0].child.emitClose(0);
+		await first;
+
+		const second = handlers.tool_result?.(toolResult("edit", "b.ts"), ctx);
+		await vi.waitFor(() => expect(calls).toHaveLength(2));
+		calls[1].child.emitClose(0);
+		await second;
 	});
 
-	test("resolves error on non-ENOENT error event", async () => {
-		const { spawn } = createFakeSpawn("error-other");
-		const status = await runAidevTrack(
-			{ spawn, timeoutMs: 1_000 },
-			"checkpoint",
-			{},
-			"/repo",
-		);
-		expect(status).toBe("error");
+	test("turn cancellation kills an active hook and skips pre-aborted launches", async () => {
+		const { calls, handlers } = createHarness("hang");
+		const controller = new AbortController();
+		const turnCtx = { ...ctx, signal: controller.signal };
+		const first = handlers.tool_result?.(toolResult("edit", "a.ts"), turnCtx);
+		await vi.waitFor(() => expect(calls).toHaveLength(1));
+		controller.abort();
+		expect(calls[0].child.killSignal).toBe("SIGKILL");
+		calls[0].child.emitClose(null);
+		await first;
+
+		await handlers.tool_result?.(toolResult("edit", "b.ts"), turnCtx);
+		expect(calls).toHaveLength(1);
 	});
 
-	test("resolves missing when spawn throws ENOENT", async () => {
-		const spawn = () => {
+	test("stops spawning when spawn throws ENOENT synchronously", async () => {
+		let attempts = 0;
+		const { handlers } = createHarness(() => {
+			attempts++;
 			const error: NodeJS.ErrnoException = new Error("nope");
 			error.code = "ENOENT";
 			throw error;
-		};
-		const status = await runAidevTrack(
-			{ spawn, timeoutMs: 1_000 },
-			"turn-end",
-			{},
-			"/repo",
-		);
-		expect(status).toBe("missing");
+		});
+		await handlers.before_agent_start?.(beforeAgentStart("x"), ctx);
+		await handlers.tool_result?.(toolResult("edit", "a.ts"), ctx);
+		expect(attempts).toBe(1);
 	});
 
-	test("resolves error when spawn throws non-ENOENT", async () => {
-		const spawn = () => {
+	test("keeps spawning after non-ENOENT error events or sync throws", async () => {
+		const { calls, handlers } = createHarness("error-other");
+		await handlers.tool_result?.(toolResult("edit", "a.ts"), ctx);
+		await handlers.tool_result?.(toolResult("edit", "b.ts"), ctx);
+		expect(calls).toHaveLength(2);
+
+		let attempts = 0;
+		const syncThrow = createHarness(() => {
+			attempts++;
 			throw new Error("kaboom");
-		};
-		const status = await runAidevTrack(
-			{ spawn, timeoutMs: 1_000 },
-			"turn-end",
-			{},
-			"/repo",
-		);
-		expect(status).toBe("error");
+		});
+		await syncThrow.handlers.tool_result?.(toolResult("edit", "a.ts"), ctx);
+		await syncThrow.handlers.tool_result?.(toolResult("edit", "b.ts"), ctx);
+		expect(attempts).toBe(2);
 	});
 
-	test("resolves timeout and kills the child when nothing fires", async () => {
+	test("kills a hanging child on timeout and unblocks queued hooks", async () => {
 		vi.useFakeTimers();
-		try {
-			const { spawn, calls } = createFakeSpawn("hang");
-			const promise = runAidevTrack(
-				{ spawn, timeoutMs: 500 },
-				"checkpoint",
-				{},
-				"/repo",
-			);
-			await vi.advanceTimersByTimeAsync(750);
-			const status = await promise;
-			expect(status).toBe("timeout");
-			expect(calls[0].child.killed).toBe(true);
-		} finally {
-			vi.useRealTimers();
-		}
-	});
-});
+		const { calls, handlers } = createHarness("hang", 500);
+		const first = handlers.tool_result?.(toolResult("edit", "a.ts"), ctx);
+		await vi.advanceTimersByTimeAsync(750);
+		await first;
+		expect(calls[0].child.killed).toBe(true);
+		expect(calls[0].child.killSignal).toBe("SIGKILL");
 
-describe("createAidevTrackExtension", () => {
+		const second = handlers.tool_result?.(toolResult("edit", "b.ts"), ctx);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(calls).toHaveLength(2);
+		calls[1].child.emitClose(0);
+		await second;
+	});
 	test("extension-triggered runs get a baseline reused across automatic continuations", async () => {
 		const { calls, handlers } = createHarness();
 		await handlers.agent_start?.({ type: "agent_start" }, ctx);
@@ -481,23 +467,6 @@ describe("createAidevTrackExtension", () => {
 		calls[0].child.emitClose(null);
 		await Promise.all([starting, queued, shutdown]);
 		expect(calls).toHaveLength(1);
-	});
-	afterEach(() => {
-		vi.useRealTimers();
-	});
-
-	test("before_agent_start maps to turn-start with prompt", async () => {
-		const { calls, handlers } = createHarness();
-		await handlers.before_agent_start?.(beforeAgentStart("do the thing"), ctx);
-
-		expect(calls).toHaveLength(1);
-		expect(calls[0].args[0]).toBe("turn-start");
-		expect(lastPayload(calls[0])).toEqual({
-			session_id: "session-xyz",
-			cwd: "/repo",
-			hook_event_name: "UserPromptSubmit",
-			prompt: "do the thing",
-		});
 	});
 
 	test("custom-message starts get one attribution baseline without a user prompt", async () => {

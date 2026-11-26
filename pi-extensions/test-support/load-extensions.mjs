@@ -7,7 +7,7 @@ import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { hideDeniedExistenceChecks } from "./exists-sync.mjs";
+import { hideDeniedExistenceChecks } from "./host-runtime.mjs";
 
 const [hostRoot, pathsJSON, asPackage, packageFiltersJSON] =
 	process.argv.slice(2);

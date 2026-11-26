@@ -20,50 +20,47 @@ if (process.argv[2] !== "worker") {
 		pathToFileURL(requireHost.resolve("jiti")).href
 	);
 	const jiti = createJiti(import.meta.url, { fsCache: false });
-	const { createAidevTrackExtension, runAidevTrack } = await jiti.import(
-		fileURLToPath(new URL("./aidev-track.ts", import.meta.url)),
+	const { createAidevTrackExtension } = await jiti.import(
+		fileURLToPath(new URL("./index.ts", import.meta.url)),
 	);
 	// Real streams/processes reproduce the asynchronous EPIPE that a mock write
 	// throwing cannot cover. The fixture never launches the workstation CLI.
-	const subprocess = (code) => (_command, _args, options) =>
-		spawn(process.execPath, ["-e", code], options);
-	assert.equal(
-		await runAidevTrack(
-			{
-				spawn: subprocess(
-					"process.stdin.destroy(); setTimeout(() => process.exit(1), 100)",
-				),
-				timeoutMs: 2000,
+	const runSubprocessCase = async (code, timeoutMs, prompt = "run") => {
+		let exit;
+		const handlers = new Map();
+		createAidevTrackExtension({
+			timeoutMs,
+			spawn: (_command, _args, options) => {
+				const child = spawn(process.execPath, ["-e", code], options);
+				exit = new Promise((resolve) =>
+					child.on("close", (status, signal) => resolve({ status, signal })),
+				);
+				return child;
 			},
-			"turn-start",
-			{ prompt: "x".repeat(1000000) },
-			process.cwd(),
-		),
-		"error",
+		})({ on: (event, handler) => handlers.set(event, handler) });
+		const ctx = {
+			cwd: process.cwd(),
+			sessionManager: { getSessionId: () => "subprocess-case" },
+		};
+		await handlers.get("before_agent_start")(
+			{ type: "before_agent_start", messageType: "user", prompt },
+			ctx,
+		);
+		return await exit;
+	};
+	const epipeExit = await runSubprocessCase(
+		"process.stdin.destroy(); setTimeout(() => process.exit(1), 100)",
+		2000,
+		"x".repeat(1000000),
 	);
-	assert.equal(
-		await runAidevTrack(
-			{ spawn: subprocess("process.exit(7)"), timeoutMs: 2000 },
-			"turn-end",
-			{},
-			process.cwd(),
-		),
-		"error",
+	assert.notEqual(epipeExit.status, 0);
+	const errorExit = await runSubprocessCase("process.exit(7)", 2000);
+	assert.equal(errorExit.status, 7);
+	const timeoutExit = await runSubprocessCase(
+		"process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)",
+		100,
 	);
-	assert.equal(
-		await runAidevTrack(
-			{
-				spawn: subprocess(
-					"process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)",
-				),
-				timeoutMs: 100,
-			},
-			"checkpoint",
-			{},
-			process.cwd(),
-		),
-		"timeout",
-	);
+	assert.equal(timeoutExit.signal, "SIGKILL");
 	const calls = [];
 	let active = 0;
 	const tracking = createAidevTrackExtension({

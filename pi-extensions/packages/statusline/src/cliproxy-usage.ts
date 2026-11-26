@@ -34,7 +34,7 @@ const RETRYABLE_SPAWN_ERROR_CODES = new Set([
 	"ENFILE",
 	"ENOMEM",
 ]);
-export const CODEX_PROXY_LOGO = "\uF120"; // nf-fa-terminal
+const CODEX_PROXY_LOGO = "\uF120"; // nf-fa-terminal
 
 type ResetCredit = {
 	expiresAt?: number;
@@ -97,6 +97,35 @@ type ProxyConfig = {
 	url: string;
 	key: string;
 };
+/** Direct provider identity bound to a proxy account; raw IDs are hashed before storing. */
+export type ProxyTargetIdentity = {
+	kind: "native" | "codex";
+	id: string;
+};
+
+export type DirectProxyFallback = {
+	scope?: ProviderUsageScope;
+	freshness: "fresh" | "stale" | "expired";
+	state: "ready" | "unknown" | "error" | "unsupported";
+	fetchedAt?: number;
+	lastAttemptAt?: number;
+};
+
+export type LinkedProxyBadgeOptions = {
+	compact?: boolean;
+	activeOnly?: boolean;
+	activeProxy?: boolean;
+	directLogo?: string;
+	directTargets?: { targetKey: string; active: boolean }[];
+	directFallbacks?: ReadonlyMap<string, DirectProxyFallback>;
+	renderPart?: (text: string, active: boolean) => string;
+};
+
+type ProxyTargetLink = {
+	kind: "native" | "codex";
+	hash: string;
+};
+
 type ProxyState = {
 	snapshot?: Snapshot;
 	pending?: Promise<ProxyUpdateOutcome>;
@@ -106,12 +135,15 @@ type ProxyState = {
 	lastAttemptSource?: string;
 	lastAttemptFailed: boolean;
 	lastAttemptLookup?: AccountLookup;
+	/** Process-local verified proxy links keyed by target; never a second quota cache. */
+	links: Map<string, ProxyTargetLink>;
 };
 
 function createProxyState(): ProxyState {
 	return {
 		lastAttemptAt: 0,
 		lastAttemptFailed: false,
+		links: new Map(),
 	};
 }
 
@@ -210,14 +242,63 @@ function isProxySnapshotFresh(
 	);
 }
 
-export function openAiRegistrationKey(clientId: string): string {
+function openAiRegistrationKey(clientId: string): string {
 	return createHash("sha256").update(clientId).digest("hex");
 }
 
-export function codexAccountKey(accountId: string): string {
+function codexAccountKey(accountId: string): string {
 	return createHash("sha256")
 		.update(`codex-account\0${accountId}`)
 		.digest("hex");
+}
+
+function hashTargetIdentity(identity: ProxyTargetIdentity): ProxyTargetLink {
+	return {
+		kind: identity.kind,
+		hash:
+			identity.kind === "native"
+				? openAiRegistrationKey(identity.id)
+				: codexAccountKey(identity.id),
+	};
+}
+
+export function setProxyTargetLink(
+	targetKey: string,
+	identity?: ProxyTargetIdentity,
+	options?: { clearOnlyOnMismatch?: boolean },
+): boolean {
+	const previous = state.links.get(targetKey);
+	const next = identity ? hashTargetIdentity(identity) : undefined;
+	const same = previous?.kind === next?.kind && previous?.hash === next?.hash;
+	if (options?.clearOnlyOnMismatch) {
+		if (same || !previous) return false;
+		state.links.delete(targetKey);
+		return true;
+	}
+	if (same) return false;
+	if (!next) state.links.delete(targetKey);
+	else state.links.set(targetKey, next);
+	return true;
+}
+
+export function pruneProxyTargetLinks(
+	activeTargetKeys?: Iterable<string>,
+): void {
+	if (!activeTargetKeys) {
+		state.links.clear();
+		return;
+	}
+	const active = new Set(activeTargetKeys);
+	for (const key of state.links.keys()) {
+		if (!active.has(key)) state.links.delete(key);
+	}
+}
+
+function hasNativeProxyTargetLink(): boolean {
+	for (const link of state.links.values()) {
+		if (link.kind === "native") return true;
+	}
+	return false;
 }
 
 function uniqueAccountMatches(
@@ -654,7 +735,7 @@ function parseCreditBalance(body: unknown): CreditBalance | undefined {
 	return record.has_credits === false ? 0 : undefined;
 }
 
-export function hasQuota(scope: ProviderUsageScope | undefined): boolean {
+function hasQuota(scope: ProviderUsageScope | undefined): boolean {
 	return (
 		scope?.sessionPercentUsed !== undefined ||
 		scope?.weeklyPercentUsed !== undefined ||
@@ -891,8 +972,12 @@ function recordProxyRefreshOutcome(
 
 export function refreshProxyUsage(
 	onUpdate: () => void,
-	lookup?: AccountLookup,
+	requestedLookup?: AccountLookup,
 ): Promise<void> {
+	const lookup: AccountLookup | undefined =
+		requestedLookup === "native" || hasNativeProxyTargetLink()
+			? "native"
+			: requestedLookup;
 	const config = proxyConfig();
 	if (!config) return Promise.resolve();
 	const { source } = config;
@@ -1056,12 +1141,6 @@ function proxySnapshotFreshness(
 	);
 }
 
-export function isProxySnapshotStale(): boolean {
-	const source = sourceKey();
-	if (!source) return true;
-	return proxySnapshotFreshness(source, currentSnapshot(source)) !== "fresh";
-}
-
 function proxyUsageAccountsFromSnapshot(
 	source: string,
 	data: Snapshot | undefined,
@@ -1137,67 +1216,159 @@ function proxyUsageAccountsFromSnapshot(
 	});
 }
 
-export function proxyUsageAccounts(): ProxyUsageAccount[] {
-	const source = sourceKey();
-	if (!source) return [];
-	return proxyUsageAccountsFromSnapshot(source, currentSnapshot(source));
-}
-
-/** Keep account associations alive across grace and stale windows until snapshot expiry or replacement. */
-function associatedProxyAccount(
-	key: string,
-	field: "openaiRegistrations" | "codexAccounts",
-): ProxyUsageAccount | undefined {
-	const source = sourceKey();
-	if (!source) return undefined;
-	const data = currentSnapshot(source);
+function linkedProxyAccountKey(
+	data: Snapshot | undefined,
+	targetKey: string,
+): string | undefined {
 	if (!data) return undefined;
+	const link = state.links.get(targetKey);
+	if (!link) return undefined;
+	const field =
+		link.kind === "native" ? "openaiRegistrations" : "codexAccounts";
 	const matches = data[field];
 	if (
 		!matches ||
 		typeof matches !== "object" ||
 		Array.isArray(matches) ||
-		!Object.hasOwn(matches, key)
+		!Object.hasOwn(matches, link.hash)
 	)
 		return undefined;
-	return proxyUsageAccountsFromSnapshot(source, data).find(
-		(account) => account.key === matches[key],
+	return matches[link.hash];
+}
+
+export function proxyTargetQuotaState(
+	targetKey: string,
+): "unlinked" | "stale" | "fresh" {
+	const source = sourceKey();
+	if (!source) return "unlinked";
+	const data = currentSnapshot(source);
+	const accountKey = linkedProxyAccountKey(data, targetKey);
+	if (!accountKey) return "unlinked";
+	const account = proxyUsageAccountsFromSnapshot(source, data).find(
+		(entry) => entry.key === accountKey,
 	);
+	if (!account) return "unlinked";
+	return proxySnapshotFreshness(source, data) === "fresh" &&
+		hasQuota(account.scope)
+		? "fresh"
+		: "stale";
 }
 
-export function proxyUsageForRegistration(
-	registration: string,
-): ProxyUsageAccount | undefined {
-	return associatedProxyAccount(registration, "openaiRegistrations");
+function mergeDirectFallback(
+	account: ProxyUsageAccount,
+	fallback: DirectProxyFallback | undefined,
+	proxySnapshotStale: boolean,
+): ProxyUsageAccount {
+	if (!fallback || (hasQuota(account.scope) && !proxySnapshotStale))
+		return account;
+	if (
+		!fallback.scope ||
+		fallback.freshness === "expired" ||
+		!hasQuota(fallback.scope)
+	)
+		return account;
+	const directObservedAt =
+		fallback.fetchedAt ?? fallback.lastAttemptAt ?? account.observedAt;
+	if (
+		hasQuota(account.scope) &&
+		(fallback.freshness !== "fresh" || directObservedAt <= account.observedAt)
+	) {
+		return account;
+	}
+	const scope = {
+		...fallback.scope,
+		availableResets:
+			fallback.scope.availableResets ?? account.scope.availableResets,
+	};
+	return {
+		...account,
+		scope,
+		summary: formatProviderScope(scope) ?? account.summary,
+		observedAt: directObservedAt,
+		quotaLookupFailed: fallback.state !== "ready",
+		stale:
+			fallback.freshness === "stale" ||
+			(fallback.scope.availableResets === undefined &&
+				account.resetLookupFailed),
+		...(fallback.scope.availableResets !== undefined
+			? {
+					resetCredits: undefined,
+					resetCreditsObservedAt: fallback.fetchedAt,
+					resetLookupFailed: fallback.state !== "ready",
+				}
+			: {}),
+	};
 }
 
-export function proxyUsageForCodexAccount(
-	account: string,
-): ProxyUsageAccount | undefined {
-	return associatedProxyAccount(account, "codexAccounts");
+export function proxyUsageAccounts(
+	directFallbacks?: ReadonlyMap<string, DirectProxyFallback>,
+): ProxyUsageAccount[] {
+	const source = sourceKey();
+	if (!source) return [];
+	const data = currentSnapshot(source);
+	const accounts = proxyUsageAccountsFromSnapshot(source, data);
+	if (!directFallbacks?.size) return accounts;
+	const fallbacksByAccount = new Map<string, DirectProxyFallback>();
+	for (const [targetKey, fallback] of directFallbacks) {
+		if (state.links.get(targetKey)?.kind !== "codex") continue;
+		const accountKey = linkedProxyAccountKey(data, targetKey);
+		if (accountKey) fallbacksByAccount.set(accountKey, fallback);
+	}
+	if (!fallbacksByAccount.size) return accounts;
+	const proxySnapshotStale = proxySnapshotFreshness(source, data) !== "fresh";
+	return accounts.map((account) =>
+		mergeDirectFallback(
+			account,
+			fallbacksByAccount.get(account.key),
+			proxySnapshotStale,
+		),
+	);
 }
 
 export function proxyUsageBadges(
-	compact = false,
-	render: (
-		text: string,
-		disabled: boolean,
-		account?: ProxyUsageAccount,
-	) => string = (text) => text,
-	valid = proxyUsageAccounts(),
+	options: boolean | LinkedProxyBadgeOptions = false,
 ): string[] {
-	const visible = compact ? valid.slice(0, 2) : valid;
-	const scopes = visible.map((account) =>
-		render(`${CODEX_PROXY_LOGO} ${account.summary}`, account.disabled, account),
+	const {
+		compact = false,
+		activeOnly = false,
+		activeProxy = false,
+		directLogo,
+		directTargets = [],
+		directFallbacks,
+		renderPart = (text: string) => text,
+	} = typeof options === "boolean" ? { compact: options } : options;
+	const source = sourceKey();
+	const data = source ? currentSnapshot(source) : undefined;
+	const linked = new Map<string, boolean>();
+	for (const target of directTargets) {
+		const accountKey = linkedProxyAccountKey(data, target.targetKey);
+		if (!accountKey) continue;
+		linked.set(accountKey, !!linked.get(accountKey) || target.active);
+	}
+	const valid = proxyUsageAccounts(directFallbacks).filter(
+		(account) => !activeOnly || activeProxy || linked.get(account.key),
 	);
+	const visible = compact ? valid.slice(0, 2) : valid;
+	const scopes = visible.map((account) => {
+		const proxyActive = activeProxy && !account.disabled;
+		if (directLogo && linked.has(account.key)) {
+			const directActive = linked.get(account.key) === true;
+			return `${renderPart(directLogo, directActive)} ${renderPart(CODEX_PROXY_LOGO, proxyActive)} ${renderPart(account.summary, directActive || proxyActive)}`;
+		}
+		return renderPart(`${CODEX_PROXY_LOGO} ${account.summary}`, proxyActive);
+	});
 	if (scopes.length === 0) return [];
 	if (compact && valid.length > visible.length)
-		scopes.push(render(`+${valid.length - visible.length}`, false));
+		scopes.push(renderPart(`+${valid.length - visible.length}`, false));
 	return [
-		`${scopes.join(render(PROVIDER_BADGE_SEPARATOR, false))}${valid.some((account) => account.stale) ? render(" !", false) : ""}`,
+		`${scopes.join(renderPart(PROVIDER_BADGE_SEPARATOR, false))}${valid.some((account) => account.stale) ? renderPart(" !", false) : ""}`,
 	];
 }
 
-export function resetProxyUsageForTests(): void {
+export function resetProxyUsageForTests(options?: {
+	keepLinks?: boolean;
+}): void {
+	const links = options?.keepLinks ? state.links : new Map();
 	state = createProxyState();
+	state.links = links;
 }

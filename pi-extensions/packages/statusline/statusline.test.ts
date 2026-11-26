@@ -25,10 +25,7 @@ import {
 	type SpeedReader,
 } from "../cliproxyapi";
 import statusline from "./index";
-import {
-	openAiRegistrationKey,
-	resetProxyUsageForTests,
-} from "./src/cliproxy-usage";
+import { resetProxyUsageForTests } from "./src/cliproxy-usage";
 import * as gitStatus from "./src/git-status";
 import * as providerUsage from "./src/provider-usage";
 
@@ -655,7 +652,7 @@ describe("statusline extension", () => {
 					},
 				],
 				openaiRegistrations: {
-					[openAiRegistrationKey(registration)]: identity,
+					[createHash("sha256").update(registration).digest("hex")]: identity,
 				},
 			}),
 		);

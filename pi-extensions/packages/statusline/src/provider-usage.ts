@@ -3,18 +3,15 @@ import { readFileSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
-	CODEX_PROXY_LOGO,
 	cachedProxyPercentUsed,
-	codexAccountKey,
-	hasQuota,
-	isProxySnapshotStale,
-	openAiRegistrationKey,
+	type DirectProxyFallback,
 	type ProxyUsageAccount,
+	proxyTargetQuotaState,
 	proxyUsageAccounts,
 	proxyUsageBadges,
-	proxyUsageForCodexAccount,
-	proxyUsageForRegistration,
+	pruneProxyTargetLinks,
 	refreshProxyUsage,
+	setProxyTargetLink,
 } from "./cliproxy-usage";
 import {
 	type CopilotUsageDetails,
@@ -114,8 +111,6 @@ type AvailableModelsCacheEntry = {
 const providerUsageCache = new Map<string, ProviderUsageCacheEntry>();
 const providerUsageRefreshes = new Map<string, Promise<void>>();
 const providerUsageResolvedCacheKeys = new Map<string, string>();
-/** Process-local verified proxy bindings, keyed by target; never a second quota cache. */
-const providerUsageProxyBindings = new Map<string, string>();
 const providerUsageResolutionIds = new Map<string, number>();
 let providerUsageCachePath: string | undefined;
 let availableModelsCache = new WeakMap<
@@ -243,7 +238,7 @@ function hydrateSharedCache(): void {
 	if (providerUsageCachePath !== path) {
 		providerUsageCache.clear();
 		providerUsageResolvedCacheKeys.clear();
-		providerUsageProxyBindings.clear();
+		pruneProxyTargetLinks();
 		providerUsageResolutionIds.clear();
 		providerUsageCachePath = path;
 	}
@@ -587,12 +582,16 @@ export async function discoverProviderUsageTargetsAsync(
 		discoveryId === providerUsageDiscoveryId &&
 		invalidation === providerUsageInvalidation
 	) {
-		pruneProxyBindings(targets);
+		pruneProxyTargetLinks(
+			targets.map((target) =>
+				providerTargetKey(target.providerId, target.authKind),
+			),
+		);
 	}
 	return targets;
 }
 
-export function discoverProviderUsageTargets(
+function discoverProviderUsageTargets(
 	ctx: ProviderUsageContext,
 ): ProviderUsageTarget[] {
 	const activeProviderId = ctx.model?.provider
@@ -757,7 +756,7 @@ type ResolvedProviderUsageAccess = {
 	cacheKey: string;
 	token?: string;
 	baseUrl?: string;
-	codexAccountKey?: string;
+	codexAccountId?: string;
 };
 
 function configuredProviderBaseUrl(
@@ -826,7 +825,7 @@ async function resolveProviderUsageAccess(
 		cacheKey,
 		token,
 		baseUrl,
-		codexAccountKey: accountId ? codexAccountKey(accountId) : undefined,
+		codexAccountId: accountId,
 	};
 }
 
@@ -1151,7 +1150,7 @@ export function invalidateProviderUsageCache(): void {
 	providerUsageCache.clear();
 	providerUsageRefreshes.clear();
 	providerUsageResolvedCacheKeys.clear();
-	providerUsageProxyBindings.clear();
+	pruneProxyTargetLinks();
 	providerUsageResolutionIds.clear();
 	providerUsageCachePath = undefined;
 	try {
@@ -1337,7 +1336,7 @@ async function queueProviderUsageRefresh(
 			providerUsageResolutionIds.get(targetKey) === resolutionId &&
 			fetchId === providerUsageInvalidation
 		) {
-			const hadProxyBinding = setProxyBinding(targetKey, undefined);
+			const hadProxyBinding = setProxyTargetLink(targetKey, undefined);
 			if (providerUsageResolvedCacheKeys.delete(targetKey) || hadProxyBinding)
 				onUpdate();
 		}
@@ -1352,7 +1351,12 @@ async function queueProviderUsageRefresh(
 			providerUsageResolvedCacheKeys.get(targetKey) !== access.cacheKey;
 		providerUsageResolvedCacheKeys.set(targetKey, access.cacheKey);
 		if (isLegacyCodex(target)) {
-			const bindingChanged = setProxyBinding(targetKey, access.codexAccountKey);
+			const bindingChanged = setProxyTargetLink(
+				targetKey,
+				access.codexAccountId
+					? { kind: "codex", id: access.codexAccountId }
+					: undefined,
+			);
 			mappingChanged ||= bindingChanged;
 		}
 	}
@@ -1365,8 +1369,7 @@ async function queueProviderUsageRefresh(
 			providerUsageResolutionIds.get(targetKey) !== resolutionId
 		)
 			return;
-		const linked = linkedProxyAccount(target);
-		if (linked && !isProxySnapshotStale() && hasQuota(linked.scope)) {
+		if (proxyTargetQuotaState(targetKey) === "fresh") {
 			onUpdate();
 			return;
 		}
@@ -1417,47 +1420,7 @@ function isLegacyCodex(target: ProviderUsageTarget): boolean {
 	return target.providerId === "openai-codex" && target.authKind === "oauth";
 }
 
-function proxyBinding(target: ProviderUsageTarget): string | undefined {
-	return providerUsageProxyBindings.get(
-		providerTargetKey(target.providerId, target.authKind),
-	);
-}
-
-function setProxyBinding(
-	targetKey: string,
-	value: string | undefined,
-): boolean {
-	const previous = providerUsageProxyBindings.get(targetKey);
-	if (previous === value) return false;
-	if (value === undefined) providerUsageProxyBindings.delete(targetKey);
-	else providerUsageProxyBindings.set(targetKey, value);
-	return true;
-}
-
-function pruneProxyBindings(targets: ProviderUsageTarget[]): void {
-	const activeKeys = new Set(
-		targets.map((target) =>
-			providerTargetKey(target.providerId, target.authKind),
-		),
-	);
-	for (const key of providerUsageProxyBindings.keys()) {
-		if (!activeKeys.has(key)) providerUsageProxyBindings.delete(key);
-	}
-}
-
-function linkedProxyAccount(
-	target: ProviderUsageTarget,
-): ProxyUsageAccount | undefined {
-	const binding = proxyBinding(target);
-	if (!binding) return undefined;
-	if (isNativeOpenAi(target)) return proxyUsageForRegistration(binding);
-	if (isLegacyCodex(target)) return proxyUsageForCodexAccount(binding);
-	return undefined;
-}
-
-function nativeOpenAiRegistration(
-	ctx: ProviderUsageContext,
-): string | undefined {
+function nativeOpenAiClientId(ctx: ProviderUsageContext): string | undefined {
 	const credential = getStoredOAuthCredential(ctx, "openai");
 	return credential?.access &&
 		typeof credential.clientId === "string" &&
@@ -1465,7 +1428,7 @@ function nativeOpenAiRegistration(
 		credential.clientId.length <= 512 &&
 		Array.isArray(credential.scopes) &&
 		credential.scopes.includes("chatgpt.tokens.use.direct")
-		? openAiRegistrationKey(credential.clientId)
+		? credential.clientId
 		: undefined;
 }
 
@@ -1478,17 +1441,22 @@ async function refreshNativeOpenAiBinding(
 	const targetKey = providerTargetKey(target.providerId, target.authKind);
 	const resolutionId = ++providerUsageResolutionId;
 	providerUsageResolutionIds.set(targetKey, resolutionId);
+	const expectedClientId = nativeOpenAiClientId(ctx);
 	if (
-		providerUsageProxyBindings.get(targetKey) !== nativeOpenAiRegistration(ctx)
+		setProxyTargetLink(
+			targetKey,
+			expectedClientId ? { kind: "native", id: expectedClientId } : undefined,
+			{ clearOnlyOnMismatch: true },
+		)
 	) {
-		if (setProxyBinding(targetKey, undefined)) onUpdate();
+		onUpdate();
 	}
-	let registration: string | undefined;
+	let clientId: string | undefined;
 	try {
 		// Resolve through Pi (including its OAuth refresh), but never send this token to the proxy.
 		const token = await getProviderToken(ctx, "openai");
 		if (token && getStoredOAuthCredential(ctx, "openai")?.access === token)
-			registration = nativeOpenAiRegistration(ctx);
+			clientId = nativeOpenAiClientId(ctx);
 	} catch {
 		// Runtime overrides, missing grants and failed auth resolution leave quota unavailable.
 	}
@@ -1497,7 +1465,12 @@ async function refreshNativeOpenAiBinding(
 		providerUsageResolutionIds.get(targetKey) !== resolutionId
 	)
 		return;
-	if (setProxyBinding(targetKey, registration)) {
+	if (
+		setProxyTargetLink(
+			targetKey,
+			clientId ? { kind: "native", id: clientId } : undefined,
+		)
+	) {
 		onUpdate();
 	}
 }
@@ -1510,7 +1483,11 @@ export function refreshProviderUsage(
 	getConfiguredModels(ctx, onUpdate);
 	// Initialize shared-cache state before any asynchronous auth resolution starts.
 	hydrateSharedCache();
-	pruneProxyBindings(targets);
+	pruneProxyTargetLinks(
+		targets.map((target) =>
+			providerTargetKey(target.providerId, target.authKind),
+		),
+	);
 	const fetchId = providerUsageInvalidation;
 	const nativeTargets = targets.filter(isNativeOpenAi);
 	const proxyRefresh = Promise.all(
@@ -1520,11 +1497,7 @@ export function refreshProviderUsage(
 	).then(() =>
 		refreshProxyUsage(
 			onUpdate,
-			nativeTargets.some((target) => !!proxyBinding(target))
-				? "native"
-				: targets.some(isLegacyCodex)
-					? "codex"
-					: undefined,
+			targets.some(isLegacyCodex) ? "codex" : undefined,
 		),
 	);
 	return Promise.all([
@@ -1564,13 +1537,7 @@ export function providerDisplayLabel(providerId: string): string {
 
 function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
 	if (isNativeOpenAi(target)) {
-		const registration = proxyBinding(target);
-		const account = registration
-			? proxyUsageForRegistration(registration)
-			: undefined;
-		return [
-			`${providerDisplayLabel(target.providerId)} ${account?.summary ?? "?"}${account?.stale ? " !" : ""}`,
-		];
+		return [`${providerDisplayLabel(target.providerId)} ?`];
 	}
 	const status = providerUsageCache.get(
 		providerCacheKey(target.providerId, target.authKind),
@@ -1595,7 +1562,9 @@ function directProviderUsageBadges(
 		.filter(
 			(target) =>
 				isProviderSupportedAuth(target.providerId, target.authKind) &&
-				!linkedProxyAccount(target),
+				proxyTargetQuotaState(
+					providerTargetKey(target.providerId, target.authKind),
+				) === "unlinked",
 		)
 		.map((target) => ({
 			...target,
@@ -1658,57 +1627,27 @@ export function providerUsageCopilot(
 	};
 }
 
-function providerUsageProxyAccountsFromCache(
+function legacyCodexDirectFallbacks(
 	targets: ProviderUsageTarget[],
-): ProxyUsageAccount[] {
-	const linked = new Map(
-		targets
-			.filter(isLegacyCodex)
-			.map((target) => [linkedProxyAccount(target)?.key, target]),
-	);
-	const proxySnapshotStale = isProxySnapshotStale();
-	return proxyUsageAccounts().map((account) => {
-		const target = linked.get(account.key);
-		if (!target || (hasQuota(account.scope) && !proxySnapshotStale))
-			return account;
+): Map<string, DirectProxyFallback> {
+	const fallbacks = new Map<string, DirectProxyFallback>();
+	for (const target of targets) {
+		if (!isLegacyCodex(target)) continue;
 		const status = providerUsageCache.get(
 			providerCacheKey(target.providerId, target.authKind),
 		);
+		if (!status?.scope) continue;
 		const freshness = usageSnapshotFreshness(status);
-		if (!status?.scope || freshness === "expired" || !hasQuota(status.scope))
-			return account;
-		const directObservedAt =
-			status.fetchedAt ?? status.lastAttemptAt ?? account.observedAt;
-		if (
-			hasQuota(account.scope) &&
-			(freshness !== "fresh" || directObservedAt <= account.observedAt)
-		) {
-			return account;
-		}
-		const scope = {
-			...status.scope,
-			availableResets:
-				status.scope.availableResets ?? account.scope.availableResets,
-		};
-		return {
-			...account,
-			scope,
-			summary: formatProviderScope(scope) ?? account.summary,
-			observedAt: directObservedAt,
-			quotaLookupFailed: status.state !== "ready",
-			stale:
-				freshness === "stale" ||
-				(status.scope.availableResets === undefined &&
-					account.resetLookupFailed),
-			...(status.scope.availableResets !== undefined
-				? {
-						resetCredits: undefined,
-						resetCreditsObservedAt: status.fetchedAt,
-						resetLookupFailed: status.state !== "ready",
-					}
-				: {}),
-		};
-	});
+		if (freshness === "expired") continue;
+		fallbacks.set(providerTargetKey(target.providerId, target.authKind), {
+			scope: status.scope,
+			freshness,
+			state: status.state,
+			fetchedAt: status.fetchedAt,
+			lastAttemptAt: status.lastAttemptAt,
+		});
+	}
+	return fallbacks;
 }
 
 /** External renderers keep one proxy item, even when a direct fallback supplies its missing or stale quota. */
@@ -1716,7 +1655,7 @@ export function providerUsageProxyAccounts(
 	targets: ProviderUsageTarget[],
 ): ProxyUsageAccount[] {
 	hydrateSharedCache();
-	return providerUsageProxyAccountsFromCache(targets);
+	return proxyUsageAccounts(legacyCodexDirectFallbacks(targets));
 }
 
 function providerUsageBadges(
@@ -1728,30 +1667,21 @@ function providerUsageBadges(
 	renderPart: (text: string, active: boolean) => string = (text) => text,
 ): { active: boolean; text: string; proxy?: boolean }[] {
 	hydrateSharedCache();
-	const linked = new Map<string, boolean>();
-	for (const target of targets) {
-		const account = linkedProxyAccount(target);
-		if (!account) continue;
-		const active =
-			target.active ||
-			(activeFamilyOverride !== undefined &&
-				providerFamily(target.providerId) === activeFamilyOverride);
-		linked.set(account.key, !!linked.get(account.key) || active);
-	}
-	const accounts = providerUsageProxyAccountsFromCache(targets).filter(
-		(account) => !activeOnly || activeProxy || linked.get(account.key),
-	);
-	const proxyBadges = proxyUsageBadges(
+	const proxyBadges = proxyUsageBadges({
 		compact,
-		(text, disabled, account) => {
-			const proxyActive = activeProxy && !disabled;
-			if (!account) return renderPart(text, false);
-			if (!linked.has(account.key)) return renderPart(text, proxyActive);
-			const directActive = linked.get(account.key) === true;
-			return `${renderPart(OPENAI_LOGO, directActive)} ${renderPart(CODEX_PROXY_LOGO, proxyActive)} ${renderPart(account.summary, directActive || proxyActive)}`;
-		},
-		accounts,
-	);
+		activeOnly,
+		activeProxy,
+		directLogo: OPENAI_LOGO,
+		directTargets: targets.map((target) => ({
+			targetKey: providerTargetKey(target.providerId, target.authKind),
+			active:
+				target.active ||
+				(activeFamilyOverride !== undefined &&
+					providerFamily(target.providerId) === activeFamilyOverride),
+		})),
+		directFallbacks: legacyCodexDirectFallbacks(targets),
+		renderPart,
+	});
 	return [
 		...directProviderUsageBadges(
 			targets,

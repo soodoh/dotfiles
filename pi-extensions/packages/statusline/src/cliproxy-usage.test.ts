@@ -18,7 +18,6 @@ import {
 } from "./cliproxy-usage";
 import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
 import {
-	discoverProviderUsageTargets,
 	discoverProviderUsageTargetsAsync,
 	formatDirectProviderUsage,
 	formatProviderUsage,
@@ -1244,7 +1243,7 @@ test("native OpenAI reuses matched proxy plan quota without sending native crede
 	const fetchSpy = vi
 		.spyOn(globalThis, "fetch")
 		.mockRejectedValue(new Error("Unexpected direct request"));
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	expect(targets).toEqual([
 		{ providerId: "openai", authKind: "oauth", active: true },
 	]);
@@ -1278,7 +1277,10 @@ test("native OpenAI reuses matched proxy plan quota without sending native crede
 	expect(requests()).toHaveLength(calls.length);
 	// Another process (including the standalone CLI) can use the same mapping.
 	resetProxyUsageForTests();
-	const standalone = discoverProviderUsageTargets({ ...ctx, model: undefined });
+	const standalone = await discoverProviderUsageTargetsAsync({
+		...ctx,
+		model: undefined,
+	});
 	await refreshProviderUsage(
 		{ ...ctx, model: undefined },
 		standalone,
@@ -1331,7 +1333,7 @@ test.each([
 	async (_reason, a, b) => {
 		const { ctx, apps } = nativeProxyFixture();
 		apps(a, b);
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 		await refreshProviderUsage(ctx, targets, () => {});
 		expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
 		expect(proxyUsageAccounts()).toHaveLength(2);
@@ -1340,7 +1342,7 @@ test.each([
 
 test("native auth changes cannot reuse another registration's quota or fall back to stored OAuth after runtime overrides", async () => {
 	const { ctx, setCredential } = nativeProxyFixture();
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(formatProviderUsage(targets, true)).toContain("W47%");
 	// Logging out prunes the process-local proxy binding so re-enabling does not
@@ -1405,7 +1407,7 @@ test("native discovery upgrades a fresh proxy snapshot without registration data
 	expect(requests().some((r) => r.data?.url.endsWith("/chatpass/apps"))).toBe(
 		false,
 	);
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await Promise.all([
 		refreshProviderUsage(ctx, targets, () => {}),
 		refreshProviderUsage(ctx, targets, () => {}),
@@ -1430,7 +1432,7 @@ test.each([
 	async (credential) => {
 		const { ctx, setCredential, requests } = nativeProxyFixture();
 		setCredential(credential);
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 		await refreshProviderUsage(ctx, targets, () => {});
 		expect(requests().some((r) => r.data?.url.endsWith("/chatpass/apps"))).toBe(
 			false,
@@ -1742,7 +1744,7 @@ test("retries transient management and upstream errors within a single attempt b
 
 test("associations stay grouped across grace and stale windows until expiry or base path change", async () => {
 	const { ctx } = nativeProxyFixture();
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(formatProviderUsage(targets, true)).toContain("W47%");
 	process.env.CLIPROXYAPI_BASE_URL =
@@ -1754,7 +1756,7 @@ test("associations stay grouped across grace and stale windows until expiry or b
 	const cached = JSON.parse(readFileSync(path, "utf8"));
 	cached.fetchedAt = Date.now() - 6 * 60_000;
 	writeFileSync(path, JSON.stringify(cached));
-	resetProxyUsageForTests();
+	resetProxyUsageForTests({ keepLinks: true });
 	expect(formatDirectProviderUsage(targets)).toBe("");
 	expect(formatProviderUsage(targets, true)).toMatch(
 		/^\u{F0004} \uF120 .*W47%[^!]*$/u,
@@ -1763,7 +1765,7 @@ test("associations stay grouped across grace and stale windows until expiry or b
 	// Past grace window but before expiry (9m): still grouped, marked stale.
 	cached.fetchedAt = Date.now() - 9 * 60_000;
 	writeFileSync(path, JSON.stringify(cached));
-	resetProxyUsageForTests();
+	resetProxyUsageForTests({ keepLinks: true });
 	expect(formatDirectProviderUsage(targets)).toBe("");
 	expect(formatProviderUsage(targets, true)).toMatch(
 		/^\u{F0004} \uF120 .*W47%.* !$/u,
@@ -1773,14 +1775,14 @@ test("associations stay grouped across grace and stale windows until expiry or b
 	// Past expiry (16m): ungrouped and hidden.
 	cached.fetchedAt = Date.now() - 16 * 60_000;
 	writeFileSync(path, JSON.stringify(cached));
-	resetProxyUsageForTests();
+	resetProxyUsageForTests({ keepLinks: true });
 	expect(formatDirectProviderUsage(targets)).toBe("\u{F0004} ?");
 	expect(proxyUsageAccounts()).toEqual([]);
 });
 
 test("a failed registration refresh invalidates association without hiding existing proxy quota", async () => {
 	const { ctx, apps } = nativeProxyFixture();
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(formatProviderUsage(targets, true)).toContain("W47%");
 	const cached = JSON.parse(readFileSync(path, "utf8"));
@@ -1859,7 +1861,7 @@ function legacyProxyFixture() {
 
 test("legacy Codex prefers matching proxy quota from a cold cache and does not fetch it again", async () => {
 	const { ctx, direct, requests } = legacyProxyFixture();
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(direct).not.toHaveBeenCalled();
 	expect(formatDirectProviderUsage(targets)).toBe("");
@@ -1891,7 +1893,7 @@ test.each(["missing", "ambiguous", "unconfigured", "expired"])(
 		if (reason === "ambiguous") files("private-account-a");
 		if (reason === "unconfigured")
 			delete process.env.CLIPROXYAPI_MANAGEMENT_KEY;
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 		if (reason === "expired") {
 			await refreshProviderUsage(ctx, targets, () => {});
 			expect(direct).not.toHaveBeenCalled();
@@ -1909,7 +1911,7 @@ test.each(["missing", "ambiguous", "unconfigured", "expired"])(
 
 test("legacy Codex falls back to fresher direct quota in the same grouped entry when proxy refresh fails", async () => {
 	const { ctx, direct } = legacyProxyFixture();
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(direct).not.toHaveBeenCalled();
 
@@ -1934,7 +1936,7 @@ test("legacy Codex falls back to fresher direct quota in the same grouped entry 
 test("a matched disabled account with missing proxy quota uses direct fallback in the same single account entry", async () => {
 	const { ctx, direct, files } = legacyProxyFixture();
 	files("private-account-b", true, false);
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(direct).toHaveBeenCalledTimes(2);
 	expect(formatDirectProviderUsage(targets)).toBe("");
@@ -1951,7 +1953,7 @@ test("a matched disabled account with missing proxy quota uses direct fallback i
 
 test("legacy account switches cannot keep the previous proxy association", async () => {
 	const { ctx, direct, setAccount } = legacyProxyFixture();
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(formatProviderUsage(targets, true)).toContain("W47%");
 	setAccount("private-account-b");
@@ -1970,7 +1972,7 @@ test.each(["native", "legacy"])(
 	async (provider) => {
 		const { ctx } =
 			provider === "native" ? nativeProxyFixture() : legacyProxyFixture();
-		const targets = discoverProviderUsageTargets(ctx);
+		const targets = await discoverProviderUsageTargetsAsync(ctx);
 		await refreshProviderUsage(ctx, targets, () => {});
 		const summary = proxyUsageAccounts().find(
 			(a) => a.key === createHash("sha256").update("a").digest("hex"),
@@ -2003,7 +2005,7 @@ test.each(["native", "legacy"])(
 test("a disabled proxy route does not dim an active direct OpenAI route", async () => {
 	const { ctx, files } = legacyProxyFixture();
 	files("private-account-b", true);
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	const render = (proxy: boolean) =>
 		renderProviderUsage(
@@ -2031,7 +2033,7 @@ test("legacy association upgrades an older fresh proxy cache before considering 
 	writeFileSync(path, JSON.stringify(cached));
 	resetProxyUsageForTests();
 	const before = requests().length;
-	const targets = discoverProviderUsageTargets(ctx);
+	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(direct).not.toHaveBeenCalled();
 	expect(formatDirectProviderUsage(targets)).toBe("");

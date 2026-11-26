@@ -10,15 +10,7 @@ import { cachedProviderPercentUsed } from "./provider-usage";
 const USAGE_CUTOFF = 95;
 const THINKING_SUFFIX = /:(off|minimal|low|medium|high|xhigh|max)$/;
 
-export type CachedProviderUsageReader = (
-	provider: string,
-) => number | undefined;
-
-export function registerReviewModels(
-	pi: ExtensionAPI,
-	readCachedUsage: CachedProviderUsageReader = (provider) =>
-		cachedProviderPercentUsed(provider, { readStoredCredential }),
-): void {
+export function registerReviewModels(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "review_loop_models",
 		label: "Review loop models",
@@ -60,7 +52,9 @@ export function registerReviewModels(
 			const providers = new Set(candidates.map(({ provider }) => provider));
 			const blockedProviders = new Map<string, number>();
 			for (const provider of providers) {
-				const used = readCachedUsage(provider);
+				const used = cachedProviderPercentUsed(provider, {
+					readStoredCredential,
+				});
 				if (used !== undefined && used >= USAGE_CUTOFF) {
 					blockedProviders.set(provider, used);
 				}

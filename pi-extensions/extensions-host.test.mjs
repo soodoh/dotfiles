@@ -18,8 +18,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { hideDeniedExistenceChecks } from "./test-support/exists-sync.mjs";
 import {
+	hideDeniedExistenceChecks,
 	resolvePiHost,
 	runExtensionProbe,
 } from "./test-support/host-runtime.mjs";

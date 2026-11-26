@@ -28,7 +28,7 @@ if (process.argv[2] !== "worker") {
 	const requests = [];
 	const routes = [];
 	const fixture = await createSessionFixture(process.argv[3], {
-		paths: [fileURLToPath(new URL("./auto-session-name.ts", import.meta.url))],
+		paths: [fileURLToPath(new URL("./index.ts", import.meta.url))],
 		factories: [
 			(extensionApi) => {
 				api = extensionApi;
@@ -137,7 +137,7 @@ if (process.argv[2] !== "worker") {
 	let heldResponse;
 	const settlements = [];
 	const cancellation = await createSessionFixture(process.argv[3], {
-		paths: [fileURLToPath(new URL("./auto-session-name.ts", import.meta.url))],
+		paths: [fileURLToPath(new URL("./index.ts", import.meta.url))],
 		factories: [
 			(pi) => {
 				pi.on("agent_settled", (event) => settlements.push(event.aborted));

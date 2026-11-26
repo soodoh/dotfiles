@@ -15,16 +15,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { agentSettledEvent } from "../../test-support/events";
-import autoSessionName, {
-	type AutoTitleState,
-	cleanRawUserInput,
-	extractStableAnchors,
-	hasDirectionChange,
-	isWeakRequest,
-	reconstructAutoTitleState,
-	shouldRefineTitle,
-	truncateHeadAndTail,
-} from "./auto-session-name";
+import autoSessionName from "./index";
 
 // Deterministic completion results behind the context's runtime stream API.
 const mocks = { completeSimple: vi.fn() };
@@ -179,7 +170,16 @@ const toolResultEntry = (text: string): SessionEntry => ({
 	},
 });
 
-const customStateEntry = (state: AutoTitleState): SessionEntry => ({
+type PersistedAutoTitleState = {
+	title: string;
+	originalRequest: string;
+	phase: "initial" | "refinement";
+	refinementAttempted: boolean;
+	initialFallback: boolean;
+	ownershipReleased?: boolean;
+};
+
+const customStateEntry = (state: PersistedAutoTitleState): SessionEntry => ({
 	...entryBase(),
 	type: "custom",
 	customType: "auto-session-name-state",
@@ -506,12 +506,7 @@ describe("first-turn initial naming and raw input", () => {
 		expect(request).not.toContain("/skill:brainstorming");
 	});
 
-	test("ignores extension control commands but accepts extension user text", async () => {
-		expect(cleanRawUserInput("/skill:planner Build the parser")).toBe(
-			"Build the parser",
-		);
-		expect(cleanRawUserInput("/skill:planner")).toBeUndefined();
-
+	test("ignores extension control commands and strips interactive skill prefixes", async () => {
 		mocks.completeSimple.mockResolvedValue({ content: "Actual User Task" });
 		const branch = [userMessageEntry("Stored fallback request")];
 		const harness = createHarness(branch);
@@ -524,16 +519,29 @@ describe("first-turn initial naming and raw input", () => {
 		const request = JSON.stringify(mocks.completeSimple.mock.calls[0]?.[1]);
 		expect(request).toContain("Implement the actual parser");
 		expect(request).not.toContain("do not use");
+
+		mocks.completeSimple.mockClear();
+		const skillBranch = [userMessageEntry("Stored fallback request")];
+		const skillHarness = createHarness(skillBranch);
+		const skillCtx = createContext(skillBranch);
+		await skillHarness.input("/skill:planner", skillCtx, "interactive");
+		await skillHarness.input(
+			"/skill:planner Build the parser",
+			skillCtx,
+			"interactive",
+		);
+		await skillHarness.turnEnd(skillCtx);
+		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
+
+		const skillRequest = JSON.stringify(
+			mocks.completeSimple.mock.calls[0]?.[1],
+		);
+		expect(skillRequest).toContain("Build the parser");
+		expect(skillRequest).not.toContain("/skill:planner");
 	});
 
 	test("bounds long input while preserving its head and tail", async () => {
 		const longRequest = `BEGIN-${"a".repeat(2_000)}-${"z".repeat(2_000)}-END`;
-		const bounded = truncateHeadAndTail(longRequest);
-		expect(bounded).toHaveLength(1_600);
-		expect(bounded).toMatch(/^BEGIN-/);
-		expect(bounded).toMatch(/-END$/);
-		expect(bounded).toContain("\n...\n");
-
 		mocks.completeSimple.mockResolvedValue({ content: "Bounded Long Request" });
 		const branch = [userMessageEntry(longRequest)];
 		const harness = createHarness(branch);
@@ -542,9 +550,11 @@ describe("first-turn initial naming and raw input", () => {
 		await harness.turnEnd(ctx);
 		await vi.waitFor(() => expect(mocks.completeSimple).toHaveBeenCalled());
 		const prompt = mocks.completeSimple.mock.calls[0]?.[1];
-		expect(JSON.stringify(prompt)).toContain("BEGIN-");
-		expect(JSON.stringify(prompt)).toContain("-END");
-		expect(prompt.messages[0]?.content[0]?.text).toHaveLength(1_600);
+		const text = prompt.messages[0]?.content[0]?.text;
+		expect(text).toHaveLength(1_600);
+		expect(text).toMatch(/^BEGIN-/);
+		expect(text).toMatch(/-END$/);
+		expect(text).toContain("\n...\n");
 	});
 });
 
@@ -553,7 +563,6 @@ describe("bounded model generation", () => {
 		const { harness, branch, ctx } = await nameInitialSession();
 		await harness.manualName("User title", ctx);
 		await harness.manualName("Reliable Backup Strategy", ctx);
-		expect(reconstructAutoTitleState(branch)?.ownershipReleased).toBe(true);
 		const reloaded = createHarness(branch, "Reliable Backup Strategy");
 		await reloaded.sessionStart(ctx, "reload");
 		branch.push(userMessageEntry("Actually use borg instead of restic"));
@@ -879,7 +888,7 @@ describe("ownership and stale async results", () => {
 	});
 
 	test("a differing current title is treated as user-owned", async () => {
-		const state: AutoTitleState = {
+		const state: PersistedAutoTitleState = {
 			title: "Automatic Title",
 			originalRequest: "Help me with this",
 			phase: "initial",
@@ -912,70 +921,82 @@ describe("ownership and stale async results", () => {
 		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
 	});
 
-	test("reconstructs only the latest state on the active branch", () => {
-		const initial: AutoTitleState = {
+	test("reconstructs only the latest state on the active branch", async () => {
+		const initial: PersistedAutoTitleState = {
 			title: "Initial",
 			originalRequest: "Fix this",
 			phase: "initial",
 			refinementAttempted: false,
 			initialFallback: true,
 		};
-		const refined: AutoTitleState = {
+		const refined: PersistedAutoTitleState = {
 			...initial,
 			title: "Refined",
 			phase: "refinement",
 			refinementAttempted: true,
 		};
-		expect(
-			reconstructAutoTitleState([
-				customStateEntry(initial),
-				customStateEntry(refined),
-			]),
-		).toEqual(refined);
+		const branch = [
+			userMessageEntry("Fix this"),
+			customStateEntry(initial),
+			customStateEntry(refined),
+			userMessageEntry("Actually, switch to OB-9999"),
+		];
+		const harness = createHarness(branch, "Refined");
+		const ctx = createContext(branch);
+		await harness.sessionStart(ctx, "resume");
+		await harness.agentSettled(ctx);
+
+		expect(mocks.completeSimple).not.toHaveBeenCalled();
+		expect(harness.getSessionName()).toBe("Refined");
 	});
 });
 
 describe("conditional one-time refinement", () => {
-	test("a weak initial request becomes eligible after three user requests", () => {
-		const state: AutoTitleState = {
-			title: "Help With This",
-			originalRequest: "Help me with this.",
-			phase: "initial",
-			refinementAttempted: false,
-			initialFallback: false,
-		};
-		expect(
-			shouldRefineTitle({
-				state,
-				userRequests: [
-					"Help me with this.",
-					"The failing area is the auth package.",
-					"The symbol is `refreshToken`.",
-				],
-			}),
-		).toBe(true);
-		expect(isWeakRequest("Can you take a look?")).toBe(true);
-		expect(isWeakRequest("Implement the auth parser")).toBe(false);
+	test("a weak initial request becomes eligible after three user requests", async () => {
+		const { harness, branch, ctx } = await nameInitialSession({
+			initialRequest: "Can you take a look?",
+			initialTitle: "Take A Look",
+		});
+		branch.push(userMessageEntry("The failing area is the auth package."));
+		await harness.input("The failing area is the auth package.", ctx);
+		await harness.agentSettled(ctx);
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
+
+		branch.push(userMessageEntry("The symbol is `refreshToken`."));
+		await harness.input("The symbol is `refreshToken`.", ctx);
+		mocks.completeSimple.mockResolvedValueOnce({
+			content: "Fix Auth refreshToken",
+		});
+		await harness.agentSettled(ctx);
+		await waitForName(harness, "Fix Auth refreshToken");
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(2);
 	});
 
-	test("a deterministic fallback permits one later refinement even for a strong request", () => {
-		const state: AutoTitleState = {
-			title: "Implement Reliable Backup Rotation",
-			originalRequest: "Implement reliable backup rotation for home servers",
-			phase: "initial",
-			refinementAttempted: false,
-			initialFallback: true,
-		};
-		expect(
-			shouldRefineTitle({
-				state,
-				userRequests: [
-					state.originalRequest,
-					"Add retention validation.",
-					"Cover the parser with tests.",
-				],
-			}),
-		).toBe(true);
+	test("a deterministic fallback permits one later refinement even for a strong request", async () => {
+		mocks.completeSimple.mockRejectedValueOnce(new Error("provider down"));
+		const strongRequest = "Implement reliable backup rotation for home servers";
+		const branch = [userMessageEntry(strongRequest)];
+		const harness = createHarness(branch);
+		const ctx = createContext(branch);
+		await harness.input(strongRequest, ctx);
+		await harness.turnEnd(ctx);
+		await waitForName(
+			harness,
+			"Implement reliable backup rotation for home servers",
+		);
+
+		branch.push(
+			userMessageEntry("Add retention validation."),
+			userMessageEntry("Cover the parser with tests."),
+		);
+		await harness.input("Add retention validation.", ctx);
+		await harness.input("Cover the parser with tests.", ctx);
+		mocks.completeSimple.mockResolvedValueOnce({
+			content: "Reliable Backup Rotation",
+		});
+		await harness.agentSettled(ctx);
+		await waitForName(harness, "Reliable Backup Rotation");
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(2);
 	});
 
 	test("a strong initial title does not trigger routine refinement", async () => {
@@ -1007,7 +1028,6 @@ describe("conditional one-time refinement", () => {
 
 		expect(mocks.completeSimple).toHaveBeenCalledTimes(1);
 		expect(harness.getSessionName()).toBe("Reliable Backup Rotation");
-		expect(reconstructAutoTitleState(branch)?.refinementAttempted).toBe(false);
 
 		mocks.completeSimple.mockResolvedValueOnce({
 			content: "Fix OB-1234 Login",
@@ -1032,7 +1052,6 @@ describe("conditional one-time refinement", () => {
 		});
 		await harness.agentSettled(ctx);
 		await waitForName(harness, "Fix OB-1234 Login");
-		expect(hasDirectionChange(newTask)).toBe(true);
 		const refinementPrompt = mocks.completeSimple.mock.calls[1]?.[1];
 		expect(refinementPrompt.messages[0]?.content[0]?.text).toContain(
 			"Stable anchors: OB-1234",
@@ -1066,14 +1085,6 @@ describe("conditional one-time refinement", () => {
 		expect(refinementPrompt).toContain("src/auth/session.ts");
 		expect(refinementPrompt).toContain("SessionManager.refreshToken");
 		expect(refinementPrompt).toContain("ERR_AUTH_EXPIRED");
-		expect(extractStableAnchors([second, third])).toEqual(
-			expect.arrayContaining([
-				"OB-1234",
-				"src/auth/session.ts",
-				"SessionManager.refreshToken",
-				"ERR_AUTH_EXPIRED",
-			]),
-		);
 	});
 
 	test("refinement context excludes assistant text, tool results, and full transcript", async () => {
@@ -1122,8 +1133,10 @@ describe("conditional one-time refinement", () => {
 		);
 
 		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
-		const state = reconstructAutoTitleState(branch);
-		expect(state?.refinementAttempted).toBe(true);
+		branch.push(userMessageEntry("Actually, pivot to OB-9999 instead."));
+		await harness.input("Actually, pivot to OB-9999 instead.", ctx);
+		await harness.agentSettled(ctx);
+		expect(mocks.completeSimple).toHaveBeenCalledTimes(2);
 	});
 
 	test("refinement is attempted no more than once", async () => {
@@ -1170,7 +1183,6 @@ describe("conditional one-time refinement", () => {
 		expect(mocks.completeSimple).toHaveBeenCalledTimes(2);
 		expect(harness.getSessionName()).toBe("Fix This");
 		expect(harness.pi.setSessionName).toHaveBeenCalledTimes(1);
-		expect(reconstructAutoTitleState(branch)?.refinementAttempted).toBe(true);
 	});
 });
 
@@ -1181,7 +1193,6 @@ describe("fallbacks, settings, and no backfill", () => {
 		const harness = createHarness(branch);
 		await harness.turnEnd(createContext(branch));
 		await waitForName(harness, "Help me design a reliable backup strategy for");
-		expect(reconstructAutoTitleState(branch)?.initialFallback).toBe(true);
 	});
 
 	test.each(["error", "aborted", "length"])(

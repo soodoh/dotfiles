@@ -11,6 +11,19 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// In this disposable probe, inaccessible paths appear absent to existence checks.
+// Real reads/writes remain subject to Node permissions; other errors must surface.
+export function hideDeniedExistenceChecks(existsSync) {
+	return (path) => {
+		try {
+			return existsSync(path);
+		} catch (error) {
+			if (error?.code === "ERR_ACCESS_DENIED") return false;
+			throw error;
+		}
+	};
+}
+
 export function resolvePiHost(launcher) {
 	assert.ok(launcher, 'Pass the actual launcher: "$(mise which pi)"');
 	let entry = realpathSync(launcher);
