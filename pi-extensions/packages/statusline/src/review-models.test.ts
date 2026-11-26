@@ -8,7 +8,7 @@ import {
 	readStoredCredential,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, test, vi } from "vitest";
-import { invalidateProviderUsageCache } from "./provider-usage";
+import { createProviderUsageStore } from "./provider-usage";
 import { registerReviewModels } from "./review-models";
 
 vi.mock("@earendil-works/pi-coding-agent", async (original) => ({
@@ -103,7 +103,6 @@ function seedSharedUsageCaches(usage?: {
 }
 
 afterEach(() => {
-	invalidateProviderUsageCache();
 	vi.unstubAllEnvs();
 	vi.mocked(readStoredCredential).mockReset();
 	for (const dir of tempDirs.splice(0)) {
@@ -120,10 +119,13 @@ async function listModels(
 ) {
 	seedSharedUsageCaches(options.usage);
 	const registerTool = vi.fn<ExtensionAPI["registerTool"]>();
-	registerReviewModels({
-		getSettings: () => ({ enabledModels: patterns }),
-		registerTool,
-	} as unknown as ExtensionAPI);
+	registerReviewModels(
+		{
+			getSettings: () => ({ enabledModels: patterns }),
+			registerTool,
+		} as unknown as ExtensionAPI,
+		createProviderUsageStore(),
+	);
 	const tool = registerTool.mock.calls[0]?.[0];
 	if (!tool) throw new Error("review model tool was not registered");
 	const result = await tool.execute("test", {}, undefined, undefined, {

@@ -4,11 +4,10 @@ import {
 	ModelRuntime,
 	readStoredCredential,
 } from "@earendil-works/pi-coding-agent";
-import type { ModelRegistryLike, ProviderUsageContext } from "./pi-types";
 import {
-	discoverProviderUsageTargetsAsync,
-	providerUsageCliSnapshot,
-	refreshProviderUsage,
+	createProviderUsageStore,
+	type ModelRegistryLike,
+	type ProviderUsageContext,
 } from "./provider-usage";
 
 const modelRuntime = await ModelRuntime.create();
@@ -34,8 +33,9 @@ const ctx: ProviderUsageContext = {
 	reportError: (message) =>
 		process.stderr.write(`${new Date().toISOString()} ${message}\n`),
 };
-const targets = await discoverProviderUsageTargetsAsync(ctx);
+const usageStore = createProviderUsageStore();
+const targets = await usageStore.discoverTargetsAsync(ctx);
 
-await refreshProviderUsage(ctx, targets, () => {});
+await usageStore.refresh(ctx, targets, () => {});
 
-process.stdout.write(`${JSON.stringify(providerUsageCliSnapshot(targets))}\n`);
+process.stdout.write(`${JSON.stringify(usageStore.cliSnapshot(targets))}\n`);

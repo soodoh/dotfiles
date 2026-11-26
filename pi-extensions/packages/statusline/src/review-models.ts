@@ -5,12 +5,18 @@ import {
 	readStoredCredential,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { cachedProviderPercentUsed } from "./provider-usage";
+import {
+	defaultProviderUsageStore,
+	type ProviderUsageStore,
+} from "./provider-usage";
 
 const USAGE_CUTOFF = 95;
 const THINKING_SUFFIX = /:(off|minimal|low|medium|high|xhigh|max)$/;
 
-export function registerReviewModels(pi: ExtensionAPI): void {
+export function registerReviewModels(
+	pi: ExtensionAPI,
+	usageStore: ProviderUsageStore = defaultProviderUsageStore,
+): void {
 	pi.registerTool({
 		name: "review_loop_models",
 		label: "Review loop models",
@@ -52,7 +58,7 @@ export function registerReviewModels(pi: ExtensionAPI): void {
 			const providers = new Set(candidates.map(({ provider }) => provider));
 			const blockedProviders = new Map<string, number>();
 			for (const provider of providers) {
-				const used = cachedProviderPercentUsed(provider, {
+				const used = usageStore.cachedPercentUsed(provider, {
 					readStoredCredential,
 				});
 				if (used !== undefined && used >= USAGE_CUTOFF) {

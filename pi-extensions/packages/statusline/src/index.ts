@@ -23,14 +23,12 @@ import {
 	getGitStatus,
 	invalidateGit,
 } from "./git-status";
-import type { ProviderUsageContext } from "./pi-types";
 import {
-	discoverProviderUsageTargetsAsync,
-	invalidateProviderUsageDiscovery,
+	defaultProviderUsageStore,
 	mappedProviderUsageFamily,
+	type ProviderUsageContext,
+	type ProviderUsageStore,
 	type ProviderUsageTarget,
-	refreshProviderUsage,
-	renderProviderUsage,
 } from "./provider-usage";
 import { registerReviewModels } from "./review-models";
 
@@ -319,6 +317,7 @@ function buildStatusLines(
 	layout: StatuslineLayout,
 	git: GitStatus | undefined,
 	providerUsageTargets: ProviderUsageTarget[],
+	usageStore: ProviderUsageStore,
 	width: number,
 	thinkingLevel: ThinkingLevel,
 	speedReader: SpeedReader | undefined,
@@ -341,7 +340,7 @@ function buildStatusLines(
 				case "git":
 					return git ? renderGit(git, theme) : undefined;
 				case "provider_usage":
-					return renderProviderUsage(
+					return usageStore.render(
 						providerUsageTargets,
 						theme,
 						providerMode === "active",
@@ -381,8 +380,12 @@ function sanitizeStatus(text: string): string {
 
 const PROVIDER_DISCOVERY_INTERVAL_MS = 60_000;
 
-export default function statusline(pi: ExtensionAPI): void {
-	registerReviewModels(pi);
+export default function statusline(
+	pi: ExtensionAPI,
+	options?: { usageStore?: ProviderUsageStore },
+): void {
+	const usageStore = options?.usageStore ?? defaultProviderUsageStore;
+	registerReviewModels(pi, usageStore);
 	let currentCtx: ExtensionContext | null = null;
 	let tuiRef: TuiLike | null = null;
 	let thinkingLevel: ThinkingLevel = "off";
@@ -430,19 +433,18 @@ export default function statusline(pi: ExtensionAPI): void {
 				const usageCtx = toProviderUsageContext(currentCtx);
 				if (rediscover) {
 					const id = ++discoveryId;
-					invalidateProviderUsageDiscovery();
-					void discoverProviderUsageTargetsAsync(usageCtx)
+					usageStore.invalidateDiscovery();
+					void usageStore
+						.discoverTargetsAsync(usageCtx)
 						.then((discovered) => {
 							if (disposed || id !== discoveryId) return;
 							targets = discovered;
 							onUpdate();
-							return refreshProviderUsage(usageCtx, targets, onUpdate);
+							return usageStore.refresh(usageCtx, targets, onUpdate);
 						})
 						.catch(() => {});
 				} else {
-					void refreshProviderUsage(usageCtx, targets, onUpdate).catch(
-						() => {},
-					);
+					void usageStore.refresh(usageCtx, targets, onUpdate).catch(() => {});
 				}
 			};
 			refreshGit = updateGit;
@@ -496,6 +498,7 @@ export default function statusline(pi: ExtensionAPI): void {
 						layout,
 						git,
 						targets,
+						usageStore,
 						width,
 						thinkingLevel,
 						speedReader,

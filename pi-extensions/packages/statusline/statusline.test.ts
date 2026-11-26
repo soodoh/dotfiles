@@ -10,7 +10,6 @@ import {
 	readStoredCredential,
 } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import type { ModelLike, ModelRegistryLike } from "./src/pi-types";
 
 vi.mock("@earendil-works/pi-coding-agent", async (original) => ({
 	...(await original<typeof import("@earendil-works/pi-coding-agent")>()),
@@ -26,7 +25,13 @@ import {
 } from "../cliproxyapi";
 import statusline from "./index";
 import * as gitStatus from "./src/git-status";
-import * as providerUsage from "./src/provider-usage";
+import {
+	createProviderUsageStore,
+	type ModelLike,
+	type ModelRegistryLike,
+	type ProviderUsageStore,
+	type ProviderUsageTarget,
+} from "./src/provider-usage";
 
 const execFileAsync = promisify(execFile);
 const tempDirs: string[] = [];
@@ -86,7 +91,7 @@ function createPi(
 }
 
 function harness(
-	overrides: Partial<Context> = {},
+	overrides: Partial<Context> & { usageStore?: ProviderUsageStore } = {},
 	thinking: "off" | "high" = "off",
 ) {
 	let footer: Footer | undefined;
@@ -105,7 +110,8 @@ function harness(
 	vi.mocked(readStoredCredential).mockImplementation(
 		overrides.readStoredCredential ?? (() => undefined),
 	);
-	statusline(pi as unknown as ExtensionAPI);
+	const usageStore = overrides.usageStore ?? createProviderUsageStore();
+	statusline(pi as unknown as ExtensionAPI, { usageStore });
 	const data = {
 		getGitBranch: () => "main",
 		getAvailableProviderCount: () => 0,
@@ -155,6 +161,7 @@ function harness(
 	return {
 		pi,
 		ctx,
+		usageStore,
 		emit,
 		setFooter,
 		setWidget,
@@ -183,12 +190,10 @@ beforeEach(async () => {
 		"PI_PROVIDER_USAGE_CACHE_PATH",
 		join(cacheDir, "provider-usage.json"),
 	);
-	providerUsage.invalidateProviderUsageCache();
 });
 
 afterEach(async () => {
 	for (const dispose of disposers.splice(0)) dispose();
-	providerUsage.invalidateProviderUsageCache();
 	vi.useRealTimers();
 	vi.restoreAllMocks();
 	vi.unstubAllEnvs();
@@ -479,14 +484,13 @@ describe("statusline extension", () => {
 			unstaged: 0,
 			untracked: 0,
 		});
-		const discovery = vi.spyOn(
-			providerUsage,
-			"discoverProviderUsageTargetsAsync",
-		);
-		const refresh = vi.spyOn(providerUsage, "refreshProviderUsage");
+		const usageStore = createProviderUsageStore();
+		const discovery = vi.spyOn(usageStore, "discoverTargetsAsync");
+		const refresh = vi.spyOn(usageStore, "refresh");
 		const getAvailable = vi.fn(async () => []);
 		const getApiKeyForProvider = vi.fn(async () => undefined);
 		const h = harness({
+			usageStore,
 			settings: settings(["model", "git", "provider_usage"]),
 			modelRegistry: { getAvailable, getApiKeyForProvider },
 		});
@@ -531,13 +535,12 @@ describe("statusline extension", () => {
 	});
 
 	test("does not install UI or start refreshes outside TUI mode", () => {
-		const discovery = vi.spyOn(
-			providerUsage,
-			"discoverProviderUsageTargetsAsync",
-		);
+		const usageStore = createProviderUsageStore();
+		const discovery = vi.spyOn(usageStore, "discoverTargetsAsync");
 		const git = vi.spyOn(gitStatus, "getGitStatus");
 		for (const mode of ["rpc", "print", "json"]) {
 			const h = harness({
+				usageStore,
 				mode,
 				hasUI: mode === "rpc",
 				settings: settings(["git", "provider_usage"]),
@@ -558,11 +561,15 @@ describe("statusline extension", () => {
 			unstaged: 0,
 			untracked: 0,
 		});
+		const usageStore = createProviderUsageStore();
 		const discovery = vi
-			.spyOn(providerUsage, "discoverProviderUsageTargetsAsync")
+			.spyOn(usageStore, "discoverTargetsAsync")
 			.mockResolvedValue([]);
-		vi.spyOn(providerUsage, "refreshProviderUsage").mockResolvedValue();
-		const h = harness({ settings: settings(["git", "provider_usage"]) });
+		vi.spyOn(usageStore, "refresh").mockResolvedValue();
+		const h = harness({
+			usageStore,
+			settings: settings(["git", "provider_usage"]),
+		});
 		await vi.advanceTimersByTimeAsync(60_000);
 		expect(discovery).toHaveBeenCalledTimes(2);
 		expect(git.mock.calls.length).toBeLessThanOrEqual(13);
@@ -731,16 +738,16 @@ describe("statusline extension", () => {
 	});
 
 	test("ignores obsolete async discovery after model selection and shutdown", async () => {
-		const pending: ((targets: providerUsage.ProviderUsageTarget[]) => void)[] =
-			[];
-		vi.spyOn(
-			providerUsage,
-			"discoverProviderUsageTargetsAsync",
-		).mockImplementation(() => new Promise((resolve) => pending.push(resolve)));
-		const refresh = vi
-			.spyOn(providerUsage, "refreshProviderUsage")
-			.mockResolvedValue();
-		const h = harness({ settings: settings(["provider_usage"]) });
+		const usageStore = createProviderUsageStore();
+		const pending: ((targets: ProviderUsageTarget[]) => void)[] = [];
+		vi.spyOn(usageStore, "discoverTargetsAsync").mockImplementation(
+			() => new Promise((resolve) => pending.push(resolve)),
+		);
+		const refresh = vi.spyOn(usageStore, "refresh").mockResolvedValue();
+		const h = harness({
+			usageStore,
+			settings: settings(["provider_usage"]),
+		});
 		h.emit("model_select");
 		pending[0]([]);
 		await Promise.resolve();

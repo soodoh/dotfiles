@@ -1,24 +1,41 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
-
 import {
-	cachedProviderPercentUsed,
-	discoverProviderUsageTargetsAsync,
-	formatProviderUsage,
-	invalidateProviderUsageCache,
+	type AuthCredentialLike,
+	createProviderUsageStore,
 	mappedProviderUsageFamily,
+	type ProviderUsageContext,
+	type ProviderUsageStore,
 	type ProviderUsageTarget,
-	providerUsageCopilot,
-	refreshProviderUsage,
-	renderProviderUsage,
 } from "./provider-usage";
 import * as usageCache from "./usage-cache";
 import { formatProviderScope, parseOpenAiUsageBody } from "./usage-quota";
+
+let store: ProviderUsageStore = createProviderUsageStore();
+const discoverProviderUsageTargetsAsync = (ctx: ProviderUsageContext) =>
+	store.discoverTargetsAsync(ctx);
+const refreshProviderUsage: ProviderUsageStore["refresh"] = (...args) =>
+	store.refresh(...args);
+const renderProviderUsage: ProviderUsageStore["render"] = (...args) =>
+	store.render(...args);
+const cachedProviderPercentUsed: ProviderUsageStore["cachedPercentUsed"] = (
+	...args
+) => store.cachedPercentUsed(...args);
+const providerUsageCopilot = (targets: ProviderUsageTarget[]) =>
+	store.cliSnapshot(targets).copilot;
+
+function resetStore(clearDisk = true): void {
+	store = createProviderUsageStore();
+	if (clearDisk) {
+		rmSync(process.env.PI_PROVIDER_USAGE_CACHE_PATH ?? sharedTestCachePath, {
+			force: true,
+		});
+	}
+}
 
 const theme = { fg: (_color: string, text: string) => text };
 const OPENAI_LOGO = "\u{F0004}";
@@ -173,11 +190,12 @@ function llmHubContext({
 }
 
 beforeEach(() => {
+	resetStore();
 	delete process.env.CLIPROXYAPI_MANAGEMENT_KEY;
 });
 
 afterEach(() => {
-	invalidateProviderUsageCache();
+	resetStore();
 	// Preserve the native env object: Node 26 child processes inherit from it.
 	for (const key of Object.keys(process.env)) {
 		if (!(key in originalEnv)) delete process.env[key];
@@ -260,8 +278,10 @@ describe("provider usage", () => {
 		await refreshAndWait(ctx, targets);
 
 		expect(fetchMock).not.toHaveBeenCalled();
-		expect(formatProviderUsage(targets)).toBe("Anthropic S12%/W55%");
-		expect(render(targets)).toBe(formatProviderUsage(targets));
+		expect(renderProviderUsage(targets, theme, false)).toBe(
+			"Anthropic S12%/W55%",
+		);
+		expect(render(targets)).toBe("Anthropic S12%/W55%");
 	});
 
 	test.each([0, 6])(
@@ -957,7 +977,7 @@ describe("provider usage", () => {
 							resetAt: resetAt * 1000,
 						},
 			);
-			invalidateProviderUsageCache();
+			resetStore(false);
 			writeFileSync(sharedTestCachePath, cached);
 			fetchMock.mockClear();
 			await refreshAndWait(ctx, targets);
@@ -1073,7 +1093,7 @@ describe("provider usage", () => {
 		);
 
 		availableResets = 0;
-		invalidateProviderUsageCache();
+		resetStore();
 		await refreshAndWait(ctx, targets);
 
 		expect(render(targets)).toContain(
@@ -1102,7 +1122,7 @@ describe("provider usage", () => {
 			`<model>${OPENROUTER_LOGO} ?</model>`,
 		);
 
-		invalidateProviderUsageCache();
+		resetStore();
 		fetchCalls(() => {
 			throw new Error("network down");
 		});
@@ -1143,7 +1163,7 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(formatProviderUsage(targets)).toBe(
+		expect(renderProviderUsage(targets, theme, false)).toBe(
 			`${OPENROUTER_LOGO} $2.50 · Anthropic 10%`,
 		);
 		expect(render(targets)).toBe(`${OPENROUTER_LOGO} $2.50 · Anthropic 10%`);
@@ -1282,7 +1302,7 @@ describe("provider usage", () => {
 		const cache = readFileSync(sharedTestCachePath, "utf8");
 		expect(cache).not.toContain("private-");
 		expect(JSON.stringify(account)).not.toContain("private-");
-		invalidateProviderUsageCache();
+		resetStore(false);
 		writeFileSync(sharedTestCachePath, cache);
 		fetchMock.mockClear();
 		await refreshAndWait(ctx, targets);
@@ -1587,7 +1607,7 @@ describe("provider usage", () => {
 		expect(targets).toEqual([
 			{ providerId: "openai-codex", authKind: "oauth", active: false },
 		]);
-		expect(formatProviderUsage(targets)).toBeUndefined();
+		expect(renderProviderUsage(targets, theme, false)).toBeUndefined();
 		expect(renderStyled(targets, false, activeFamily)).toBe(
 			`<model>${OPENAI_LOGO} ?</model>`,
 		);
@@ -1631,7 +1651,7 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(formatProviderUsage(targets)).toBeUndefined();
+		expect(renderProviderUsage(targets, theme, false)).toBeUndefined();
 		expect(
 			renderStyled(targets, false, mappedProviderUsageFamily(ctx.model)),
 		).toBe(`<model>${OPENAI_LOGO} ?</model>`);
@@ -1697,7 +1717,7 @@ describe("provider usage", () => {
 		const staleAt = Date.now() - 6 * 60_000;
 		seeded.entries[cacheKey].fetchedAt = staleAt;
 		seeded.entries[cacheKey].lastAttemptAt = staleAt;
-		invalidateProviderUsageCache();
+		resetStore(false);
 		writeFileSync(cachePath, JSON.stringify(seeded));
 
 		const refreshSpy = vi.spyOn(usageCache, "runLeasedRefresh");

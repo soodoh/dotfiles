@@ -90,18 +90,54 @@ type Snapshot = {
 	/** Hashed ChatGPT account ID -> hashed proxy identity; ambiguous accounts are omitted. */
 	codexAccounts?: Record<string, string>;
 };
-/** Read-only view of the validated CLIProxyAPI snapshot and hashed target links. */
+/** Read-only view of the validated CLIProxyAPI snapshot and proxy target links. */
+export type ProxyTargetIdentity = {
+	kind: "native" | "codex";
+	id: string;
+};
+
+export type DirectProxyFallback = {
+	scope?: ProviderUsageScope;
+	freshness: "fresh" | "stale" | "expired";
+	state: "ready" | "unknown" | "error" | "unsupported";
+	fetchedAt?: number;
+	lastAttemptAt?: number;
+};
+
 export type ProxySnapshotView = {
 	accounts: ProxyUsageAccount[];
 	freshness: "fresh" | "stale";
-	openaiRegistrations?: Readonly<Record<string, string>>;
-	codexAccounts?: Readonly<Record<string, string>>;
+	linkedAccountKey(targetKey: string): string | undefined;
+	targetQuotaState(targetKey: string): "unlinked" | "stale" | "fresh";
+	resolveAccounts(
+		directFallbacks?: ReadonlyMap<string, DirectProxyFallback>,
+	): ProxyUsageAccount[];
 };
+
+export type ProxyUsageStore = {
+	setTargetLink(
+		targetKey: string,
+		identity?: ProxyTargetIdentity,
+		options?: { clearOnlyOnMismatch?: boolean },
+	): boolean;
+	pruneTargetLinks(activeTargetKeys?: Iterable<string>): void;
+	hasNativeTargetLink(): boolean;
+	targetQuotaState(targetKey: string): "unlinked" | "stale" | "fresh";
+	refreshSnapshot(onUpdate: () => void, lookup?: AccountLookup): Promise<void>;
+	readSnapshot(): ProxySnapshotView | undefined;
+	cachedPercentUsed(): number | undefined;
+};
+
 type AccountLookup = "native" | "codex";
 type ProxyConfig = {
 	source: string;
 	url: string;
 	key: string;
+};
+
+type ProxyTargetLink = {
+	kind: "native" | "codex";
+	hash: string;
 };
 
 type ProxyState = {
@@ -113,16 +149,17 @@ type ProxyState = {
 	lastAttemptSource?: string;
 	lastAttemptFailed: boolean;
 	lastAttemptLookup?: AccountLookup;
+	/** Process-local verified proxy links keyed by target; never a second quota cache. */
+	targetLinks: Map<string, ProxyTargetLink>;
 };
 
 function createProxyState(): ProxyState {
 	return {
 		lastAttemptAt: 0,
 		lastAttemptFailed: false,
+		targetLinks: new Map(),
 	};
 }
-
-let state: ProxyState = createProxyState();
 
 function cachePath(): string {
 	return (
@@ -191,7 +228,10 @@ function readSnapshot(source: string): Snapshot | undefined {
 	}
 }
 
-function currentSnapshot(source: string): Snapshot | undefined {
+function currentSnapshot(
+	state: ProxyState,
+	source: string,
+): Snapshot | undefined {
 	const disk = readSnapshot(source);
 	if (
 		disk &&
@@ -228,10 +268,7 @@ function codexAccountKey(accountId: string): string {
 }
 
 /** One-way identity hash matching the snapshot's openaiRegistrations / codexAccounts maps. */
-export function hashProxyTargetIdentity(
-	kind: "native" | "codex",
-	id: string,
-): string {
+function hashProxyTargetIdentity(kind: "native" | "codex", id: string): string {
 	return kind === "native" ? openAiRegistrationKey(id) : codexAccountKey(id);
 }
 
@@ -809,13 +846,14 @@ function lookupCovers(
 }
 
 async function update(
+	state: ProxyState,
 	config: ProxyConfig,
 	lookup?: AccountLookup,
 ): Promise<ProxyUpdateOutcome> {
 	const { source, url, key } = config;
 	const path = cachePath();
 	const outcome = await runLeasedRefresh(`${path}.refresh`, async (lease) => {
-		const cached = currentSnapshot(source);
+		const cached = currentSnapshot(state, source);
 		if (isProxySnapshotFresh(cached, lookup)) return "fresh" as const;
 		const accounts = await fetchProxyAccounts(
 			url,
@@ -836,7 +874,7 @@ async function update(
 	if (outcome.status === "ok") return outcome.value;
 	if (outcome.status === "contended" || outcome.status === "compromised") {
 		// Another process owns or took over the refresh lease; re-check disk without flagging an error.
-		return isProxySnapshotFresh(currentSnapshot(source), lookup)
+		return isProxySnapshotFresh(currentSnapshot(state, source), lookup)
 			? "fresh"
 			: "contended";
 	}
@@ -845,6 +883,7 @@ async function update(
 }
 
 function recordProxyRefreshOutcome(
+	state: ProxyState,
 	source: string,
 	lookup: AccountLookup | undefined,
 	outcome: ProxyUpdateOutcome,
@@ -862,11 +901,11 @@ function recordProxyRefreshOutcome(
 		state.lastAttemptSource = source;
 		state.lastAttemptLookup = lookup;
 		state.lastAttemptFailed = false;
-		const after = currentSnapshot(source);
+		const after = currentSnapshot(state, source);
 		state.lastAttemptAt = after?.fetchedAt ?? 0;
 		if ((after?.fetchedAt ?? 0) > beforeFetchedAt) onUpdate();
 	} else if (outcome === "contended") {
-		const after = currentSnapshot(source);
+		const after = currentSnapshot(state, source);
 		const hasActiveFailure =
 			state.lastAttemptSource === source &&
 			state.lastAttemptFailed &&
@@ -888,21 +927,22 @@ function recordProxyRefreshOutcome(
 	return outcome;
 }
 
-export function refreshProxySnapshot(
+function refreshProxySnapshotState(
+	state: ProxyState,
 	onUpdate: () => void,
 	lookup?: AccountLookup,
 ): Promise<void> {
 	const config = proxyConfig();
 	if (!config) return Promise.resolve();
 	const { source } = config;
-	const before = currentSnapshot(source);
+	const before = currentSnapshot(state, source);
 	if (isProxySnapshotFresh(before, lookup)) return Promise.resolve();
 	const beforeFetchedAt = before?.fetchedAt ?? 0;
 	if (state.pending) {
 		const joinedSource = state.pendingSource;
 		const joinedLookup = state.pendingLookup;
 		return state.pending.then((outcome) => {
-			const after = currentSnapshot(source);
+			const after = currentSnapshot(state, source);
 			if (
 				(after?.fetchedAt ?? 0) > beforeFetchedAt ||
 				(joinedSource === source &&
@@ -919,7 +959,7 @@ export function refreshProxySnapshot(
 			) {
 				return;
 			}
-			return refreshProxySnapshot(onUpdate, lookup);
+			return refreshProxySnapshotState(state, onUpdate, lookup);
 		});
 	}
 	if (
@@ -936,9 +976,10 @@ export function refreshProxySnapshot(
 		})
 	)
 		return Promise.resolve();
-	const run = update(config, lookup)
+	const run = update(state, config, lookup)
 		.then((outcome) =>
 			recordProxyRefreshOutcome(
+				state,
 				source,
 				lookup,
 				outcome,
@@ -1018,7 +1059,7 @@ function usableScope(
 }
 
 /** The proxy can choose any enabled Codex account. Keep even expired recorded windows. */
-export function cachedProxyPercentUsed(): number | undefined {
+function cachedProxyPercentUsed(): number | undefined {
 	const source = sourceKey();
 	if (!source) return undefined;
 	let max: number | undefined;
@@ -1038,6 +1079,7 @@ export function cachedProxyPercentUsed(): number | undefined {
 }
 
 function proxySnapshotFreshness(
+	state: ProxyState,
 	source: string,
 	data: Snapshot | undefined,
 ): "fresh" | "stale" | "expired" {
@@ -1056,10 +1098,11 @@ function proxySnapshotFreshness(
 }
 
 function proxyUsageAccountsFromSnapshot(
+	state: ProxyState,
 	source: string,
 	data: Snapshot | undefined,
 ): ProxyUsageAccount[] {
-	const freshness = proxySnapshotFreshness(source, data);
+	const freshness = proxySnapshotFreshness(state, source, data);
 	if (freshness === "expired" || !data || !Array.isArray(data.accounts))
 		return [];
 	return data.accounts.flatMap((account) => {
@@ -1130,21 +1173,178 @@ function proxyUsageAccountsFromSnapshot(
 	});
 }
 
-/** Read the current validated CLIProxyAPI snapshot and hashed target links. */
-export function readProxySnapshot(): ProxySnapshotView | undefined {
-	const source = sourceKey();
-	if (!source) return undefined;
-	const data = currentSnapshot(source);
-	const freshness = proxySnapshotFreshness(source, data);
-	if (freshness === "expired" || !data) return undefined;
+function mergeDirectFallback(
+	account: ProxyUsageAccount,
+	fallback: DirectProxyFallback | undefined,
+	proxySnapshotStale: boolean,
+): ProxyUsageAccount {
+	if (!fallback || (hasQuota(account.scope) && !proxySnapshotStale))
+		return account;
+	if (
+		!fallback.scope ||
+		fallback.freshness === "expired" ||
+		!hasQuota(fallback.scope)
+	)
+		return account;
+	const directObservedAt =
+		fallback.fetchedAt ?? fallback.lastAttemptAt ?? account.observedAt;
+	if (
+		hasQuota(account.scope) &&
+		(fallback.freshness !== "fresh" || directObservedAt <= account.observedAt)
+	) {
+		return account;
+	}
+	const scope = {
+		...fallback.scope,
+		availableResets:
+			fallback.scope.availableResets ?? account.scope.availableResets,
+	};
 	return {
-		accounts: proxyUsageAccountsFromSnapshot(source, data),
-		freshness,
-		openaiRegistrations: data.openaiRegistrations,
-		codexAccounts: data.codexAccounts,
+		...account,
+		scope,
+		summary: formatProviderScope(scope) ?? account.summary,
+		observedAt: directObservedAt,
+		quotaLookupFailed: fallback.state !== "ready",
+		stale:
+			fallback.freshness === "stale" ||
+			(fallback.scope.availableResets === undefined &&
+				account.resetLookupFailed),
+		...(fallback.scope.availableResets !== undefined
+			? {
+					resetCredits: undefined,
+					resetCreditsObservedAt: fallback.fetchedAt,
+					resetLookupFailed: fallback.state !== "ready",
+				}
+			: {}),
 	};
 }
 
-export function resetProxySnapshot(): void {
-	state = createProxyState();
+function linkedAccountKeyInSnapshot(
+	targetLinks: ReadonlyMap<string, ProxyTargetLink>,
+	data: Snapshot,
+	targetKey: string,
+): string | undefined {
+	const link = targetLinks.get(targetKey);
+	if (!link) return undefined;
+	const matches =
+		link.kind === "native" ? data.openaiRegistrations : data.codexAccounts;
+	if (
+		!matches ||
+		typeof matches !== "object" ||
+		Array.isArray(matches) ||
+		!Object.hasOwn(matches, link.hash)
+	)
+		return undefined;
+	return matches[link.hash];
+}
+
+function readProxySnapshotState(
+	state: ProxyState,
+): ProxySnapshotView | undefined {
+	const source = sourceKey();
+	if (!source) return undefined;
+	const data = currentSnapshot(state, source);
+	const freshness = proxySnapshotFreshness(state, source, data);
+	if (freshness === "expired" || !data) return undefined;
+	const accounts = proxyUsageAccountsFromSnapshot(state, source, data);
+	const targetLinks = new Map(state.targetLinks);
+	const linkedAccountKey = (targetKey: string): string | undefined =>
+		linkedAccountKeyInSnapshot(targetLinks, data, targetKey);
+	return {
+		accounts,
+		freshness,
+		linkedAccountKey,
+		targetQuotaState(targetKey: string): "unlinked" | "stale" | "fresh" {
+			const accountKey = linkedAccountKey(targetKey);
+			if (!accountKey) return "unlinked";
+			const account = accounts.find((entry) => entry.key === accountKey);
+			if (!account) return "unlinked";
+			return freshness === "fresh" && hasQuota(account.scope)
+				? "fresh"
+				: "stale";
+		},
+		resolveAccounts(
+			directFallbacks?: ReadonlyMap<string, DirectProxyFallback>,
+		): ProxyUsageAccount[] {
+			if (!directFallbacks?.size) return accounts;
+			const fallbacksByAccount = new Map<string, DirectProxyFallback>();
+			for (const [targetKey, fallback] of directFallbacks) {
+				if (targetLinks.get(targetKey)?.kind !== "codex") continue;
+				const accountKey = linkedAccountKey(targetKey);
+				if (accountKey) fallbacksByAccount.set(accountKey, fallback);
+			}
+			if (!fallbacksByAccount.size) return accounts;
+			const proxySnapshotStale = freshness !== "fresh";
+			return accounts.map((account) =>
+				mergeDirectFallback(
+					account,
+					fallbacksByAccount.get(account.key),
+					proxySnapshotStale,
+				),
+			);
+		},
+	};
+}
+
+export function createProxyUsageStore(): ProxyUsageStore {
+	const state = createProxyState();
+	return {
+		setTargetLink(
+			targetKey: string,
+			identity?: ProxyTargetIdentity,
+			options?: { clearOnlyOnMismatch?: boolean },
+		): boolean {
+			const previous = state.targetLinks.get(targetKey);
+			const next = identity
+				? {
+						kind: identity.kind,
+						hash: hashProxyTargetIdentity(identity.kind, identity.id),
+					}
+				: undefined;
+			const same =
+				previous?.kind === next?.kind && previous?.hash === next?.hash;
+			if (options?.clearOnlyOnMismatch) {
+				if (same || !previous) return false;
+				state.targetLinks.delete(targetKey);
+				return true;
+			}
+			if (same) return false;
+			if (!next) state.targetLinks.delete(targetKey);
+			else state.targetLinks.set(targetKey, next);
+			return true;
+		},
+		pruneTargetLinks(activeTargetKeys?: Iterable<string>): void {
+			if (!activeTargetKeys) {
+				state.targetLinks.clear();
+				return;
+			}
+			const active = new Set(activeTargetKeys);
+			for (const key of state.targetLinks.keys()) {
+				if (!active.has(key)) state.targetLinks.delete(key);
+			}
+		},
+		hasNativeTargetLink(): boolean {
+			for (const link of state.targetLinks.values()) {
+				if (link.kind === "native") return true;
+			}
+			return false;
+		},
+		targetQuotaState(targetKey: string): "unlinked" | "stale" | "fresh" {
+			return (
+				readProxySnapshotState(state)?.targetQuotaState(targetKey) ?? "unlinked"
+			);
+		},
+		refreshSnapshot(
+			onUpdate: () => void,
+			lookup?: AccountLookup,
+		): Promise<void> {
+			return refreshProxySnapshotState(state, onUpdate, lookup);
+		},
+		readSnapshot(): ProxySnapshotView | undefined {
+			return readProxySnapshotState(state);
+		},
+		cachedPercentUsed(): number | undefined {
+			return cachedProxyPercentUsed();
+		},
+	};
 }
