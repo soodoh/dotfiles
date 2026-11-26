@@ -6,7 +6,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-import tomllib
 import unittest
 from pathlib import Path
 from types import ModuleType
@@ -102,8 +101,20 @@ class MiseLockTests(unittest.TestCase):
 
     def test_mise_environment_cannot_be_redirected_from_generation_root(self) -> None:
         root = Path("/tmp/isolated-mise-root")
+        redirect_vars = (
+            "MISE_CONFIG_DIR",
+            "MISE_CONFIG_FILE",
+            "MISE_DEFAULT_CONFIG_FILENAME",
+            "MISE_ENV",
+            "MISE_GLOBAL_CONFIG_FILE",
+            "MISE_OVERRIDE_CONFIG_FILENAMES",
+            "MISE_SYSTEM_CONFIG_FILE",
+            "MISE_TRUSTED_CONFIG_PATHS",
+            "MISE_PYTHON_VERSION",
+            "MISE_TOOL_CONFIG__LOCKED",
+        )
         with patch.dict(os.environ, {}, clear=True):
-            for name in self.module.MISE_CONFIG_ENVIRONMENT:
+            for name in redirect_vars:
                 os.environ[name] = "unexpected"
             environment = self.module.mise_environment(root)
         self.assertEqual(environment["MISE_TRUSTED_CONFIG_PATHS"], str(root))
@@ -115,10 +126,17 @@ class MiseLockTests(unittest.TestCase):
             environment["MISE_GLOBAL_CONFIG_FILE"],
             str(ROOT / "dotfiles/common/mise/config.toml"),
         )
-        for name in self.module.MISE_CONFIG_ENVIRONMENT - {
-            "MISE_TRUSTED_CONFIG_PATHS", "MISE_CONFIG_DIR", "MISE_ENV",
-            "MISE_GLOBAL_CONFIG_FILE"
-        }:
+        self.assertEqual(
+            environment["MISE_SYSTEM_CONFIG_FILE"],
+            str(root / ".empty.toml"),
+        )
+        for name in (
+            "MISE_CONFIG_FILE",
+            "MISE_DEFAULT_CONFIG_FILENAME",
+            "MISE_OVERRIDE_CONFIG_FILENAMES",
+            "MISE_PYTHON_VERSION",
+            "MISE_TOOL_CONFIG__LOCKED",
+        ):
             with self.subTest(name=name):
                 self.assertNotIn(name, environment)
 
@@ -379,16 +397,30 @@ class MiseLockTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_validation_repository(root)
-            entry, = tomllib.loads((root / "mise.lock").read_text())["tools"]["python"]
-            tool = "aqua:atuinsh/atuin"
-            entry["backend"] = tool
-            artifact = entry.pop("platforms.macos-x64")
-            tools = {tool: [entry]}
-            self.module.validate_archive_entries("mise.lock", tools, {}, {})
-            artifact["checksum"] = "invalid"
-            entry["platforms.macos-x64"] = artifact
-            with self.assertRaisesRegex(ValueError, "checksum"):
-                self.module.validate_archive_entries("mise.lock", tools, {}, {})
+            atuin_archives = "\n".join(
+                f'[tools."aqua:atuinsh/atuin"."platforms.{platform}"]\n'
+                f'url = "https://example.invalid/atuin-{platform}.tar.gz"\n'
+                f'checksum = "sha256:{"a" * 64}"\n'
+                for platform in ("linux-x64", "linux-arm64", "macos-arm64")
+            )
+            with (root / "mise.toml").open("a") as stream:
+                stream.write('\n"aqua:atuinsh/atuin" = "18.10.0"\n')
+            with (root / "mise.lock").open("a") as stream:
+                stream.write(
+                    '\n[[tools."aqua:atuinsh/atuin"]]\n'
+                    'version = "18.10.0"\nbackend = "aqua:atuinsh/atuin"\n'
+                    + atuin_archives
+                )
+            self.module.check_lockfiles(root)
+            with (root / "mise.lock").open("a") as stream:
+                stream.write(
+                    '\n[tools."aqua:atuinsh/atuin"."platforms.macos-x64"]\n'
+                    'url = "https://example.invalid/atuin-macos-x64.tar.gz"\n'
+                    'checksum = "invalid"\n'
+                )
+            with self.assertRaises(SystemExit) as error:
+                self.module.check_lockfiles(root)
+            self.assertIn("checksum", str(error.exception))
 
     def test_check_reports_missing_or_malformed_input_file(self) -> None:
         for name in ("mise.work-macos.lock", "mise.personal-macos.toml"):

@@ -8,17 +8,82 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 Record = dict[str, Any]
 RunCommand = Callable[..., subprocess.CompletedProcess[str]]
 
+CONFIG_FILES = (
+    "mise.toml",
+    "mise.personal-macos.toml",
+    "mise.work-macos.toml",
+)
+LOCK_FILES = (
+    "mise.lock",
+    "mise.personal-macos.lock",
+    "mise.work-macos.lock",
+)
+PROFILES = ("personal-macos", "work-macos")
+PLATFORMS = "linux-x64,linux-arm64,macos-x64,macos-arm64"
+# Atuin no longer publishes Intel macOS binaries; its other targets remain required.
+UNAVAILABLE_ARCHIVES = {"aqua:atuinsh/atuin": {"macos-x64"}}
+
 _PLATFORM_PREFIX = "platforms."
 _PROJECTION_SECTIONS = ("settings", "tool_config", "alias", "plugins")
 _VERSION_PLACEHOLDER = re.compile(r"{{\s*version\s*}}")
+
+
+def isolated_mise_env(
+    stage: Path,
+    *,
+    global_config_file: Path | None = None,
+    yes: bool = False,
+    root_config_only: bool = False,
+    python_request: str | None = None,
+) -> dict[str, str]:
+    """Build a clean environment that isolates mise to the staged root."""
+    environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("MISE_")
+    }
+    environment.update(
+        {
+            "MISE_CONFIG_DIR": str(stage / ".mise-global"),
+            "MISE_GLOBAL_CONFIG_FILE": str(
+                global_config_file or (stage / ".empty.toml")
+            ),
+            "MISE_SYSTEM_CONFIG_FILE": str(stage / ".empty.toml"),
+            "MISE_ENV": "",
+            "MISE_SAFE": "1",
+            "MISE_TRUSTED_CONFIG_PATHS": str(stage),
+            "MISE_SELF_UPDATE_AUTO": "false",
+        }
+    )
+    if yes:
+        environment["MISE_YES"] = "1"
+    if root_config_only:
+        environment["MISE_OVERRIDE_CONFIG_FILENAMES"] = "mise.toml"
+    if python_request is not None:
+        environment["MISE_PYTHON_VERSION"] = python_request
+    return environment
+
+
+@contextmanager
+def staged_repository(
+    root: Path, files: Iterable[str] = (*CONFIG_FILES, *LOCK_FILES)
+) -> Iterator[Path]:
+    with tempfile.TemporaryDirectory(prefix="mise-lock-stage-") as directory:
+        stage = Path(directory)
+        for name in files:
+            source = root / name
+            if source.exists():
+                shutil.copy2(source, stage / name)
+        yield stage
 
 
 def _expand_http_url(template: str, version: str) -> str:
@@ -207,24 +272,11 @@ def _read_mise_resolution(
     run_command: RunCommand = subprocess.run,
 ) -> tuple[dict[str, list[tuple[str, str]]], str]:
     """Read (requested, resolved) version pairs and diagnostics, without installing."""
-    environment = {
-        key: value for key, value in os.environ.items() if not key.startswith("MISE_")
-    }
-    environment.update(
-        {
-            "MISE_CONFIG_DIR": str(stage / ".global"),
-            "MISE_GLOBAL_CONFIG_FILE": str(stage / ".empty.toml"),
-            "MISE_SYSTEM_CONFIG_FILE": str(stage / ".empty.toml"),
-            "MISE_ENV": "",
-            "MISE_SAFE": "1",
-            "MISE_TRUSTED_CONFIG_PATHS": str(stage),
-            "MISE_SELF_UPDATE_AUTO": "false",
-        }
+    environment = isolated_mise_env(
+        stage,
+        root_config_only=root_config_only,
+        python_request=python_request,
     )
-    if root_config_only:
-        environment["MISE_OVERRIDE_CONFIG_FILENAMES"] = "mise.toml"
-    if python_request is not None:
-        environment["MISE_PYTHON_VERSION"] = python_request
     arguments = ["mise", "--cd", str(stage), "--no-env", "--no-hooks"]
     if profile is not None:
         arguments.extend(["--env", profile])
@@ -595,3 +647,138 @@ def resolve_cache_declarations(
                 )
             result[source][tool] = resolved_entries
     return result
+
+
+def _read_validation_input(root: Path, name: str) -> dict[str, Any]:
+    try:
+        with (root / name).open("rb") as stream:
+            return tomllib.load(stream)
+    except (OSError, ValueError) as error:
+        raise ValueError(f"{name}: {error}") from error
+
+
+def validate_archive_entries(
+    name: str,
+    tools: dict[str, list[dict[str, Any]]],
+    declarations: dict[str, list[ToolRequest]],
+    matches: dict[tuple[str, str], list[ToolRequest]],
+    *,
+    platforms: Iterable[str] = PLATFORMS.split(","),
+    unavailable_archives: dict[str, set[str]] = UNAVAILABLE_ARCHIVES,
+) -> None:
+    target_platforms = tuple(platforms)
+    for tool, entries in tools.items():
+        for entry in entries:
+            backend, version = entry["backend"], entry["version"]
+            context = f"{name}: {tool}@{version}"
+            # For a locked version, require the platforms of its matched requests.
+            # Unreferenced entries retain tool-wide scope; private runtimes have
+            # no direct declarations and must cover every repository target.
+            archive_backend = backend.split(":", 1)[0] in {"aqua", "github", "http"}
+            if archive_backend or backend in {
+                "core:node",
+                "core:python",
+                "core:ruby",
+                "core:go",
+                "core:bun",
+            }:
+                requests = matches.get((tool, version), declarations.get(tool))
+                for platform in target_platforms:
+                    if requests is not None and not any(
+                        request.supports_os(platform.split("-", 1)[0])
+                        for request in requests
+                    ):
+                        continue
+                    artifact = platform_artifact(entry, platform)
+                    if artifact is None and platform in unavailable_archives.get(
+                        tool, set()
+                    ):
+                        continue
+                    if not isinstance(artifact, dict):
+                        raise TypeError(f"{context}: missing {platform} archive")
+                    location = f"{context}: {platform}"
+                    url = artifact.get("url")
+                    if (
+                        not isinstance(url, str)
+                        or urlsplit(url).scheme != "https"
+                        or not urlsplit(url).netloc
+                    ):
+                        raise ValueError(
+                            f"{location}: url must be an absolute HTTPS URL"
+                        )
+                    checksum = artifact.get("checksum")
+                    if not isinstance(checksum, str) or not re.fullmatch(
+                        r"sha256:[0-9a-f]{64}", checksum
+                    ):
+                        raise ValueError(
+                            f"{location}: checksum must be a SHA-256 digest"
+                        )
+                    if "provenance" in artifact and (
+                        not isinstance(artifact["provenance"], str)
+                        or not artifact["provenance"]
+                    ):
+                        raise ValueError(
+                            f"{location}: provenance must be a nonempty string"
+                        )
+
+
+def validate_lockfiles(
+    root: Path,
+    *,
+    config_files: tuple[str, ...] = CONFIG_FILES,
+    lock_files: tuple[str, ...] = LOCK_FILES,
+    profiles: tuple[str, ...] = PROFILES,
+    platforms: str = PLATFORMS,
+    run_command: RunCommand = subprocess.run,
+) -> None:
+    """Validate all repository mise lockfiles against declared tools and URLs."""
+    # Validity is independent of today's upstream metadata. Refreshing all
+    # artifacts here made unrelated PRs fail when Python published another
+    # standalone build for an already-pinned version.
+    configs = {name: _read_validation_input(root, name) for name in config_files}
+    if configs["mise.toml"].get("tool_config", {}).get("locked") is not True:
+        raise ValueError(
+            "mise.toml: tool_config.locked must be true for lock validation"
+        )
+    declarations = {
+        name: read_tool_declarations(config.get("tools", {}), name)
+        for name, config in configs.items()
+    }
+    records = {
+        name: LockRecords(name, _read_validation_input(root, name))
+        for name in lock_files
+    }
+    locks = {name: lock.checked_tools() for name, lock in records.items()}
+    matches: dict[str, dict[tuple[str, str], list[ToolRequest]]] = {
+        name: {} for name in lock_files
+    }
+    with staged_repository(root, (*config_files, *lock_files)) as stage:
+        for profile in (None, *profiles):
+            resolution = resolve_profile_declarations(
+                stage,
+                configs,
+                declarations,
+                profile=profile,
+                locks=locks,
+                run_command=run_command,
+            )
+            for match in resolution.matches:
+                requests = matches[match.lock_name].setdefault(
+                    (match.tool, match.version), []
+                )
+                if match.request not in requests:
+                    requests.append(match.request)
+    target_platforms = platforms.split(",")
+    for name, tools in locks.items():
+        source = name.replace(".lock", ".toml")
+        validate_archive_entries(
+            name, tools, declarations[source], matches[name], platforms=target_platforms
+        )
+        # Native resolution checks HTTP options but ignores declared URLs.
+        for (tool, version), requests in matches[name].items():
+            if tool.startswith("http:"):
+                entries = records[name].matching(tool, version)
+                for request in requests:
+                    validate_http_lock_urls(
+                        source, tool, request, version, entries, target_platforms
+                    )

@@ -24,10 +24,13 @@ ENV = dict(
 )
 
 
-def run(*command: str, show: bool = False, stdout_only: bool = False) -> str:
-    result = subprocess.run(
-        command, env=ENV, capture_output=True, text=True, check=False
-    )
+def run(
+    *command: str,
+    show: bool = False,
+    stdout_only: bool = False,
+    runner=subprocess.run,
+) -> str:
+    result = runner(command, env=ENV, capture_output=True, text=True, check=False)
     if show or result.returncode:
         print(result.stdout, end="", flush=True)
         print(result.stderr, end="", file=sys.stderr, flush=True)
@@ -78,23 +81,38 @@ class Plan:
     processes: list[Blocker]
 
 
-def preflight(*, show: bool, darwin: bool) -> Plan:
-    preview = run(*MISE_PRUNE, "--dry-run", show=show)
+def preflight(
+    *,
+    show: bool,
+    darwin: bool,
+    runner=subprocess.run,
+    macos_host=None,
+) -> Plan:
+    preview = run(*MISE_PRUNE, "--dry-run", show=show, runner=runner)
     processes = []
     for line in preview.splitlines():
         if " is kept: still running" in line:
             match = re.search(r"still running as pid (\d+)", line)
             processes.append(Blocker(line, int(match[1]) if match else None))
-    catalog = json.loads(run("mise", "ls", "--prunable", "--json", stdout_only=True))
+    catalog = json.loads(
+        run("mise", "ls", "--prunable", "--json", stdout_only=True, runner=runner)
+    )
     installs = [
         Path(item["install_path"]) for rows in catalog.values() for item in rows
     ]
-    plan = Plan([], installs, pipx_blockers(installs), processes)
+    steps: list[tuple[str, ...]] = []
+    targets = list(installs)
     if darwin:
         import cleanup_macos as macos
 
-        macos.extend_plan(plan, show=show, run_command=run, blocker_factory=Blocker)
-    return plan
+        env = macos.DEFAULT_HOST if macos_host is None else macos_host
+        additions = macos.plan_additions(targets, show=show, env=env)
+        steps.extend(additions.steps)
+        targets.extend(additions.targets)
+        processes.extend(
+            Blocker(message, pid) for message, pid in additions.blockers
+        )
+    return Plan(steps, targets, pipx_blockers(installs), processes)
 
 
 def report(heading, issues):
@@ -103,17 +121,17 @@ def report(heading, issues):
         print("\n".join(dict.fromkeys(issues)), file=sys.stderr)
 
 
-def prune(plan: Plan) -> int:
+def prune(plan: Plan, *, runner=subprocess.run) -> int:
     if plan.references or plan.processes:
         report(
             "Cleanup blocked; no packages were pruned:",
             [*plan.references, *(item.message for item in plan.processes)],
         )
         return 1
-    run(*MISE_PRUNE, "--yes", show=True)
-    run(*MISE_CACHE_PRUNE, show=True)
+    run(*MISE_PRUNE, "--yes", show=True, runner=runner)
+    run(*MISE_CACHE_PRUNE, show=True, runner=runner)
     for step in plan.steps:
-        run(*step, show=True)
+        run(*step, show=True, runner=runner)
     return 0
 
 
@@ -121,33 +139,116 @@ def worker_command() -> tuple[str, ...]:
     return (sys.executable, str(Path(__file__).resolve()), "worker")
 
 
-def cleanup(*, apply: bool, worker: bool = False) -> int:
-    darwin = sys.platform == "darwin"
-    profile = os.environ.get("MISE_ENV")
-    if darwin and profile not in {"personal-macos", "work-macos"}:
+def _apply_macos(
+    profile: str,
+    *,
+    worker: bool,
+    runner,
+    macos_host,
+) -> int:
+    import cleanup_macos as macos
+
+    env = macos.DEFAULT_HOST if macos_host is None else macos_host
+    if macos.handoff_if_needed(
+        profile, worker=worker, worker_command=worker_command(), env=env
+    ):
+        return 0
+    with env.maintenance_lock():
+        plan = preflight(show=False, darwin=True, runner=runner, macos_host=env)
+        if plan.references:
+            report("Cleanup blocked by retained environments:", plan.references)
+            return 1
+        maintenance = macos.plan_maintenance(plan.processes, profile, env=env)
+        for line in maintenance.summary_lines():
+            print(line)
+        if maintenance.unknown:
+            report(
+                "Cleanup blocked before stopping anything; close these processes first:",
+                maintenance.unknown,
+            )
+            return 1
+        maintenance.check_replacements(plan.targets)
+
+        if maintenance.has_actions:
+            print(
+                "Save terminal work and stop important Docker workloads first. Live pane jobs can be lost."
+            )
+            if not env.confirm(
+                "Interrupt these sessions/services and prune? [y/N] "
+            ):
+                print("Cleanup cancelled.")
+                return 1
+
+        with maintenance.paused_for_prune():
+            final = preflight(
+                show=False, darwin=True, runner=runner, macos_host=env
+            )
+            maintenance.check_replacements(final.targets)
+            if prune(final, runner=runner):
+                return 1
+            if final.targets:
+                remaining = preflight(
+                    show=False, darwin=True, runner=runner, macos_host=env
+                )
+                if (
+                    remaining.targets
+                    or remaining.references
+                    or remaining.processes
+                ):
+                    report(
+                        "Cleanup incomplete; the following removals or blockers remain:",
+                        [
+                            *map(str, remaining.targets),
+                            *remaining.references,
+                            *(item.message for item in remaining.processes),
+                        ],
+                    )
+                    return 1
+        maintenance.refresh_deferred()
+        print("Pruning verified; requested service restarts finished.")
+        return 0
+
+
+def cleanup(
+    *,
+    apply: bool,
+    worker: bool = False,
+    darwin: bool | None = None,
+    profile: str | None = None,
+    runner=subprocess.run,
+    macos_host=None,
+) -> int:
+    is_darwin = sys.platform == "darwin" if darwin is None else darwin
+    selected_profile = os.environ.get("MISE_ENV") if profile is None else profile
+    if is_darwin and selected_profile not in {"personal-macos", "work-macos"}:
         raise ValueError(
             "select personal-macos or work-macos before reviewing or pruning Homebrew"
         )
-    if apply and darwin:
-        import cleanup_macos as macos
-
-        return macos.run_cleanup(
-            profile,
-            worker=worker,
-            worker_command=worker_command(),
-            preflight=lambda show=False: preflight(show=show, darwin=True),
-            prune=prune,
-            report=report,
+    if apply and is_darwin:
+        assert selected_profile is not None
+        return _apply_macos(
+            selected_profile, worker=worker, runner=runner, macos_host=macos_host
         )
 
-    plan = preflight(show=not apply, darwin=darwin)
+    plan = preflight(
+        show=not apply, darwin=is_darwin, runner=runner, macos_host=macos_host
+    )
     if apply:
-        return prune(plan)
-    run(*MISE_CACHE_PRUNE, "--dry-run", show=True)
-    if darwin:
+        return prune(plan, runner=runner)
+    run(*MISE_CACHE_PRUNE, "--dry-run", show=True, runner=runner)
+    if is_darwin:
         import cleanup_macos as macos
 
-        unknown = macos.preview_cleanup(plan, profile, report=report)
+        assert selected_profile is not None
+        env = macos.DEFAULT_HOST if macos_host is None else macos_host
+        maintenance = macos.plan_maintenance(plan.processes, selected_profile, env=env)
+        for line in maintenance.summary_lines():
+            print(line)
+        try:
+            maintenance.check_replacements(plan.targets)
+        except ValueError as exc:
+            report("Service replacements blocking cleanup:", [str(exc)])
+        unknown = list(maintenance.unknown)
     else:
         unknown = [item.message for item in plan.processes]
     report("Retained environments blocking cleanup:", plan.references)
