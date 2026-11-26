@@ -12,13 +12,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from mise_declarations import ToolRequest, read_tool_declarations
+from mise_declarations import ToolRequest, expand_http_url, read_tool_declarations
 from mise_lock_records import LockRecords, platform_artifact
-from mise_resolution import (
-    expand_http_url,
-    read_mise_resolution,
-    write_projected_config,
-)
+from mise_resolution import read_mise_resolution, resolve_projected_configs
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_FILES = (
@@ -340,37 +336,6 @@ def validate_http_urls(
             raise ValueError(f"{source}: {tool}@{version}: {platform}: {lock_name} does not match the declared checksum")
 
 
-def resolve_inactive_requests(
-    stage: Path,
-    profile: str | None,
-    configs: dict[str, dict],
-    inactive_by_source: dict[str, dict[str, list[ToolRequest]]],
-) -> tuple[dict[str, list[tuple[str, str]]], str]:
-    # Mise skips tools whose os filter does not match this host. Project only
-    # those requests without their os filter so mise itself still validates
-    # versions, backends, and normalized options against the committed locks.
-    if not any(inactive_by_source.values()):
-        return {}, ""
-    sources = ("mise.toml", f"mise.{profile}.toml") if profile else ("mise.toml",)
-    with tempfile.TemporaryDirectory(prefix="mise-lock-inactive-") as directory:
-        projected = Path(directory)
-        for source in sources:
-            projection = {
-                key: configs[source][key]
-                for key in ("settings", "tool_config", "alias", "plugins")
-                if key in configs[source]
-            }
-            if tools := inactive_by_source.get(source):
-                projection["tools"] = {
-                    tool: [request.without_os().to_toml_value() for request in requests]
-                    for tool, requests in tools.items()
-                }
-            write_projected_config(projected / source, projection)
-            lock_name = source.replace(".toml", ".lock")
-            shutil.copy2(stage / lock_name, projected / lock_name)
-        return read_mise_resolution(projected, profile=profile)
-
-
 def validate_requests(
     stage: Path, profile: str | None,
     configs: dict[str, dict],
@@ -399,8 +364,11 @@ def validate_requests(
             inactive_by_source.setdefault(source, {})[tool] = inactive
 
     resolved, warnings = read_mise_resolution(stage, profile=profile)
-    inactive_resolved, inactive_warnings = resolve_inactive_requests(
-        stage, profile, configs, inactive_by_source
+    # Mise skips tools whose os filter does not match this host. Project only
+    # those requests without their os filter so mise itself still validates
+    # versions, backends, and normalized options against the committed locks.
+    inactive_resolved, inactive_warnings = resolve_projected_configs(
+        stage, configs, inactive_by_source, profile=profile, strip_os=True
     )
     problems, matches = [], []
     for tool, (source, active, inactive) in split_requests.items():

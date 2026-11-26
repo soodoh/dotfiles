@@ -2,38 +2,33 @@
 
 import json
 import os
-import re
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
-_VERSION_PLACEHOLDER = re.compile(r"{{\s*version\s*}}")
+from mise_declarations import ToolRequest
+
+_PROJECTION_SECTIONS = ("settings", "tool_config", "alias", "plugins")
 
 
-def toml_value(value: Any) -> str:
+def _toml_value(value: Any) -> str:
     """Serialize JSON-compatible TOML configuration values for projected stages."""
     if isinstance(value, dict):
         return "{ " + ", ".join(
-            f"{toml_value(key)} = {toml_value(item)}" for key, item in value.items()
+            f"{_toml_value(key)} = {_toml_value(item)}" for key, item in value.items()
         ) + " }"
     if isinstance(value, list):
-        return "[" + ", ".join(toml_value(item) for item in value) + "]"
+        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
     return json.dumps(value, ensure_ascii=False, allow_nan=False)
 
 
-def write_projected_config(path: Path, data: dict[str, Any]) -> None:
+def _write_projected_config(path: Path, data: dict[str, Any]) -> None:
     """Write a projected mise TOML config preserving backend options."""
     path.write_text(
-        "".join(f"{toml_value(key)} = {toml_value(value)}\n" for key, value in data.items())
+        "".join(f"{_toml_value(key)} = {_toml_value(value)}\n" for key, value in data.items())
     )
-
-
-def expand_http_url(template: str, version: str) -> str:
-    """Substitute a version without evaluating any other Tera syntax."""
-    expanded = _VERSION_PLACEHOLDER.sub(lambda _: version, template)
-    if any(marker in expanded for marker in ("{{", "{%", "{#")):
-        raise ValueError("supports only literal URLs and {{ version }}")
-    return expanded
 
 
 def read_mise_resolution(
@@ -103,3 +98,61 @@ def read_mise_resolution(
             requests.append((request, version))
         resolved[tool] = requests
     return resolved, diagnostics
+
+
+def resolve_projected_configs(
+    lock_root: Path,
+    configs: dict[str, dict[str, Any]],
+    tools_by_source: dict[str, dict[str, list[ToolRequest]]],
+    *,
+    profile: str | None = None,
+    root_config_only: bool = False,
+    strip_os: bool = False,
+    unlocked: bool = False,
+) -> tuple[dict[str, list[tuple[str, str]]], str]:
+    """Project selected tool declarations into an isolated stage and resolve offline."""
+    if not any(tools_by_source.values()):
+        return {}, ""
+    sources = (
+        ("mise.toml",)
+        if root_config_only or profile is None
+        else ("mise.toml", f"mise.{profile}.toml")
+    )
+    with tempfile.TemporaryDirectory(prefix="mise-resolve-projected-") as directory:
+        stage = Path(directory)
+        for source in sources:
+            projection = {
+                key: configs[source][key]
+                for key in _PROJECTION_SECTIONS
+                if key in configs[source]
+            }
+            if unlocked and source == "mise.toml":
+                projection["settings"] = {
+                    **projection.get("settings", {}),
+                    "lockfile": True,
+                    "locked": False,
+                }
+                projection["tool_config"] = {
+                    **projection.get("tool_config", {}),
+                    "locked": False,
+                }
+            if tools := tools_by_source.get(source):
+                projected_tools: dict[str, list[Any]] = {}
+                for tool, requests in tools.items():
+                    values: list[Any] = []
+                    for request in requests:
+                        item = (
+                            request.without_os() if strip_os else request
+                        ).to_toml_value()
+                        if item not in values:
+                            values.append(item)
+                    projected_tools[tool] = values
+                projection["tools"] = projected_tools
+            _write_projected_config(stage / source, projection)
+            lock_name = source.replace(".toml", ".lock")
+            shutil.copy2(lock_root / lock_name, stage / lock_name)
+        return read_mise_resolution(
+            stage,
+            profile=profile,
+            root_config_only=root_config_only,
+        )

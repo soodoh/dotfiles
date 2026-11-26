@@ -14,6 +14,9 @@ from pathlib import Path
 from types import ModuleType
 from urllib.parse import urlsplit
 
+from mise_declarations import read_tool_declarations
+from mise_resolution import read_mise_resolution, resolve_projected_configs
+
 ROOT = Path(__file__).resolve().parent
 
 
@@ -917,19 +920,16 @@ class MiseConfigurationTests(unittest.TestCase):
         mise = shutil.which("mise")
         self.assertIsNotNone(mise)
         mise_lock = load_mise_lock_module()
-        environment = mise_lock.mise_environment(ROOT)
         configs = {name: load_toml(name) for name in mise_lock.CONFIG_FILES}
         declarations = {
-            name: mise_lock.read_tool_declarations(config.get("tools", {}), name)
+            name: read_tool_declarations(config.get("tools", {}), name)
             for name, config in configs.items()
         }
         for profile in (None, "personal-macos", "work-macos"):
-            arguments = [mise]
             config_tools = dict(self.base["tools"])
             tool_sources = {tool: "mise.toml" for tool in config_tools}
             lock_tools = dict(load_toml("mise.lock")["tools"])
             if profile:
-                arguments.extend(["--env", profile])
                 profile_tools = configs[f"mise.{profile}.toml"].get("tools", {})
                 config_tools.update(profile_tools)
                 tool_sources.update({tool: f"mise.{profile}.toml" for tool in profile_tools})
@@ -937,45 +937,32 @@ class MiseConfigurationTests(unittest.TestCase):
                 # shared runtime, so retain entries from both lockfile scopes.
                 for tool, entries in load_toml(f"mise.{profile}.lock").get("tools", {}).items():
                     lock_tools[tool] = [*lock_tools.get(tool, []), *entries]
-            result = subprocess.run(
-                [*arguments, "ls", "--current", "--offline", "--json"],
-                cwd=ROOT, env=environment, capture_output=True, text=True,
-                timeout=30, check=False,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertNotIn("Failed to resolve", result.stderr)
-            resolved = json.loads(result.stdout)
+            resolved, warnings = read_mise_resolution(ROOT, profile=profile)
+            self.assertNotIn("Failed to resolve", warnings)
             self.assertEqual(set(resolved), set(host_tools(config_tools)))
             inactive_by_source: dict[str, dict[str, list]] = {}
             for tool in config_tools:
                 if tool not in resolved:
                     source = tool_sources[tool]
                     inactive_by_source.setdefault(source, {})[tool] = declarations[source][tool]
-            inactive_resolved, inactive_warnings = mise_lock.resolve_inactive_requests(
-                ROOT, profile, configs, inactive_by_source
+            inactive_resolved, inactive_warnings = resolve_projected_configs(
+                ROOT, configs, inactive_by_source, profile=profile, strip_os=True
             )
             self.assertNotIn("Failed to resolve", inactive_warnings)
             for tool, specification in config_tools.items():
                 with self.subTest(profile=profile, tool=tool):
                     requested = tool_version(specification)
                     locked = [entry["version"] for entry in lock_tools.get(tool, [])]
-                    if tool not in resolved:
-                        records = inactive_resolved.get(tool, [])
-                        self.assertEqual([req for req, _ in records], [requested])
-                        for _, version in records:
-                            self.assertIn(
-                                version, locked,
-                                f"{profile}: {tool}@{version} is missing from the lock",
-                            )
-                        continue
-                    records = resolved[tool]
-                    self.assertEqual(
-                        [record["requested_version"] for record in records], [requested]
+                    records = (
+                        resolved[tool]
+                        if tool in resolved
+                        else inactive_resolved.get(tool, [])
                     )
-                    for record in records:
+                    self.assertEqual([req for req, _ in records], [requested])
+                    for _, version in records:
                         self.assertIn(
-                            record["version"], locked,
-                            f"{profile}: {tool}@{record['version']} is missing from the lock",
+                            version, locked,
+                            f"{profile}: {tool}@{version} is missing from the lock",
                         )
 
     def test_yarn_lock_covers_every_supported_platform(self) -> None:

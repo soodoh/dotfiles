@@ -8,20 +8,15 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 import tomllib
 from pathlib import Path
 from typing import Any
 
 # Executing this helper by path puts .github/workflows, not the root, on sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from mise_declarations import ToolRequest, read_tool_declarations
+from mise_declarations import ToolRequest, expand_http_url, read_tool_declarations
 from mise_lock_records import LockRecords, project_record
-from mise_resolution import (
-    expand_http_url,
-    read_mise_resolution,
-    write_projected_config,
-)
+from mise_resolution import resolve_projected_configs
 
 # v4 hashes ordered requests per tool instead of one request per tool.
 SCHEMA = "mise-tools-v4"
@@ -82,30 +77,22 @@ def resolved_versions(
     # `mise ls` does not include task tools. Project every distinct declaration
     # into [tools] so root and task requests use the same native resolver, even
     # when they request different versions of one tool. Never modify the checkout.
-    tools: dict[str, list[Any]] = {}
+    tools: dict[str, list[ToolRequest]] = {}
     for source_tools in declarations.values():
         for tool, requests in source_tools.items():
             versions = tools.setdefault(tool, [])
             for request in requests:
-                specification = request.to_toml_value()
-                if specification not in versions:
-                    versions.append(specification)
-    projection = {
-        key: config[key] for key in ("settings", "tool_config", "alias", "plugins")
-        if key in config
-    }
+                if request not in versions:
+                    versions.append(request)
     # This is a read-only resolution, not an install. Let mise report a stale
     # request's canonical version too; the caller still requires a matching lock.
-    projection["settings"] = {
-        **projection.get("settings", {}), "lockfile": True, "locked": False,
-    }
-    projection["tool_config"] = {**projection.get("tool_config", {}), "locked": False}
-    projection["tools"] = tools
-    with tempfile.TemporaryDirectory(prefix="mise-cache-resolve-") as directory:
-        stage = Path(directory)
-        write_projected_config(stage / "mise.toml", projection)
-        (stage / "mise.lock").write_bytes((root / "mise.lock").read_bytes())
-        records, diagnostics = read_mise_resolution(stage, root_config_only=True)
+    records, diagnostics = resolve_projected_configs(
+        root,
+        {"mise.toml": config},
+        {"mise.toml": tools},
+        root_config_only=True,
+        unlocked=True,
+    )
     if diagnostics:
         print(diagnostics, file=sys.stderr)
     resolved: dict[tuple[str, str], str] = {}

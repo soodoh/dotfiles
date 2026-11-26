@@ -1,7 +1,18 @@
 """Interpret the tool declaration forms used by lock validation and CI caching."""
 
+import re
 from dataclasses import dataclass
 from typing import Any
+
+_VERSION_PLACEHOLDER = re.compile(r"{{\s*version\s*}}")
+
+
+def expand_http_url(template: str, version: str) -> str:
+    """Substitute a version without evaluating any other Tera syntax."""
+    expanded = _VERSION_PLACEHOLDER.sub(lambda _: version, template)
+    if any(marker in expanded for marker in ("{{", "{%", "{#")):
+        raise ValueError("supports only literal URLs and {{ version }}")
+    return expanded
 
 
 @dataclass(frozen=True)
