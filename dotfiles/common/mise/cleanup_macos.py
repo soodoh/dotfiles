@@ -4,16 +4,21 @@ import json
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
+import tomllib
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
 import macos_host as host
 
-LSOF = host.LSOF
+LSOF = "/usr/sbin/lsof"
+MISE_PACKAGES = ("mise", "bootstrap", "packages", "prune", "--manager")
+BREW_CLEANUP = ("brew", "cleanup")
+BREW_PREFIX = Path(os.environ.get("MISE_SYSTEM_BREW_PREFIX") or "/opt/homebrew")
 
 # Wait even if mise itself fails before starting the Python worker, and leave
 # successful runs with nonfatal warnings readable without trying to parse them.
@@ -23,6 +28,138 @@ HANDOFF_SCRIPT = (
     'else printf "\\nCleanup incomplete (exit %s). Review the output above.\\n" "$status"; fi; '
     'printf "Press Enter to close this window. "; IFS= read -r reply; exit "$status"'
 )
+
+
+@dataclass(frozen=True)
+class OpenFileEntry:
+    pid: int
+    command: str
+    fd: str | None
+    inode: str | None
+    name: str
+
+
+def parse_lsof(output: str) -> list[OpenFileEntry]:
+    """Parse null-delimited `lsof -F0...` records into structured entries."""
+    entries: list[OpenFileEntry] = []
+    pid: int | None = None
+    command = "?"
+    fd: str | None = None
+    inode: str | None = None
+    for item in output.split("\0"):
+        field = item.lstrip("\n")
+        if not field:
+            continue
+        tag, value = field[0], field[1:]
+        if tag == "p":
+            pid, command, fd, inode = int(value), "?", None, None
+        elif tag == "c":
+            command = value
+        elif tag == "f":
+            fd, inode = value, None
+        elif tag == "i":
+            inode = value
+        elif tag == "n" and pid is not None:
+            entries.append(OpenFileEntry(pid, command, fd, inode, value))
+    return entries
+
+
+def package_targets(manager: str, output: str, prefix: Path) -> list[Path]:
+    root = prefix / ("Cellar" if manager == "brew" else "Caskroom")
+    marker = f"remove {manager}:"
+    targets = []
+    for line in output.splitlines():
+        if not line.startswith(marker):
+            continue
+        name, version = line[len(marker) :].rsplit("@", 1)
+        directory = root / name.rsplit("/", 1)[-1] / version
+        if not directory.is_dir():
+            raise ValueError(f"can't locate the planned removal: {directory}")
+        targets.append(directory)
+        if manager == "brew-cask":
+            with (directory / ".mise-cask.toml").open("rb") as receipt:
+                for record in tomllib.load(receipt)["targets"]:
+                    targets.append(Path(record["path"]))
+    if not targets and f"{manager}: nothing to prune" not in output:
+        raise ValueError(f"can't read mise's {manager} prune plan")
+    return targets
+
+
+def brew_cleanup_targets(output: str) -> list[Path]:
+    targets = []
+    for line in output.splitlines():
+        if line.startswith("Would remove: "):
+            path, _ = line.removeprefix("Would remove: ").rsplit(" (", 1)
+        elif line.startswith(
+            ("Would remove (broken link): ", "Would remove (empty directory): ")
+        ):
+            path = line.split(": ", 1)[1]
+        elif line.startswith("Would remove"):
+            raise ValueError(f"can't read Brew's cleanup candidate: {line}")
+        else:
+            continue
+        targets.append(Path(path))
+    return targets
+
+
+def open_file_blockers(
+    targets: list[Path], open_files: str, blocker_factory
+) -> list:
+    roots = {path for target in targets for path in (target, target.resolve())}
+    matches: set[tuple[Path, int, str]] = set()
+    for entry in parse_lsof(open_files):
+        if not entry.name.startswith("/"):
+            continue
+        path = Path(entry.name)
+        matches.update(
+            (root, entry.pid, entry.command)
+            for root in roots.intersection((path, *path.parents))
+        )
+    return [
+        blocker_factory(f"{root} is open in {name} (PID {pid})", pid or None)
+        for root, pid, name in sorted(matches)
+    ]
+
+
+def brew_plan(show: bool, run_command) -> tuple[list[tuple[str, ...]], list[Path]]:
+    steps, paths = [], []
+    # Check native cleanup first, before mise changes the set of installed kegs.
+    if shutil.which("brew"):
+        native = brew_cleanup_targets(
+            run_command(*BREW_CLEANUP, "--dry-run", show=show)
+        )
+        if native:
+            paths.extend(native)
+            steps.append(BREW_CLEANUP)
+    for manager in ("brew-cask", "brew"):
+        command = (*MISE_PACKAGES, manager)
+        output = run_command(*command, "--dry-run", show=show)
+        targets = package_targets(manager, output, BREW_PREFIX)
+        if targets:
+            paths.extend(targets)
+            steps.append((*command, "--yes"))
+        if not show:
+            for line in output.splitlines():
+                if "skipped:" in line:
+                    print(line, file=sys.stderr)
+    if any(not path.is_absolute() for path in paths):
+        raise ValueError("Homebrew cleanup preview contained a non-absolute path")
+    return steps, paths
+
+
+def extend_plan(plan, *, show: bool, run_command, blocker_factory):
+    steps, paths = brew_plan(show, run_command)
+    plan.steps.extend(steps)
+    plan.targets.extend(paths)
+    if plan.targets:
+        plan.processes.extend(
+            open_file_blockers(
+                plan.targets,
+                run_command(LSOF, "-nP", "-F0pcn"),
+                blocker_factory,
+            )
+        )
+    return plan
 
 
 def needs_handoff():
@@ -42,7 +179,7 @@ def needs_handoff():
     return False
 
 
-def open_handoff(profile, prefix):
+def open_handoff(profile, prefix, worker_command):
     # Do not start the normal login shell: Fish would attach to Herdr again.
     # A separate Ghostty instance also lets the original window close safely.
     path = f"{Path.home() / '.local/bin'}:{prefix / 'bin'}:{prefix / 'sbin'}:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -71,9 +208,7 @@ def open_handoff(profile, prefix):
             profile,
             "exec",
             "--",
-            sys.executable,
-            str(Path(__file__).with_name("cleanup.py").resolve()),
-            "worker",
+            *worker_command,
         )
     )
     subprocess.run(
@@ -99,12 +234,12 @@ def open_handoff(profile, prefix):
     )
 
 
-def run_in_session(profile, prefix, *, worker, action):
+def run_in_session(profile, prefix, *, worker, worker_command, action):
     host.require_local_terminal()
     if needs_handoff():
         if worker:
             raise ValueError("maintenance terminal is not independent of Fish or Herdr")
-        open_handoff(profile, prefix)
+        open_handoff(profile, prefix, worker_command)
         return 0
     with host.maintenance_lock():
         return action()
@@ -112,6 +247,8 @@ def run_in_session(profile, prefix, *, worker, action):
 
 @dataclass(frozen=True)
 class UserAgentJob(host.LaunchdJob):
+    programs: tuple[Path, ...] = ()
+
     def __post_init__(self):
         if not self.domain.startswith("gui/"):
             raise ValueError(
@@ -130,11 +267,7 @@ class UserAgentJob(host.LaunchdJob):
         elif self.label == "dev.mise.colima-default":
             # A failed bootout can leave the wrapper up even after the VM stopped.
             self._mutate("kickstart", "-k", self.target)
-        host.wait_for(
-            lambda: re.search(r"^\s*pid = \d+$", self.details(), re.MULTILINE),
-            self.target,
-            timeout=20,
-        )
+        host.wait_for(lambda: self.pid() is not None, self.target, timeout=20)
 
 
 def jobs(profile, prefix):
@@ -223,27 +356,22 @@ def stale_programs(pids, programs):
     if not pids or not programs:
         return []
     result = host.probe(
-        host.LSOF,
+        LSOF,
         "-nP",
         "-a",
         "-d",
         "txt",
         "-p",
         ",".join(map(str, sorted(pids))),
-        "-F0fin",
+        "-F0pfin",
     )
     if result.returncode and result.stderr:
         host.checked(result)
-    running = set()
-    inode = None
-    for item in result.stdout.split("\0"):
-        field = item.lstrip("\n")
-        if field.startswith("f"):
-            inode = None
-        elif field.startswith("i"):
-            inode = field[1:]
-        elif field.startswith("n/"):
-            running.add((Path(field[1:]), inode))
+    running = {
+        (Path(entry.name), entry.inode)
+        for entry in parse_lsof(result.stdout)
+        if entry.name.startswith("/")
+    }
     outdated = []
     for program in programs:
         current = program.resolve()
@@ -261,10 +389,10 @@ def stale_programs(pids, programs):
 def service_changes(profile, prefix, blockers, tree):
     changes = []
     for job in jobs(profile, prefix):
-        match = re.search(r"^\s*pid = (\d+)$", job.details(), re.MULTILINE)
-        if not match:
+        pid = job.pid()
+        if pid is None:
             continue  # Do not start stopped or unloaded jobs.
-        pids = descendants({int(match[1])}, tree)
+        pids = descendants({pid}, tree)
         if job.label == "dev.mise.colima-default":
             pids.update(descendants(colima_pids(tree, prefix), tree))
         if pids & blockers:
@@ -348,10 +476,11 @@ def blocking_fish(pids, prefix):
     for pid in sorted(pids):
         if not (identity := fish_identity(pid)):
             continue
-        result = host.probe(host.LSOF, "-nP", "-a", "-d", "txt", "-p", str(pid), "-Fn")
+        result = host.probe(LSOF, "-nP", "-a", "-d", "txt", "-p", str(pid), "-F0pn")
         if any(
-            line.endswith("/bin/fish") and line.startswith(f"n{prefix}/Cellar/fish/")
-            for line in result.stdout.splitlines()
+            entry.name.endswith("/bin/fish")
+            and entry.name.startswith(f"{prefix}/Cellar/fish/")
+            for entry in parse_lsof(result.stdout)
         ):
             fish[pid] = identity
     return fish
@@ -382,7 +511,7 @@ class Herdr:
         if not candidates:
             return set()
         result = host.probe(
-            host.LSOF,
+            LSOF,
             "-nP",
             "-a",
             "-U",
@@ -390,14 +519,9 @@ class Herdr:
             ",".join(map(str, candidates)),
             "-F0pn",
         )
-        owners = set()
-        pid = None
-        for item in result.stdout.split("\0"):
-            field = item.lstrip("\n")
-            if field.startswith("p"):
-                pid = int(field[1:])
-            elif pid and field == f"n{self.socket}":
-                owners.add(pid)
+        owners = {
+            entry.pid for entry in parse_lsof(result.stdout) if entry.name == self.socket
+        }
         return descendants(owners, tree)
 
     @property
@@ -575,3 +699,85 @@ def plan_maintenance(processes, profile, prefix) -> MaintenancePlan:
             after.append(session)
     unknown = tuple(item.message for item in processes if item.pid not in covered)
     return MaintenancePlan(changes, tuple(before), tuple(after), fish, unknown, prefix)
+
+
+def _prepare_maintenance(plan, profile):
+    maintenance = plan_maintenance(plan.processes, profile, BREW_PREFIX)
+    for line in maintenance.summary_lines():
+        print(line)
+    return maintenance
+
+
+def preview_cleanup(plan, profile, *, report) -> list[str]:
+    maintenance = _prepare_maintenance(plan, profile)
+    try:
+        maintenance.check_replacements(plan.targets)
+    except ValueError as exc:
+        report("Service replacements blocking cleanup:", [str(exc)])
+    return list(maintenance.unknown)
+
+
+def apply_cleanup(plan, profile, *, preflight, prune, report) -> int:
+    if plan.references:
+        report("Cleanup blocked by retained environments:", plan.references)
+        return 1
+    maintenance = _prepare_maintenance(plan, profile)
+    if maintenance.unknown:
+        report(
+            "Cleanup blocked before stopping anything; close these processes first:",
+            maintenance.unknown,
+        )
+        return 1
+    maintenance.check_replacements(plan.targets)
+
+    if maintenance.has_actions:
+        print(
+            "Save terminal work and stop important Docker workloads first. Live pane jobs can be lost."
+        )
+        if input(
+            "Interrupt these sessions/services and prune? [y/N] "
+        ).strip().lower() not in {"y", "yes"}:
+            print("Cleanup cancelled.")
+            return 1
+
+    def execute_prune() -> int:
+        final = preflight(show=False)
+        maintenance.check_replacements(final.targets)
+        if prune(final):
+            return 1
+        if final.targets:
+            remaining = preflight(show=False)
+            if remaining.targets or remaining.references or remaining.processes:
+                report(
+                    "Cleanup incomplete; the following removals or blockers remain:",
+                    [
+                        *map(str, remaining.targets),
+                        *remaining.references,
+                        *(item.message for item in remaining.processes),
+                    ],
+                )
+                return 1
+        return 0
+
+    if maintenance.run(execute_prune):
+        return 1
+    print("Pruning verified; requested service restarts finished.")
+    return 0
+
+
+def run_cleanup(
+    profile, *, worker: bool, worker_command, preflight, prune, report
+) -> int:
+    return run_in_session(
+        profile,
+        BREW_PREFIX,
+        worker=worker,
+        worker_command=worker_command,
+        action=lambda: apply_cleanup(
+            preflight(show=False),
+            profile,
+            preflight=preflight,
+            prune=prune,
+            report=report,
+        ),
+    )

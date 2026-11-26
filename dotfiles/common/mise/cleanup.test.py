@@ -88,8 +88,8 @@ class CleanupTests(unittest.TestCase):
                 if open_path is None:
                     commands.update(dict.fromkeys(mutations, ""))
                 with (
-                    patch.object(cleanup, "BREW_PREFIX", self.root),
-                    patch.object(cleanup.shutil, "which", return_value="/fake/brew"),
+                    patch.object(macos, "BREW_PREFIX", self.root),
+                    patch.object(macos.shutil, "which", return_value="/fake/brew"),
                     patch.object(
                         cleanup,
                         "run",
@@ -123,7 +123,9 @@ class CleanupTests(unittest.TestCase):
             contextlib.redirect_stdout(io.StringIO()),
         ):
             self.assertEqual(cleanup.cleanup(apply=True), 0)
-        handoff.assert_called_once_with("work-macos", cleanup.BREW_PREFIX)
+        handoff.assert_called_once_with(
+            "work-macos", macos.BREW_PREFIX, cleanup.worker_command()
+        )
         preflight.assert_not_called()
 
     def test_declining_confirmation_does_not_stop_services_or_prune(self):
@@ -145,7 +147,16 @@ class CleanupTests(unittest.TestCase):
             patch.object(cleanup, "run") as run,
             contextlib.redirect_stdout(io.StringIO()),
         ):
-            self.assertEqual(cleanup.macos_cleanup(plan, "work-macos"), 1)
+            self.assertEqual(
+                macos.apply_cleanup(
+                    plan,
+                    "work-macos",
+                    preflight=lambda show=False: plan,
+                    prune=cleanup.prune,
+                    report=cleanup.report,
+                ),
+                1,
+            )
         job.stop.assert_not_called()
         job.restore.assert_not_called()
         run.assert_not_called()
@@ -189,7 +200,13 @@ class CleanupTests(unittest.TestCase):
                     with self.assertRaisesRegex(
                         ValueError, "no retained replacement"
                     ) as refusal:
-                        cleanup.macos_cleanup(plan, "personal-macos")
+                        macos.apply_cleanup(
+                            plan,
+                            "personal-macos",
+                            preflight=lambda show=False, plan=plan: plan,
+                            prune=cleanup.prune,
+                            report=cleanup.report,
+                        )
                 self.assertIn(str(refusal.exception), err.getvalue())
                 self.assertIn(str(link), str(refusal.exception))
                 if missing:
@@ -219,7 +236,7 @@ class CleanupTests(unittest.TestCase):
                         ),
                     )
 
-                def recheck(events=events, blocker=blocker, **_):
+                def recheck(show=False, events=events, blocker=blocker):
                     events.append("recheck")
                     return cleanup.Plan([], [], [], [blocker] if blocker else [])
 
@@ -241,17 +258,31 @@ class CleanupTests(unittest.TestCase):
                 with (
                     patch.object(macos, "plan_maintenance", return_value=maintenance),
                     patch("builtins.input", return_value="yes"),
-                    patch.object(cleanup, "preflight", side_effect=recheck),
                     patch.object(cleanup, "run", side_effect=failed_prune),
                     contextlib.redirect_stdout(io.StringIO()),
                     contextlib.redirect_stderr(io.StringIO()),
                 ):
                     plan = cleanup.Plan([], [], [], [])
                     if blocker:
-                        self.assertEqual(cleanup.macos_cleanup(plan, "work-macos"), 1)
+                        self.assertEqual(
+                            macos.apply_cleanup(
+                                plan,
+                                "work-macos",
+                                preflight=recheck,
+                                prune=cleanup.prune,
+                                report=cleanup.report,
+                            ),
+                            1,
+                        )
                     else:
                         with self.assertRaises(subprocess.CalledProcessError):
-                            cleanup.macos_cleanup(plan, "work-macos")
+                            macos.apply_cleanup(
+                                plan,
+                                "work-macos",
+                                preflight=recheck,
+                                prune=cleanup.prune,
+                                report=cleanup.report,
+                            )
                 self.assertEqual(
                     events,
                     [
@@ -294,17 +325,23 @@ class CleanupTests(unittest.TestCase):
             (),
             self.root,
         )
+        preflights = iter([plan, cleanup.Plan([], [], [], [])])
         with (
             patch.object(macos, "plan_maintenance", return_value=maintenance),
             patch("builtins.input", return_value="yes"),
-            patch.object(
-                cleanup, "preflight", side_effect=[plan, cleanup.Plan([], [], [], [])]
-            ),
-            patch.object(cleanup, "prune", side_effect=prune),
             patch.object(macos, "paused", side_effect=paused),
             contextlib.redirect_stdout(io.StringIO()),
         ):
-            self.assertEqual(cleanup.macos_cleanup(plan, "work-macos"), 0)
+            self.assertEqual(
+                macos.apply_cleanup(
+                    plan,
+                    "work-macos",
+                    preflight=lambda show=False: next(preflights),
+                    prune=prune,
+                    report=cleanup.report,
+                ),
+                0,
+            )
         self.assertEqual(
             events,
             [
@@ -321,12 +358,20 @@ class CleanupTests(unittest.TestCase):
         empty = macos.MaintenancePlan((), (), (), {}, (), self.root)
         with (
             patch.object(macos, "plan_maintenance", return_value=empty),
-            patch.object(cleanup, "preflight", return_value=plan),
             patch.object(cleanup, "run"),
             contextlib.redirect_stdout(io.StringIO()),
             contextlib.redirect_stderr(io.StringIO()) as err,
         ):
-            self.assertEqual(cleanup.macos_cleanup(plan, "work-macos"), 1)
+            self.assertEqual(
+                macos.apply_cleanup(
+                    plan,
+                    "work-macos",
+                    preflight=lambda show=False: plan,
+                    prune=cleanup.prune,
+                    report=cleanup.report,
+                ),
+                1,
+            )
         self.assertIn("old-keg", err.getvalue())
         self.assertIn("incomplete", err.getvalue())
 
@@ -338,7 +383,7 @@ class CleanupTests(unittest.TestCase):
             patch.object(macos.subprocess, "run") as launch,
             contextlib.redirect_stdout(io.StringIO()),
         ):
-            macos.open_handoff("work-macos", self.root)
+            macos.open_handoff("work-macos", self.root, cleanup.worker_command())
         command = launch.call_args.args[0][-1].removeprefix("--initial-command=shell:")
         for exit_code, result in (
             (0, "Cleanup finished"),
@@ -374,7 +419,7 @@ class CleanupTests(unittest.TestCase):
         installed.touch()
         job = Mock(
             spec=macos.UserAgentJob,
-            details=Mock(return_value="\tpid = 42\n"),
+            pid=Mock(return_value=42),
             label="runner",
             programs=(installed,),
         )

@@ -14,8 +14,7 @@ from pathlib import Path
 from types import ModuleType
 from urllib.parse import urlsplit
 
-from mise_declarations import read_tool_declarations
-from mise_resolution import read_mise_resolution, resolve_projected_configs
+from mise_resolution import read_tool_declarations, resolve_profile_declarations
 
 ROOT = Path(__file__).resolve().parent
 
@@ -927,37 +926,28 @@ class MiseConfigurationTests(unittest.TestCase):
         }
         for profile in (None, "personal-macos", "work-macos"):
             config_tools = dict(self.base["tools"])
-            tool_sources = {tool: "mise.toml" for tool in config_tools}
             lock_tools = dict(load_toml("mise.lock")["tools"])
             if profile:
-                profile_tools = configs[f"mise.{profile}.toml"].get("tools", {})
-                config_tools.update(profile_tools)
-                tool_sources.update({tool: f"mise.{profile}.toml" for tool in profile_tools})
+                config_tools.update(configs[f"mise.{profile}.toml"].get("tools", {}))
                 # Private tool runtimes can add versions without replacing the
                 # shared runtime, so retain entries from both lockfile scopes.
                 for tool, entries in load_toml(f"mise.{profile}.lock").get("tools", {}).items():
                     lock_tools[tool] = [*lock_tools.get(tool, []), *entries]
-            resolved, warnings = read_mise_resolution(ROOT, profile=profile)
-            self.assertNotIn("Failed to resolve", warnings)
-            self.assertEqual(set(resolved), set(host_tools(config_tools)))
-            inactive_by_source: dict[str, dict[str, list]] = {}
-            for tool in config_tools:
-                if tool not in resolved:
-                    source = tool_sources[tool]
-                    inactive_by_source.setdefault(source, {})[tool] = declarations[source][tool]
-            inactive_resolved, inactive_warnings = resolve_projected_configs(
-                ROOT, configs, inactive_by_source, profile=profile, strip_os=True
+            resolution = resolve_profile_declarations(
+                ROOT, configs, declarations, profile=profile
             )
-            self.assertNotIn("Failed to resolve", inactive_warnings)
+            self.assertNotIn("Failed to resolve", resolution.warnings)
+            by_tool: dict[str, list[tuple[str, str]]] = {}
+            for match in resolution.matches:
+                by_tool.setdefault(match.tool, []).append(
+                    (match.request.version, match.version)
+                )
+            self.assertEqual(set(by_tool), set(config_tools))
             for tool, specification in config_tools.items():
                 with self.subTest(profile=profile, tool=tool):
                     requested = tool_version(specification)
                     locked = [entry["version"] for entry in lock_tools.get(tool, [])]
-                    records = (
-                        resolved[tool]
-                        if tool in resolved
-                        else inactive_resolved.get(tool, [])
-                    )
+                    records = by_tool[tool]
                     self.assertEqual([req for req, _ in records], [requested])
                     for _, version in records:
                         self.assertIn(

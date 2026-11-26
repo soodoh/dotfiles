@@ -329,8 +329,9 @@ class MiseCacheKeyTests(unittest.TestCase):
             "requested_version": "v1.2.3", "version": "v1.2.3",
         }]})
         result = subprocess.CompletedProcess([], 0, stdout=output, stderr="")
-        with patch.object(self.helper.subprocess, "run", return_value=result):
-            snapshot = self.helper.snapshot(self.root, "Linux", "X64")
+        snapshot = self.helper.snapshot(
+            self.root, "Linux", "X64", run_command=lambda *_, **__: result
+        )
         self.assertEqual(set(snapshot["tools"]), {"asdf:example@v1.2.3"})
 
     def test_genuinely_stale_lock_fails_closed_with_a_prefixed_request(self) -> None:

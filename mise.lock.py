@@ -4,7 +4,6 @@ import re
 import shutil
 import stat
 import subprocess
-import sys
 import tempfile
 import tomllib
 from concurrent.futures import ThreadPoolExecutor
@@ -12,9 +11,14 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from mise_declarations import ToolRequest, expand_http_url, read_tool_declarations
-from mise_lock_records import LockRecords, platform_artifact
-from mise_resolution import read_mise_resolution, resolve_projected_configs
+from mise_resolution import (
+    LockRecords,
+    ToolRequest,
+    platform_artifact,
+    read_tool_declarations,
+    resolve_profile_declarations,
+    validate_http_lock_urls,
+)
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_FILES = (
@@ -303,121 +307,6 @@ def validate_archive_entries(
                         raise ValueError(f"{location}: provenance must be a nonempty string")
 
 
-def validate_http_urls(
-    source: str, tool: str, request: ToolRequest, version: str, entries: list[dict],
-) -> None:
-    lock_name = source.replace(".toml", ".lock")
-    platforms = request.options.get("platforms", {})
-    for platform in sorted(set(PLATFORMS.split(",")) | platforms.keys()):
-        if not request.supports_os(platform.split("-", 1)[0]):
-            continue
-        artifact = platforms.get(platform, {})
-        template = artifact.get("url", request.options.get("url"))
-        if template is None:
-            continue
-        context = f"{source}: {tool}@{version}: {platform}: url"
-        if not isinstance(template, str):
-            raise TypeError(f"{context} must be a string")
-        # Repository HTTP URLs are literals or use only mise's version variable.
-        # Fail closed on richer templates instead of silently skipping validation;
-        # never evaluate arbitrary template functions during offline validation.
-        try:
-            expected = expand_http_url(template, version)
-        except ValueError as error:
-            raise ValueError(f"{context}: offline validation {error}") from error
-        locked_artifacts = [
-            locked for entry in entries
-            if isinstance(locked := platform_artifact(entry, platform), dict)
-        ]
-        if not any(locked.get("url") == expected for locked in locked_artifacts):
-            raise ValueError(f"{context}: {lock_name} does not match declared URL {expected!r}")
-        checksum = artifact.get("checksum", request.options.get("checksum"))
-        if checksum is not None and not any(locked.get("checksum") == checksum for locked in locked_artifacts):
-            raise ValueError(f"{source}: {tool}@{version}: {platform}: {lock_name} does not match the declared checksum")
-
-
-def validate_requests(
-    stage: Path, profile: str | None,
-    configs: dict[str, dict],
-    declarations: dict[str, dict[str, list[ToolRequest]]],
-    locks: dict[str, dict[str, list[dict]]],
-) -> list[tuple[str, str, str, ToolRequest]]:
-    # Ask mise itself to match versions, backends and normalized backend options
-    # to committed locks. Unlike `mise lock`, offline `ls` never refreshes URLs
-    # for unchanged versions. It can warn and omit unresolved tools with exit 0,
-    # so require every declared request to appear in its output as well.
-    sources = ("mise.toml", f"mise.{profile}.toml") if profile else ("mise.toml",)
-    tools = {
-        tool: (source, requests)
-        for source in sources for tool, requests in declarations[source].items()
-    }
-
-    host_os = "macos" if sys.platform == "darwin" else sys.platform
-    split_requests: dict[str, tuple[str, list[ToolRequest], list[ToolRequest]]] = {}
-    inactive_by_source: dict[str, dict[str, list[ToolRequest]]] = {}
-    for tool, (source, requests) in tools.items():
-        active, inactive = [], []
-        for request in requests:
-            (active if request.supports_os(host_os) else inactive).append(request)
-        split_requests[tool] = (source, active, inactive)
-        if inactive:
-            inactive_by_source.setdefault(source, {})[tool] = inactive
-
-    resolved, warnings = read_mise_resolution(stage, profile=profile)
-    # Mise skips tools whose os filter does not match this host. Project only
-    # those requests without their os filter so mise itself still validates
-    # versions, backends, and normalized options against the committed locks.
-    inactive_resolved, inactive_warnings = resolve_projected_configs(
-        stage, configs, inactive_by_source, profile=profile, strip_os=True
-    )
-    problems, matches = [], []
-    for tool, (source, active, inactive) in split_requests.items():
-        lock_name = source.replace(".toml", ".lock")
-        native_active = resolved.get(tool, [])
-        native_inactive = inactive_resolved.get(tool, [])
-        if (
-            sorted(r.version for r in active) != sorted(request for request, _ in native_active)
-            or sorted(r.version for r in inactive) != sorted(request for request, _ in native_inactive)
-        ):
-            requested_versions = [r.version for r in tools[tool][1]]
-            problems.append(
-                f"{source}: {tool}: requests {requested_versions!r} have no matching lock "
-                "(check version, backend and options)"
-            )
-            continue
-        active_versions = dict(native_active)
-        inactive_versions = dict(native_inactive)
-        matches.extend((lock_name, tool, active_versions[r.version], r) for r in active)
-        matches.extend((lock_name, tool, inactive_versions[r.version], r) for r in inactive)
-    # `ls --current` omits pipx's private Python runtime. Resolve each requested
-    # runtime explicitly, using mise's version matching rather than hand-written
-    # prefix rules. An installed runtime alone must not satisfy a missing lock.
-    python_requests = {
-        python for tool, (_, requests) in tools.items() if tool.startswith("pipx:")
-        for item in requests if isinstance(python := item.options.get("python"), str)
-    }
-    lock_names = ["mise.lock", *([PROFILE_LOCKS[profile]] if profile else [])]
-    python_versions = {
-        entry["version"] for name in lock_names
-        for entry in locks[name].get("python", [])
-    }
-    for request in sorted(python_requests):
-        runtimes, _ = read_mise_resolution(stage, profile=profile, python_request=request)
-        records = runtimes.get("python", [])
-        if not records or any(
-            requested != request or version not in python_versions
-            for requested, version in records
-        ):
-            problems.append(f"{profile or 'shared'}: private python@{request} has no matching lock")
-    if problems:
-        diagnostics = "\n".join(text for text in (warnings, inactive_warnings) if text)
-        details = "\n".join(problems)
-        if diagnostics:
-            details += "\n" + diagnostics
-        raise ValueError(details)
-    return matches
-
-
 def check_lockfiles(root: Path) -> None:
     # Validity is independent of today's upstream metadata. Refreshing all
     # artifacts here made unrelated PRs fail when Python published another
@@ -438,12 +327,16 @@ def check_lockfiles(root: Path) -> None:
         matches = {name: {} for name in LOCK_FILES}
         with staged_repository(root) as stage:
             for profile in (None, *PROFILES):
-                for name, tool, version, request in validate_requests(
-                    stage, profile, configs, declarations, locks
-                ):
-                    requests = matches[name].setdefault((tool, version), [])
-                    if request not in requests:
-                        requests.append(request)
+                resolution = resolve_profile_declarations(
+                    stage, configs, declarations, profile=profile, locks=locks
+                )
+                for match in resolution.matches:
+                    requests = matches[match.lock_name].setdefault(
+                        (match.tool, match.version), []
+                    )
+                    if match.request not in requests:
+                        requests.append(match.request)
+        platforms = PLATFORMS.split(",")
         for name, tools in locks.items():
             source = name.replace(".lock", ".toml")
             validate_archive_entries(name, tools, declarations[source], matches[name])
@@ -452,7 +345,9 @@ def check_lockfiles(root: Path) -> None:
                 if tool.startswith("http:"):
                     entries = records[name].matching(tool, version)
                     for request in requests:
-                        validate_http_urls(source, tool, request, version, entries)
+                        validate_http_lock_urls(
+                            source, tool, request, version, entries, platforms
+                        )
     except (ValueError, TypeError, OSError, subprocess.TimeoutExpired) as error:
         raise SystemExit(
             f"mise lock validation failed:\n{error}\n"

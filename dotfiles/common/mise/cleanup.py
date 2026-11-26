@@ -4,21 +4,14 @@ import json
 import os
 import re
 import shlex
-import shutil
 import signal
 import subprocess
 import sys
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-import cleanup_macos as macos
-
 MISE_PRUNE = ("mise", "prune")
 MISE_CACHE_PRUNE = ("mise", "cache", "prune")
-MISE_PACKAGES = ("mise", "bootstrap", "packages", "prune", "--manager")
-BREW_CLEANUP = ("brew", "cleanup")
-BREW_PREFIX = Path(os.environ.get("MISE_SYSTEM_BREW_PREFIX") or "/opt/homebrew")
 ENV = dict(
     os.environ,
     NO_COLOR="1",
@@ -71,93 +64,10 @@ def pipx_blockers(installs: list[Path]) -> list[str]:
     return blockers
 
 
-def package_targets(manager: str, output: str, prefix: Path) -> list[Path]:
-    root = prefix / ("Cellar" if manager == "brew" else "Caskroom")
-    marker = f"remove {manager}:"
-    targets = []
-    for line in output.splitlines():
-        if not line.startswith(marker):
-            continue
-        name, version = line[len(marker) :].rsplit("@", 1)
-        directory = root / name.rsplit("/", 1)[-1] / version
-        if not directory.is_dir():
-            raise ValueError(f"can't locate the planned removal: {directory}")
-        targets.append(directory)
-        if manager == "brew-cask":
-            with (directory / ".mise-cask.toml").open("rb") as receipt:
-                for record in tomllib.load(receipt)["targets"]:
-                    targets.append(Path(record["path"]))
-    if not targets and f"{manager}: nothing to prune" not in output:
-        raise ValueError(f"can't read mise's {manager} prune plan")
-    return targets
-
-
-def brew_cleanup_targets(output: str) -> list[Path]:
-    targets = []
-    for line in output.splitlines():
-        if line.startswith("Would remove: "):
-            path, _ = line.removeprefix("Would remove: ").rsplit(" (", 1)
-        elif line.startswith(
-            ("Would remove (broken link): ", "Would remove (empty directory): ")
-        ):
-            path = line.split(": ", 1)[1]
-        elif line.startswith("Would remove"):
-            raise ValueError(f"can't read Brew's cleanup candidate: {line}")
-        else:
-            continue
-        targets.append(Path(path))
-    return targets
-
-
 @dataclass(frozen=True)
 class Blocker:
     message: str
     pid: int | None = None
-
-
-def open_file_blockers(targets: list[Path], open_files: str) -> list[Blocker]:
-    roots = {path for target in targets for path in (target, target.resolve())}
-    pid, name = 0, "?"
-    matches: set[tuple[Path, int, str]] = set()
-    for item in open_files.split("\0"):
-        field = item.lstrip("\n")
-        if field.startswith("p"):
-            pid, name = int(field[1:]), "?"
-        elif field.startswith("c"):
-            name = field[1:]
-        elif field.startswith("n/"):
-            path = Path(field[1:])
-            matches.update(
-                (root, pid, name) for root in roots.intersection((path, *path.parents))
-            )
-    return [
-        Blocker(f"{root} is open in {name} (PID {pid})", pid or None)
-        for root, pid, name in sorted(matches)
-    ]
-
-
-def brew_plan(show: bool) -> tuple[list[tuple[str, ...]], list[Path]]:
-    steps, paths = [], []
-    # Check native cleanup first, before mise changes the set of installed kegs.
-    if shutil.which("brew"):
-        native = brew_cleanup_targets(run(*BREW_CLEANUP, "--dry-run", show=show))
-        if native:
-            paths.extend(native)
-            steps.append(BREW_CLEANUP)
-    for manager in ("brew-cask", "brew"):
-        command = (*MISE_PACKAGES, manager)
-        output = run(*command, "--dry-run", show=show)
-        targets = package_targets(manager, output, BREW_PREFIX)
-        if targets:
-            paths.extend(targets)
-            steps.append((*command, "--yes"))
-        if not show:
-            for line in output.splitlines():
-                if "skipped:" in line:
-                    print(line, file=sys.stderr)
-    if any(not path.is_absolute() for path in paths):
-        raise ValueError("Homebrew cleanup preview contained a non-absolute path")
-    return steps, paths
 
 
 @dataclass
@@ -179,11 +89,12 @@ def preflight(*, show: bool, darwin: bool) -> Plan:
     installs = [
         Path(item["install_path"]) for rows in catalog.values() for item in rows
     ]
-    steps, paths = brew_plan(show=show) if darwin else ([], [])
-    targets = installs + paths
-    if darwin and targets:
-        processes.extend(open_file_blockers(targets, run(macos.LSOF, "-nP", "-F0pcn")))
-    return Plan(steps, targets, pipx_blockers(installs), processes)
+    plan = Plan([], installs, pipx_blockers(installs), processes)
+    if darwin:
+        import cleanup_macos as macos
+
+        macos.extend_plan(plan, show=show, run_command=run, blocker_factory=Blocker)
+    return plan
 
 
 def report(heading, issues):
@@ -192,7 +103,7 @@ def report(heading, issues):
         print("\n".join(dict.fromkeys(issues)), file=sys.stderr)
 
 
-def prune(plan):
+def prune(plan: Plan) -> int:
     if plan.references or plan.processes:
         report(
             "Cleanup blocked; no packages were pruned:",
@@ -206,54 +117,8 @@ def prune(plan):
     return 0
 
 
-def macos_cleanup(plan, profile):
-    if plan.references:
-        report("Cleanup blocked by retained environments:", plan.references)
-        return 1
-    maintenance = macos.plan_maintenance(plan.processes, profile, BREW_PREFIX)
-    for line in maintenance.summary_lines():
-        print(line)
-    if maintenance.unknown:
-        report(
-            "Cleanup blocked before stopping anything; close these processes first:",
-            maintenance.unknown,
-        )
-        return 1
-    maintenance.check_replacements(plan.targets)
-
-    if maintenance.has_actions:
-        print(
-            "Save terminal work and stop important Docker workloads first. Live pane jobs can be lost."
-        )
-        if input(
-            "Interrupt these sessions/services and prune? [y/N] "
-        ).strip().lower() not in {"y", "yes"}:
-            print("Cleanup cancelled.")
-            return 1
-
-    def execute_prune() -> int:
-        final = preflight(show=False, darwin=True)
-        maintenance.check_replacements(final.targets)
-        if prune(final):
-            return 1
-        if final.targets:
-            remaining = preflight(show=False, darwin=True)
-            if remaining.targets or remaining.references or remaining.processes:
-                report(
-                    "Cleanup incomplete; the following removals or blockers remain:",
-                    [
-                        *map(str, remaining.targets),
-                        *remaining.references,
-                        *(item.message for item in remaining.processes),
-                    ],
-                )
-                return 1
-        return 0
-
-    if maintenance.run(execute_prune):
-        return 1
-    print("Pruning verified; requested service restarts finished.")
-    return 0
+def worker_command() -> tuple[str, ...]:
+    return (sys.executable, str(Path(__file__).resolve()), "worker")
 
 
 def cleanup(*, apply: bool, worker: bool = False) -> int:
@@ -264,11 +129,15 @@ def cleanup(*, apply: bool, worker: bool = False) -> int:
             "select personal-macos or work-macos before reviewing or pruning Homebrew"
         )
     if apply and darwin:
-        return macos.run_in_session(
+        import cleanup_macos as macos
+
+        return macos.run_cleanup(
             profile,
-            BREW_PREFIX,
             worker=worker,
-            action=lambda: macos_cleanup(preflight(show=False, darwin=True), profile),
+            worker_command=worker_command(),
+            preflight=lambda show=False: preflight(show=show, darwin=True),
+            prune=prune,
+            report=report,
         )
 
     plan = preflight(show=not apply, darwin=darwin)
@@ -276,14 +145,9 @@ def cleanup(*, apply: bool, worker: bool = False) -> int:
         return prune(plan)
     run(*MISE_CACHE_PRUNE, "--dry-run", show=True)
     if darwin:
-        maintenance = macos.plan_maintenance(plan.processes, profile, BREW_PREFIX)
-        for line in maintenance.summary_lines():
-            print(line)
-        try:
-            maintenance.check_replacements(plan.targets)
-        except ValueError as exc:
-            report("Service replacements blocking cleanup:", [str(exc)])
-        unknown = list(maintenance.unknown)
+        import cleanup_macos as macos
+
+        unknown = macos.preview_cleanup(plan, profile, report=report)
     else:
         unknown = [item.message for item in plan.processes]
     report("Retained environments blocking cleanup:", plan.references)

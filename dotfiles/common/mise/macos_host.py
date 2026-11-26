@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 LAUNCHCTL = "/bin/launchctl"
-LSOF = "/usr/sbin/lsof"
 REPO = Path(__file__).resolve().parents[3]
 
 
@@ -46,7 +45,7 @@ def require_local_terminal():
         or os.getuid() == 0
     ):
         raise ValueError(
-            "run cleanup interactively at the Mac, not over SSH or with sudo"
+            "run workstation maintenance interactively at the Mac, not over SSH or with sudo"
         )
 
 
@@ -58,7 +57,9 @@ def maintenance_lock():
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise ValueError("another cleanup is already running") from None
+            raise ValueError(
+                "another workstation maintenance operation is already running"
+            ) from None
         yield
 
 
@@ -67,14 +68,13 @@ class LaunchdJob:
     domain: str
     label: str
     plist: Path
-    programs: tuple[Path, ...]
 
     @property
     def target(self):
         return f"{self.domain}/{self.label}"
 
-    def details(self):
-        result = probe(LAUNCHCTL, "print", self.target)
+    def details(self, *, probe_fn=None):
+        result = (probe_fn or probe)(LAUNCHCTL, "print", self.target)
         if result.returncode and "Could not find service" in result.stderr:
             return ""
         details = checked(result)
@@ -88,6 +88,12 @@ class LaunchdJob:
                 f"{self.target} is not loaded from {self.plist}; refusing to cycle it"
             )
         return details
+
+    def pid(self, *, probe_fn=None) -> int | None:
+        match = re.search(
+            r"^\s*pid = (\d+)$", self.details(probe_fn=probe_fn), re.MULTILINE
+        )
+        return int(match[1]) if match else None
 
     @property
     def bootout_args(self):

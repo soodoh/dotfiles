@@ -1,7 +1,6 @@
 """Build CI cache keys from mise inputs that affect installed tools."""
 
 import argparse
-import copy
 import hashlib
 import json
 import os
@@ -14,9 +13,7 @@ from typing import Any
 
 # Executing this helper by path puts .github/workflows, not the root, on sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from mise_declarations import ToolRequest, expand_http_url, read_tool_declarations
-from mise_lock_records import LockRecords, project_record
-from mise_resolution import resolve_projected_configs
+from mise_resolution import RunCommand, resolve_cache_declarations
 
 # v4 hashes ordered requests per tool instead of one request per tool.
 SCHEMA = "mise-tools-v4"
@@ -44,25 +41,6 @@ def installed_mise_version() -> str:
     return match[1]
 
 
-def declared_tools(
-    config: dict[str, Any], operating_system: str
-) -> dict[str, dict[str, list[ToolRequest]]]:
-    # Inactive requests affect neither cache compatibility nor reconciliation.
-    def active(tools: object, source: str) -> dict[str, list[ToolRequest]]:
-        return {
-            tool: selected
-            for tool, requests in read_tool_declarations(tools, source).items()
-            if (selected := [r for r in requests if r.supports_os(operating_system)])
-        }
-
-    declarations = {"root": active(config.get("tools", {}), "mise.toml")}
-    for task_name, task in config.get("tasks", {}).items():
-        if isinstance(task, dict) and "tools" in task:
-            if tools := active(task["tools"], f"mise.toml: task {task_name}"):
-                declarations[f"task:{task_name}"] = tools
-    return declarations
-
-
 def platform_name(os_name: str, architecture: str) -> str:
     operating_system = {"linux": "linux", "macos": "macos"}.get(os_name.lower())
     machine = {"x64": "x64", "arm64": "arm64"}.get(architecture.lower())
@@ -71,95 +49,46 @@ def platform_name(os_name: str, architecture: str) -> str:
     return f"{operating_system}-{machine}"
 
 
-def resolved_versions(
-    root: Path, config: dict[str, Any], declarations: dict[str, dict[str, list[ToolRequest]]]
-) -> dict[tuple[str, str], str]:
-    # `mise ls` does not include task tools. Project every distinct declaration
-    # into [tools] so root and task requests use the same native resolver, even
-    # when they request different versions of one tool. Never modify the checkout.
-    tools: dict[str, list[ToolRequest]] = {}
-    for source_tools in declarations.values():
-        for tool, requests in source_tools.items():
-            versions = tools.setdefault(tool, [])
-            for request in requests:
-                if request not in versions:
-                    versions.append(request)
-    # This is a read-only resolution, not an install. Let mise report a stale
-    # request's canonical version too; the caller still requires a matching lock.
-    records, diagnostics = resolve_projected_configs(
-        root,
-        {"mise.toml": config},
-        {"mise.toml": tools},
-        root_config_only=True,
-        unlocked=True,
-    )
-    if diagnostics:
-        print(diagnostics, file=sys.stderr)
-    resolved: dict[tuple[str, str], str] = {}
-    for tool, versions in records.items():
-        for request, version in versions:
-            key = (tool, request)
-            if key in resolved and resolved[key] != version:
-                raise ValueError(f"mise returned ambiguous versions for {tool}@{request}")
-            resolved[key] = version
-    return resolved
-
-
-def check_template_inputs(source: str, tool: str, request: ToolRequest) -> None:
-    # Exempt only version placeholders in HTTP archive URLs. Hash the original
-    # options; other templates can depend on inputs this projection cannot hash.
-    error_message = f"{tool}: templated tool inputs require a cache-key policy review"
-    reviewed = copy.deepcopy(request.options)
-    if tool.startswith("http:"):
-        for options in (reviewed, *reviewed.get("platforms", {}).values()):
-            if isinstance(url := options.get("url"), str):
-                try:
-                    options["url"] = expand_http_url(url, version="")
-                except ValueError as error:
-                    raise ValueError(error_message) from error
-    encoded = json.dumps([source, tool, request.version, reviewed])
-    if any(marker in encoded for marker in ("{{", "{%", "{#")):
-        raise ValueError(error_message)
-
-
 def cache_inputs(
-    root: Path, os_name: str, architecture: str
+    root: Path,
+    os_name: str,
+    architecture: str,
+    *,
+    run_command: RunCommand = subprocess.run,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     config = load_toml(root / "mise.toml")
-    locks = LockRecords("mise.lock", load_toml(root / "mise.lock"))
+    lock = load_toml(root / "mise.lock")
     platform = platform_name(os_name, architecture)
-    declarations = declared_tools(config, platform.split("-", 1)[0])
-    for source, tools in declarations.items():
-        for tool, requests in tools.items():
-            for request in requests:
-                check_template_inputs(source, tool, request)
+    resolved = resolve_cache_declarations(
+        root, config, lock, platform=platform, run_command=run_command
+    )
 
-    versions = resolved_versions(root, config, declarations)
     policy_tools: dict[str, Any] = {}
     identity_tools: dict[str, Any] = {}
-    for source, tools in declarations.items():
+    for source, tools in resolved.items():
         policy_tools[source] = {}
         identity_tools[source] = {}
-        for tool, requests in tools.items():
-            policy_requests = policy_tools[source][tool] = []
-            identity_requests = identity_tools[source][tool] = []
-            for request in requests:
-                version = versions.get((tool, request.version))
-                if version is None:
-                    raise ValueError(f"mise did not resolve {tool}@{request.version}")
-                entries = [
-                    project_record(record, platform) for record in locks.matching(tool, version)
-                ]
-                if source == "root" and not entries:
-                    raise ValueError(f"{tool}@{version} has no matching mise.lock entry")
-                policy_requests.append({
-                    "options": request.options,
+        for tool, resolved_entries in tools.items():
+            policy_tools[source][tool] = [
+                {
+                    "options": entry.request.options,
                     "backend": [
-                        {key: entry[key] for key in ("backend", "options") if key in entry}
-                        for entry in entries
-                    ] if source == "root" else [],
-                })
-                identity_requests.append({"version": version, "lock": entries})
+                        {
+                            key: lock_entry[key]
+                            for key in ("backend", "options")
+                            if key in lock_entry
+                        }
+                        for lock_entry in entry.lock_entries
+                    ]
+                    if source == "root"
+                    else [],
+                }
+                for entry in resolved_entries
+            ]
+            identity_tools[source][tool] = [
+                {"version": entry.version, "lock": entry.lock_entries}
+                for entry in resolved_entries
+            ]
 
     settings = config.get("settings", {})
     policy = {
@@ -220,8 +149,16 @@ def build_keys(
     }
 
 
-def snapshot(root: Path, os_name: str, architecture: str) -> dict[str, Any]:
-    policy, identity = cache_inputs(root, os_name, architecture)
+def snapshot(
+    root: Path,
+    os_name: str,
+    architecture: str,
+    *,
+    run_command: RunCommand = subprocess.run,
+) -> dict[str, Any]:
+    policy, identity = cache_inputs(
+        root, os_name, architecture, run_command=run_command
+    )
     return {
         "policy": canonical_hash(policy),
         "tools": {
