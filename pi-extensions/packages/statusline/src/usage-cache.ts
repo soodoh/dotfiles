@@ -1,5 +1,12 @@
-import { mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import {
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import lockfile from "proper-lockfile";
 
 export const USAGE_SUCCESS_TTL_MS = 5 * 60_000;
@@ -11,6 +18,7 @@ const DEFAULT_LEASE_STALE_MS = 20_000;
 const DEFAULT_LEASE_UPDATE_MS = 5_000;
 const DEFAULT_LEASE_RETRY_MS = 100;
 const DEFAULT_LEASE_RETRIES = 550;
+const SAFE_REFRESH_KEY = /^[A-Za-z0-9_-]+$/;
 
 export type UsageCacheTiming = {
 	fetchedAt?: number;
@@ -20,6 +28,20 @@ export type UsageCacheTiming = {
 
 export type SharedFileLease = {
 	assertOwned(): void;
+};
+
+export type SharedCacheLease<T> = SharedFileLease & {
+	read(): T | undefined;
+	write(value: T): void;
+};
+
+export type SharedKeyedCacheLease<T> = SharedFileLease & {
+	readonly path: string;
+	read(): T | undefined;
+	update(
+		build: (disk: T | undefined) => T,
+		options?: Pick<LeasedRefreshOptions, "retries">,
+	): Promise<boolean>;
 };
 
 export type LeasedRefreshOptions = {
@@ -35,6 +57,37 @@ export type LeasedRefreshResult<T> =
 	| { status: "contended" }
 	| { status: "compromised"; error: Error }
 	| { status: "error"; phase: "acquire" | "work"; error: unknown };
+
+export type SharedUsageCacheOptions<T> = {
+	filename: string;
+	envOverride: string;
+	env?: NodeJS.ProcessEnv;
+	parse: (raw: unknown) => T | undefined;
+	serialize?: (value: T) => unknown;
+};
+
+export type SharedSnapshotCache<T> = {
+	path(): string;
+	read(): T | undefined;
+	runLeasedRefresh<R>(
+		work: (lease: SharedCacheLease<T>) => Promise<R>,
+		options?: LeasedRefreshOptions,
+	): Promise<LeasedRefreshResult<R>>;
+};
+
+export type SharedKeyedCache<T> = {
+	path(): string;
+	read(): T | undefined;
+	update(
+		build: (disk: T | undefined) => T,
+		options?: Pick<LeasedRefreshOptions, "retries">,
+	): Promise<boolean>;
+	runKeyedRefresh<R>(
+		key: string,
+		work: (lease: SharedKeyedCacheLease<T>) => Promise<R>,
+		options?: LeasedRefreshOptions,
+	): Promise<LeasedRefreshResult<R>>;
+};
 
 /** Failed attempts retry sooner; a successful value's age is measured from its fetch. */
 export function isUsageCacheFresh(
@@ -95,6 +148,7 @@ type InternalLease = SharedFileLease & {
 async function acquireLease(
 	lockPath: string,
 	options: LeasedRefreshOptions,
+	parentLease?: SharedFileLease,
 ): Promise<InternalLease> {
 	const stale = options.stale ?? DEFAULT_LEASE_STALE_MS;
 	const update = options.update ?? DEFAULT_LEASE_UPDATE_MS;
@@ -102,6 +156,7 @@ async function acquireLease(
 	const retryMs = options.retryMs ?? DEFAULT_LEASE_RETRY_MS;
 	mkdirSync(dirname(lockPath), { recursive: true });
 	for (let attempt = 0; ; attempt++) {
+		parentLease?.assertOwned();
 		let compromisedError: Error | undefined;
 		try {
 			const release = await lockfile.lock(lockPath, {
@@ -117,6 +172,9 @@ async function acquireLease(
 			return {
 				assertOwned() {
 					if (compromisedError) throw compromisedError;
+					if (released) {
+						throw new Error("Shared cache lease has already been released");
+					}
 				},
 				async release() {
 					if (released || compromisedError) return;
@@ -128,19 +186,22 @@ async function acquireLease(
 			if (!isLockContentionError(error) || attempt >= retries) {
 				throw error;
 			}
+			parentLease?.assertOwned();
 			await waitForLeaseRetry(retryMs);
 		}
 	}
 }
 
-/** Write JSON atomically with 0o600 permissions only while the lease is still owned. */
-export function writeAtomicJsonFile(
+let tempWriteSequence = 0;
+
+function writeAtomicJsonFile(
 	path: string,
 	data: unknown,
 	lease: SharedFileLease,
 ): void {
+	lease.assertOwned();
 	mkdirSync(dirname(path), { recursive: true });
-	const temporaryPath = `${path}.${process.pid}.tmp`;
+	const temporaryPath = `${path}.${process.pid}.${++tempWriteSequence}.tmp`;
 	try {
 		writeFileSync(temporaryPath, `${JSON.stringify(data)}\n`, { mode: 0o600 });
 		lease.assertOwned();
@@ -154,15 +215,15 @@ export function writeAtomicJsonFile(
 	}
 }
 
-/** Coordinate a cross-process leased refresh with contention and compromise handling. */
-export async function runLeasedRefresh<T>(
+async function runLeasedWork<T>(
 	lockPath: string,
 	work: (lease: SharedFileLease) => Promise<T>,
 	options: LeasedRefreshOptions = {},
+	parentLease?: SharedFileLease,
 ): Promise<LeasedRefreshResult<T>> {
 	let lease: InternalLease;
 	try {
-		lease = await acquireLease(lockPath, options);
+		lease = await acquireLease(lockPath, options, parentLease);
 	} catch (error) {
 		if (isLockContentionError(error)) return { status: "contended" };
 		return { status: "error", phase: "acquire", error };
@@ -189,19 +250,131 @@ export async function runLeasedRefresh<T>(
 	}
 }
 
-/** Best-effort leased atomic JSON read-modify-write for shared disk snapshots. */
-export async function updateLeasedJsonFile<T>(
-	path: string,
-	build: () => T,
-	options: Pick<LeasedRefreshOptions, "retries"> = {},
-): Promise<boolean> {
-	const result = await runLeasedRefresh(
-		path,
-		async (lease) => {
-			writeAtomicJsonFile(path, build(), lease);
-			return true;
+function createCacheStorage<T>(options: SharedUsageCacheOptions<T>) {
+	const serialize = options.serialize ?? ((value: T) => value);
+
+	function resolvePath(): string {
+		const source = options.env ?? process.env;
+		return (
+			source[options.envOverride] ||
+			join(
+				source.XDG_CACHE_HOME || join(homedir(), ".cache"),
+				"pi",
+				options.filename,
+			)
+		);
+	}
+
+	function readAt(path: string): T | undefined {
+		try {
+			const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
+			return options.parse(parsed);
+		} catch {
+			return undefined;
+		}
+	}
+
+	function read(): T | undefined {
+		return readAt(resolvePath());
+	}
+
+	return { resolvePath, readAt, read, serialize };
+}
+
+/** Ephemeral cross-process single-writer snapshot cache backed by XDG paths, 0o600 atomic writes, and a refresh lease. */
+export function createSharedSnapshotCache<T>(
+	options: SharedUsageCacheOptions<T>,
+): SharedSnapshotCache<T> {
+	const storage = createCacheStorage(options);
+
+	return {
+		path: storage.resolvePath,
+		read: storage.read,
+		runLeasedRefresh(work, refreshOptions = {}) {
+			const cachePath = storage.resolvePath();
+			return runLeasedWork(
+				`${cachePath}.refresh`,
+				(lease) =>
+					work({
+						assertOwned: () => lease.assertOwned(),
+						read: () => {
+							lease.assertOwned();
+							return storage.readAt(cachePath);
+						},
+						write(value) {
+							writeAtomicJsonFile(cachePath, storage.serialize(value), lease);
+						},
+					}),
+				refreshOptions,
+			);
 		},
-		options,
-	);
-	return result.status === "ok";
+	};
+}
+
+/** Ephemeral cross-process multi-key cache with per-key refresh leases and file-locked read-modify-write merges. */
+export function createSharedKeyedCache<T>(
+	options: SharedUsageCacheOptions<T>,
+): SharedKeyedCache<T> {
+	const storage = createCacheStorage(options);
+
+	async function updateAt(
+		cachePath: string,
+		build: (disk: T | undefined) => T,
+		updateOptions: Pick<LeasedRefreshOptions, "retries"> = {},
+		parentLease?: SharedFileLease,
+	): Promise<boolean> {
+		parentLease?.assertOwned();
+		const result = await runLeasedWork(
+			cachePath,
+			async (fileLease) => {
+				const writeLease: SharedFileLease = parentLease
+					? {
+							assertOwned() {
+								parentLease.assertOwned();
+								fileLease.assertOwned();
+							},
+						}
+					: fileLease;
+				writeLease.assertOwned();
+				const next = build(storage.readAt(cachePath));
+				writeAtomicJsonFile(cachePath, storage.serialize(next), writeLease);
+				return true;
+			},
+			updateOptions,
+			parentLease,
+		);
+		parentLease?.assertOwned();
+		return result.status === "ok";
+	}
+
+	return {
+		path: storage.resolvePath,
+		read: storage.read,
+		update(build, updateOptions = {}) {
+			return updateAt(storage.resolvePath(), build, updateOptions);
+		},
+		async runKeyedRefresh(key, work, refreshOptions = {}) {
+			if (!SAFE_REFRESH_KEY.test(key)) {
+				throw new RangeError(
+					`Invalid refresh lease key: ${JSON.stringify(key)}`,
+				);
+			}
+			const cachePath = storage.resolvePath();
+			return runLeasedWork(
+				`${cachePath}.refresh-${key}`,
+				(lease) =>
+					work({
+						path: cachePath,
+						assertOwned: () => lease.assertOwned(),
+						read: () => {
+							lease.assertOwned();
+							return storage.readAt(cachePath);
+						},
+						update: (build, updateOptions = {}) =>
+							updateAt(cachePath, build, updateOptions, lease),
+					}),
+				refreshOptions,
+			);
+		},
+	};
 }

@@ -23,7 +23,7 @@ import {
 	type ProviderUsageStore,
 	type ProviderUsageTarget,
 } from "./provider-usage";
-import { runLeasedRefresh } from "./usage-cache";
+import { createSharedSnapshotCache } from "./usage-cache";
 
 type MockEndpointResponse =
 	| { management_status?: number; status_code?: number; body?: string }
@@ -398,6 +398,7 @@ test("fetches manual reset counts per account through the proxy", async () => {
 					},
 					{ status: "redeemed", expires_at: "2035-01-10T00:00:00Z" },
 					{ status: "available", expires_at: "2020-01-01T00:00:00Z" },
+					{ status: "available", expires_at: "1970-01-01T00:00:00Z" },
 					{
 						status: "available",
 						is_supported_by_plan: false,
@@ -1332,7 +1333,13 @@ test("waits across multi-second lock contention and does not mark contended refr
 	const peerReady = new Promise<void>((resolve) => {
 		peerAcquired = resolve;
 	});
-	const peerRefresh = runLeasedRefresh(`${path}.refresh`, () => {
+	const peerCache = createSharedSnapshotCache<unknown>({
+		filename: "cliproxy-usage.json",
+		envOverride: "PI_CLIPROXY_USAGE_CACHE_PATH",
+		env: { PI_CLIPROXY_USAGE_CACHE_PATH: path },
+		parse: (raw) => raw,
+	});
+	const peerRefresh = peerCache.runLeasedRefresh(() => {
 		peerAcquired();
 		return new Promise<void>((resolve) => {
 			releasePeer = resolve;
@@ -1446,7 +1453,13 @@ test("notifies a stricter waiter when a peer publishes a fresh snapshot during a
 	const peerReady = new Promise<void>((resolve) => {
 		peerAcquired = resolve;
 	});
-	const peerRefresh = runLeasedRefresh(`${path}.refresh`, () => {
+	const peerCache = createSharedSnapshotCache<unknown>({
+		filename: "cliproxy-usage.json",
+		envOverride: "PI_CLIPROXY_USAGE_CACHE_PATH",
+		env: { PI_CLIPROXY_USAGE_CACHE_PATH: path },
+		parse: (raw) => raw,
+	});
+	const peerRefresh = peerCache.runLeasedRefresh(() => {
 		peerAcquired();
 		return new Promise<void>((resolve) => {
 			releasePeer = resolve;
@@ -1965,4 +1978,47 @@ test("legacy association upgrades an older fresh proxy cache before considering 
 	await refreshProviderUsage(ctx, targets, () => {});
 	expect(requests()).toHaveLength(after);
 	expect(direct).not.toHaveBeenCalled();
+});
+
+test("cold leased refresh does not fall back to reading a different cache path when env changes", async () => {
+	configureProxyEnv();
+	proxyState.credentials = { files: [account("fresh", 15)] };
+	await refreshProxySnapshot(() => {});
+	const otherPath = join(directory, "other-usage.json");
+	writeFileSync(otherPath, readFileSync(path, "utf8"));
+	rmSync(path);
+	resetStores();
+	proxyState.credentials = { files: [account("reloaded", 42)] };
+
+	let releasePeer!: () => void;
+	let peerAcquired!: () => void;
+	const peerReady = new Promise<void>((resolve) => {
+		peerAcquired = resolve;
+	});
+	const peerCache = createSharedSnapshotCache<unknown>({
+		filename: "cliproxy-usage.json",
+		envOverride: "PI_CLIPROXY_USAGE_CACHE_PATH",
+		env: { PI_CLIPROXY_USAGE_CACHE_PATH: path },
+		parse: (raw) => raw,
+	});
+	const peerRefresh = peerCache.runLeasedRefresh(() => {
+		peerAcquired();
+		return new Promise<void>((resolve) => {
+			releasePeer = resolve;
+		});
+	});
+	await peerReady;
+
+	const waiting = refreshProxySnapshot(() => {});
+	await new Promise((resolve) => setTimeout(resolve, 30));
+	env.PI_CLIPROXY_USAGE_CACHE_PATH = otherPath;
+	releasePeer();
+	await Promise.all([peerRefresh, waiting]);
+
+	const written = JSON.parse(readFileSync(path, "utf8"));
+	expect(written.accounts[0]?.scope?.weeklyPercentUsed).toBe(42);
+	expect(
+		JSON.parse(readFileSync(otherPath, "utf8")).accounts[0]?.scope
+			?.weeklyPercentUsed,
+	).toBe(15);
 });

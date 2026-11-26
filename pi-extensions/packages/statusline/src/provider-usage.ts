@@ -1,7 +1,4 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import {
 	createProxyUsageStore,
 	type DirectProxyFallback,
@@ -11,9 +8,9 @@ import {
 	type ProxyUsageStore,
 } from "./cliproxy-usage";
 import {
+	createSharedKeyedCache,
 	isUsageCacheFresh,
-	runLeasedRefresh,
-	updateLeasedJsonFile,
+	type SharedKeyedCache,
 	usageSnapshotFreshness,
 } from "./usage-cache";
 import {
@@ -23,6 +20,7 @@ import {
 	numericField,
 	PROVIDER_BADGE_SEPARATOR,
 	type ProviderUsageScope,
+	parseOpenAiResetCreditsBody,
 	parseOpenAiUsageBody,
 	parseUtilization,
 } from "./usage-quota";
@@ -179,6 +177,7 @@ type AvailableModelsCacheEntry = {
 
 type ProviderUsageStoreState = {
 	proxyStore: ProxyUsageStore;
+	sharedCache: SharedKeyedCache<Map<string, ProviderUsageCacheEntry>>;
 	fetchFn?: typeof globalThis.fetch;
 	env?: NodeJS.ProcessEnv;
 	cache: Map<string, ProviderUsageCacheEntry>;
@@ -199,6 +198,13 @@ function createStoreState(
 			requestProxy: options?.requestProxy,
 			env: options?.env,
 		}),
+		sharedCache: createSharedKeyedCache({
+			filename: "provider-usage.json",
+			envOverride: "PI_PROVIDER_USAGE_CACHE_PATH",
+			env: options?.env,
+			parse: parseSharedCachePayload,
+			serialize: serializeSharedCachePayload,
+		}),
 		fetchFn: options?.fetch,
 		env: options?.env,
 		cache: new Map(),
@@ -210,18 +216,6 @@ function createStoreState(
 		discoveryId: 0,
 		resolutionId: 0,
 	};
-}
-
-function sharedCachePath(env?: NodeJS.ProcessEnv): string {
-	const source = env ?? process.env;
-	return (
-		source.PI_PROVIDER_USAGE_CACHE_PATH ??
-		join(
-			source.XDG_CACHE_HOME ?? join(homedir(), ".cache"),
-			"pi",
-			"provider-usage.json",
-		)
-	);
 }
 
 function copilotNonNegativeNumber(value: unknown): number | undefined {
@@ -479,41 +473,47 @@ function parseCacheEntry(value: unknown): ProviderUsageCacheEntry | undefined {
 	};
 }
 
-function readSharedCache(
-	env?: NodeJS.ProcessEnv,
+function parseSharedCachePayload(
+	parsed: unknown,
 ): Map<string, ProviderUsageCacheEntry> {
 	const entries = new Map<string, ProviderUsageCacheEntry>();
-	try {
-		const parsed: unknown = JSON.parse(
-			readFileSync(sharedCachePath(env), "utf8"),
-		);
-		if (!isRecord(parsed) || !isRecord(parsed.entries)) return entries;
-		for (const [key, value] of Object.entries(parsed.entries)) {
-			const entry = parseCacheEntry(value);
-			if (
-				!entry ||
-				!isProviderSupportedAuth(entry.providerId, entry.authKind)
-			) {
-				continue;
-			}
-			entries.set(key, entry);
+	if (!isRecord(parsed) || !isRecord(parsed.entries)) return entries;
+	for (const [key, value] of Object.entries(parsed.entries)) {
+		const entry = parseCacheEntry(value);
+		if (!entry || !isProviderSupportedAuth(entry.providerId, entry.authKind)) {
+			continue;
 		}
-	} catch {
-		// A missing or malformed cache is equivalent to an empty cache.
+		entries.set(key, entry);
 	}
 	return entries;
 }
 
-function hydrateSharedCache(state: ProviderUsageStoreState): void {
-	const path = sharedCachePath(state.env);
-	if (state.cachePath !== path) {
-		state.cache.clear();
-		state.resolvedCacheKeys.clear();
-		state.proxyStore.pruneTargetLinks();
-		state.resolutionIds.clear();
-		state.cachePath = path;
-	}
-	for (const [key, diskEntry] of readSharedCache(state.env)) {
+function serializeSharedCachePayload(
+	merged: Map<string, ProviderUsageCacheEntry>,
+): { entries: Record<string, unknown> } {
+	return {
+		entries: Object.fromEntries(
+			[...merged.entries()].map(([key, entry]) => [
+				key,
+				{
+					providerId: entry.providerId,
+					authKind: entry.authKind,
+					state: entry.state,
+					scope: entry.scope,
+					copilot: entry.copilot,
+					fetchedAt: entry.fetchedAt,
+					lastAttemptAt: entry.lastAttemptAt,
+				},
+			]),
+		),
+	};
+}
+
+function mergeDiskEntriesIntoMemory(
+	state: ProviderUsageStoreState,
+	diskEntries: Map<string, ProviderUsageCacheEntry> | undefined,
+): void {
+	for (const [key, diskEntry] of diskEntries ?? []) {
 		const memoryEntry = state.cache.get(key);
 		if ((diskEntry.lastAttemptAt ?? 0) > (memoryEntry?.lastAttemptAt ?? 0)) {
 			state.cache.set(key, diskEntry);
@@ -521,52 +521,37 @@ function hydrateSharedCache(state: ProviderUsageStoreState): void {
 	}
 }
 
-async function persistSharedCache(
-	state: ProviderUsageStoreState,
-): Promise<void> {
-	await updateLeasedJsonFile(
-		sharedCachePath(state.env),
-		() => {
-			const merged = readSharedCache(state.env);
-			for (const [key, memoryEntry] of state.cache) {
-				const diskEntry = merged.get(key);
-				if (
-					!diskEntry ||
-					(memoryEntry.lastAttemptAt ?? 0) >= (diskEntry.lastAttemptAt ?? 0)
-				) {
-					merged.set(key, memoryEntry);
-				}
-			}
+function hydrateSharedCache(state: ProviderUsageStoreState): void {
+	const path = state.sharedCache.path();
+	if (state.cachePath !== path) {
+		state.cache.clear();
+		state.resolvedCacheKeys.clear();
+		state.proxyStore.pruneTargetLinks();
+		state.resolutionIds.clear();
+		state.cachePath = path;
+	}
+	mergeDiskEntriesIntoMemory(state, state.sharedCache.read());
+}
 
-			const entries = Object.fromEntries(
-				[...merged.entries()].map(([key, entry]) => [
-					key,
-					{
-						providerId: entry.providerId,
-						authKind: entry.authKind,
-						state: entry.state,
-						scope: entry.scope,
-						copilot: entry.copilot,
-						fetchedAt: entry.fetchedAt,
-						lastAttemptAt: entry.lastAttemptAt,
-					},
-				]),
-			);
-			return { entries };
-		},
-		{ retries: 10 },
-	);
+function mergeMemoryEntriesForDisk(
+	disk: Map<string, ProviderUsageCacheEntry> | undefined,
+	entries: Iterable<[string, ProviderUsageCacheEntry]>,
+): Map<string, ProviderUsageCacheEntry> {
+	const merged = new Map(disk ?? []);
+	for (const [key, memoryEntry] of entries) {
+		const diskEntry = merged.get(key);
+		if (
+			!diskEntry ||
+			(memoryEntry.lastAttemptAt ?? 0) >= (diskEntry.lastAttemptAt ?? 0)
+		) {
+			merged.set(key, memoryEntry);
+		}
+	}
+	return merged;
 }
 
 function credentialFingerprint(value: string): string {
 	return createHash("sha256").update(value).digest("hex").slice(0, 16);
-}
-
-function providerRefreshLeasePath(
-	cacheKey: string,
-	env?: NodeJS.ProcessEnv,
-): string {
-	return `${sharedCachePath(env)}.refresh-${credentialFingerprint(cacheKey)}`;
 }
 
 function normalizeProviderId(providerId: string): string {
@@ -634,12 +619,14 @@ function cachedProviderPercentUsedInStore(
 	ctx: ProviderUsageContext,
 ): number | undefined {
 	const normalized = normalizeProviderId(providerId);
-	if (normalized === "github-copilot") return cachedCopilotPercentUsed(ctx);
+	if (normalized === "github-copilot")
+		return cachedCopilotPercentUsed(state, ctx);
 	if (normalized === "cliproxyapi") return state.proxyStore.cachedPercentUsed();
 	return undefined;
 }
 
 function cachedCopilotPercentUsed(
+	state: ProviderUsageStoreState,
 	ctx: ProviderUsageContext,
 ): number | undefined {
 	const credential = getStoredOAuthCredential(ctx, "github-copilot");
@@ -649,7 +636,7 @@ function cachedCopilotPercentUsed(
 		providerTargetKey("github-copilot", "oauth"),
 		identity,
 	);
-	const quota = readSharedCache().get(key)?.copilot?.premium;
+	const quota = state.sharedCache.read()?.get(key)?.copilot?.premium;
 	if (!quota || quota.unlimited) return undefined;
 	if (quota.percentUsed !== undefined) return quota.percentUsed;
 	if (
@@ -1299,18 +1286,6 @@ async function fetchAnthropicOAuthUsage(
 		: undefined;
 }
 
-function parseOpenAiResetCreditsBody(
-	body: unknown,
-): ProviderUsageScope | undefined {
-	if (!isRecord(body)) return undefined;
-	const availableCount = numericField(
-		body.available_count ?? body.availableCount,
-	);
-	return availableCount === undefined
-		? undefined
-		: { availableResets: Math.max(0, Math.floor(availableCount)) };
-}
-
 async function fetchOpenAiCodexUsage(
 	fetchFn: typeof globalThis.fetch,
 	token: string,
@@ -1340,7 +1315,10 @@ async function fetchOpenAiCodexUsage(
 		).catch(() => undefined),
 	]);
 	const usageScope = parseOpenAiUsageBody(usageBody);
-	const resetCreditsScope = parseOpenAiResetCreditsBody(resetCreditsBody);
+	const resetCredits = parseOpenAiResetCreditsBody(resetCreditsBody);
+	const resetCreditsScope = resetCredits
+		? { availableResets: resetCredits.count }
+		: undefined;
 	return usageScope || resetCreditsScope
 		? { ...usageScope, ...resetCreditsScope }
 		: undefined;
@@ -1482,17 +1460,20 @@ async function refreshProviderUsageTarget(
 	access: ResolvedProviderUsageAccess,
 ): Promise<boolean> {
 	const beforeAttemptAt = state.cache.get(access.cacheKey)?.lastAttemptAt ?? 0;
-	const outcome = await runLeasedRefresh(
-		providerRefreshLeasePath(access.cacheKey, state.env),
+	const outcome = await state.sharedCache.runKeyedRefresh(
+		credentialFingerprint(access.cacheKey),
 		async (lease) => {
 			// Another process may have refreshed while this process acquired the lease.
-			const advanced = hydrateEntryIfAdvanced(
-				state,
-				access.cacheKey,
-				beforeAttemptAt,
-			);
-			const hydratedEntry = state.cache.get(access.cacheKey);
-			if (isUsageCacheFresh(hydratedEntry)) return advanced;
+			const diskEntries = lease.read();
+			const sameCachePath = state.cachePath === lease.path;
+			if (sameCachePath) {
+				mergeDiskEntriesIntoMemory(state, diskEntries);
+			}
+			const hydratedEntry = sameCachePath
+				? state.cache.get(access.cacheKey)
+				: diskEntries?.get(access.cacheKey);
+			const advanced = (hydratedEntry?.lastAttemptAt ?? 0) > beforeAttemptAt;
+			if (isUsageCacheFresh(hydratedEntry)) return sameCachePath && advanced;
 
 			const previousEntry = hydratedEntry;
 			let entry: ProviderUsageCacheEntry;
@@ -1548,9 +1529,27 @@ async function refreshProviderUsageTarget(
 			}
 
 			lease.assertOwned();
-			state.cache.set(access.cacheKey, entry);
-			await persistSharedCache(state);
-			return true;
+			const stillSameCachePath = state.cachePath === lease.path;
+			const sourceEntries: Iterable<[string, ProviderUsageCacheEntry]> =
+				stillSameCachePath
+					? [...state.cache.entries(), [access.cacheKey, entry]]
+					: [[access.cacheKey, entry]];
+			const persisted = await lease.update(
+				(disk) => mergeMemoryEntriesForDisk(disk, sourceEntries),
+				{ retries: 10 },
+			);
+			if (!persisted) {
+				reportProviderUsageIssue(
+					ctx,
+					target,
+					"failed to persist shared usage cache",
+				);
+			}
+			if (state.cachePath === lease.path) {
+				state.cache.set(access.cacheKey, entry);
+				return true;
+			}
+			return false;
 		},
 		{
 			onReleaseError: (error) => {
@@ -1682,7 +1681,7 @@ async function queueProviderUsageRefresh(
 		return;
 	}
 
-	const refreshKey = `${sharedCachePath(state.env)}\0${access.cacheKey}`;
+	const refreshKey = `${state.sharedCache.path()}\0${access.cacheKey}`;
 	const existing = state.refreshes.get(refreshKey);
 	if (existing) {
 		const beforeAttemptAt =

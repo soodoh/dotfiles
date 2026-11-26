@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import lockfile from "proper-lockfile";
@@ -2156,5 +2162,98 @@ describe("provider usage", () => {
 		writeProxy(94.99);
 		expect(cachedProviderPercentUsed("github-copilot", ctx)).toBeUndefined();
 		expect(cachedProviderPercentUsed("cliproxyapi", ctx)).toBe(94.99);
+	});
+
+	test("mid-refresh cache path env change persists to the locked path without contaminating the new path", async () => {
+		const firstPath = join(sharedTestRoot, "env-shift-first.json");
+		const secondPath = join(sharedTestRoot, "env-shift-second.json");
+		const env: NodeJS.ProcessEnv = { PI_PROVIDER_USAGE_CACHE_PATH: firstPath };
+		const fetchMock: typeof globalThis.fetch = async () => {
+			env.PI_PROVIDER_USAGE_CACHE_PATH = secondPath;
+			return new Response(
+				JSON.stringify({
+					data: { limit: 100, limit_remaining: 40, usage: 60 },
+				}),
+				{ status: 200, headers: { "content-type": "application/json" } },
+			);
+		};
+		const store = createProviderUsageStore({ env, fetch: fetchMock });
+		const target = {
+			providerId: "openrouter",
+			authKind: "api_key" as const,
+			active: true,
+		};
+		const ctx = {
+			modelRegistry: {
+				getAll: () => [{ provider: "openrouter", id: "model" }],
+				getAvailable: async () => [{ provider: "openrouter", id: "model" }],
+				hasConfiguredAuth: () => true,
+				getProviderAuthStatus: () => ({ configured: true }),
+				getApiKeyForProvider: async () => "or-env-shift-key",
+				isUsingOAuth: () => false,
+			},
+		};
+
+		await store.refresh(ctx, [target], () => {});
+
+		const written = JSON.parse(readFileSync(firstPath, "utf8"));
+		expect(Object.values(written.entries)).toHaveLength(1);
+		expect(
+			(
+				Object.values(written.entries)[0] as {
+					scope?: { balanceUsd?: number };
+				}
+			).scope?.balanceUsd,
+		).toBe(40);
+		expect(existsSync(secondPath)).toBe(false);
+	});
+
+	test("reports a non-fatal diagnostic when shared cache persistence fails", async () => {
+		const persistPath = join(sharedTestRoot, "persist-fail.json");
+		const env: NodeJS.ProcessEnv = {
+			PI_PROVIDER_USAGE_CACHE_PATH: persistPath,
+		};
+		const errors: string[] = [];
+		const originalLock = lockfile.lock.bind(lockfile);
+		const lockSpy = vi.spyOn(lockfile, "lock");
+		lockSpy.mockImplementation(async (file, options) => {
+			if (file === persistPath) {
+				throw Object.assign(new Error("permission denied"), { code: "EACCES" });
+			}
+			return originalLock(file, options);
+		});
+		const store = createProviderUsageStore({
+			env,
+			fetch: async () =>
+				new Response(
+					JSON.stringify({
+						data: { limit: 100, limit_remaining: 55, usage: 45 },
+					}),
+					{ status: 200, headers: { "content-type": "application/json" } },
+				),
+		});
+		const target = {
+			providerId: "openrouter",
+			authKind: "api_key" as const,
+			active: true,
+		};
+		const ctx = {
+			modelRegistry: {
+				getAll: () => [{ provider: "openrouter", id: "model" }],
+				getAvailable: async () => [{ provider: "openrouter", id: "model" }],
+				hasConfiguredAuth: () => true,
+				getProviderAuthStatus: () => ({ configured: true }),
+				getApiKeyForProvider: async () => "or-persist-fail-key",
+				isUsingOAuth: () => false,
+			},
+			reportError: (message: string) => errors.push(message),
+		};
+
+		await store.refresh(ctx, [target], () => {});
+
+		expect(errors).toEqual([
+			"Provider usage (openrouter): failed to persist shared usage cache",
+		]);
+		expect(existsSync(persistPath)).toBe(false);
 	});
 });

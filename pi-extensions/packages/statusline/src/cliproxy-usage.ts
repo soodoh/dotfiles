@@ -1,19 +1,18 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import {
+	createSharedSnapshotCache,
 	isUsageCacheFresh,
-	runLeasedRefresh,
+	type SharedSnapshotCache,
 	usageSnapshotFreshness,
-	writeAtomicJsonFile,
 } from "./usage-cache";
 import {
 	formatProviderScope,
 	hasQuota,
 	numericField,
+	type OpenAiResetCredit,
 	type ProviderUsageScope,
+	parseOpenAiResetCreditsBody,
 	parseOpenAiUsageBody,
 } from "./usage-quota";
 import { RETRYABLE_USAGE_STATUS_CODES, retryUsageRequest } from "./usage-retry";
@@ -36,10 +35,7 @@ const RETRYABLE_SPAWN_ERROR_CODES = new Set([
 	"ENOMEM",
 ]);
 
-type ResetCredit = {
-	expiresAt?: number;
-	grantedAt?: number;
-};
+type ResetCredit = OpenAiResetCredit;
 
 // Codex usage credits are not a USD balance or manual-reset credits.
 type CreditBalance = number | "unlimited";
@@ -164,6 +160,7 @@ export type ProxyStoreOptions = {
 
 type ProxyState = {
 	env?: NodeJS.ProcessEnv;
+	sharedCache: SharedSnapshotCache<Snapshot>;
 	requestProxy: ProxyRequestFn;
 	snapshot?: Snapshot;
 	pending?: Promise<ProxyUpdateOutcome>;
@@ -177,9 +174,32 @@ type ProxyState = {
 	targetLinks: Map<string, ProxyTargetLink>;
 };
 
+function parseProxySnapshot(value: unknown): Snapshot | undefined {
+	if (
+		typeof value !== "object" ||
+		!value ||
+		!("source" in value) ||
+		typeof value.source !== "string" ||
+		!("accounts" in value) ||
+		!Array.isArray(value.accounts) ||
+		!("fetchedAt" in value) ||
+		typeof value.fetchedAt !== "number" ||
+		!Number.isFinite(value.fetchedAt)
+	) {
+		return undefined;
+	}
+	return value as Snapshot;
+}
+
 function createProxyState(options?: ProxyStoreOptions): ProxyState {
 	return {
 		env: options?.env,
+		sharedCache: createSharedSnapshotCache({
+			filename: "cliproxy-usage.json",
+			envOverride: "PI_CLIPROXY_USAGE_CACHE_PATH",
+			env: options?.env,
+			parse: parseProxySnapshot,
+		}),
 		requestProxy: options?.requestProxy ?? requestManagementViaCurl,
 		lastAttemptAt: 0,
 		lastAttemptFailed: false,
@@ -189,18 +209,6 @@ function createProxyState(options?: ProxyStoreOptions): ProxyState {
 
 function resolveEnv(env?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 	return env ?? process.env;
-}
-
-function cachePath(env?: NodeJS.ProcessEnv): string {
-	const source = resolveEnv(env);
-	return (
-		source.PI_CLIPROXY_USAGE_CACHE_PATH ??
-		join(
-			source.XDG_CACHE_HOME ?? join(homedir(), ".cache"),
-			"pi",
-			"cliproxy-usage.json",
-		)
-	);
 }
 
 function proxyConfig(env?: NodeJS.ProcessEnv): ProxyConfig | undefined {
@@ -239,43 +247,35 @@ function sourceKey(env?: NodeJS.ProcessEnv): string | undefined {
 	return proxyConfig(env)?.source;
 }
 
-function readSnapshot(
+function readSnapshotForSource(
+	state: ProxyState,
 	source: string,
-	env?: NodeJS.ProcessEnv,
 ): Snapshot | undefined {
-	try {
-		const value: unknown = JSON.parse(readFileSync(cachePath(env), "utf8"));
-		if (
-			typeof value !== "object" ||
-			!value ||
-			!("source" in value) ||
-			value.source !== source ||
-			!("accounts" in value) ||
-			!Array.isArray(value.accounts) ||
-			!("fetchedAt" in value) ||
-			typeof value.fetchedAt !== "number" ||
-			!Number.isFinite(value.fetchedAt)
-		)
-			return undefined;
-		return value as Snapshot;
-	} catch {
-		return undefined;
-	}
+	const snapshot = state.sharedCache.read();
+	return snapshot?.source === source ? snapshot : undefined;
+}
+
+function mergeSnapshot(
+	state: ProxyState,
+	source: string,
+	disk: Snapshot | undefined,
+): Snapshot | undefined {
+	const matched = disk?.source === source ? disk : undefined;
+	if (
+		matched &&
+		(!state.snapshot ||
+			state.snapshot.source !== source ||
+			matched.fetchedAt > state.snapshot.fetchedAt)
+	)
+		state.snapshot = matched;
+	return state.snapshot?.source === source ? state.snapshot : undefined;
 }
 
 function currentSnapshot(
 	state: ProxyState,
 	source: string,
 ): Snapshot | undefined {
-	const disk = readSnapshot(source, state.env);
-	if (
-		disk &&
-		(!state.snapshot ||
-			state.snapshot.source !== source ||
-			disk.fetchedAt > state.snapshot.fetchedAt)
-	)
-		state.snapshot = disk;
-	return state.snapshot?.source === source ? state.snapshot : undefined;
+	return mergeSnapshot(state, source, readSnapshotForSource(state, source));
 }
 
 function isProxySnapshotFresh(
@@ -356,11 +356,6 @@ function planName(value: unknown): string | undefined {
 	return typeof value === "string" && /^[a-z][a-z0-9_-]{0,31}$/i.test(value)
 		? value
 		: undefined;
-}
-
-function timestamp(value: unknown): number | undefined {
-	const parsed = typeof value === "string" ? Date.parse(value) : NaN;
-	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function codexScope(
@@ -693,30 +688,7 @@ async function fetchResetCredits(
 			"rate-limit-reset-credits",
 			deadlineMs,
 		);
-		if (!body || typeof body !== "object") return undefined;
-		const credits = body as Record<string, unknown>;
-		const count = numericField(
-			credits.available_count ?? credits.availableCount,
-		);
-		if (count === undefined) return undefined;
-		const available = Array.isArray(credits.credits)
-			? credits.credits.flatMap((value: unknown) => {
-					if (!value || typeof value !== "object") return [];
-					const credit = value as Record<string, unknown>;
-					if (
-						credit.status !== "available" ||
-						credit.is_supported_by_plan === false
-					)
-						return [];
-					const expiresAt = timestamp(credit.expires_at);
-					if (expiresAt !== undefined && expiresAt <= Date.now()) return [];
-					return [{ expiresAt, grantedAt: timestamp(credit.granted_at) }];
-				})
-			: [];
-		available.sort(
-			(a, b) => (a.expiresAt ?? Infinity) - (b.expiresAt ?? Infinity),
-		);
-		return { count: Math.max(0, Math.floor(count)), credits: available };
+		return parseOpenAiResetCreditsBody(body);
 	} catch {
 		// Reset credits are optional; an unsupported endpoint or failed account
 		// lookup must not hide its observed quota or other accounts' credits.
@@ -904,9 +876,8 @@ async function update(
 	lookup?: AccountLookup,
 ): Promise<ProxyUpdateOutcome> {
 	const { source, url, key } = config;
-	const path = cachePath(state.env);
-	const outcome = await runLeasedRefresh(`${path}.refresh`, async (lease) => {
-		const cached = currentSnapshot(state, source);
+	const outcome = await state.sharedCache.runLeasedRefresh(async (lease) => {
+		const cached = mergeSnapshot(state, source, lease.read());
 		if (isProxySnapshotFresh(cached, lookup)) return "fresh" as const;
 		const accounts = await fetchProxyAccounts(
 			state.requestProxy,
@@ -921,7 +892,7 @@ async function update(
 			fetchedAt: Date.now(),
 			...accounts,
 		};
-		writeAtomicJsonFile(path, updated, lease);
+		lease.write(updated);
 		state.snapshot = updated;
 		return "updated" as const;
 	});
@@ -1113,11 +1084,11 @@ function usableScope(
 }
 
 /** The proxy can choose any enabled Codex account. Keep even expired recorded windows. */
-function cachedProxyPercentUsed(env?: NodeJS.ProcessEnv): number | undefined {
-	const source = sourceKey(env);
+function cachedProxyPercentUsed(state: ProxyState): number | undefined {
+	const source = sourceKey(state.env);
 	if (!source) return undefined;
 	let max: number | undefined;
-	for (const account of readSnapshot(source, env)?.accounts ?? []) {
+	for (const account of readSnapshotForSource(state, source)?.accounts ?? []) {
 		if (account?.provider !== "codex" || account.disabled === true) continue;
 		for (const used of [
 			account.scope?.sessionPercentUsed,
@@ -1400,7 +1371,7 @@ export function createProxyUsageStore(
 			return readProxySnapshotState(state);
 		},
 		cachedPercentUsed(): number | undefined {
-			return cachedProxyPercentUsed(state.env);
+			return cachedProxyPercentUsed(state);
 		},
 	};
 }

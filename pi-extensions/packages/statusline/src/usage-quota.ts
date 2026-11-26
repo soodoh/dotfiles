@@ -17,6 +17,16 @@ export type ProviderUsageScope = {
 	spendUsd?: number;
 };
 
+export type OpenAiResetCredit = {
+	expiresAt?: number;
+	grantedAt?: number;
+};
+
+export type OpenAiResetCredits = {
+	count: number;
+	credits: OpenAiResetCredit[];
+};
+
 export function hasQuota(scope: ProviderUsageScope | undefined): boolean {
 	return (
 		scope?.sessionPercentUsed !== undefined ||
@@ -45,16 +55,19 @@ export function numericField(value: unknown): number | undefined {
 	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-export function timestampMillis(value: unknown): number | undefined {
+function parseTimestampMillis(value: unknown): number | undefined {
 	const numeric = numericField(value);
 	if (numeric !== undefined) {
-		const timestamp =
-			Math.abs(numeric) < 1_000_000_000_000 ? numeric * 1000 : numeric;
-		return timestamp > 0 ? timestamp : undefined;
+		return Math.abs(numeric) < 1_000_000_000_000 ? numeric * 1000 : numeric;
 	}
 	if (typeof value !== "string") return undefined;
 	const timestamp = Date.parse(value);
-	return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
+	return Number.isFinite(timestamp) ? timestamp : undefined;
+}
+
+function timestampMillis(value: unknown): number | undefined {
+	const timestamp = parseTimestampMillis(value);
+	return timestamp !== undefined && timestamp > 0 ? timestamp : undefined;
 }
 
 function clampPercent(value: number): number {
@@ -145,6 +158,33 @@ export function parseOpenAiUsageBody(
 
 	if (balanceUsd !== undefined) scope.balanceUsd = balanceUsd;
 	return Object.keys(scope).length > 0 ? scope : undefined;
+}
+
+export function parseOpenAiResetCreditsBody(
+	body: unknown,
+	now = Date.now(),
+): OpenAiResetCredits | undefined {
+	if (!isRecord(body)) return undefined;
+	const count = numericField(body.available_count ?? body.availableCount);
+	if (count === undefined) return undefined;
+	const credits = Array.isArray(body.credits)
+		? body.credits.flatMap((value: unknown): OpenAiResetCredit[] => {
+				if (!isRecord(value)) return [];
+				if (
+					value.status !== "available" ||
+					value.is_supported_by_plan === false
+				) {
+					return [];
+				}
+				// Accept epoch <= 0 for expires_at so already-expired 1970-epoch dates are
+				// dropped instead of treated as never-expiring; granted_at still requires > 0.
+				const expiresAt = parseTimestampMillis(value.expires_at);
+				if (expiresAt !== undefined && expiresAt <= now) return [];
+				return [{ expiresAt, grantedAt: timestampMillis(value.granted_at) }];
+			})
+		: [];
+	credits.sort((a, b) => (a.expiresAt ?? Infinity) - (b.expiresAt ?? Infinity));
+	return { count: Math.max(0, Math.floor(count)), credits };
 }
 
 function formatPercentValue(percent: number): string {
