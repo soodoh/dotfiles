@@ -62,7 +62,7 @@
 		"@earendil-works/pi-ai": "1.6.1",
 		"@earendil-works/pi-coding-agent": "1.6.1",
 		"@earendil-works/pi-tui": "1.6.1",
-		"@types/node": "^26.6.10",
+		"@types/node": "^26.6.11",
 		"@types/proper-lockfile": "4.1.4",
 		"@vitest/coverage-v8": "^5.1.2",
 		"typescript": "^7.0.2",
