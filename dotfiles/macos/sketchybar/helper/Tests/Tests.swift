@@ -88,6 +88,7 @@ struct Tests {
     suite(UsageTests(), UsageTests.allTests)
     suite(LayoutTests(), LayoutTests.allTests)
     suite(ReaderTests(), ReaderTests.allTests)
+    suite(WorkspaceTests(), WorkspaceTests.allTests)
     suite(NativeTests(), NativeTests.allTests)
     if failures > 0 { exit(1) }
   }

@@ -42,7 +42,7 @@ default=(
 sketchybar --default "${default[@]}"
 
 ##### Aerospace integration #####
-"$PLUGIN_DIR/aerospace_workspaces.sh" setup || exit 1
+"$BAR_HELPER" workspaces-setup || exit 1
 
 ##### Adding Left Items #####
 # We add some regular items to the left side of the bar, where

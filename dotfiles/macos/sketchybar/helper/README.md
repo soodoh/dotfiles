@@ -1,11 +1,15 @@
 # Sketchybar helper
 
-The macOS-only Swift executable owns right-side sections, display/notch layout,
-click guards, AI-usage items, and cached account/statistics popups. Unrelated
-workspace, front-app, and system-metric plugins remain unchanged.
+The macOS-only Swift executable owns AeroSpace workspace items, right-side
+sections, display/notch layout, click guards, AI-usage items, and cached
+account/statistics popups. Small front-app and system-metric shell plugins
+remain unchanged.
 
 ## Responsibilities
 
+- `Workspaces.swift`: owns AeroSpace workspace items, focus highlights,
+  differential app-icon refreshes, and in-process `NSWorkspace` PNG icon caching
+  behind `AeroSpaceClient` and `BarClient`.
 - `Usage.swift`: decodes the shared TypeScript CLI's sanitized JSON, formats
   popup rows, and invokes that CLI through the installed native mise profile.
   It never parses credentials, contacts providers itself, or consumes credits.

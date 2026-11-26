@@ -54,6 +54,8 @@ func display(_ id: Int, native: UInt32, width: Double, x: Double = 0, y: Double 
 final class FakeBar {
   var items: [String: [String: String]] = [:]
   var order: [String] = []
+  var events: [String] = []
+  var subscriptions: [String: [String]] = [:]
   var properties = ["topmost": "off", "padding_left": "20", "padding_right": "20", "height": "32"]
   var displays: [Display] = [display(1, native: 99, width: 2560)]
   var mutations: [[String]] = []
@@ -135,9 +137,16 @@ final class FakeBar {
       index = end
       switch command {
       case "--add":
-        if fields[0] == "event" { continue }
+        if fields[0] == "event" {
+          events.append(fields[1])
+          continue
+        }
         guard items[fields[1]] == nil else { throw HelperError("Duplicate item") }
-        add(fields[1], ["position": fields[2]])
+        if fields[0] == "bracket" {
+          add(fields[1], ["position": "bracket", "members": fields.dropFirst(2).joined(separator: " ")])
+        } else {
+          add(fields[1], ["position": fields[2]])
+        }
       case "--clone":
         guard items[fields[0]] == nil, let parent = items[fields[1]] else {
           throw HelperError("Invalid clone")
@@ -169,7 +178,9 @@ final class FakeBar {
         }
         items.removeValue(forKey: fields[0])
         order.removeAll { $0 == fields[0] }
-      case "--subscribe", "--trigger", "--reorder": break
+      case "--subscribe":
+        subscriptions[fields[0], default: []] += Array(fields.dropFirst())
+      case "--trigger", "--reorder": break
       default: throw HelperError("Unexpected command")
       }
     }

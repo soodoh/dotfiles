@@ -88,6 +88,7 @@ struct BarClient {
 struct Commands {
   var args: [String] = []
   mutating func command(_ arguments: String...) { args += arguments }
+  mutating func add(_ arguments: [String]) { args += arguments }
   mutating func set(_ name: String, _ properties: [String]) {
     args += ["--set", name] + properties
   }
@@ -156,11 +157,15 @@ struct Palette {
   var dimmed: String
   var background: String
   var border: String
+  var active: String
+  var itemBackground: String
   init(environment: [String: String]) {
     accent = environment["ACCENT_COLOR"] ?? "0xffffffff"
     dimmed = environment["DIMMED_COLOR"] ?? "0x88ffffff"
     background = environment["BAR_COLOR"] ?? "0xff101314"
     border = environment["INACTIVE_BORDER_COLOR"] ?? "0x44ffffff"
+    active = environment["ACTIVE_COLOR"] ?? "0x88FF00FF"
+    itemBackground = environment["ITEM_BG_COLOR"] ?? "0xff353c3f"
   }
 }
 
