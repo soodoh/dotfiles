@@ -8,6 +8,7 @@ from pathlib import Path
 
 import cleanup
 import cleanup_macos as macos
+from cleanup_host import CleanupHost
 
 
 class FakeCleanupHost:
@@ -213,7 +214,12 @@ class CleanupTests(unittest.TestCase):
         )
         with contextlib.redirect_stderr(io.StringIO()) as err:
             self.assertEqual(
-                cleanup.cleanup(apply=True, darwin=False, runner=fake.run), 1
+                cleanup.cleanup(
+                    apply=True,
+                    darwin=False,
+                    host=CleanupHost(run=fake.run, environ=fake.environ),
+                ),
+                1,
             )
         self.assertEqual(len(fake.calls), 2)  # An apply would have called run again.
         self.assertIn("pid 123", err.getvalue())
@@ -285,10 +291,10 @@ class CleanupTests(unittest.TestCase):
                     plan = cleanup.preflight(
                         show=False,
                         darwin=True,
-                        macos_host=fake.host,
+                        host=fake.host,
                     )
                     self.assertEqual(
-                        cleanup.prune(plan, macos_host=fake.host),
+                        cleanup.prune(plan, host=fake.host),
                         int(open_path is not None),
                     )
                 self.assertEqual(
@@ -318,7 +324,7 @@ class CleanupTests(unittest.TestCase):
                 cleanup.cleanup(
                     apply=True,
                     darwin=True,
-                    macos_host=fake.host,
+                    host=fake.host,
                 ),
                 0,
             )
@@ -350,7 +356,7 @@ class CleanupTests(unittest.TestCase):
                     apply=True,
                     darwin=True,
                     profile="work-macos",
-                    macos_host=fake.host,
+                    host=fake.host,
                 ),
                 1,
             )
@@ -388,7 +394,7 @@ class CleanupTests(unittest.TestCase):
                             apply=False,
                             darwin=True,
                             profile="personal-macos",
-                            macos_host=fake.host,
+                            host=fake.host,
                         ),
                         0,
                     )
@@ -399,7 +405,7 @@ class CleanupTests(unittest.TestCase):
                             apply=True,
                             darwin=True,
                             profile="personal-macos",
-                            macos_host=fake.host,
+                            host=fake.host,
                         )
                 self.assertIn(str(refusal.exception), err.getvalue())
                 self.assertIn(str(link), str(refusal.exception))
@@ -452,7 +458,7 @@ class CleanupTests(unittest.TestCase):
                                 apply=True,
                                 darwin=True,
                                 profile="work-macos",
-                                macos_host=fake.host,
+                                host=fake.host,
                             ),
                             1,
                         )
@@ -462,7 +468,7 @@ class CleanupTests(unittest.TestCase):
                                 apply=True,
                                 darwin=True,
                                 profile="work-macos",
-                                macos_host=fake.host,
+                                host=fake.host,
                             )
                 self.assertEqual(
                     fake.events,
@@ -515,7 +521,7 @@ class CleanupTests(unittest.TestCase):
                     apply=True,
                     darwin=True,
                     profile="work-macos",
-                    macos_host=fake.host,
+                    host=fake.host,
                 ),
                 0,
             )
@@ -549,7 +555,7 @@ class CleanupTests(unittest.TestCase):
                     apply=True,
                     darwin=True,
                     profile="work-macos",
-                    macos_host=fake.host,
+                    host=fake.host,
                 ),
                 1,
             )
@@ -566,7 +572,7 @@ class CleanupTests(unittest.TestCase):
                     apply=True,
                     darwin=True,
                     profile="work-macos",
-                    macos_host=fake_host.host,
+                    host=fake_host.host,
                 ),
                 0,
             )
@@ -656,7 +662,7 @@ class CleanupTests(unittest.TestCase):
                             apply=False,
                             darwin=True,
                             profile="work-macos",
-                            macos_host=fake.host,
+                            host=fake.host,
                         ),
                         0,
                     )
@@ -707,7 +713,7 @@ class CleanupTests(unittest.TestCase):
                 apply=True,
                 darwin=True,
                 profile="work-macos",
-                macos_host=fake.host,
+                host=fake.host,
             )
         self.assertIn("restore dev.mise.sketchybar", fake.events)
 
@@ -772,11 +778,26 @@ class CleanupTests(unittest.TestCase):
                     apply=True,
                     darwin=True,
                     profile="work-macos",
-                    macos_host=fake.host,
+                    host=fake.host,
                 ),
                 0,
             )
         self.assertEqual(fake.kills, [])
+
+    def test_darwin_cleanup_rejects_non_macos_cleanup_host(self) -> None:
+        fake = FakeCleanupHost(self.root)
+        base_host = CleanupHost(run=fake.run, environ={"MISE_ENV": "work-macos"})
+        for apply in (False, True):
+            with self.subTest(apply=apply), self.assertRaisesRegex(
+                TypeError, "cleanup_macos.Host"
+            ):
+                cleanup.cleanup(
+                    apply=apply,
+                    darwin=True,
+                    profile="work-macos",
+                    host=base_host,
+                )
+        self.assertEqual(fake.calls, [])
 
 
 if __name__ == "__main__":

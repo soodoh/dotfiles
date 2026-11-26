@@ -14,8 +14,8 @@ from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-import cleanup
 import macos_host as host
+from cleanup_host import CleanupHost
 
 LSOF = "/usr/sbin/lsof"
 MISE_PACKAGES = ("mise", "bootstrap", "packages", "prune", "--manager")
@@ -37,10 +37,9 @@ def _confirm(prompt: str) -> bool:
 
 
 @dataclass(frozen=True)
-class Host:
+class Host(CleanupHost):
     brew_prefix: Path = BREW_PREFIX
     probe: Callable[..., subprocess.CompletedProcess[str]] = host.probe
-    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run
     popen: Callable[..., subprocess.Popen] = subprocess.Popen
     which: Callable[[str], str | None] = shutil.which
     kill: Callable[[int, int], None] = os.kill
@@ -53,19 +52,6 @@ class Host:
     ppid: Callable[[], int] = os.getppid
     uid: Callable[[], int] = os.getuid
     home: Callable[[], Path] = Path.home
-    environ: Mapping[str, str] | None = None
-
-    def env_get(self, key: str) -> str | None:
-        source = os.environ if self.environ is None else self.environ
-        return source.get(key)
-
-    def command(self, *args: str, show: bool = False) -> str:
-        return cleanup.run(
-            *args,
-            show=show,
-            runner=self.run,
-            environ=self.environ,
-        )
 
 
 DEFAULT_HOST = Host()
