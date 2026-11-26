@@ -2,13 +2,14 @@
 // pi-subagents bridges + completion notifier; captured socket/CLI transports.
 // Core activity, run records and dialogs are fixtures, not actual model/child runs.
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
 import { mkdirSync, readFileSync, realpathSync } from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
-import net from "node:net";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createHostJiti, resolvePiHost } from "../../test-support/pi-host.mjs";
+import {
+	createHostJiti,
+	resolvePiHost,
+	startUnixJsonServer,
+} from "../../test-support/pi-host.mjs";
 
 const [launcher, mode, profile] = process.argv.slice(2);
 assert.ok(["personal", "work"].includes(profile));
@@ -27,10 +28,12 @@ const host = resolvePiHost(launcher);
 const agentDir = process.env.PI_CODING_AGENT_DIR;
 assert.ok(agentDir.startsWith(process.env.HOME));
 mkdirSync(join(process.cwd(), ".git"), { recursive: true });
-const requests = [];
-const endpoint = join(process.env.HOME, "fake.sock");
-const moshiRequests = [];
-const moshiEndpoint = join(process.env.HOME, "moshi.sock");
+const endpoint = join(process.env.TMPDIR, "h.sock");
+const moshiEndpoint = join(process.env.TMPDIR, "m.sock");
+const herdrServer = await startUnixJsonServer(endpoint);
+const moshiServer = await startUnixJsonServer(moshiEndpoint);
+const requests = herdrServer.messages;
+const moshiRequests = moshiServer.messages;
 process.env.MOSHI_SOCKET_PATH = moshiEndpoint;
 const rootTui = ["tui", "outside", "popup"].includes(mode);
 if (mode !== "outside") {
@@ -39,19 +42,6 @@ if (mode !== "outside") {
 	if (mode !== "popup") process.env.HERDR_PANE_ID = "w1:p1";
 }
 if (mode === "child") process.env.PI_SUBAGENT_CHILD = "1";
-net.createConnection = (path) => {
-	assert.ok([endpoint, moshiEndpoint].includes(path));
-	const socket = new EventEmitter();
-	socket.destroy = () => {};
-	socket.end = () => {};
-	socket.write = (line) => {
-		(path === endpoint ? requests : moshiRequests).push(JSON.parse(line));
-		queueMicrotask(() => socket.emit("data", Buffer.from('{"ok":true}\n')));
-	};
-	queueMicrotask(() => socket.emit("connect"));
-	return socket;
-};
-syncBuiltinESMExports();
 const pi = await import(pathToFileURL(join(host.root, "dist/index.js")).href);
 const bus = pi.createEventBus();
 const jiti = await createHostJiti(
@@ -122,6 +112,7 @@ const waitForAnswer = () => {
 const tick = async () => {
 	for (let n = 0; n < 3; n++)
 		await new Promise((resolve) => setImmediate(resolve));
+	await Promise.all([herdrServer.waitIdle(), moshiServer.waitIdle()]);
 };
 const states = () =>
 	requests
@@ -413,6 +404,7 @@ try {
 	}
 } finally {
 	await shutdown();
+	await Promise.all([herdrServer.close(), moshiServer.close()]);
 }
 console.log(
 	`PASS ${mode} (${profile}): ${requests.length} Herdr and ${moshiRequests.length} Moshi reports`,

@@ -1,43 +1,61 @@
 // Locally authored adapter for moshi-hook 0.3.19's socket protocol, not a generated hook.
 import { execFileSync } from "node:child_process";
-import net from "node:net";
-import { homedir } from "node:os";
+import { homedir as osHomedir } from "node:os";
 import { basename, join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Snapshot } from "./index";
+import { type ConnectSocket, createSocketQueue } from "./socket-queue";
 
-function socketPath() {
-	if (process.env.MOSHI_SOCKET_PATH) return process.env.MOSHI_SOCKET_PATH;
-	if (process.platform === "darwin")
+export type MoshiDeps = {
+	env?: NodeJS.ProcessEnv;
+	platform?: NodeJS.Platform;
+	homedir?: () => string;
+	connect?: ConnectSocket;
+	execTmux?: (args: string[]) => string;
+};
+
+function defaultExecTmux(args: string[]): string {
+	return execFileSync("tmux", args, {
+		encoding: "utf8",
+		timeout: 200,
+		stdio: ["ignore", "pipe", "ignore"],
+	});
+}
+
+function socketPath(
+	env: NodeJS.ProcessEnv,
+	platform: NodeJS.Platform,
+	getHome: () => string,
+) {
+	if (env.MOSHI_SOCKET_PATH) return env.MOSHI_SOCKET_PATH;
+	if (platform === "darwin")
 		return join(
-			homedir(),
+			getHome(),
 			"Library",
 			"Application Support",
 			"Moshi",
 			"moshi-hook.sock",
 		);
-	if (process.platform === "win32") return "\\\\.\\pipe\\moshi-hook";
-	return join(process.env.XDG_RUNTIME_DIR || "/tmp", "moshi-hook.sock");
+	if (platform === "win32") return "\\\\.\\pipe\\moshi-hook";
+	return join(env.XDG_RUNTIME_DIR || "/tmp", "moshi-hook.sock");
 }
 
-function terminalContext(): Record<string, string> {
-	const env = process.env;
+function terminalContext(
+	env: NodeJS.ProcessEnv,
+	execTmux: (args: string[]) => string,
+): Record<string, string> {
 	if (env.TMUX && env.TMUX_PANE) {
 		const tmuxSocket = env.TMUX.split(",")[0] ?? "";
 		try {
-			const value = execFileSync(
-				"tmux",
-				[
-					"-S",
-					tmuxSocket,
-					"display-message",
-					"-p",
-					"-t",
-					env.TMUX_PANE,
-					"#{session_name}\t#{window_index}",
-				],
-				{ encoding: "utf8", timeout: 200, stdio: ["ignore", "pipe", "ignore"] },
-			).trim();
+			const value = execTmux([
+				"-S",
+				tmuxSocket,
+				"display-message",
+				"-p",
+				"-t",
+				env.TMUX_PANE,
+				"#{session_name}\t#{window_index}",
+			]).trim();
 			const [tmuxSession = "", tmuxWindow = ""] = value.split("\t");
 			return {
 				terminalKind: "tmux",
@@ -68,71 +86,28 @@ function terminalContext(): Record<string, string> {
 }
 
 /** JSON-line/half-close/ack Moshi adapter. Latest state plus a resolution barrier; no retries. */
-export function createMoshi() {
-	const endpoint = socketPath();
-	const terminal = terminalContext();
-	let closed = false;
-	let draining = false;
-	const pending = new Map<"state" | "resolution", string>();
-	let cancel: (() => void) | undefined;
-
-	function attempt(line: string): Promise<void> {
-		return new Promise((resolve) => {
-			let socket: net.Socket | undefined;
-			let timer: ReturnType<typeof setTimeout> | undefined;
-			let finished = false;
-			function finish() {
-				if (finished) return;
-				finished = true;
-				clearTimeout(timer);
-				socket?.destroy();
-				cancel = undefined;
-				resolve();
-			}
-			cancel = finish;
-			try {
-				socket = net.createConnection(endpoint);
-				socket.on("error", finish);
-				socket.on("close", finish);
-				socket.on("end", finish);
-				socket.on("data", finish);
-				socket.on("connect", () => {
-					if (finished) return;
-					socket?.write(line);
-					socket?.end();
-				});
-				timer = setTimeout(finish, 1000);
-				timer.unref();
-			} catch {
-				finish();
-			}
-		});
-	}
-
-	async function drain() {
-		if (closed || draining) return;
-		draining = true;
-		try {
-			while (!closed && pending.size > 0) {
-				const next = pending.entries().next().value;
-				if (!next) break;
-				pending.delete(next[0]);
-				await attempt(next[1]);
-			}
-		} finally {
-			draining = false;
-		}
-	}
+export function createMoshi(deps: MoshiDeps = {}) {
+	const env = deps.env ?? process.env;
+	const platform = deps.platform ?? process.platform;
+	const getHome = deps.homedir ?? osHomedir;
+	const execTmux = deps.execTmux ?? defaultExecTmux;
+	const endpoint = socketPath(env, platform, getHome);
+	const terminal = terminalContext(env, execTmux);
+	const queue = createSocketQueue<"state" | "resolution">({
+		endpoint,
+		connect: deps.connect,
+		timeoutMs: 1000,
+		halfClose: true,
+	});
 
 	function send(payload: Record<string, unknown>, resolution = false) {
-		if (closed) return;
 		// A resolved prompt supersedes any queued waiting state. Retain the
 		// resolution before subsequent completion so Moshi clears its input marker.
-		if (resolution) pending.delete("state");
-		const key = resolution ? "resolution" : "state";
-		pending.delete(key);
-		pending.set(key, `${JSON.stringify(payload)}\n`);
-		void drain();
+		queue.enqueue(
+			resolution ? "resolution" : "state",
+			`${JSON.stringify(payload)}\n`,
+			resolution ? ["state"] : undefined,
+		);
 	}
 
 	function envelope(
@@ -230,14 +205,11 @@ export function createMoshi() {
 			}
 		},
 		async close(ctx?: ExtensionContext) {
-			if (closed) return;
-			closed = true;
-			pending.clear();
-			cancel?.();
+			if (!queue.close()) return;
 			// Only a real session quit closes Moshi's session. Teardown never completes a task.
 			const base = ctx ? envelope(ctx, "SessionEnd") : undefined;
 			if (base) {
-				await attempt(
+				await queue.sendImmediate(
 					`${JSON.stringify({
 						...base,
 						type: "session.closed",

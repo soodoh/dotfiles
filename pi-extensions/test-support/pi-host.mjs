@@ -11,6 +11,7 @@ import {
 	rmSync,
 } from "node:fs";
 import { createRequire } from "node:module";
+import net from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -72,6 +73,65 @@ export async function createHostJiti(
 		pathToFileURL(requireFromPackage.resolve("jiti")).href
 	);
 	return createJiti(callerUrl, { fsCache });
+}
+
+export async function startUnixJsonServer(
+	socketPath,
+	{ ack = '{"ok":true}\n' } = {},
+) {
+	const messages = [];
+	let activeConnections = 0;
+	const server = net.createServer({ allowHalfOpen: true }, (socket) => {
+		activeConnections += 1;
+		let buffer = "";
+		let replied = false;
+		const flushLine = () => {
+			if (replied) return;
+			const newline = buffer.indexOf("\n");
+			if (newline < 0) return;
+			const line = buffer.slice(0, newline).trim();
+			if (line) messages.push(JSON.parse(line));
+			replied = true;
+			if (!socket.destroyed && !socket.writableEnded) socket.end(ack);
+		};
+		socket.on("error", () => {});
+		socket.on("data", (chunk) => {
+			buffer += chunk.toString("utf8");
+			flushLine();
+		});
+		socket.on("end", () => {
+			if (!replied) {
+				const line = buffer.trim();
+				if (line) messages.push(JSON.parse(line));
+				replied = true;
+				if (!socket.destroyed && !socket.writableEnded) socket.end(ack);
+			}
+		});
+		socket.on("close", () => {
+			activeConnections -= 1;
+		});
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(socketPath, () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	return {
+		messages,
+		async waitIdle(settleMs = 20) {
+			const deadline = Date.now() + 2000;
+			// Let setImmediate + kernel connect/write/ack complete.
+			await new Promise((resolve) => setTimeout(resolve, settleMs));
+			while (activeConnections > 0 && Date.now() < deadline) {
+				await new Promise((resolve) => setTimeout(resolve, 5));
+			}
+		},
+		close() {
+			return new Promise((resolve) => server.close(() => resolve()));
+		},
+	};
 }
 
 export function runIsolatedWorker(

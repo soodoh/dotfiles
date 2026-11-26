@@ -1,11 +1,12 @@
 import { EventEmitter } from "node:events";
-import net from "node:net";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
+import { createAgentState } from "./index";
 import { registerActivity } from "./liveness.test.fixture";
+import type { SocketLike } from "./socket-queue";
 
 type Handler = (
 	event: Record<string, unknown>,
@@ -16,14 +17,19 @@ async function flush() {
 	for (let n = 0; n < 5; n++)
 		await new Promise<void>((resolve) => setImmediate(resolve));
 }
-async function fixture(mode: ExtensionContext["mode"] = "tui") {
+async function fixture(
+	mode: ExtensionContext["mode"] = "tui",
+	envOverrides: NodeJS.ProcessEnv = {},
+) {
 	const envelopes: Record<string, unknown>[] = [];
-	vi.spyOn(net, "createConnection").mockImplementation((() => {
-		const socket = new EventEmitter();
-		Object.assign(socket, {
+	const env: NodeJS.ProcessEnv = {
+		MOSHI_SOCKET_PATH: "/unused-moshi.sock",
+		...envOverrides,
+	};
+	const connect = (): SocketLike => {
+		const socket = Object.assign(new EventEmitter(), {
 			destroy: vi.fn(),
 			end: vi.fn(),
-			unref: vi.fn(),
 			write: (line: string) => {
 				envelopes.push(JSON.parse(line));
 				queueMicrotask(() => socket.emit("data", Buffer.from("{}\n")));
@@ -31,12 +37,12 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 		});
 		queueMicrotask(() => socket.emit("connect"));
 		return socket;
-	}) as unknown as typeof net.createConnection);
+	};
 	const bus = new EventEmitter();
 	let active = false;
 	let available = true;
 	const handlers = new Map<string, Handler[]>();
-	const { default: extension } = await import("./index");
+	const extension = createAgentState({ env, connect });
 	extension({
 		on: (event: string, handler: Handler) =>
 			handlers.set(event, [...(handlers.get(event) ?? []), handler]),
@@ -119,36 +125,25 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 		},
 	};
 }
-beforeEach(() => {
-	vi.resetModules();
-	for (const name of [
-		"HERDR_ENV",
-		"HERDR_PANE_ID",
-		"HERDR_SOCKET_PATH",
-		"TMUX",
-		"TMUX_PANE",
-		"ZELLIJ",
-		"PI_SUBAGENT_CHILD",
-	])
-		vi.stubEnv(name, "");
-	vi.stubEnv("MOSHI_SOCKET_PATH", "/unused-moshi.sock");
-});
 afterEach(async () => {
 	for (const cleanup of cleanups.splice(0)) await cleanup();
 	vi.restoreAllMocks();
-	vi.unstubAllEnvs();
 	vi.useRealTimers();
 });
 
 test.each([false, true])(
 	"whole-task completion with Herdr=%s",
 	async (herdr) => {
-		if (herdr) {
-			vi.stubEnv("HERDR_ENV", "1");
-			vi.stubEnv("HERDR_SOCKET_PATH", "/unused-herdr.sock");
-			vi.stubEnv("HERDR_PANE_ID", "w1:p1");
-		}
-		const f = await fixture();
+		const f = await fixture(
+			"tui",
+			herdr
+				? {
+						HERDR_ENV: "1",
+						HERDR_SOCKET_PATH: "/unused-herdr.sock",
+						HERDR_PANE_ID: "w1:p1",
+					}
+				: {},
+		);
 		await f.start();
 		expect(f.categories()).toEqual([]);
 		await f.begin();
@@ -278,8 +273,7 @@ test.each(["rpc", "json", "print"] as const)(
 );
 
 test("child runtimes do not publish", async () => {
-	vi.stubEnv("PI_SUBAGENT_CHILD", "1");
-	const f = await fixture();
+	const f = await fixture("tui", { PI_SUBAGENT_CHILD: "1" });
 	expect(
 		Reflect.get(globalThis, Symbol.for("@agegr/pi-web/session-liveness/v1")),
 	).toBeUndefined();

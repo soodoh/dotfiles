@@ -1,28 +1,21 @@
 // Real Pi loader + full unmodified pi-subagents entrypoint in a disposable HOME.
 // No model calls, child launches, workstation services or live notifications.
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
-import { syncBuiltinESMExports } from "node:module";
-import net from "node:net";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createHostJiti, resolvePiHost } from "../../test-support/pi-host.mjs";
+import {
+	createHostJiti,
+	resolvePiHost,
+	startUnixJsonServer,
+} from "../../test-support/pi-host.mjs";
 
 const [launcher, order] = process.argv.slice(2);
 const root = resolve(import.meta.dirname, "../../..");
 const host = resolvePiHost(launcher);
 assert.ok(process.env.PI_CODING_AGENT_DIR.startsWith(process.env.HOME));
-process.env.MOSHI_SOCKET_PATH = join(process.env.HOME, "fake-moshi.sock");
-net.createConnection = () => {
-	const socket = new EventEmitter();
-	socket.destroy = () => {};
-	socket.end = () => {};
-	socket.write = () =>
-		queueMicrotask(() => socket.emit("data", Buffer.from("{}\n")));
-	queueMicrotask(() => socket.emit("connect"));
-	return socket;
-};
-syncBuiltinESMExports();
+const moshiEndpoint = join(process.env.TMPDIR, "m.sock");
+const moshiServer = await startUnixJsonServer(moshiEndpoint, { ack: "{}\n" });
+process.env.MOSHI_SOCKET_PATH = moshiEndpoint;
 const pi = await import(pathToFileURL(join(host.root, "dist/index.js")).href);
 const bus = pi.createEventBus();
 const paths = [
@@ -150,6 +143,7 @@ try {
 	}
 } finally {
 	observer?.close();
+	await moshiServer.close();
 }
 assert.deepEqual(errors, []);
 assert.equal(

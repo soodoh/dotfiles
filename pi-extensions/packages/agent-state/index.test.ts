@@ -1,17 +1,23 @@
 import { EventEmitter } from "node:events";
-import net from "node:net";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
+import { createAgentState } from "./index";
 import { registerActivity } from "./liveness.test.fixture";
+import type { SocketLike } from "./socket-queue";
 
 type Handler = (
 	event: Record<string, unknown>,
 	ctx: ExtensionContext,
 ) => unknown;
 type Report = { method: string; params: Record<string, unknown> };
+type FakeSocket = EventEmitter & {
+	destroy: ReturnType<typeof vi.fn>;
+	end: ReturnType<typeof vi.fn>;
+	write: (line: string) => void;
+};
 const HERDR_SOCKET = "/fixture-herdr.sock";
 const MOSHI_SOCKET = "/fixture-moshi.sock";
 const flush = async () => {
@@ -20,14 +26,24 @@ const flush = async () => {
 };
 const cleanups: Array<() => Promise<void>> = [];
 
-async function fixture(mode: ExtensionContext["mode"] = "tui") {
+async function fixture(
+	mode: ExtensionContext["mode"] = "tui",
+	envOverrides: NodeJS.ProcessEnv = {},
+) {
 	const reports: Report[] = [];
-	const sockets: EventEmitter[] = [];
+	const sockets: FakeSocket[] = [];
 	let respond = true;
-	vi.spyOn(net, "createConnection").mockImplementation(((endpoint: unknown) => {
+	const env: NodeJS.ProcessEnv = {
+		HERDR_ENV: "1",
+		HERDR_SOCKET_PATH: HERDR_SOCKET,
+		HERDR_PANE_ID: "w1:p1",
+		MOSHI_SOCKET_PATH: MOSHI_SOCKET,
+		PI_SUBAGENT_CHILD: "0",
+		...envOverrides,
+	};
+	const connect = (endpoint: string): SocketLike => {
 		const isHerdr = endpoint === HERDR_SOCKET;
-		const socket = new EventEmitter();
-		Object.assign(socket, {
+		const socket = Object.assign(new EventEmitter(), {
 			destroy: vi.fn(),
 			end: vi.fn(),
 			write: (line: string) => {
@@ -43,10 +59,10 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 		if (isHerdr) sockets.push(socket);
 		queueMicrotask(() => socket.emit("connect"));
 		return socket;
-	}) as unknown as typeof net.createConnection);
+	};
 	const handlers = new Map<string, Handler[]>();
 	const bus = new EventEmitter();
-	const { default: extension } = await import("./index");
+	const extension = createAgentState({ env, connect });
 	extension({
 		on: (event: string, handler: Handler) =>
 			handlers.set(event, [...(handlers.get(event) ?? []), handler]),
@@ -114,18 +130,9 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 	};
 }
 
-beforeEach(() => {
-	vi.resetModules();
-	vi.stubEnv("HERDR_ENV", "1");
-	vi.stubEnv("HERDR_SOCKET_PATH", HERDR_SOCKET);
-	vi.stubEnv("HERDR_PANE_ID", "w1:p1");
-	vi.stubEnv("MOSHI_SOCKET_PATH", MOSHI_SOCKET);
-	vi.stubEnv("PI_SUBAGENT_CHILD", "0");
-});
 afterEach(async () => {
 	for (const cleanup of cleanups.splice(0)) await cleanup();
 	vi.restoreAllMocks();
-	vi.unstubAllEnvs();
 	vi.useRealTimers();
 });
 
@@ -270,8 +277,7 @@ test.each([
 	["HERDR_PANE_ID", ""],
 	["PI_SUBAGENT_CHILD", "1"],
 ])("does not report with %s=%s", async (name, value) => {
-	vi.stubEnv(name, value);
-	const f = await fixture();
+	const f = await fixture("tui", { [name]: value });
 	await f.start();
 	await f.dispatch("ui_prompt_start");
 	f.bus.emit("herdr:busy", { active: true });
@@ -336,7 +342,7 @@ test("factory starts no socket; shutdown cancels a stalled attempt without retry
 	await vi.advanceTimersByTimeAsync(3000);
 	await flush();
 	expect(f.sockets).toHaveLength(1);
-	expect((f.sockets[0] as unknown as net.Socket).destroy).toHaveBeenCalled();
+	expect(f.sockets[0]?.destroy).toHaveBeenCalled();
 });
 
 test("transport retries once, then advances to the latest queued state", async () => {

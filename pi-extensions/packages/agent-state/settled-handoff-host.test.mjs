@@ -1,37 +1,26 @@
 // Actual session lifecycle: a deferred wake and a slow settled sibling. The
 // producer retains authoritative activity until the wake starts; no child spawn.
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
-import { syncBuiltinESMExports } from "node:module";
-import net from "node:net";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	createHostJiti,
 	createSessionFixture,
 	runSessionWorker,
+	startUnixJsonServer,
 } from "../../test-support/pi-host.mjs";
 
 if (process.argv[2] !== "worker") {
 	runSessionWorker(process.argv[2], new URL(import.meta.url));
 } else {
+	const herdrEndpoint = join(process.env.TMPDIR, "h.sock");
+	const moshiEndpoint = join(process.env.TMPDIR, "m.sock");
+	const herdrServer = await startUnixJsonServer(herdrEndpoint);
+	const moshiServer = await startUnixJsonServer(moshiEndpoint);
 	process.env.HERDR_ENV = "1";
-	process.env.HERDR_SOCKET_PATH = join(process.env.HOME, "herdr.sock");
+	process.env.HERDR_SOCKET_PATH = herdrEndpoint;
 	process.env.HERDR_PANE_ID = "w1:p1";
-	process.env.MOSHI_SOCKET_PATH = join(process.env.HOME, "moshi.sock");
-	const reports = [];
-	net.createConnection = (path) => {
-		const socket = new EventEmitter();
-		socket.destroy = () => {};
-		socket.end = () => {};
-		socket.write = (line) => {
-			reports.push({ path, data: JSON.parse(line) });
-			queueMicrotask(() => socket.emit("data", Buffer.from('{"ok":true}\n')));
-		};
-		queueMicrotask(() => socket.emit("connect"));
-		return socket;
-	};
-	syncBuiltinESMExports();
+	process.env.MOSHI_SOCKET_PATH = moshiEndpoint;
 	const jiti = await createHostJiti(
 		fileURLToPath(
 			new URL("../../node_modules/pi-subagents/package.json", import.meta.url),
@@ -47,11 +36,11 @@ if (process.argv[2] !== "worker") {
 		),
 	);
 	const states = () =>
-		reports
-			.filter((r) => r.data.method === "pane.report_agent")
-			.map((r) => r.data.params.state);
+		herdrServer.messages
+			.filter((r) => r.method === "pane.report_agent")
+			.map((r) => r.params.state);
 	const completions = () =>
-		reports.filter((r) => r.data.category === "task_complete");
+		moshiServer.messages.filter((r) => r.category === "task_complete");
 	const entered = Promise.withResolvers();
 	const releaseSibling = Promise.withResolvers();
 	const firstResponse = Promise.withResolvers();
@@ -111,7 +100,7 @@ if (process.argv[2] !== "worker") {
 	try {
 		const running = fixture.session.prompt("Initial work");
 		while (!requests) await new Promise((resolve) => setImmediate(resolve));
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		await Promise.all([herdrServer.waitIdle(30), moshiServer.waitIdle(30)]);
 		assert.equal(states().at(-1), "working");
 		const before = states().length;
 		firstResponse.resolve();
@@ -129,7 +118,7 @@ if (process.argv[2] !== "worker") {
 		assert.deepEqual(completions(), []);
 		releaseSibling.resolve();
 		await running;
-		await new Promise((resolve) => setTimeout(resolve, 30));
+		await Promise.all([herdrServer.waitIdle(30), moshiServer.waitIdle(30)]);
 		assert.equal(requests, 2);
 		assert.equal(starts, 2);
 		assert.deepEqual(states().slice(before), ["idle"]);
@@ -142,6 +131,7 @@ if (process.argv[2] !== "worker") {
 	} finally {
 		releaseActivity();
 		fixture.session.dispose();
+		await Promise.all([herdrServer.close(), moshiServer.close()]);
 	}
 	console.log(
 		"PASS agent state: native deferred settled wake, slow sibling and authoritative handoff liveness",

@@ -1,28 +1,12 @@
 // Optional smoke-test client: real local adapter/transport against an unpaired daemon.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
 import net from "node:net";
 import { join } from "node:path";
 import { createHostJiti } from "../../test-support/pi-host.mjs";
 
 const acknowledgments = [];
 const sent = [];
-const connect = net.createConnection;
-net.createConnection = (...args) => {
-	assert.equal(args[0], process.env.MOSHI_SOCKET_PATH);
-	const socket = connect(...args);
-	const write = socket.write.bind(socket);
-	socket.write = (line) => {
-		sent.push(JSON.parse(line));
-		return write(line);
-	};
-	socket.on("data", (data) =>
-		acknowledgments.push(JSON.parse(data.toString())),
-	);
-	return socket;
-};
-syncBuiltinESMExports();
 const jiti = await createHostJiti(
 	new URL("../../package.json", import.meta.url),
 	{ callerUrl: import.meta.url },
@@ -30,7 +14,21 @@ const jiti = await createHostJiti(
 const { createMoshi } = await jiti.import(
 	join(import.meta.dirname, "moshi.ts"),
 );
-const moshi = createMoshi();
+const moshi = createMoshi({
+	connect: (endpoint) => {
+		assert.equal(endpoint, process.env.MOSHI_SOCKET_PATH);
+		const socket = net.createConnection(endpoint);
+		const write = socket.write.bind(socket);
+		socket.write = (line) => {
+			sent.push(JSON.parse(line));
+			return write(line);
+		};
+		socket.on("data", (data) =>
+			acknowledgments.push(JSON.parse(data.toString())),
+		);
+		return socket;
+	},
+});
 const ctx = {
 	cwd: process.env.HOME,
 	sessionManager: {
