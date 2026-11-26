@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import cleanup
 import cleanup_macos as macos
+import macos_host as host
 
 
 class CleanupTests(unittest.TestCase):
@@ -115,7 +116,7 @@ class CleanupTests(unittest.TestCase):
         with (
             patch.object(cleanup.sys, "platform", "darwin"),
             patch.dict(os.environ, MISE_ENV="work-macos"),
-            patch.object(macos, "require_local_terminal"),
+            patch.object(host, "require_local_terminal"),
             patch.object(macos, "needs_handoff", return_value=True),
             patch.object(macos, "open_handoff") as handoff,
             patch.object(cleanup, "preflight") as preflight,
@@ -126,20 +127,20 @@ class CleanupTests(unittest.TestCase):
         preflight.assert_not_called()
 
     def test_declining_confirmation_does_not_stop_services_or_prune(self):
-        job = Mock(spec=macos.Job, target="gui/501/dev.mise.sketchybar", programs=())
+        job = Mock(
+            spec=macos.UserAgentJob, target="gui/501/dev.mise.sketchybar", programs=()
+        )
         plan = cleanup.Plan([], [], [], [])
+        maintenance = macos.MaintenancePlan(
+            (macos.Change(job, {42}, True, "blocking keg"),),
+            (),
+            (),
+            {},
+            (),
+            self.root,
+        )
         with (
-            patch.object(
-                cleanup,
-                "maintenance_plan",
-                return_value=(
-                    [macos.Change(job, {42}, True, "blocking keg")],
-                    [],
-                    [],
-                    {},
-                    [],
-                ),
-            ),
+            patch.object(macos, "plan_maintenance", return_value=maintenance),
             patch("builtins.input", return_value=""),
             patch.object(cleanup, "run") as run,
             contextlib.redirect_stdout(io.StringIO()),
@@ -157,10 +158,17 @@ class CleanupTests(unittest.TestCase):
         link = self.root / "bin/borders"
         link.parent.mkdir()
         link.symlink_to(binary)
-        job = macos.Job(
+        job = macos.UserAgentJob(
             "gui/501", "dev.mise.borders", self.root / "borders.plist", (link,)
         )
-        changes = [macos.Change(job, {42}, True, "holds a planned removal target")]
+        maintenance = macos.MaintenancePlan(
+            (macos.Change(job, {42}, True, "holds a planned removal target"),),
+            (),
+            (),
+            {},
+            (),
+            self.root,
+        )
         for missing in (False, True):
             with self.subTest(missing=missing):
                 if missing:
@@ -170,11 +178,7 @@ class CleanupTests(unittest.TestCase):
                     patch.object(cleanup.sys, "platform", "darwin"),
                     patch.dict(os.environ, MISE_ENV="personal-macos"),
                     patch.object(cleanup, "preflight", return_value=plan),
-                    patch.object(
-                        cleanup,
-                        "maintenance_plan",
-                        return_value=(changes, [], [], {}, []),
-                    ),
+                    patch.object(macos, "plan_maintenance", return_value=maintenance),
                     patch.object(cleanup, "run") as run,
                     patch("builtins.input") as confirm,
                     patch.object(macos, "paused") as pause,
@@ -205,11 +209,10 @@ class CleanupTests(unittest.TestCase):
 
                 def job(name, events=events):
                     return Mock(
-                        spec=macos.Job,
+                        spec=macos.UserAgentJob,
                         target=name,
                         label=name,
                         programs=(),
-                        privileged=False,
                         stop=Mock(side_effect=lambda: events.append(f"stop {name}")),
                         restore=Mock(
                             side_effect=lambda: events.append(f"restore {name}")
@@ -224,21 +227,19 @@ class CleanupTests(unittest.TestCase):
                     events.append("prune")
                     raise subprocess.CalledProcessError(1, args)
 
-                with (
-                    patch.object(
-                        cleanup,
-                        "maintenance_plan",
-                        return_value=(
-                            [
-                                macos.Change(job("aerospace"), {42}, True, "blocking"),
-                                macos.Change(job("sketchybar"), {43}, True, "blocking"),
-                            ],
-                            [],
-                            [],
-                            {},
-                            [],
-                        ),
+                maintenance = macos.MaintenancePlan(
+                    (
+                        macos.Change(job("aerospace"), {42}, True, "blocking"),
+                        macos.Change(job("sketchybar"), {43}, True, "blocking"),
                     ),
+                    (),
+                    (),
+                    {},
+                    (),
+                    self.root,
+                )
+                with (
+                    patch.object(macos, "plan_maintenance", return_value=maintenance),
                     patch("builtins.input", return_value="yes"),
                     patch.object(cleanup, "preflight", side_effect=recheck),
                     patch.object(cleanup, "run", side_effect=failed_prune),
@@ -265,8 +266,8 @@ class CleanupTests(unittest.TestCase):
 
     def test_only_blockers_are_paused_refresh_happens_after_verified_prune(self):
         events = []
-        job = Mock(spec=macos.Job, target="blocking job", programs=(), privileged=False)
-        stale = Mock(spec=macos.Job, target="stale job", programs=(), privileged=False)
+        job = Mock(spec=macos.UserAgentJob, target="blocking job", programs=())
+        stale = Mock(spec=macos.UserAgentJob, target="stale job", programs=())
         target = self.root / "old-keg"
         plan = cleanup.Plan([], [target], [], [])
 
@@ -282,14 +283,19 @@ class CleanupTests(unittest.TestCase):
             events.append("prune")
             return 0
 
-        choices = [
-            macos.Change(job, {42}, True, "blocking"),
-            macos.Change(stale, {43}, False, "outdated"),
-        ]
-        with (
-            patch.object(
-                cleanup, "maintenance_plan", return_value=(choices, [], [], {}, [])
+        maintenance = macos.MaintenancePlan(
+            (
+                macos.Change(job, {42}, True, "blocking"),
+                macos.Change(stale, {43}, False, "outdated"),
             ),
+            (),
+            (),
+            {},
+            (),
+            self.root,
+        )
+        with (
+            patch.object(macos, "plan_maintenance", return_value=maintenance),
             patch("builtins.input", return_value="yes"),
             patch.object(
                 cleanup, "preflight", side_effect=[plan, cleanup.Plan([], [], [], [])]
@@ -312,10 +318,9 @@ class CleanupTests(unittest.TestCase):
 
     def test_manager_success_with_leftover_targets_is_incomplete(self):
         plan = cleanup.Plan([], [self.root / "old-keg"], [], [])
+        empty = macos.MaintenancePlan((), (), (), {}, (), self.root)
         with (
-            patch.object(
-                cleanup, "maintenance_plan", return_value=([], [], [], {}, [])
-            ),
+            patch.object(macos, "plan_maintenance", return_value=empty),
             patch.object(cleanup, "preflight", return_value=plan),
             patch.object(cleanup, "run"),
             contextlib.redirect_stdout(io.StringIO()),
@@ -368,9 +373,8 @@ class CleanupTests(unittest.TestCase):
         installed.parent.mkdir()
         installed.touch()
         job = Mock(
-            spec=macos.Job,
+            spec=macos.UserAgentJob,
             details=Mock(return_value="\tpid = 42\n"),
-            privileged=False,
             label="runner",
             programs=(installed,),
         )
@@ -384,7 +388,7 @@ class CleanupTests(unittest.TestCase):
         tree = {42: (1, "runner"), 43: (42, "helper")}
         with (
             patch.object(macos, "jobs", return_value=[job]),
-            patch.object(macos, "probe", return_value=result),
+            patch.object(host, "probe", return_value=result),
         ):
             self.assertEqual(
                 macos.service_changes("work-macos", self.root, set(), tree), []
@@ -396,9 +400,9 @@ class CleanupTests(unittest.TestCase):
             self.assertFalse(change.blocking)
 
     def test_failure_to_restore_one_job_does_not_skip_other_jobs(self):
-        failed = Mock(spec=macos.Job, label="first")
+        failed = Mock(spec=macos.UserAgentJob, label="first")
         failed.restore.side_effect = ValueError("failed to start")
-        remaining = Mock(spec=macos.Job, label="second")
+        remaining = Mock(spec=macos.UserAgentJob, label="second")
         with (
             contextlib.redirect_stdout(io.StringIO()),
             self.assertRaisesRegex(ValueError, "first: failed to start"),
@@ -406,6 +410,15 @@ class CleanupTests(unittest.TestCase):
         ):
             pass
         remaining.restore.assert_called_once_with()
+
+    def test_user_agent_job_refuses_system_domain(self):
+        with self.assertRaisesRegex(ValueError, "user LaunchAgents"):
+            macos.UserAgentJob(
+                "system",
+                "dev.dotfiles.tailscaled",
+                self.root / "tailscaled.plist",
+                (),
+            )
 
     def test_fish_pid_reuse_does_not_signal_the_replacement(self):
         with (

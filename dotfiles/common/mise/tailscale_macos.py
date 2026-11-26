@@ -12,7 +12,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import cleanup_macos as macos
+import macos_host as host
 
 LABEL = "dev.dotfiles.tailscaled"
 DAEMON_DIR = Path("/Library/Application Support/dotfiles-tailscale")
@@ -21,7 +21,7 @@ NEXT = DAEMON_DIR / "tailscaled.next"
 PREVIOUS = DAEMON_DIR / "tailscaled.previous"
 PLIST = Path(f"/Library/LaunchDaemons/{LABEL}.plist")
 STAGED_PLIST = DAEMON_DIR / PLIST.name
-SOURCE_PLIST = macos.REPO / "dotfiles/macos/tailscale" / PLIST.name
+SOURCE_PLIST = host.REPO / "dotfiles/macos/tailscale" / PLIST.name
 INSTALL = "/usr/bin/install"
 TEE = "/usr/bin/tee"
 SUDO = "/usr/bin/sudo"
@@ -46,7 +46,7 @@ def root(command, data=None):
 
 
 def launch(*args):
-    return (macos.LAUNCHCTL, *args)
+    return (host.LAUNCHCTL, *args)
 
 
 def install(source, target, mode="0755"):
@@ -111,12 +111,12 @@ def validate_plist(contents):
 
 
 def live_version(cli):
-    result = macos.probe(str(cli), "version", "--json", "--daemon")
+    result = host.probe(str(cli), "version", "--json", "--daemon")
     return None if result.returncode else json.loads(result.stdout).get("daemonLong")
 
 
 def disabled(job):
-    output = macos.checked(macos.probe(*launch("print-disabled", job.domain)))
+    output = host.checked(host.probe(*launch("print-disabled", job.domain)))
     return bool(
         re.search(
             rf'^\s*"{re.escape(job.label)}"\s*=>\s*disabled\s*$', output, re.MULTILINE
@@ -141,7 +141,7 @@ class Candidate:
         return hashlib.sha256(self.binary).digest()
 
     def verify(self, job):
-        macos.wait_for(
+        host.wait_for(
             lambda: (
                 re.search(r"^\s*pid = \d+$", job.details(), re.MULTILINE)
                 and live_version(self.cli) == self.version
@@ -152,7 +152,7 @@ class Candidate:
 
 
 def load_candidate():
-    prefix = Path(macos.checked(macos.probe("brew", "--prefix")).strip())
+    prefix = Path(host.checked(host.probe("brew", "--prefix")).strip())
     source = (prefix / "opt/tailscale/bin/tailscaled").resolve(strict=True)
     relative = source.relative_to(prefix.resolve() / "Cellar/tailscale")
     if (
@@ -164,14 +164,14 @@ def load_candidate():
     binary = source.read_bytes()
     version = re.search(
         r"^\s*long version:\s*(\S+)\s*$",
-        macos.checked(macos.probe(str(source), "--version")),
+        host.checked(host.probe(str(source), "--version")),
         re.MULTILINE,
     )
     if not version:
         raise ValueError(f"cannot read the version of {source}")
     cli = prefix / "bin/tailscale"
     if (
-        json.loads(macos.checked(macos.probe(str(cli), "version", "--json")))["long"]
+        json.loads(host.checked(host.probe(str(cli), "version", "--json")))["long"]
         != version[1]
     ):
         raise ValueError("the Homebrew CLI and candidate daemon versions differ")
@@ -182,7 +182,7 @@ def load_candidate():
 
 @dataclass(frozen=True)
 class Deployment:
-    job: macos.Job
+    job: host.LaunchdJob
     binary_changed: bool
     binary_exists: bool
     plist_exists: bool
@@ -316,7 +316,7 @@ def inspect(candidate):
         protected(temporary, optional=True)
     if plist_exists:
         validate_plist(PLIST.read_bytes())
-    job = macos.Job("system", LABEL, PLIST, (DAEMON,))
+    job = host.LaunchdJob("system", LABEL, PLIST, (DAEMON,))
     loaded = bool(job.details())
     is_disabled = disabled(job)
     if loaded and (not binary_exists or is_disabled):
@@ -360,7 +360,7 @@ def deploy(*, refresh=False):
         print(f"System Tailscale daemon is already on {candidate.version}.")
         return
     try:
-        macos.require_local_terminal()
+        host.require_local_terminal()
     except ValueError:
         if not refresh:
             raise
@@ -402,8 +402,8 @@ def main():
     signal.signal(signal.SIGTERM, interrupt)
     try:
         if not refresh:
-            macos.require_local_terminal()
-        with macos.maintenance_lock():
+            host.require_local_terminal()
+        with host.maintenance_lock():
             deploy(refresh=refresh)
     except (
         EOFError,

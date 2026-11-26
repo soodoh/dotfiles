@@ -206,69 +206,22 @@ def prune(plan):
     return 0
 
 
-def maintenance_plan(plan, profile):
-    blockers = {item.pid for item in plan.processes if item.pid}
-    tree = macos.process_tree()
-    changes = macos.service_changes(profile, BREW_PREFIX, blockers, tree)
-    fish = macos.blocking_fish(blockers, BREW_PREFIX)
-    before, after = [], []
-    covered = set(fish)
-    for change in changes:
-        if change.blocking:
-            covered.update(change.pids)
-    for session in macos.stale_herdr():
-        pids = session.pids(tree) if blockers else set()
-        if pids & blockers:
-            before.append(session)
-            covered.update(pids)
-        else:
-            after.append(session)
-    unknown = [item.message for item in plan.processes if item.pid not in covered]
-    return changes, before, after, fish, unknown
-
-
-def show_maintenance(changes, before, after, fish):
-    for change in changes:
-        action = "Pause for prune" if change.blocking else "Refresh after prune"
-        print(f"{action}: {change.job.target} — {change.reason}")
-    for action, sessions in (
-        ("Pause for prune", before),
-        ("Refresh after prune", after),
-    ):
-        for session in sessions:
-            print(f"{action}: Herdr session {session.name}")
-    for pid, identity in fish.items():
-        print(f"Close blocking Fish shell on {identity.split()[1]} (PID {pid})")
-    if not (changes or before or after or fish):
-        print("No managed services or sessions need to be stopped or restarted.")
-
-
-def maintenance_programs(changes, before, after, fish):
-    programs = [program for change in changes for program in change.job.programs]
-    programs.extend(session.binary for session in (*before, *after))
-    if fish:
-        programs.append(BREW_PREFIX / "bin/fish")
-    return programs
-
-
 def macos_cleanup(plan, profile):
     if plan.references:
         report("Cleanup blocked by retained environments:", plan.references)
         return 1
-    changes, before, after, fish, unknown = maintenance_plan(plan, profile)
-    show_maintenance(changes, before, after, fish)
-    if unknown:
+    maintenance = macos.plan_maintenance(plan.processes, profile, BREW_PREFIX)
+    for line in maintenance.summary_lines():
+        print(line)
+    if maintenance.unknown:
         report(
             "Cleanup blocked before stopping anything; close these processes first:",
-            unknown,
+            maintenance.unknown,
         )
         return 1
-    jobs = [change.job for change in changes if change.blocking]
-    refresh = [change.job for change in changes if not change.blocking]
-    programs = maintenance_programs(changes, before, after, fish)
-    macos.check_replacements(programs, plan.targets)
+    maintenance.check_replacements(plan.targets)
 
-    if changes or before or after or fish:
+    if maintenance.has_actions:
         print(
             "Save terminal work and stop important Docker workloads first. Live pane jobs can be lost."
         )
@@ -277,9 +230,10 @@ def macos_cleanup(plan, profile):
         ).strip().lower() not in {"y", "yes"}:
             print("Cleanup cancelled.")
             return 1
-    with macos.paused(jobs, before, fish, BREW_PREFIX):
+
+    def execute_prune() -> int:
         final = preflight(show=False, darwin=True)
-        macos.check_replacements(programs, final.targets)
+        maintenance.check_replacements(final.targets)
         if prune(final):
             return 1
         if final.targets:
@@ -294,10 +248,10 @@ def macos_cleanup(plan, profile):
                     ],
                 )
                 return 1
-    if refresh or after:
-        # These processes did not need to be offline while packages were pruned.
-        with macos.paused(refresh, after, {}, BREW_PREFIX):
-            pass
+        return 0
+
+    if maintenance.run(execute_prune):
+        return 1
     print("Pruning verified; requested service restarts finished.")
     return 0
 
@@ -310,30 +264,26 @@ def cleanup(*, apply: bool, worker: bool = False) -> int:
             "select personal-macos or work-macos before reviewing or pruning Homebrew"
         )
     if apply and darwin:
-        macos.require_local_terminal()
-        if macos.needs_handoff():
-            if worker:
-                raise ValueError(
-                    "maintenance terminal is not independent of Fish or Herdr"
-                )
-            macos.open_handoff(profile, BREW_PREFIX)
-            return 0
-        with macos.maintenance_lock():
-            return macos_cleanup(preflight(show=False, darwin=True), profile)
+        return macos.run_in_session(
+            profile,
+            BREW_PREFIX,
+            worker=worker,
+            action=lambda: macos_cleanup(preflight(show=False, darwin=True), profile),
+        )
 
     plan = preflight(show=not apply, darwin=darwin)
     if apply:
         return prune(plan)
     run(*MISE_CACHE_PRUNE, "--dry-run", show=True)
     if darwin:
-        changes, before, after, fish, unknown = maintenance_plan(plan, profile)
-        show_maintenance(changes, before, after, fish)
+        maintenance = macos.plan_maintenance(plan.processes, profile, BREW_PREFIX)
+        for line in maintenance.summary_lines():
+            print(line)
         try:
-            macos.check_replacements(
-                maintenance_programs(changes, before, after, fish), plan.targets
-            )
+            maintenance.check_replacements(plan.targets)
         except ValueError as exc:
             report("Service replacements blocking cleanup:", [str(exc)])
+        unknown = list(maintenance.unknown)
     else:
         unknown = [item.message for item in plan.processes]
     report("Retained environments blocking cleanup:", plan.references)

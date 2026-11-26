@@ -41,14 +41,14 @@ class TailscaleDeploymentTests(unittest.TestCase):
             else:
                 self.fail(command)
 
-        job = ts.macos.Job("system", ts.LABEL, ts.PLIST, (ts.DAEMON,))
+        job = ts.host.LaunchdJob("system", ts.LABEL, ts.PLIST, (ts.DAEMON,))
         plan = ts.Deployment(job, True, True, True, True, False)
         # The previous copy is created before either process is touched.
         files[ts.PREVIOUS] = files[ts.DAEMON]
         with (
             patch.object(ts, "root", side_effect=root),
             patch.object(
-                ts.macos.Job,
+                ts.host.LaunchdJob,
                 "details",
                 side_effect=lambda: "running" if running else "",
             ),
@@ -60,7 +60,7 @@ class TailscaleDeploymentTests(unittest.TestCase):
         self.assertEqual(files[ts.DAEMON], b"old")
 
     def test_corrupt_staging_is_rejected_before_any_restart(self):
-        job = ts.macos.Job("system", ts.LABEL, ts.PLIST, (ts.DAEMON,))
+        job = ts.host.LaunchdJob("system", ts.LABEL, ts.PLIST, (ts.DAEMON,))
         plan = ts.Deployment(job, True, True, True, True, False)
         with (
             patch.object(ts, "root") as root,
@@ -72,7 +72,7 @@ class TailscaleDeploymentTests(unittest.TestCase):
         ):
             plan.stage(candidate())
         for call in root.call_args_list:
-            self.assertNotEqual(call.args[0][0], ts.macos.LAUNCHCTL)
+            self.assertNotEqual(call.args[0][0], ts.host.LAUNCHCTL)
             if call.args[0][0] == ts.INSTALL and "-d" not in call.args[0]:
                 self.assertEqual(call.args[0][-2], str(ts.DAEMON))
 
@@ -106,7 +106,7 @@ class TailscaleDeploymentTests(unittest.TestCase):
             patch.object(ts, "load_candidate", return_value=candidate()),
             patch.object(ts, "inspect", return_value=plan),
             patch.object(ts, "live_version", return_value="1.1.0-commit"),
-            patch.object(ts.macos, "require_local_terminal"),
+            patch.object(ts.host, "require_local_terminal"),
             patch.object(ts, "confirm", side_effect=ValueError("cancelled")),
             patch.object(ts, "authorize") as authorize,
             contextlib.redirect_stdout(io.StringIO()),

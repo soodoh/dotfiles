@@ -1,6 +1,5 @@
 """Local macOS maintenance for the explicit cleanup task."""
 
-import fcntl
 import json
 import os
 import re
@@ -8,14 +7,13 @@ import shlex
 import signal
 import subprocess
 import sys
-import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-LAUNCHCTL = "/bin/launchctl"
-LSOF = "/usr/sbin/lsof"
-REPO = Path(__file__).resolve().parents[3]
+import macos_host as host
+
+LSOF = host.LSOF
 
 # Wait even if mise itself fails before starting the Python worker, and leave
 # successful runs with nonfatal warnings readable without trying to parse them.
@@ -27,40 +25,14 @@ HANDOFF_SCRIPT = (
 )
 
 
-def probe(*args):
-    return subprocess.run(args, check=False, capture_output=True, text=True, timeout=15)
-
-
-def checked(result):
-    if result.returncode:
-        raise ValueError(
-            f"{shlex.join(result.args)}: {result.stderr.strip() or f'exited {result.returncode}'}"
-        )
-    return result.stdout
-
-
-def require_local_terminal():
-    if (
-        not sys.stdin.isatty()
-        or any(
-            os.environ.get(var) for var in ("SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY")
-        )
-        or os.stat("/dev/console").st_uid != os.getuid()
-        or os.getuid() == 0
-    ):
-        raise ValueError(
-            "run cleanup interactively at the Mac, not over SSH or with sudo"
-        )
-
-
 def needs_handoff():
     if any(os.environ.get(var) for var in ("HERDR_ENV", "HERDR_SOCKET_PATH")):
         return True
     pid = os.getppid()
     while pid > 1:
-        info = checked(probe("/bin/ps", "-p", str(pid), "-o", "ppid=,comm=")).split(
-            maxsplit=1
-        )
+        info = host.checked(
+            host.probe("/bin/ps", "-p", str(pid), "-o", "ppid=,comm=")
+        ).split(maxsplit=1)
         if not info:
             break
         parent, name = info
@@ -94,7 +66,7 @@ def open_handoff(profile, prefix):
             "cleanup-handoff",
             "mise",
             "--cd",
-            str(REPO),
+            str(host.REPO),
             "--env",
             profile,
             "exec",
@@ -127,68 +99,38 @@ def open_handoff(profile, prefix):
     )
 
 
-@contextmanager
-def maintenance_lock():
-    directory = Path.home() / ".local/state/dotfiles"
-    directory.mkdir(parents=True, exist_ok=True)
-    with (directory / "cleanup.lock").open("a") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise ValueError("another cleanup is already running") from None
-        yield
+def run_in_session(profile, prefix, *, worker, action):
+    host.require_local_terminal()
+    if needs_handoff():
+        if worker:
+            raise ValueError("maintenance terminal is not independent of Fish or Herdr")
+        open_handoff(profile, prefix)
+        return 0
+    with host.maintenance_lock():
+        return action()
 
 
 @dataclass(frozen=True)
-class Job:
-    domain: str
-    label: str
-    plist: Path
-    programs: tuple[Path, ...]
-
-    @property
-    def target(self):
-        return f"{self.domain}/{self.label}"
-
-    def mutate(self, action, *args):
-        if self.domain == "system":
-            raise ValueError(f"workstation cleanup cannot mutate {self.target}")
-        subprocess.run((LAUNCHCTL, action, *args), check=True, timeout=90)
-
-    def details(self):
-        result = probe(LAUNCHCTL, "print", self.target)
-        if result.returncode and "Could not find service" in result.stderr:
-            return ""
-        details = checked(result)
-        path = re.search(r"^\s*path = (.+)$", details, flags=re.MULTILINE)
-        if (
-            not path
-            or Path(path[1]).resolve() != self.plist.resolve()
-            or not self.plist.is_file()
-        ):
+class UserAgentJob(host.LaunchdJob):
+    def __post_init__(self):
+        if not self.domain.startswith("gui/"):
             raise ValueError(
-                f"{self.target} is not loaded from {self.plist}; refusing to cycle it"
+                f"workstation cleanup only manages user LaunchAgents, not {self.target}"
             )
-        return details
 
-    @property
-    def bootout_args(self):
-        return ("bootout", "--wait", self.target)
-
-    @property
-    def bootstrap_args(self):
-        return ("bootstrap", self.domain, str(self.plist))
+    def _mutate(self, action, *args):
+        subprocess.run((host.LAUNCHCTL, action, *args), check=True, timeout=90)
 
     def stop(self):
-        self.mutate(*self.bootout_args)
+        self._mutate(*self.bootout_args)
 
     def restore(self):
         if not self.details():
-            self.mutate(*self.bootstrap_args)
+            self._mutate(*self.bootstrap_args)
         elif self.label == "dev.mise.colima-default":
             # A failed bootout can leave the wrapper up even after the VM stopped.
-            self.mutate("kickstart", "-k", self.target)
-        wait_for(
+            self._mutate("kickstart", "-k", self.target)
+        host.wait_for(
             lambda: re.search(r"^\s*pid = \d+$", self.details(), re.MULTILINE),
             self.target,
             timeout=20,
@@ -215,7 +157,7 @@ def jobs(profile, prefix):
         )
     gui = f"gui/{os.getuid()}"
     return [
-        Job(
+        UserAgentJob(
             gui,
             f"dev.mise.{name}",
             home / f"Library/LaunchAgents/dev.mise.{name}.plist",
@@ -227,14 +169,14 @@ def jobs(profile, prefix):
 
 @dataclass(frozen=True)
 class Change:
-    job: Job
+    job: UserAgentJob
     pids: set[int]
     blocking: bool
     reason: str
 
 
 def process_tree():
-    result = checked(probe("/bin/ps", "-axo", "pid=,ppid=,comm="))
+    result = host.checked(host.probe("/bin/ps", "-axo", "pid=,ppid=,comm="))
     return {
         int(pid): (int(parent), Path(name).name.lstrip("-"))
         for line in result.splitlines()
@@ -262,7 +204,7 @@ def colima_pids(tree, prefix):
     ]
     if not candidates:
         return set()
-    output = probe(
+    output = host.probe(
         "/bin/ps", "-p", ",".join(map(str, candidates)), "-o", "pid=,command="
     )
     pids = set()
@@ -280,11 +222,18 @@ def colima_pids(tree, prefix):
 def stale_programs(pids, programs):
     if not pids or not programs:
         return []
-    result = probe(
-        LSOF, "-nP", "-a", "-d", "txt", "-p", ",".join(map(str, sorted(pids))), "-F0fin"
+    result = host.probe(
+        host.LSOF,
+        "-nP",
+        "-a",
+        "-d",
+        "txt",
+        "-p",
+        ",".join(map(str, sorted(pids))),
+        "-F0fin",
     )
     if result.returncode and result.stderr:
-        checked(result)
+        host.checked(result)
     running = set()
     inode = None
     for item in result.stdout.split("\0"):
@@ -347,8 +296,8 @@ def check_replacements(programs, targets):
 
 def lima_instances(prefix):
     lima_home = Path.home() / ".colima/_lima"
-    listing = checked(
-        probe(
+    listing = host.checked(
+        host.probe(
             "/usr/bin/env",
             f"LIMA_HOME={lima_home}",
             str(prefix / "bin/limactl"),
@@ -380,10 +329,10 @@ def stop_colima(prefix):
 
 
 def fish_identity(pid):
-    result = probe("/bin/ps", "-p", str(pid), "-o", "uid=,tty=,lstart=,comm=")
+    result = host.probe("/bin/ps", "-p", str(pid), "-o", "uid=,tty=,lstart=,comm=")
     if result.returncode == 1 and not result.stderr:
         return None  # Process exited.
-    identity = checked(result).strip()
+    identity = host.checked(result).strip()
     uid, tty, *_, name = identity.split(maxsplit=7)
     if (
         uid == str(os.getuid())
@@ -399,21 +348,13 @@ def blocking_fish(pids, prefix):
     for pid in sorted(pids):
         if not (identity := fish_identity(pid)):
             continue
-        result = probe(LSOF, "-nP", "-a", "-d", "txt", "-p", str(pid), "-Fn")
+        result = host.probe(host.LSOF, "-nP", "-a", "-d", "txt", "-p", str(pid), "-Fn")
         if any(
             line.endswith("/bin/fish") and line.startswith(f"n{prefix}/Cellar/fish/")
             for line in result.stdout.splitlines()
         ):
             fish[pid] = identity
     return fish
-
-
-def wait_for(done, description, *, timeout=10):
-    deadline = time.monotonic() + timeout
-    while not done():
-        if time.monotonic() >= deadline:
-            raise ValueError(f"timed out waiting for {description}")
-        time.sleep(0.2)
 
 
 def close_fish(fish):
@@ -424,7 +365,7 @@ def close_fish(fish):
                 os.kill(pid, signal.SIGHUP)
             except ProcessLookupError:
                 pass
-    wait_for(
+    host.wait_for(
         lambda: all(fish_identity(pid) != ident for pid, ident in fish.items()),
         "old Fish shells to exit",
     )
@@ -440,8 +381,14 @@ class Herdr:
         candidates = [pid for pid, (_, name) in tree.items() if name == "herdr"]
         if not candidates:
             return set()
-        result = probe(
-            LSOF, "-nP", "-a", "-U", "-p", ",".join(map(str, candidates)), "-F0pn"
+        result = host.probe(
+            host.LSOF,
+            "-nP",
+            "-a",
+            "-U",
+            "-p",
+            ",".join(map(str, candidates)),
+            "-F0pn",
         )
         owners = set()
         pid = None
@@ -467,11 +414,15 @@ class Herdr:
         return base if self.name == "default" else (*base, "--session", self.name)
 
     def status(self):
-        return json.loads(checked(probe(*self.command, "status", "--json")))["server"]
+        return json.loads(host.checked(host.probe(*self.command, "status", "--json")))[
+            "server"
+        ]
 
     def stop(self):
-        checked(probe(*self.command, "server", "stop"))
-        wait_for(lambda: not self.status()["running"], f"Herdr {self.name} to exit")
+        host.checked(host.probe(*self.command, "server", "stop"))
+        host.wait_for(
+            lambda: not self.status()["running"], f"Herdr {self.name} to exit"
+        )
 
     def restore(self):
         if self.status()["running"]:
@@ -483,7 +434,7 @@ class Herdr:
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
-        wait_for(
+        host.wait_for(
             lambda: self.status()["running"] or server.poll() is not None,
             f"Herdr {self.name} to start",
         )
@@ -492,10 +443,10 @@ class Herdr:
 
 
 def stale_herdr():
-    binary = Path(checked(probe("mise", "which", "herdr")).strip())
-    sessions = json.loads(checked(probe(str(binary), "session", "list", "--json")))[
-        "sessions"
-    ]
+    binary = Path(host.checked(host.probe("mise", "which", "herdr")).strip())
+    sessions = json.loads(
+        host.checked(host.probe(str(binary), "session", "list", "--json"))
+    )["sessions"]
     result = []
     for row in sessions:
         if row["running"]:
@@ -527,7 +478,11 @@ def paused(jobs, sessions, fish, prefix):
     finally:
         original = sys.exception()
         for item in [*reversed(attempted_jobs), *attempted_sessions]:
-            name = item.label if isinstance(item, Job) else f"Herdr {item.name}"
+            name = (
+                item.label
+                if isinstance(item, host.LaunchdJob)
+                else f"Herdr {item.name}"
+            )
             try:
                 print(f"Restoring {name}", flush=True)
                 item.restore()
@@ -538,3 +493,85 @@ def paused(jobs, sessions, fish, prefix):
             raise ValueError(
                 "could not restore all services:\n" + "\n".join(failures) + context
             )
+
+
+@dataclass(frozen=True)
+class MaintenancePlan:
+    changes: tuple[Change, ...]
+    before: tuple[Herdr, ...]
+    after: tuple[Herdr, ...]
+    fish: dict[int, str]
+    unknown: tuple[str, ...]
+    prefix: Path
+
+    @property
+    def has_actions(self) -> bool:
+        return bool(self.changes or self.before or self.after or self.fish)
+
+    @property
+    def programs(self) -> list[Path]:
+        programs = [
+            program for change in self.changes for program in change.job.programs
+        ]
+        programs.extend(session.binary for session in (*self.before, *self.after))
+        if self.fish:
+            programs.append(self.prefix / "bin/fish")
+        return programs
+
+    def summary_lines(self) -> list[str]:
+        lines = []
+        for change in self.changes:
+            action = "Pause for prune" if change.blocking else "Refresh after prune"
+            lines.append(f"{action}: {change.job.target} — {change.reason}")
+        for action, sessions in (
+            ("Pause for prune", self.before),
+            ("Refresh after prune", self.after),
+        ):
+            for session in sessions:
+                lines.append(f"{action}: Herdr session {session.name}")
+        for pid, identity in self.fish.items():
+            lines.append(
+                f"Close blocking Fish shell on {identity.split()[1]} (PID {pid})"
+            )
+        if not lines:
+            lines.append(
+                "No managed services or sessions need to be stopped or restarted."
+            )
+        return lines
+
+    def check_replacements(self, targets: list[Path]) -> None:
+        check_replacements(self.programs, targets)
+
+    def run(self, action) -> int:
+        blocking_jobs = [change.job for change in self.changes if change.blocking]
+        refresh_jobs = [change.job for change in self.changes if not change.blocking]
+        with paused(blocking_jobs, self.before, self.fish, self.prefix):
+            status = action()
+            if status:
+                return status
+        if refresh_jobs or self.after:
+            # These processes did not need to be offline while packages were pruned.
+            with paused(refresh_jobs, self.after, {}, self.prefix):
+                pass
+        return 0
+
+
+def plan_maintenance(processes, profile, prefix) -> MaintenancePlan:
+    blockers = {item.pid for item in processes if item.pid}
+    tree = process_tree()
+    changes = tuple(service_changes(profile, prefix, blockers, tree))
+    fish = blocking_fish(blockers, prefix)
+    before, after = [], []
+    covered = set(fish)
+    for change in changes:
+        if change.blocking:
+            covered.update(change.pids)
+    for session in stale_herdr():
+        pids = session.pids(tree) if blockers else set()
+        if pids & blockers:
+            before.append(session)
+            covered.update(pids)
+        else:
+            after.append(session)
+    unknown = tuple(item.message for item in processes if item.pid not in covered)
+    return MaintenancePlan(changes, tuple(before), tuple(after), fish, unknown, prefix)

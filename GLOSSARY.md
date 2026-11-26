@@ -11,3 +11,5 @@
 **Herdr terminal control stream**: The exchange of control sequences between Herdr and the attached terminal, including mouse-mode changes, pixel reports, and status requests and replies. A status reply belongs to the oldest unanswered request that reached the terminal, whether from Herdr or from the SSH image proxy.
 
 **SSH image lifecycle**: The progression of a Herdr pane image during an SSH attach. A newer frame may replace an unsent frame; a hidden image can retain its pixels for later reveal, while a released image needs a new upload.
+
+**Workstation cleanup maintenance**: The macOS plan that stops user LaunchAgents, Herdr sessions, and blocking Fish shells holding pruned targets, verifies retained replacements, and refreshes stale ones afterward without mutating system daemons.
