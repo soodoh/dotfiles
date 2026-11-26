@@ -1,60 +1,5 @@
 import Foundation
 
-enum BarStyle {
-  static let height = 32
-  static let gutter = 6
-  static let metricGap = 4
-  static let separatorWidth = 1
-  static let separatorGutter = 10
-  static let notchInset = 8
-}
-struct Section {
-  enum Kind { case text, metric, separator, icon }
-  enum Placement { case row, popup, hidden, besideNotch }
-  var name: String
-  var kind: Kind
-  var placement: Placement = .row
-  // Native right-position items are ordered right-to-left.
-  static let defaults: [Section] = [
-    Section(name: "clock", kind: .text),
-    Section(name: "right_separator.system", kind: .separator),
-    Section(name: "battery", kind: .metric), Section(name: "volume", kind: .metric),
-    Section(name: "ram", kind: .metric, placement: .popup),
-    Section(name: "cpu", kind: .metric, placement: .popup),
-    Section(name: "right_separator.ai", kind: .separator, placement: .hidden),
-    Section(name: "ai_usage.providers", kind: .text, placement: .besideNotch),
-  ]
-  static func reservedWidth(_ sections: [Section]) -> Int {
-    var result = 0
-    var hasPopup = false
-    for section in sections {
-      if section.placement == .popup {
-        hasPopup = true
-        continue
-      }
-      if section.placement == .hidden || section.placement == .besideNotch { continue }
-      switch section.kind {
-      case .metric: result += 44 + BarStyle.metricGap + 2 * BarStyle.gutter
-      case .text: result += 128 + 2 * BarStyle.gutter
-      case .icon: result += 12 + 2 * BarStyle.gutter
-      case .separator: result += BarStyle.separatorWidth + 2 * BarStyle.separatorGutter
-      }
-    }
-    return result + (hasPopup ? 12 + 2 * BarStyle.gutter : 0)
-  }
-}
-
-func accountItem(_ name: String) -> Bool {
-  name.range(
-    of: "^(notch[.])?ai_usage[.](proxy[.][a-f0-9]{64}|copilot)$", options: .regularExpression)
-    != nil
-}
-func accountOrRow(_ name: String) -> Bool {
-  name.range(
-    of: "^(notch[.])?ai_usage[.](proxy[.][a-f0-9]{64}|copilot)([.]detail[.][0-9]+)?$",
-    options: .regularExpression) != nil
-}
-
 struct BarController {
   var bar: BarClient
   var configDirectory: String
@@ -114,7 +59,13 @@ struct BarController {
       "color=\(palette.background)")
     try bar.apply(c)
   }
-  func createSections() throws {
+  func setup() throws {
+    try createSections()
+    try createGuardPadding()
+    try installEvents()
+    try layout()
+  }
+  private func createSections() throws {
     var c = Commands()
     for section in sections {
       let name = section.name
@@ -186,7 +137,7 @@ struct BarController {
     }
     try bar.apply(c)
   }
-  func installEvents() throws {
+  private func installEvents() throws {
     let state: BarState = try bar.query("bar")
     var c = Commands()
     if !state.items.contains("ai_usage.refresh") {
@@ -206,7 +157,7 @@ struct BarController {
     if state.items.contains("notch.stats") { c.set("notch.stats", ["script=\(script("popup"))"]) }
     try bar.apply(c)
   }
-  func createGuardPadding() throws {
+  private func createGuardPadding() throws {
     let state: BarState = try bar.query("bar")
     guard !state.items.contains("bar.guard.padding"), let first = state.items.first else { return }
     var c = Commands()
@@ -395,7 +346,7 @@ struct BarController {
           let detail = name + ".detail.\(rowIndex)"
           wanted.insert(detail)
           if !state.items.contains(detail) { c.command("--add", "item", detail, "popup." + name) }
-          c.set(detail, rowProperties(row))
+          c.set(detail, row.properties(palette: palette))
           if rowIndex > 0 { c.command("--move", detail, "after", name + ".detail.\(rowIndex - 1)") }
         }
         previous = name
@@ -413,38 +364,5 @@ struct BarController {
     }
     c.command("--trigger", "notch_usage_change")
     try bar.apply(c)
-  }
-  func rowProperties(_ row: PopupRow) -> [String] {
-    var p = [
-      "drawing=on", "width=380", "padding_left=0", "padding_right=0", "update_freq=0",
-      "updates=off", "script=", "click_script=", "background.drawing=off",
-      "icon=\(row.title)", "icon.drawing=on", "icon.font=FiraCode Nerd Font:Bold:12.0",
-      "icon.color=\(palette.dimmed)", "icon.width=130", "icon.align=left", "icon.padding_left=12",
-      "icon.padding_right=0", "icon.max_chars=0",
-      "label=\(row.value)", "label.drawing=on", "label.font=FiraCode Nerd Font:Bold:12.0",
-      "label.color=\(palette.accent)", "label.width=250", "label.align=right",
-      "label.padding_left=0", "label.padding_right=12", "label.max_chars=0", "scroll_texts=off",
-    ]
-    switch row.kind {
-    case .header:
-      p += [
-        "icon.width=200", "icon.color=\(palette.accent)", "icon.max_chars=24", "label.width=180",
-        "label.font=FiraCode Nerd Font:Bold:10.0", "label.color=\(palette.dimmed)",
-      ]
-    case .status: p += ["icon.width=380", "label.width=0"]
-    case .divider:
-      p += [
-        "width=356", "icon.width=0", "label.width=0", "background.drawing=on",
-        "background.height=1", "background.color=\(palette.border)", "padding_left=12",
-        "padding_right=12",
-      ]
-    case .note:
-      p += [
-        "icon.width=0", "label.width=380", "label.align=left", "label.padding_left=12",
-        "label.font=FiraCode Nerd Font:Bold:10.0", "label.color=\(palette.dimmed)",
-      ]
-    case .detail, .spacer: break
-    }
-    return p
   }
 }

@@ -73,10 +73,7 @@ final class FakeBar {
     add("space.1")
     add("front_app")
     let controller = controller()
-    try controller.createSections()
-    try controller.createGuardPadding()
-    try controller.installEvents()
-    try controller.layout()
+    try controller.setup()
     mutations = []
     queries = []
   }

@@ -16,12 +16,7 @@ struct Entry {
       )
       switch mode {
       case "appearance": try controller.appearance()
-      case "setup":
-        try controller.createSections()
-        try controller.createGuardPadding()
-        try controller.installEvents()
-        try controller.layout()
-      case "events": try controller.installEvents()
+      case "setup": try controller.setup()
       case "layout": try controller.layout()
       case "refresh": try controller.render(reader.read())
       case "popup":
@@ -29,7 +24,7 @@ struct Entry {
       case "guard": try controller.guardClick(name: environment["NAME"] ?? "")
       default:
         throw HelperError(
-          "Usage: sketchybar-helper appearance|setup|events|layout|refresh|popup|guard")
+          "Usage: sketchybar-helper appearance|setup|layout|refresh|popup|guard")
       }
     } catch {
       // Decoding/process errors can include provider output. Report only

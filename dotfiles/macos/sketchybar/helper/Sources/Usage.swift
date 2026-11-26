@@ -1,5 +1,19 @@
 import Foundation
 
+let accountKeyPattern = "[a-f0-9]{64}"
+
+func accountItem(_ name: String) -> Bool {
+  name.range(
+    of: "^(notch[.])?ai_usage[.](proxy[.]\(accountKeyPattern)|copilot)$",
+    options: .regularExpression) != nil
+}
+
+func accountOrRow(_ name: String) -> Bool {
+  name.range(
+    of: "^(notch[.])?ai_usage[.](proxy[.]\(accountKeyPattern)|copilot)([.]detail[.][0-9]+)?$",
+    options: .regularExpression) != nil
+}
+
 struct UsageSnapshot: Decodable {
   var directText: String
   var proxyAccounts: [UsageAccount]
@@ -8,7 +22,9 @@ struct UsageSnapshot: Decodable {
     let snapshot = try JSONDecoder().decode(Self.self, from: data)
     let keys = snapshot.proxyAccounts.map(\.key)
     guard Set(keys).count == keys.count,
-      keys.allSatisfy({ $0.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil })
+      keys.allSatisfy({
+        $0.range(of: "^\(accountKeyPattern)$", options: .regularExpression) != nil
+      })
     else {
       throw HelperError("Invalid account keys")
     }
@@ -89,6 +105,40 @@ struct PopupRow: Equatable {
   var kind: Kind = .detail
   var title: String = ""
   var value: String = ""
+
+  func properties(palette: Palette) -> [String] {
+    var p = [
+      "drawing=on", "width=380", "padding_left=0", "padding_right=0", "update_freq=0",
+      "updates=off", "script=", "click_script=", "background.drawing=off",
+      "icon=\(title)", "icon.drawing=on", "icon.font=FiraCode Nerd Font:Bold:12.0",
+      "icon.color=\(palette.dimmed)", "icon.width=130", "icon.align=left", "icon.padding_left=12",
+      "icon.padding_right=0", "icon.max_chars=0",
+      "label=\(value)", "label.drawing=on", "label.font=FiraCode Nerd Font:Bold:12.0",
+      "label.color=\(palette.accent)", "label.width=250", "label.align=right",
+      "label.padding_left=0", "label.padding_right=12", "label.max_chars=0", "scroll_texts=off",
+    ]
+    switch kind {
+    case .header:
+      p += [
+        "icon.width=200", "icon.color=\(palette.accent)", "icon.max_chars=24", "label.width=180",
+        "label.font=FiraCode Nerd Font:Bold:10.0", "label.color=\(palette.dimmed)",
+      ]
+    case .status: p += ["icon.width=380", "label.width=0"]
+    case .divider:
+      p += [
+        "width=356", "icon.width=0", "label.width=0", "background.drawing=on",
+        "background.height=1", "background.color=\(palette.border)", "padding_left=12",
+        "padding_right=12",
+      ]
+    case .note:
+      p += [
+        "icon.width=0", "label.width=380", "label.align=left", "label.padding_left=12",
+        "label.font=FiraCode Nerd Font:Bold:10.0", "label.color=\(palette.dimmed)",
+      ]
+    case .detail, .spacer: break
+    }
+    return p
+  }
 }
 
 // Pure presentation. Receives time explicitly so relative dates/freshness can
