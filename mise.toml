@@ -499,6 +499,7 @@ run = [
 run = "dotfiles/common/nvim/tests/validate.sh"
 
 [tasks."validate:macos:fast"]
+depends = ["validate:agents:install"]
 run = '''
 for test in dotfiles/macos/sketchybar/plugins/tests/*_test.sh; do bash "$test"; done
 python3 dotfiles/macos/herdr/kitty-compress.test.py

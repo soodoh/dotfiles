@@ -364,6 +364,22 @@ struct UsageReader {
       ?? "\(environment["XDG_CACHE_HOME"] ?? home + "/.cache")/sketchybar/ai-usage.log"
   }
 
+  var misePath: String { environment["MISE_BIN"] ?? "\(home)/.local/bin/mise" }
+
+  func resolveBun(checkout: String) throws -> String {
+    var bun = environment["BUN_BIN"] ?? "\(home)/.bun/bin/bun"
+    if !isExecutable(bun), isExecutable(misePath) {
+      let result = try run(misePath, ["-C", checkout, "which", "bun"], environment)
+      if result.status == 0 {
+        bun = String(decoding: result.output, as: UTF8.self).trimmingCharacters(
+          in: .whitespacesAndNewlines)
+      }
+    }
+    if !isExecutable(bun) { bun = executable("bun", environment: environment) ?? "" }
+    guard !bun.isEmpty, isExecutable(bun) else { throw HelperError("Bun is unavailable") }
+    return bun
+  }
+
   func read() throws -> UsageSnapshot {
     let extensions = environment["PI_EXTENSIONS_DIR"] ?? "\(home)/.pi/agent/pi-extensions"
     let cli =
@@ -372,17 +388,8 @@ struct UsageReader {
     guard exists(cli) else { throw HelperError("Provider usage CLI is missing") }
     let checkout = URL(fileURLWithPath: extensions).resolvingSymlinksInPath()
       .deletingLastPathComponent().path
-    let mise = environment["MISE_BIN"] ?? "\(home)/.local/bin/mise"
-    var bun = environment["BUN_BIN"] ?? "\(home)/.bun/bin/bun"
-    if !isExecutable(bun), isExecutable(mise) {
-      let result = try run(mise, ["-C", checkout, "which", "bun"], environment)
-      if result.status == 0 {
-        bun = String(decoding: result.output, as: UTF8.self).trimmingCharacters(
-          in: .whitespacesAndNewlines)
-      }
-    }
-    if !isExecutable(bun) { bun = executable("bun", environment: environment) ?? "" }
-    guard !bun.isEmpty, isExecutable(bun) else { throw HelperError("Bun is unavailable") }
+    let mise = misePath
+    let bun = try resolveBun(checkout: checkout)
     var childEnvironment = environment
     let result: ProcessResult
     if exists("\(environment["XDG_CONFIG_HOME"] ?? home + "/.config")/mise/miserc.toml") {

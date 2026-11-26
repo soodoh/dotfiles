@@ -125,7 +125,11 @@ class MiseConfigurationTests(unittest.TestCase):
                 result.update(prerequisites(dependency, seen | {name}))
             return result
 
-        for name in ("validate:agents:fast", "validate:agents:integration"):
+        for name in (
+            "validate:agents:fast",
+            "validate:agents:integration",
+            "validate:macos:fast",
+        ):
             with self.subTest(task=name):
                 self.assertTrue(
                     prerequisites(name, set()) & installers,

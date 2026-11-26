@@ -250,6 +250,78 @@ final class UsageTests {
     try requireFalse(fake.order.contains(where: accountOrRow))
     try requireEqual(fake.items["right_separator.ai"]?["drawing"], "off")
   }
+  func testProviderUsageCliContract() throws {
+    let repoRoot = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()  // Tests
+      .deletingLastPathComponent()  // helper
+      .deletingLastPathComponent()  // sketchybar
+      .deletingLastPathComponent()  // macos
+      .deletingLastPathComponent()  // dotfiles
+      .deletingLastPathComponent()  // repo root
+    let fixture = repoRoot.appendingPathComponent(
+      "pi-extensions/packages/statusline/src/cli-snapshot-contract.test.fixture.ts"
+    ).path
+    try require(
+      FileManager.default.fileExists(atPath: fixture),
+      "Missing TypeScript contract fixture: \(fixture)")
+    var env = ProcessInfo.processInfo.environment
+    let bun = try UsageReader(environment: env).resolveBun(checkout: repoRoot.path)
+    // Share one whole-second reference instant across TS and Swift for fixture
+    // reset/expiration timestamps; fetchedAt still reflects wall-clock Date.now().
+    let contractNow = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970))
+    let contractNowMs = contractNow.timeIntervalSince1970 * 1000
+    env["CONTRACT_NOW_MS"] = String(Int64(contractNowMs))
+    let result = try runProcess(bun, [fixture], environment: env)
+    try requireEqual(
+      result.status, 0,
+      "TypeScript contract fixture failed: \(String(decoding: result.diagnostics, as: UTF8.self))")
+
+    let liveFormatter = PopupFormatter(now: contractNow, timeZone: TimeZone(secondsFromGMT: 0)!)
+    let decoded = try UsageSnapshot.decode(result.output)
+    try require(
+      decoded.directText.contains("$75.00"),
+      "Expected OpenRouter balance in directText, got: \(decoded.directText)")
+    let copilot = try unwrap(decoded.copilot)
+    try requireEqual(copilot.state, "ready")
+    try requireEqual(copilot.details?.plan, "Pro")
+    try requireEqual(copilot.details?.premium?.unit, "requests")
+    try requireEqual(copilot.details?.premium?.percentUsed, 25)
+    try requireEqual(copilot.details?.premium?.resetAt, contractNowMs + 10 * 86_400_000)
+    let copilotRows = liveFormatter.rows(copilot)
+    try require(copilotRows.contains(PopupRow(title: "Billing", value: "Premium requests")))
+    try require(copilotRows.contains(PopupRow(title: "Usage", value: "25%")))
+
+    try requireEqual(decoded.proxyAccounts.count, 2)
+    let pro = try unwrap(decoded.proxyAccounts.first { $0.plan == "pro" })
+    try requireEqual(pro.creditBalance, .credits(125.5))
+    try requireEqual(pro.scope.sessionPercentUsed, 12)
+    try requireEqual(pro.scope.sessionResetAt, contractNowMs + 3 * 3_600_000)
+    try requireEqual(pro.scope.weeklyPercentUsed, 47)
+    try requireEqual(pro.scope.weeklyResetAt, contractNowMs + 2 * 86_400_000)
+    try requireEqual(pro.scope.availableResets, 2)
+    try requireEqual(pro.resetCredits?.count, 2)
+    try requireEqual(pro.resetCredits?[0].expiresAt, contractNowMs + 3_600_000)
+    try requireEqual(pro.resetCredits?[1].expiresAt, nil)
+    let proRows = liveFormatter.rows(pro)
+    try require(proRows.contains(PopupRow(title: "Credit balance", value: "125.5 credits")))
+    try require(proRows.contains(PopupRow(title: "Manual resets", value: "2 available")))
+
+    let team = try unwrap(decoded.proxyAccounts.first { $0.plan == "team" })
+    try requireEqual(team.creditBalance, .unlimited)
+    try requireEqual(team.disabled, true)
+    try requireEqual(team.scope.monthlyPercentUsed, 64)
+    try requireEqual(team.scope.monthlyResetAt, contractNowMs + 25 * 86_400_000)
+    let teamRows = liveFormatter.rows(team)
+    try require(teamRows.contains(PopupRow(title: "Credit balance", value: "Unlimited")))
+    try require(teamRows.contains(PopupRow(title: "Monthly usage", value: "64%")))
+
+    let fake = FakeBar()
+    try fake.ready()
+    try fake.controller().render(decoded, now: contractNow)
+    try require(fake.order.contains("ai_usage.copilot"))
+    try requireEqual(
+      fake.order.filter { $0.hasPrefix("ai_usage.proxy.") && !$0.contains(".detail.") }.count, 2)
+  }
   static var allTests = [
     ("header and freshness", testHeaderAndFreshness),
     ("fallbacks and unknowns", testFallbacksAndUnknowns),
@@ -260,5 +332,6 @@ final class UsageTests {
     ("reused row styling", testReusedRowsResetStyle),
     ("Copilot units and freshness", testCopilotQuotaUnitsAndFreshness),
     ("Copilot lifecycle and layout", testCopilotLifecycleAndNotchLayout),
+    ("TS -> Swift provider usage CLI contract", testProviderUsageCliContract),
   ]
 }
