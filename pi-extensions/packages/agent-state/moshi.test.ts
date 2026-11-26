@@ -1,129 +1,28 @@
-import { EventEmitter } from "node:events";
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, test, vi } from "vitest";
-import { createAgentState } from "./index";
+import {
+	type AgentStateHarnessOptions,
+	createAgentStateHarness,
+	flush,
+} from "./agent-state.test.fixture";
 import { registerActivity } from "./liveness.test.fixture";
-import type { SocketLike } from "./socket-queue";
 
-type Handler = (
-	event: Record<string, unknown>,
-	ctx: ExtensionContext,
-) => unknown;
 const cleanups: Array<() => Promise<void>> = [];
-async function flush() {
-	for (let n = 0; n < 5; n++)
-		await new Promise<void>((resolve) => setImmediate(resolve));
-}
+
 async function fixture(
 	mode: ExtensionContext["mode"] = "tui",
 	envOverrides: NodeJS.ProcessEnv = {},
+	extra: Omit<AgentStateHarnessOptions, "mode" | "env" | "cleanups"> = {},
 ) {
-	const envelopes: Record<string, unknown>[] = [];
-	const env: NodeJS.ProcessEnv = {
-		MOSHI_SOCKET_PATH: "/unused-moshi.sock",
-		...envOverrides,
-	};
-	const connect = (): SocketLike => {
-		const socket = Object.assign(new EventEmitter(), {
-			destroy: vi.fn(),
-			end: vi.fn(),
-			write: (line: string) => {
-				envelopes.push(JSON.parse(line));
-				queueMicrotask(() => socket.emit("data", Buffer.from("{}\n")));
-			},
-		});
-		queueMicrotask(() => socket.emit("connect"));
-		return socket;
-	};
-	const bus = new EventEmitter();
-	let active = false;
-	let available = true;
-	const handlers = new Map<string, Handler[]>();
-	const extension = createAgentState({ env, connect });
-	extension({
-		on: (event: string, handler: Handler) =>
-			handlers.set(event, [...(handlers.get(event) ?? []), handler]),
-		events: {
-			emit: (name: string, data: unknown) => bus.emit(name, data),
-			on: (name: string, handler: (value: unknown) => void) => {
-				bus.on(name, handler);
-				return () => bus.off(name, handler);
-			},
-		},
-	} as unknown as ExtensionAPI);
-	const releaseActivity = registerActivity(() =>
-		available ? active : undefined,
-	);
-	let idle = true;
-	let pending = false;
-	const ctx = {
+	return createAgentStateHarness({
 		mode,
-		hasUI: mode === "tui" || mode === "rpc",
-		cwd: "/tmp/test-project",
-		isIdle: () => idle,
-		hasPendingMessages: () => pending,
-		sessionManager: {
-			getSessionId: () => "root-session",
-			getSessionFile: () => "/tmp/session.jsonl",
-		},
-		ui: { notify: vi.fn() },
-	} as unknown as ExtensionContext;
-	async function dispatch(name: string, data: Record<string, unknown> = {}) {
-		for (const handler of handlers.get(name) ?? [])
-			await handler({ type: name, ...data }, ctx);
-		await flush();
-	}
-	cleanups.push(async () => {
-		await dispatch("session_shutdown", { reason: "reload" });
-		releaseActivity();
+		env: envOverrides,
+		sessionFile: "/tmp/session.jsonl",
+		autoFlush: true,
+		shutdownReason: "reload",
+		cleanups,
+		...extra,
 	});
-	return {
-		envelopes,
-		bus,
-		ctx,
-		dispatch,
-		categories: () =>
-			envelopes
-				.filter((e) => e.source === "pi")
-				.map((e) => e.category)
-				.filter(Boolean),
-		setActive(value: boolean) {
-			active = value;
-		},
-		setAvailable(value: boolean) {
-			available = value;
-		},
-		setIdle(value: boolean) {
-			idle = value;
-		},
-		setPending(value: boolean) {
-			pending = value;
-		},
-		async start(reason = "startup") {
-			await dispatch("session_start", { reason });
-			await dispatch("resources_discover", { reason });
-		},
-		async begin() {
-			idle = false;
-			await dispatch("agent_start");
-		},
-		async settle(stopReason = "stop") {
-			await dispatch("agent_end", {
-				messages: [
-					{
-						role: "assistant",
-						content: [{ type: "text", text: "secret reply" }],
-						stopReason,
-					},
-				],
-			});
-			idle = true;
-			await dispatch("agent_settled");
-		},
-	};
 }
 afterEach(async () => {
 	for (const cleanup of cleanups.splice(0)) await cleanup();
@@ -170,12 +69,7 @@ test.each([false, true])(
 			new Set(["root-session"]),
 		);
 		expect(JSON.stringify(f.envelopes)).not.toContain("secret reply");
-		if (herdr)
-			expect(
-				f.envelopes
-					.filter((e) => e.method === "pane.report_agent")
-					.map((e) => (e.params as Record<string, unknown>).state),
-			).toEqual(["idle", "working", "idle"]);
+		if (herdr) expect(f.states()).toEqual(["idle", "working", "idle"]);
 	},
 );
 
@@ -372,4 +266,99 @@ test("a foreign host registry suppresses completion but not genuine parent input
 	} finally {
 		Reflect.deleteProperty(globalThis, key);
 	}
+});
+
+test.each([
+	["linux", "/tmp/moshi-hook.sock"],
+	["darwin", "/fixture-home/Library/Application Support/Moshi/moshi-hook.sock"],
+	["win32", "\\\\.\\pipe\\moshi-hook"],
+] as const)(
+	"%s default socket, stable identity and safe metadata",
+	async (platform, endpoint) => {
+		const f = await fixture(
+			"tui",
+			{ MOSHI_SOCKET_PATH: undefined },
+			{
+				platform,
+				homedir: () => "/fixture-home",
+				cwd: "/fixture/project",
+				model: { id: "model-id", name: "Model" },
+				sessionId: "uuid",
+				sessionFile: "/fixture/session.jsonl",
+			},
+		);
+		await f.dispatch("session_start", { reason: "startup" });
+		expect(f.endpoints).toEqual([endpoint]);
+		expect(f.envelopes[0]).toMatchObject({
+			sessionId: "uuid",
+			transcriptPath: "/fixture/session.jsonl",
+			projectName: "project",
+			modelName: "Model",
+		});
+	},
+);
+
+test("explicit socket override wins over XDG runtime directory", async () => {
+	const first = await fixture(
+		"tui",
+		{ MOSHI_SOCKET_PATH: undefined, XDG_RUNTIME_DIR: "/fixture/runtime" },
+		{ platform: "linux" },
+	);
+	await first.dispatch("session_start", { reason: "startup" });
+	expect(first.endpoints.at(-1)).toBe("/fixture/runtime/moshi-hook.sock");
+
+	const second = await fixture(
+		"tui",
+		{
+			XDG_RUNTIME_DIR: "/fixture/runtime",
+			MOSHI_SOCKET_PATH: "/fixture/override.sock",
+		},
+		{ platform: "linux" },
+	);
+	await second.dispatch("session_start", { reason: "startup" });
+	expect(second.endpoints.at(-1)).toBe("/fixture/override.sock");
+});
+
+test.each(["error", "end", "close"])(
+	"socket %s fails silently without retrying a notification",
+	async (event) => {
+		const f = await fixture("tui", {}, { autoRespondMoshi: false });
+		await f.dispatch("session_start", { reason: "startup" });
+		f.moshiSockets[0]?.emit(event, new Error("fixture failure"));
+		await flush();
+		expect(f.moshiSockets).toHaveLength(1);
+		expect(f.moshiSockets[0]?.destroy).toHaveBeenCalled();
+	},
+);
+
+test("stalled daemon attempts are bounded and shutdown cancels unsent work", async () => {
+	vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+	const f = await fixture("tui", {}, { autoRespondMoshi: false });
+	await f.dispatch("session_start", { reason: "startup" });
+	await vi.advanceTimersByTimeAsync(1000);
+	expect(f.moshiSockets[0]?.destroy).toHaveBeenCalled();
+	await f.dispatch("resources_discover", { reason: "startup" });
+	await f.begin();
+	await f.dispatch("ui_prompt_start");
+	await f.close();
+	await f.settle();
+	await vi.advanceTimersByTimeAsync(1000);
+	await flush();
+	expect(f.envelopes.map((m) => m.eventName)).toEqual([
+		"SessionStart",
+		"AgentState",
+	]);
+});
+
+test("synchronous connection failure cannot escape", async () => {
+	const f = await fixture(
+		"tui",
+		{},
+		{
+			connect: () => {
+				throw new Error("no transport");
+			},
+		},
+	);
+	await expect(f.start()).resolves.toBeUndefined();
 });

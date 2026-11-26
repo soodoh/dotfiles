@@ -1,25 +1,13 @@
-import { EventEmitter } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, test, vi } from "vitest";
+import { flush } from "./agent-state.test.fixture";
 import { createMoshi } from "./moshi";
-import type { SocketLike } from "./socket-queue";
-
-type FakeSocket = EventEmitter & {
-	destroy: ReturnType<typeof vi.fn>;
-	end: ReturnType<typeof vi.fn>;
-	write: (line: string) => void;
-};
 
 const cleanups: Array<() => Promise<void> | void> = [];
-
-async function flush() {
-	for (let n = 0; n < 4; n++)
-		await new Promise<void>((resolve) => setImmediate(resolve));
-}
 
 async function waitFor(check: () => boolean, timeoutMs = 1500) {
 	const deadline = Date.now() + timeoutMs;
@@ -72,81 +60,10 @@ async function startUnixServer(options?: { manualAck?: boolean }) {
 	return { sockPath, messages, halfClosed, acks };
 }
 
-function fakeTransport() {
-	const endpoints: string[] = [];
-	const sockets: FakeSocket[] = [];
-	const lines: Record<string, unknown>[] = [];
-	const connect = (endpoint: string): SocketLike => {
-		endpoints.push(endpoint);
-		const socket = Object.assign(new EventEmitter(), {
-			destroy: vi.fn(),
-			end: vi.fn(),
-			write: (line: string) => lines.push(JSON.parse(line)),
-		});
-		sockets.push(socket);
-		queueMicrotask(() => socket.emit("connect"));
-		return socket;
-	};
-	return { connect, endpoints, sockets, lines };
-}
-
 afterEach(async () => {
 	for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 	vi.restoreAllMocks();
 	vi.useRealTimers();
-});
-
-test.each([
-	["linux", "/tmp/moshi-hook.sock"],
-	["darwin", "/fixture-home/Library/Application Support/Moshi/moshi-hook.sock"],
-	["win32", "\\\\.\\pipe\\moshi-hook"],
-] as const)(
-	"%s default socket, stable identity and safe metadata",
-	async (os, endpoint) => {
-		const transport = fakeTransport();
-		const adapter = createMoshi({
-			env: {},
-			platform: os,
-			homedir: () => "/fixture-home",
-			connect: transport.connect,
-		});
-		cleanups.push(() => adapter.close());
-		adapter.associate(makeCtx());
-		await flush();
-		expect(transport.endpoints).toEqual([endpoint]);
-		expect(transport.lines[0]).toMatchObject({
-			sessionId: "uuid",
-			transcriptPath: "/fixture/session.jsonl",
-			projectName: "project",
-			modelName: "Model",
-		});
-	},
-);
-
-test("explicit socket override wins over XDG runtime directory", async () => {
-	const transport = fakeTransport();
-	const first = createMoshi({
-		env: { XDG_RUNTIME_DIR: "/fixture/runtime" },
-		platform: "linux",
-		connect: transport.connect,
-	});
-	cleanups.push(() => first.close());
-	first.associate(makeCtx());
-	await flush();
-	expect(transport.endpoints.at(-1)).toBe("/fixture/runtime/moshi-hook.sock");
-
-	const second = createMoshi({
-		env: {
-			XDG_RUNTIME_DIR: "/fixture/runtime",
-			MOSHI_SOCKET_PATH: "/fixture/override.sock",
-		},
-		platform: "linux",
-		connect: transport.connect,
-	});
-	cleanups.push(() => second.close());
-	second.associate(makeCtx());
-	await flush();
-	expect(transport.endpoints.at(-1)).toBe("/fixture/override.sock");
 });
 
 test("one bounded tmux identity query per adapter, not per update", async () => {
@@ -315,62 +232,12 @@ test("a real quit cancels stale reports and sends only the session closure", asy
 	await waitFor(() => server.acks.length === 2);
 	server.acks[1]?.();
 	await closing;
+	// Post-close updates must be ignored by the adapter itself.
+	adapter.update({ state: "idle", outcome: "stop" }, ctx);
+	await flush();
 
 	expect(server.messages.map((m) => [m.type, m.eventName])).toEqual([
 		["session.update", "SessionStart"],
 		["session.closed", "SessionEnd"],
 	]);
-});
-
-test.each(["error", "end", "close"])(
-	"%s fails silently without retrying a notification",
-	async (event) => {
-		const transport = fakeTransport();
-		const adapter = createMoshi({ env: {}, connect: transport.connect });
-		cleanups.push(() => adapter.close());
-		adapter.update({ state: "idle", outcome: "stop" }, makeCtx());
-		await flush();
-		transport.sockets[0]?.emit(event, new Error("fixture failure"));
-		await flush();
-		expect(transport.sockets).toHaveLength(1);
-		expect(transport.sockets[0]?.destroy).toHaveBeenCalled();
-	},
-);
-
-test("stalled daemon attempts are bounded and shutdown cancels unsent work", async () => {
-	vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-	const transport = fakeTransport();
-	const ctx = makeCtx();
-	const adapter = createMoshi({ env: {}, connect: transport.connect });
-	cleanups.push(() => adapter.close());
-
-	adapter.associate(ctx);
-	await flush();
-	await vi.advanceTimersByTimeAsync(1000);
-	expect(transport.sockets[0]?.destroy).toHaveBeenCalled();
-	adapter.update({ state: "working" }, ctx);
-	await flush();
-	adapter.update({ state: "blocked" }, ctx);
-	await adapter.close();
-	adapter.update({ state: "idle", outcome: "stop" }, ctx);
-	await vi.advanceTimersByTimeAsync(1000);
-	await flush();
-	expect(transport.lines.map((m) => m.eventName)).toEqual([
-		"SessionStart",
-		"AgentStart",
-	]);
-});
-
-test("synchronous connection failure cannot escape", async () => {
-	const adapter = createMoshi({
-		env: {},
-		connect: () => {
-			throw new Error("no transport");
-		},
-	});
-	cleanups.push(() => adapter.close());
-	expect(() =>
-		adapter.update({ state: "idle", outcome: "stop" }, makeCtx()),
-	).not.toThrow();
-	await flush();
 });

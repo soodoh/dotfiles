@@ -1,133 +1,20 @@
-import { EventEmitter } from "node:events";
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, test, vi } from "vitest";
-import { createAgentState } from "./index";
-import { registerActivity } from "./liveness.test.fixture";
-import type { SocketLike } from "./socket-queue";
+import { createAgentStateHarness, flush } from "./agent-state.test.fixture";
 
-type Handler = (
-	event: Record<string, unknown>,
-	ctx: ExtensionContext,
-) => unknown;
-type Report = { method: string; params: Record<string, unknown> };
-type FakeSocket = EventEmitter & {
-	destroy: ReturnType<typeof vi.fn>;
-	end: ReturnType<typeof vi.fn>;
-	write: (line: string) => void;
-};
-const HERDR_SOCKET = "/fixture-herdr.sock";
-const MOSHI_SOCKET = "/fixture-moshi.sock";
-const flush = async () => {
-	for (let n = 0; n < 3; n++)
-		await new Promise<void>((resolve) => setImmediate(resolve));
-};
 const cleanups: Array<() => Promise<void>> = [];
 
 async function fixture(
 	mode: ExtensionContext["mode"] = "tui",
 	envOverrides: NodeJS.ProcessEnv = {},
 ) {
-	const reports: Report[] = [];
-	const sockets: FakeSocket[] = [];
-	let respond = true;
-	const env: NodeJS.ProcessEnv = {
-		HERDR_ENV: "1",
-		HERDR_SOCKET_PATH: HERDR_SOCKET,
-		HERDR_PANE_ID: "w1:p1",
-		MOSHI_SOCKET_PATH: MOSHI_SOCKET,
-		PI_SUBAGENT_CHILD: "0",
-		...envOverrides,
-	};
-	const connect = (endpoint: string): SocketLike => {
-		const isHerdr = endpoint === HERDR_SOCKET;
-		const socket = Object.assign(new EventEmitter(), {
-			destroy: vi.fn(),
-			end: vi.fn(),
-			write: (line: string) => {
-				if (isHerdr) {
-					reports.push(JSON.parse(line));
-					if (respond)
-						queueMicrotask(() => socket.emit("data", Buffer.from("{}\n")));
-				} else {
-					queueMicrotask(() => socket.emit("data", Buffer.from("{}\n")));
-				}
-			},
-		});
-		if (isHerdr) sockets.push(socket);
-		queueMicrotask(() => socket.emit("connect"));
-		return socket;
-	};
-	const handlers = new Map<string, Handler[]>();
-	const bus = new EventEmitter();
-	const extension = createAgentState({ env, connect });
-	extension({
-		on: (event: string, handler: Handler) =>
-			handlers.set(event, [...(handlers.get(event) ?? []), handler]),
-		events: {
-			emit: (event: string, data: unknown) => bus.emit(event, data),
-			on: (event: string, handler: (data: unknown) => void) => {
-				bus.on(event, handler);
-				return () => bus.off(event, handler);
-			},
-		},
-	} as unknown as ExtensionAPI);
-	const releaseActivity = registerActivity(() => false);
-	let idle = true;
-	let pending = false;
-	let file: string | undefined = "/tmp/root-session.jsonl";
-	const ctx = {
+	return createAgentStateHarness({
 		mode,
-		hasUI: mode === "tui" || mode === "rpc",
-		cwd: "/tmp/test-project",
-		isIdle: () => idle,
-		hasPendingMessages: () => pending,
-		ui: { notify: vi.fn() },
-		sessionManager: {
-			getSessionFile: () => file,
-			getSessionId: () => "root-session",
-		},
-	} as unknown as ExtensionContext;
-	async function dispatch(event: string, data: Record<string, unknown> = {}) {
-		for (const handler of handlers.get(event) ?? [])
-			await handler({ type: event, messages: [], ...data }, ctx);
-	}
-	async function start() {
-		await dispatch("session_start", { reason: "startup" });
-		await dispatch("resources_discover", { reason: "startup" });
-		await flush();
-	}
-	cleanups.push(async () => {
-		await dispatch("session_shutdown", { reason: "quit" });
-		releaseActivity();
-		await flush();
+		herdr: true,
+		env: envOverrides,
+		shutdownReason: "quit",
+		cleanups,
 	});
-	return {
-		reports,
-		sockets,
-		bus,
-		ctx,
-		dispatch,
-		start,
-		states: () =>
-			reports
-				.filter((r) => r.method === "pane.report_agent")
-				.map((r) => r.params.state),
-		setIdle: (value: boolean) => {
-			idle = value;
-		},
-		setPending: (value: boolean) => {
-			pending = value;
-		},
-		setFile: (value: string | undefined) => {
-			file = value;
-		},
-		setRespond: (value: boolean) => {
-			respond = value;
-		},
-	};
 }
 
 afterEach(async () => {
