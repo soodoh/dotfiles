@@ -1,6 +1,5 @@
 import argparse
 import os
-import shutil
 import stat
 import subprocess
 import tempfile
@@ -13,6 +12,7 @@ from mise_resolution import (
     LOCK_FILES,
     PLATFORMS,
     PROFILES,
+    RunCommand,
     isolated_mise_env,
     staged_repository,
     validate_lockfiles,
@@ -41,16 +41,22 @@ def mise_environment(root: Path) -> dict[str, str]:
     )
 
 
-def run_mise(root: Path, *arguments: str) -> None:
-    mise = shutil.which("mise")
-    if mise is None:
-        raise RuntimeError("mise must be available to refresh lockfiles")
-    subprocess.run(
-        [mise, "--cd", str(root), *arguments],
-        cwd=root,
-        env=mise_environment(root),
-        check=True,
-    )
+def run_mise(
+    root: Path,
+    *arguments: str,
+    run_command: RunCommand = subprocess.run,
+) -> None:
+    try:
+        run_command(
+            ["mise", "--cd", str(root), *arguments],
+            cwd=root,
+            env=mise_environment(root),
+            check=True,
+        )
+    except FileNotFoundError as error:
+        if error.filename in (None, "mise"):
+            raise RuntimeError("mise must be available to refresh lockfiles") from error
+        raise
 
 
 def set_tool_locking(root: Path, *, locked: bool) -> None:
@@ -66,14 +72,15 @@ def set_tool_locking(root: Path, *, locked: bool) -> None:
     config.write_text(original.replace(expected, replacement, 1))
 
 
-def generate_profile_lockfiles(root: Path, profile: str) -> dict[str, bytes]:
+def generate_profile_lockfiles(
+    root: Path,
+    profile: str,
+    *,
+    run_command: RunCommand = subprocess.run,
+) -> dict[str, bytes]:
     profile_lock = PROFILE_LOCKS[profile]
-    with tempfile.TemporaryDirectory(prefix=f"mise-lock-{profile}-") as directory:
-        generation_root = Path(directory)
-        for name in ("mise.toml", f"mise.{profile}.toml", "mise.lock", profile_lock):
-            source = root / name
-            if source.exists():
-                shutil.copy2(source, generation_root / name)
+    files = ("mise.toml", f"mise.{profile}.toml", "mise.lock", profile_lock)
+    with staged_repository(root, files) as generation_root:
         set_tool_locking(generation_root, locked=False)
         run_mise(
             generation_root,
@@ -83,6 +90,7 @@ def generate_profile_lockfiles(root: Path, profile: str) -> dict[str, bytes]:
             "--quiet",
             "--platform",
             PLATFORMS,
+            run_command=run_command,
         )
         return {
             "mise.lock": (generation_root / "mise.lock").read_bytes(),
@@ -108,10 +116,19 @@ def merge_profile_lockfiles(
     }
 
 
-def generate_lockfiles(root: Path) -> dict[str, bytes]:
+def generate_lockfiles(
+    root: Path,
+    *,
+    run_command: RunCommand = subprocess.run,
+) -> dict[str, bytes]:
     with ThreadPoolExecutor(max_workers=len(PROFILES)) as executor:
         futures = {
-            profile: executor.submit(generate_profile_lockfiles, root, profile)
+            profile: executor.submit(
+                generate_profile_lockfiles,
+                root,
+                profile,
+                run_command=run_command,
+            )
             for profile in PROFILES
         }
         results = {profile: futures[profile].result() for profile in PROFILES}
@@ -168,8 +185,12 @@ def publish_candidates(
     return changed
 
 
-def refresh_lockfiles(root: Path) -> None:
-    candidates = generate_lockfiles(root)
+def refresh_lockfiles(
+    root: Path,
+    *,
+    run_command: RunCommand = subprocess.run,
+) -> None:
+    candidates = generate_lockfiles(root, run_command=run_command)
     publish_candidates(root, candidates, LOCK_FILES)
 
 
@@ -182,9 +203,14 @@ def configured_tools(root: Path, profile: str) -> tuple[str, ...]:
     return tuple(tools)
 
 
-def finalize_staged_update(root: Path, stage: Path) -> None:
+def finalize_staged_update(
+    root: Path,
+    stage: Path,
+    *,
+    run_command: RunCommand = subprocess.run,
+) -> None:
     set_tool_locking(stage, locked=True)
-    lock_candidates = generate_lockfiles(stage)
+    lock_candidates = generate_lockfiles(stage, run_command=run_command)
     candidates = {
         **{name: (stage / name).read_bytes() for name in CONFIG_FILES},
         **lock_candidates,
@@ -192,7 +218,11 @@ def finalize_staged_update(root: Path, stage: Path) -> None:
     publish_candidates(root, candidates, (*CONFIG_FILES, *LOCK_FILES))
 
 
-def update_tools(root: Path) -> None:
+def update_tools(
+    root: Path,
+    *,
+    run_command: RunCommand = subprocess.run,
+) -> None:
     with staged_repository(root) as stage:
         set_tool_locking(stage, locked=False)
         for profile in PROFILES:
@@ -203,21 +233,38 @@ def update_tools(root: Path) -> None:
                 "upgrade",
                 "--bump",
                 *configured_tools(stage, profile),
+                run_command=run_command,
             )
-        finalize_staged_update(root, stage)
+        finalize_staged_update(root, stage, run_command=run_command)
 
 
-def update_unsupported_tools(root: Path) -> None:
+def update_unsupported_tools(
+    root: Path,
+    *,
+    run_command: RunCommand = subprocess.run,
+) -> None:
     with staged_repository(root) as stage:
         set_tool_locking(stage, locked=False)
         for profile, tools in UNSUPPORTED_TOOLS.items():
-            run_mise(stage, "--env", profile, "upgrade", "--bump", *tools)
-        finalize_staged_update(root, stage)
+            run_mise(
+                stage,
+                "--env",
+                profile,
+                "upgrade",
+                "--bump",
+                *tools,
+                run_command=run_command,
+            )
+        finalize_staged_update(root, stage, run_command=run_command)
 
 
-def check_lockfiles(root: Path) -> None:
+def check_lockfiles(
+    root: Path,
+    *,
+    run_command: RunCommand = subprocess.run,
+) -> None:
     try:
-        validate_lockfiles(root)
+        validate_lockfiles(root, run_command=run_command)
     except (ValueError, TypeError, OSError, subprocess.TimeoutExpired) as error:
         raise SystemExit(
             f"mise lock validation failed:\n{error}\n"

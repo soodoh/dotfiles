@@ -33,8 +33,11 @@ def load_toml(path: Path) -> dict[str, Any]:
         return tomllib.load(stream)
 
 
-def installed_mise_version() -> str:
-    output = subprocess.check_output(["mise", "--version"], text=True).strip()
+def installed_mise_version(*, run_command: RunCommand = subprocess.run) -> str:
+    result = run_command(
+        ["mise", "--version"], capture_output=True, text=True, check=True
+    )
+    output = result.stdout.strip()
     match = re.match(r"^(\d+\.\d+\.\d+)(?:\s|$)", output)
     if match is None:
         raise ValueError(f"mise reported an invalid version: {output!r}")
@@ -72,16 +75,9 @@ def cache_inputs(
             policy_tools[source][tool] = [
                 {
                     "options": entry.request.options,
-                    "backend": [
-                        {
-                            key: lock_entry[key]
-                            for key in ("backend", "options")
-                            if key in lock_entry
-                        }
-                        for lock_entry in entry.lock_entries
-                    ]
-                    if source == "root"
-                    else [],
+                    "backend": (
+                        entry.backend_metadata() if source == "root" else []
+                    ),
                 }
                 for entry in resolved_entries
             ]
@@ -129,8 +125,12 @@ def build_keys(
     architecture: str,
     image: str,
     mise_version: str,
+    *,
+    run_command: RunCommand = subprocess.run,
 ) -> dict[str, str]:
-    policy, identity = cache_inputs(root, os_name, architecture)
+    policy, identity = cache_inputs(
+        root, os_name, architecture, run_command=run_command
+    )
     boundary = "-".join(
         (
             SCHEMA,
@@ -177,10 +177,16 @@ def reinstall_tools(previous: dict, current: dict) -> list[str]:
     return sorted(tool for tool, fingerprint in current["tools"].items() if old.get(tool) != fingerprint)
 
 
-def reconcile_or_record(arguments: argparse.Namespace) -> None:
+def reconcile_or_record(
+    arguments: argparse.Namespace,
+    *,
+    run_command: RunCommand = subprocess.run,
+) -> None:
     data = arguments.data_dir
     manifest = data / ".dotfiles-ci-cache-inputs.json"
-    current = snapshot(arguments.root, arguments.os, arguments.arch)
+    current = snapshot(
+        arguments.root, arguments.os, arguments.arch, run_command=run_command
+    )
     try:
         previous = json.loads(manifest.read_text())
     except (FileNotFoundError, ValueError):
@@ -190,7 +196,7 @@ def reconcile_or_record(arguments: argparse.Namespace) -> None:
             tools = reinstall_tools(previous, current)
             if tools:
                 print("Reinstalling new or changed cached lock artifacts:", ", ".join(tools), flush=True)
-                subprocess.run(["mise", "install", "--locked", "--force", *tools], check=True)
+                run_command(["mise", "install", "--locked", "--force", *tools], check=True)
     else:
         # Preserve fingerprints for older versions retained by compatible restores.
         if previous.get("policy") == current["policy"]:

@@ -178,6 +178,16 @@ class ResolvedCacheEntry:
     version: str
     lock_entries: list[Record]
 
+    def backend_metadata(self) -> list[Record]:
+        return [
+            {
+                key: lock_entry[key]
+                for key in ("backend", "options")
+                if key in lock_entry
+            }
+            for lock_entry in self.lock_entries
+        ]
+
 
 def read_tool_declarations(tools: object, source: str) -> dict[str, list[ToolRequest]]:
     """Read scalar, table, or ordered list declarations without resolving versions."""

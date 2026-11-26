@@ -124,17 +124,21 @@ class MiseCacheKeyTests(unittest.TestCase):
 
     def test_invalid_or_failed_cli_version_cannot_produce_a_cache_key(self) -> None:
         for output in ("", "unknown", "2026.9.1-beta linux-x64"):
-            with self.subTest(output=output), patch.object(
-                self.helper.subprocess, "check_output", return_value=output
+            with (
+                self.subTest(output=output),
+                self.assertRaisesRegex(ValueError, "invalid version"),
             ):
-                with self.assertRaisesRegex(ValueError, "invalid version"):
-                    self.helper.installed_mise_version()
-        with patch.object(
-            self.helper.subprocess, "check_output",
-            side_effect=subprocess.CalledProcessError(1, ["mise", "--version"]),
-        ):
-            with self.assertRaises(subprocess.CalledProcessError):
-                self.helper.installed_mise_version()
+                self.helper.installed_mise_version(
+                    run_command=lambda command, _out=output, **_: subprocess.CompletedProcess(
+                        command, 0, stdout=_out, stderr=""
+                    )
+                )
+
+        def fail_version(command, **_kwargs):
+            raise subprocess.CalledProcessError(1, command)
+
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.helper.installed_mise_version(run_command=fail_version)
 
     def test_unchanged_inputs_are_stable(self) -> None:
         self.assertEqual(self.keys(), self.keys())
@@ -535,33 +539,32 @@ class MiseCacheKeyTests(unittest.TestCase):
         )
         real_run = subprocess.run
         install = Mock()
-        with patch.object(
-            self.helper.subprocess, "run",
-            side_effect=lambda command, **kwargs: (
-                install(command, **kwargs) if command[:2] == ["mise", "install"]
-                else real_run(command, **kwargs)
-            ),
-        ):
-            self.helper.reconcile_or_record(args)
-            install.assert_not_called()
-            args.mode = "record"
-            self.helper.reconcile_or_record(args)
-            (data / "installs").mkdir()
-            args.mode = "reconcile"
-            self.helper.reconcile_or_record(args)
-            install.assert_not_called()
-            lock = self.root / "mise.lock"
-            lock.write_text(lock.read_text().replace("node-linux", "replacement"))
-            self.helper.reconcile_or_record(args)
-            install.assert_called_once_with(
-                ["mise", "install", "--locked", "--force", "node@24.0.0"], check=True
-            )
-            install.reset_mock()
-            args.mode = "record"
-            self.helper.reconcile_or_record(args)
-            args.mode = "reconcile"
-            self.helper.reconcile_or_record(args)
-            install.assert_not_called()
+
+        def fake_run(command, **kwargs):
+            if command[:2] == ["mise", "install"]:
+                return install(command, **kwargs)
+            return real_run(command, **kwargs)
+
+        self.helper.reconcile_or_record(args, run_command=fake_run)
+        install.assert_not_called()
+        args.mode = "record"
+        self.helper.reconcile_or_record(args, run_command=fake_run)
+        (data / "installs").mkdir()
+        args.mode = "reconcile"
+        self.helper.reconcile_or_record(args, run_command=fake_run)
+        install.assert_not_called()
+        lock = self.root / "mise.lock"
+        lock.write_text(lock.read_text().replace("node-linux", "replacement"))
+        self.helper.reconcile_or_record(args, run_command=fake_run)
+        install.assert_called_once_with(
+            ["mise", "install", "--locked", "--force", "node@24.0.0"], check=True
+        )
+        install.reset_mock()
+        args.mode = "record"
+        self.helper.reconcile_or_record(args, run_command=fake_run)
+        args.mode = "reconcile"
+        self.helper.reconcile_or_record(args, run_command=fake_run)
+        install.assert_not_called()
 
 
 class NeovimCacheKeyTests(unittest.TestCase):

@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import tomllib
 import unittest
 from contextlib import contextmanager
@@ -68,44 +69,42 @@ class MisePolicyTests(unittest.TestCase):
     def test_repository_updates_only_explicitly_unsupported_tools(self) -> None:
         mise_lock = load_mise_lock_module()
         mise_lock.UNSUPPORTED_TOOLS = {"work-macos": ("http:fixture",)}
-        calls: list[tuple[str, ...]] = []
+        upgrade_calls: list[tuple[str, ...]] = []
+        lock_profiles: set[str] = set()
+        calls_lock = threading.Lock()
 
         with tempfile.TemporaryDirectory() as directory:
-            stage = Path(directory)
+            repo_copy = Path(directory)
             for name in (*mise_lock.CONFIG_FILES, *mise_lock.LOCK_FILES):
                 source = ROOT / name
                 if source.exists():
-                    shutil.copy2(source, stage / name)
+                    shutil.copy2(source, repo_copy / name)
 
-            @contextmanager
-            def staged_repository(root: Path):
-                self.assertEqual(root, ROOT)
-                yield stage
-
-            def run_mise(root: Path, *arguments: str) -> None:
-                self.assertEqual(root, stage)
-                calls.append(arguments)
-
-            def finalize_staged_update(root: Path, staged: Path) -> None:
-                self.assertEqual(root, ROOT)
-                self.assertEqual(staged, stage)
+            def fake_run(command, **kwargs) -> subprocess.CompletedProcess[str]:
+                stage = Path(kwargs["cwd"])
+                args = tuple(command[3:])
                 self.assertIn(
                     mise_lock.UNLOCKED_CONFIG, (stage / "mise.toml").read_text()
                 )
-                calls.append(("finalize",))
+                with calls_lock:
+                    if args[2] == "upgrade":
+                        upgrade_calls.append(args)
+                    elif args[2] == "lock":
+                        lock_profiles.add(args[1])
+                    else:
+                        raise AssertionError(f"unexpected mise command: {args}")
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-            mise_lock.staged_repository = staged_repository
-            mise_lock.run_mise = run_mise
-            mise_lock.finalize_staged_update = finalize_staged_update
-            mise_lock.update_unsupported_tools(ROOT)
+            mise_lock.update_unsupported_tools(repo_copy, run_command=fake_run)
+            self.assertIn(
+                mise_lock.LOCKED_CONFIG, (repo_copy / "mise.toml").read_text()
+            )
 
         self.assertEqual(
-            calls,
-            [
-                ("--env", "work-macos", "upgrade", "--bump", "http:fixture"),
-                ("finalize",),
-            ],
+            upgrade_calls,
+            [("--env", "work-macos", "upgrade", "--bump", "http:fixture")],
         )
+        self.assertEqual(lock_profiles, set(mise_lock.PROFILES))
 
 
 class MiseConfigurationTests(unittest.TestCase):

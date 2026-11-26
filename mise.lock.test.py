@@ -180,17 +180,24 @@ class MiseLockTests(unittest.TestCase):
                 result.stdout.strip(), 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'
             )
 
-    def test_check_accepts_pinned_artifacts_when_upstream_has_a_new_build(self) -> None:
+    def test_check_accepts_pinned_artifacts_offline_without_refreshing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_validation_repository(root)
             before = {path.name: path.read_bytes() for path in root.iterdir()}
-            newer = {
-                name: (root / name).read_bytes().replace(b"20261026", b"20261110")
-                for name in self.module.LOCK_FILES
-            }
-            with patch.object(self.module, "generate_lockfiles", return_value=newer):
-                self.module.check_lockfiles(root)
+            real_run = subprocess.run
+            calls = 0
+
+            def offline_run(command, **kwargs):
+                nonlocal calls
+                calls += 1
+                self.assertIn("--offline", command)
+                self.assertNotIn("lock", command)
+                self.assertNotIn("upgrade", command)
+                return real_run(command, **kwargs)
+
+            self.module.check_lockfiles(root, run_command=offline_run)
+            self.assertGreater(calls, 0)
             self.assertEqual(
                 {path.name: path.read_bytes() for path in root.iterdir()}, before
             )
@@ -453,13 +460,22 @@ class MiseLockTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_validation_repository(root)
-            candidates = {
-                name: (root / name).read_bytes().replace(b"20261026", b"20261110")
-                for name in self.module.LOCK_FILES
-            }
-            with patch.object(self.module, "generate_lockfiles", return_value=candidates):
-                self.module.refresh_lockfiles(root)
-            self.assertEqual((root / "mise.lock").read_bytes(), candidates["mise.lock"])
+            expected_shared = (root / "mise.lock").read_bytes().replace(
+                b"20261026", b"20261110"
+            )
+
+            def fake_run(command, **kwargs) -> subprocess.CompletedProcess[str]:
+                stage = Path(kwargs["cwd"])
+                for name in self.module.LOCK_FILES:
+                    path = stage / name
+                    if path.exists():
+                        path.write_bytes(
+                            path.read_bytes().replace(b"20261026", b"20261110")
+                        )
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+            self.module.refresh_lockfiles(root, run_command=fake_run)
+            self.assertEqual((root / "mise.lock").read_bytes(), expected_shared)
             self.module.check_lockfiles(root)
 
     def test_plan_changes_is_deterministic_and_handles_missing_files(self) -> None:
@@ -508,7 +524,8 @@ class MiseLockTests(unittest.TestCase):
             source_before = (root / "mise.toml").read_bytes()
             observed_roots: list[Path] = []
 
-            def fake_run_mise(generation_root: Path, *arguments: str) -> None:
+            def fake_run(command, **kwargs) -> subprocess.CompletedProcess[str]:
+                generation_root = Path(kwargs["cwd"])
                 observed_roots.append(generation_root)
                 self.assertNotEqual(generation_root, root)
                 self.assertIn(
@@ -516,7 +533,7 @@ class MiseLockTests(unittest.TestCase):
                     (generation_root / "mise.toml").read_text(),
                 )
                 self.assertEqual(
-                    arguments,
+                    tuple(command[3:]),
                     (
                         "--env",
                         "personal-macos",
@@ -526,9 +543,11 @@ class MiseLockTests(unittest.TestCase):
                         self.module.PLATFORMS,
                     ),
                 )
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-            self.module.run_mise = fake_run_mise
-            generated = self.module.generate_profile_lockfiles(root, "personal-macos")
+            generated = self.module.generate_profile_lockfiles(
+                root, "personal-macos", run_command=fake_run
+            )
             self.assertEqual(generated["mise.lock"], VALID_LOCK)
             self.assertEqual(len(observed_roots), 1)
             self.assertFalse(observed_roots[0].exists())
@@ -542,14 +561,16 @@ class MiseLockTests(unittest.TestCase):
                 name: (root / name).read_bytes()
                 for name in (*self.module.CONFIG_FILES, *self.module.LOCK_FILES)
             }
-            candidates = {
-                "mise.lock": VALID_LOCK,
-                "mise.personal-macos.lock": b"not toml = [",
-                "mise.work-macos.lock": VALID_LOCK,
-            }
-            self.module.generate_lockfiles = lambda _root: candidates
+
+            def invalid_toml_run(command, **kwargs) -> subprocess.CompletedProcess[str]:
+                stage = Path(kwargs["cwd"])
+                personal_lock = stage / "mise.personal-macos.lock"
+                if personal_lock.exists():
+                    personal_lock.write_bytes(b"not toml = [")
+                return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
             with self.assertRaisesRegex(RuntimeError, "not valid TOML"):
-                self.module.refresh_lockfiles(root)
+                self.module.refresh_lockfiles(root, run_command=invalid_toml_run)
             after = {name: (root / name).read_bytes() for name in before}
             self.assertEqual(after, before)
 
@@ -587,12 +608,11 @@ class MiseLockTests(unittest.TestCase):
                 name: (root / name).read_bytes() for name in self.module.CONFIG_FILES
             }
 
-            def fail_run_mise(_root: Path, *_arguments: str) -> None:
+            def fail_run(_command, **_kwargs) -> subprocess.CompletedProcess[str]:
                 raise RuntimeError("simulated interruption")
 
-            self.module.run_mise = fail_run_mise
             with self.assertRaisesRegex(RuntimeError, "simulated interruption"):
-                self.module.update_unsupported_tools(root)
+                self.module.update_unsupported_tools(root, run_command=fail_run)
             after = {
                 name: (root / name).read_bytes() for name in self.module.CONFIG_FILES
             }
