@@ -329,6 +329,45 @@ class Frame:
         return self.width, self.height, self.depth
 
 
+class Segment:
+    """One queued output chunk, optionally tagged with lifecycle metadata."""
+
+    KINDS = frozenset((None, "frame", "place", "hide", "release"))
+    __slots__ = ("data", "kind", "image", "sequence", "frame")
+
+    def __init__(self, data, kind=None, image=None, sequence=0, frame=None):
+        if kind not in self.KINDS:
+            raise ValueError(f"unknown segment kind: {kind!r}")
+        if kind is None:
+            if image is not None or sequence != 0 or frame is not None:
+                raise ValueError("plain segments cannot carry graphics metadata")
+        else:
+            if image is None:
+                raise ValueError("graphics segments must carry an image ID")
+            if kind == "frame" and frame is None:
+                raise ValueError("frame segments must carry a Frame")
+            if kind != "frame" and frame is not None:
+                raise ValueError("only frame segments can carry a Frame")
+        self.data = data
+        self.kind = kind
+        self.image = image
+        self.sequence = sequence
+        self.frame = frame
+
+    @property
+    def is_graphics(self):
+        return self.kind is not None
+
+    @property
+    def unrendered_frame(self):
+        return self.kind == "frame" and not self.frame.rendered
+
+    def pending_length(self):
+        if self.unrendered_frame:
+            return self.frame.estimate
+        return len(self.data)
+
+
 class ImageLifecycle:
     """Translate Herdr output into an ordered stream for a slow terminal link.
 
@@ -339,8 +378,17 @@ class ImageLifecycle:
     terminal input after we consume replies to our own status requests.
     """
 
-    def __init__(self, partial=False, paced=False, window=WINDOW, scroll_copy=False, scale=1):
-        self._terminal = TerminalControls(scale)
+    def __init__(
+        self,
+        partial=False,
+        paced=False,
+        window=WINDOW,
+        scroll_copy=False,
+        scale=1,
+        clock=time.monotonic,
+    ):
+        self._clock = clock
+        self._terminal = TerminalControls(scale, clock=clock)
         self.partial = partial
         self.scroll_copy = scroll_copy and partial
         self.buffer = b""
@@ -396,8 +444,8 @@ class ImageLifecycle:
         return self.sequence
 
     def _parse(self, data):
-        # Segments are (bytes, tag); tagged segments carry kind, image ID,
-        # sequence, and a Frame for uploads. They never leave the lifecycle.
+        # Segments carry queued bytes plus optional lifecycle metadata; they
+        # never leave ImageLifecycle.
         self.buffer += data
         output = []
         while True:
@@ -416,13 +464,13 @@ class ImageLifecycle:
             command = self.buffer[start + len(APC):end]
             self.buffer = self.buffer[end + len(ST):]
             self._graphics(output, command)
-        return [segment for segment in output if segment[0] or (segment[1] and segment[1][0] == "frame")]
+        return [segment for segment in output if segment.data or segment.kind == "frame"]
 
     def _text(self, output, data):
         if data:
             # Text between a delete and the next command means no upload follows.
             self._hide(output)
-            output.append((data, None))
+            output.append(Segment(data))
 
     def _hide(self, output):
         """Emit a held delete that no upload follows as a hide."""
@@ -433,18 +481,32 @@ class ImageLifecycle:
         if image in self.hidden:
             self.hidden.remove(image)
         self.hidden.append(image)
-        output.append((APC + b"a=d,d=i,i=" + image + b",q=2;" + ST, ("hide", image, self._next_sequence(), None)))
+        output.append(
+            Segment(
+                APC + b"a=d,d=i,i=" + image + b",q=2;" + ST,
+                kind="hide",
+                image=image,
+                sequence=self._next_sequence(),
+            )
+        )
         while len(self.hidden) > MAX_HIDDEN:
             self._delete(output, self.hidden.pop(0))
 
     def _delete(self, output, image, command=None):
         """Really delete an image; the next frame for it is a whole upload."""
         command = command or b"a=d,d=I,i=" + image + b",q=2;"
-        output.append((APC + command + ST, ("release", image, self._next_sequence(), None)))
+        output.append(
+            Segment(
+                APC + command + ST,
+                kind="release",
+                image=image,
+                sequence=self._next_sequence(),
+            )
+        )
 
     def _expire_hide(self):
         """Release a delete held longer than HOLD_SECONDS; returns segments."""
-        if self.held is None or time.monotonic() - self.held_since < HOLD_SECONDS:
+        if self.held is None or self._clock() - self.held_since < HOLD_SECONDS:
             return []
         if self.buffer or (self.upload is not None and controls(self.upload[0]).get(b"i") == self.held[1]):
             # The command or upload behind it is still streaming in from Herdr.
@@ -458,12 +520,12 @@ class ImageLifecycle:
         output = []
         self._hide(output)
         if self.upload is not None:
-            output.append((self._passthrough(*self.upload), None))
+            output.append(Segment(self._passthrough(*self.upload)))
             self.upload = None
         if self.buffer:
-            output.append((self.buffer, None))
+            output.append(Segment(self.buffer))
             self.buffer = b""
-        self._enqueue([(b"".join(segment for segment, _ in output) + trailer, None)])
+        self._enqueue([Segment(b"".join(segment.data for segment in output) + trailer)])
 
     def _graphics(self, output, command):
         header, _, payload = command.partition(b";")
@@ -474,7 +536,7 @@ class ImageLifecycle:
             if continuation:
                 # Continuations of an upload this filter does not rewrite.
                 self.passing = more
-                output.append((APC + command + ST, None))
+                output.append(Segment(APC + command + ST))
                 return
             self.passing = False
         if self.upload is not None:
@@ -489,14 +551,14 @@ class ImageLifecycle:
             first, parts = self.upload
             self.upload = None
             self._hide(output)
-            output.append((self._passthrough(first, parts), None))
+            output.append(Segment(self._passthrough(first, parts)))
         image = keys.get(b"i")
         if keys.get(b"a") == b"d" and keys.get(b"d") == b"I" and image is not None:
             self._hide(output)
             if self.partial:
                 # Herdr deletes before re-uploading; an edit may replace both.
                 self.held = (command, image)
-                self.held_since = time.monotonic()
+                self.held_since = self._clock()
                 return
             self._delete(output, image, command)
             return
@@ -515,9 +577,16 @@ class ImageLifecycle:
         self._hide(output)
         self.passing = more
         if keys.get(b"a") == b"p" and image is not None:
-            output.append((APC + command + ST, ("place", image, self.current.get(image, 0), None)))
+            output.append(
+                Segment(
+                    APC + command + ST,
+                    kind="place",
+                    image=image,
+                    sequence=self.current.get(image, 0),
+                )
+            )
             return
-        output.append((APC + command + ST, None))
+        output.append(Segment(APC + command + ST))
 
     @staticmethod
     def _passthrough(header, parts):
@@ -530,7 +599,7 @@ class ImageLifecycle:
             raw = base64.b64decode(payload, validate=False)
         except ValueError:
             self._hide(output)
-            output.append((APC + header + b";" + payload + ST, None))
+            output.append(Segment(APC + header + b";" + payload + ST))
             return
         keys = controls(header)
         width, height = number(keys, b"s"), number(keys, b"v")
@@ -540,7 +609,7 @@ class ImageLifecycle:
         transmit_only = keys.get(b"a", b"t") == b"t"
         if image is None or not transmit_only or not width or not height or len(raw) != width * height * depth:
             self._hide(output)
-            output.append((encode(header, raw), None))
+            output.append(Segment(encode(header, raw)))
             return
         if image in self.hidden:
             self.hidden.remove(image)
@@ -557,49 +626,48 @@ class ImageLifecycle:
             # A small change will be a small edit; gate it accordingly.
             frame.estimate = 64 if rect is None else rect[2] * rect[3] * depth // 4 + 64
         self.latest[image] = (width, height, depth, raw)
-        output.append((b"", ("frame", image, sequence, frame)))
-
-    @staticmethod
-    def _length(entry):
-        data, tag = entry
-        if tag is not None and tag[0] == "frame" and not tag[3].rendered:
-            return tag[3].estimate
-        return len(data)
+        output.append(Segment(b"", kind="frame", image=image, sequence=sequence, frame=frame))
 
     def _enqueue(self, segments):
-        now = time.monotonic()
-        for data, tag in segments:
-            if tag is not None and tag[0] == "frame":
-                image = tag[1]
-                if not tag[3].refine:
-                    busy = any(t is not None and t[0] == "frame" and t[1] == image for _, t in self.segments)
+        now = self._clock()
+        for segment in segments:
+            if segment.kind == "frame":
+                image = segment.image
+                if not segment.frame.refine:
+                    busy = any(
+                        queued.kind == "frame" and queued.image == image
+                        for queued in self.segments
+                    )
                     if busy or self._terminal.oldest_image_request is not None:
                         # Frames arrive faster than the link carries them.
                         self.motion[image] = now
                     self.arrived[image] = now
-                self._supersede(image, tag[2])
-            entry = [data, tag]
-            self.segments.append(entry)
-            self.pending_bytes += self._length(entry)
+                self._supersede(image, segment.sequence)
+            self.segments.append(segment)
+            self.pending_bytes += segment.pending_length()
 
     def _supersede(self, image, sequence):
         started = self.started.get(image)
-        for index, entry in enumerate(self.segments):
-            tag = entry[1]
-            if tag is None or tag[1] != image or tag[0] in ("release", "hide") or tag[2] in (started, sequence):
+        for index, segment in enumerate(self.segments):
+            if (
+                not segment.is_graphics
+                or segment.image != image
+                or segment.kind in ("release", "hide")
+                or segment.sequence in (started, sequence)
+            ):
                 continue
             if index == 0 and self.offset:
                 continue
-            self.pending_bytes -= self._length(entry)
-            self.segments[index] = [b"", None]
+            self.pending_bytes -= segment.pending_length()
+            self.segments[index] = Segment(b"")
 
     def _refine(self):
         """Queue sharp redraws of coarse images once their motion stops."""
-        now = time.monotonic()
+        now = self._clock()
         for image in list(self.blurred):
             if now - self.arrived.get(image, 0) < REFINE_DELAY:
                 continue
-            if any(tag is not None and tag[0] == "frame" and tag[1] == image for _, tag in self.segments):
+            if any(segment.kind == "frame" and segment.image == image for segment in self.segments):
                 continue
             self.blurred.discard(image)
             latest = self.latest.get(image)
@@ -607,15 +675,15 @@ class ImageLifecycle:
             if latest is None or base is None or base.pixels() != latest[:3]:
                 continue
             frame = Frame(image, self._next_sequence(), b"", latest[3], *latest[:3], refine=True)
-            self._enqueue([(b"", ("frame", image, frame.sequence, frame))])
+            self._enqueue([Segment(b"", kind="frame", image=image, sequence=frame.sequence, frame=frame)])
 
     def _refine_due(self):
         """Seconds until a coarse image with nothing queued needs a sharp redraw."""
-        queued = {tag[1] for _, tag in self.segments if tag is not None and tag[0] == "frame"}
+        queued = {segment.image for segment in self.segments if segment.kind == "frame"}
         waiting = [image for image in self.blurred if image not in queued]
         if not waiting:
             return None
-        now = time.monotonic()
+        now = self._clock()
         return max(0.0, min(REFINE_DELAY - (now - self.arrived.get(image, 0)) for image in waiting))
 
     def _render(self, frame):
@@ -631,7 +699,7 @@ class ImageLifecycle:
         rect = changed_rect(base, raw, width, height, depth) if base is not None else None
         moving = (
             self.partial and not frame.refine
-            and time.monotonic() - self.motion.get(image, -MOTION_HOLD) < MOTION_HOLD
+            and self._clock() - self.motion.get(image, -MOTION_HOLD) < MOTION_HOLD
             and (base is None or (rect is not None and rect[2] * rect[3] > MOTION_AREA * width * height))
         )
         if moving:
@@ -652,44 +720,42 @@ class ImageLifecycle:
         delete = APC + frame.delete + ST if frame.delete else b""
         return delete + encode(frame.header, raw)
 
-    def _begin(self, tag):
-        if tag is None:
+    def _begin(self, segment):
+        if not segment.is_graphics:
             return
-        kind, image, sequence, frame = tag
-        self.started[image] = sequence
-        if kind == "release":
-            self.committed.pop(image, None)
-            self.blurred.discard(image)
-        elif kind == "frame" and frame.shown is not None:
-            self.committed[image] = frame
-            if frame.shown is not frame.raw:
-                self.blurred.add(image)
+        self.started[segment.image] = segment.sequence
+        if segment.kind == "release":
+            self.committed.pop(segment.image, None)
+            self.blurred.discard(segment.image)
+        elif segment.kind == "frame" and segment.frame.shown is not None:
+            self.committed[segment.image] = segment.frame
+            if segment.frame.shown is not segment.frame.raw:
+                self.blurred.add(segment.image)
             else:
-                self.blurred.discard(image)
-        elif kind == "frame" and frame.rendered and not frame.refine:
+                self.blurred.discard(segment.image)
+        elif segment.kind == "frame" and segment.frame.rendered and not segment.frame.refine:
             # A whole upload with unknown result; never edit against stale pixels.
-            self.committed.pop(image, None)
+            self.committed.pop(segment.image, None)
 
     def _waiting(self, size, window):
         """Whether a `size`-byte image update must wait for earlier replies."""
         sent = self._terminal.oldest_image_request
         if sent is None:
             return False
-        age = time.monotonic() - sent
+        age = self._clock() - sent
         if not self._terminal.image_answered and age >= PING_TIMEOUT:
             # This terminal does not answer; stop pacing but keep routing replies.
             self.paced = False
             return False
         return age < SLOW_REPLY and self._terminal.unacknowledged_bytes + size > window
 
-    def _eligibility(self, entry):
+    def _eligibility(self, segment):
         """Return whether a normal write is gated and any scroll base it can try."""
-        _, tag = entry
-        if self.offset or tag is None or tag[0] != "frame":
+        if self.offset or segment.kind != "frame":
             return False, None
-        frame = tag[3]
+        frame = segment.frame
         window = self.scroll_window if frame.scroll_delta else self.window
-        gated = self.paced and self._waiting(self._length(entry), window)
+        gated = self.paced and self._waiting(segment.pending_length(), window)
         # An estimated whole frame might fit the link as a small scroll delta.
         if (
             not frame.rendered and (base := self._scroll_base(frame)) is not None
@@ -709,10 +775,9 @@ class ImageLifecycle:
 
     def _ready(self):
         """Whether write() can make progress now."""
-        for entry in self.segments:
-            data, tag = entry
-            if data or (tag is not None and tag[0] == "frame" and not tag[3].rendered):
-                gated, base = self._eligibility(entry)
+        for segment in self.segments:
+            if segment.data or segment.unrendered_frame:
+                gated, base = self._eligibility(segment)
                 return not gated or base is not None
         return True
 
@@ -728,11 +793,10 @@ class ImageLifecycle:
         """Send bytes via a writer that returns the count accepted so far."""
         written = 0
         while self.segments:
-            entry = self.segments[0]
-            data, tag = entry
-            gated, base = self._eligibility(entry)
-            if tag is not None and tag[0] == "frame" and not tag[3].rendered:
-                frame = tag[3]
+            segment = self.segments[0]
+            gated, base = self._eligibility(segment)
+            if segment.unrendered_frame:
+                frame = segment.frame
                 scroll = None
                 if base is not None:
                     frame.scroll_checked = True
@@ -748,15 +812,16 @@ class ImageLifecycle:
                 frame.rendered = True
                 if data and self.paced:
                     data += PING
-                entry[0] = data
+                segment.data = data
                 self.pending_bytes += len(data)
                 # The encoded length can exceed the estimate used before rendering.
-                gated, _ = self._eligibility(entry)
+                gated, _ = self._eligibility(segment)
             if gated:
                 break
+            data = segment.data
             if self.offset >= len(data):
                 if not data:
-                    self._begin(tag)
+                    self._begin(segment)
                 self.segments.pop(0)
                 self.offset = 0
                 continue
@@ -767,12 +832,12 @@ class ImageLifecycle:
                 break
             start = self.offset
             if count and not start:
-                self._begin(tag)
+                self._begin(segment)
             self.offset += count
             self.pending_bytes -= count
             written += count
             if count:
-                self._terminal.written(data, start, self.offset, graphics=tag is not None)
+                self._terminal.written(data, start, self.offset, graphics=segment.is_graphics)
             if count < remaining:
                 break
         return written
@@ -812,8 +877,9 @@ class TerminalControls:
     # Bound retained input to well beyond an ordinary mouse/size report.
     MAX_PREFIX = 64
 
-    def __init__(self, scale):
+    def __init__(self, scale, clock=time.monotonic):
         self.scale = scale
+        self._clock = clock
         self.pixel_mouse = False
         self._output_tail = b""
         self._input_tail = b""
@@ -843,7 +909,7 @@ class TerminalControls:
         if not start:
             self._output_tail = b""
         if end == len(data) and data.endswith(PING):
-            self._requests.append((time.monotonic(), self._written_bytes))
+            self._requests.append((self._clock(), self._written_bytes))
 
     def _observe_output(self, data):
         data = self._output_tail + data

@@ -61,12 +61,17 @@ def decode(stream):
     return b"".join(text), images
 
 
-@contextmanager
-def clock():
-    """A controllable monotonic clock for the module under test."""
-    now = [1000.0]
-    with patch.object(module.time, "monotonic", lambda: now[0]):
-        yield now
+class FakeClock:
+    """A controllable monotonic clock injected across the ImageLifecycle seam."""
+
+    def __init__(self, start=1000.0):
+        self.now = start
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
 
 
 def drain(queue, limit=None):
@@ -192,7 +197,7 @@ class Link:
     def settle(self, now):
         """Let motion end and everything, including sharp redraws, arrive."""
         for _ in range(10):
-            now[0] += module.REFINE_DELAY + module.MOTION_HOLD
+            now.advance(module.REFINE_DELAY + module.MOTION_HOLD)
             self.queue.tick()
             self.receive()
 
@@ -314,26 +319,26 @@ class PacingTests(unittest.TestCase):
         return herdr_frame(b"9", self.pixels(value), self.width, self.height)
 
     def test_next_image_waits_for_the_terminal_and_only_the_newest_is_sent(self):
-        queue = module.ImageLifecycle(partial=True, paced=True, window=0)
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, paced=True, window=0, clock=now)
         link = Link(queue)
-        with clock() as now:
-            queue.receive(self.frame(8))
-            first = link.receive(answer=False)
-            self.assertTrue(first.endswith(module.PING + b"\x1b[2;3H" + APC + b"a=p,i=9,p=1,c=10,r=5,q=2;" + ST))
-            # Two newer frames arrive before the terminal answers.
-            queue.receive(self.frame(16))
-            queue.receive(self.frame(24))
-            # The old image stays: nothing for the newer frames is sent yet.
-            self.assertNotIn(APC, link.receive(answer=False))
-            self.assertFalse(queue.poll()[0])
-            # A fragmented reply must be consumed before the next frame can go.
-            self.assertEqual(queue.terminal_input(b"x\x1b[0"), b"x")
-            self.assertFalse(queue.poll()[0])
-            self.assertEqual(queue.terminal_input(b"ny"), b"y")
-            link.unanswered = 0
-            self.assertTrue(queue.poll()[0])
-            self.assertEqual(link.receive().count(b"a=p,i=9,"), 1)
-            link.settle(now)
+        queue.receive(self.frame(8))
+        first = link.receive(answer=False)
+        self.assertTrue(first.endswith(module.PING + b"\x1b[2;3H" + APC + b"a=p,i=9,p=1,c=10,r=5,q=2;" + ST))
+        # Two newer frames arrive before the terminal answers.
+        queue.receive(self.frame(16))
+        queue.receive(self.frame(24))
+        # The old image stays: nothing for the newer frames is sent yet.
+        self.assertNotIn(APC, link.receive(answer=False))
+        self.assertFalse(queue.poll()[0])
+        # A fragmented reply must be consumed before the next frame can go.
+        self.assertEqual(queue.terminal_input(b"x\x1b[0"), b"x")
+        self.assertFalse(queue.poll()[0])
+        self.assertEqual(queue.terminal_input(b"ny"), b"y")
+        link.unanswered = 0
+        self.assertTrue(queue.poll()[0])
+        self.assertEqual(link.receive().count(b"a=p,i=9,"), 1)
+        link.settle(now)
         self.assertEqual(bytes(link.model.images[b"9"][2]), self.pixels(24))
 
     def test_herdr_status_requests_keep_their_replies(self):
@@ -345,36 +350,36 @@ class PacingTests(unittest.TestCase):
         self.assertEqual(queue.terminal_input(module.PONG), module.PONG)
 
     def test_silent_terminal_stops_pacing_but_late_replies_are_removed(self):
-        queue = module.ImageLifecycle(partial=True, paced=True, window=0)
-        with clock() as now:
-            queue.receive(self.frame(1))
-            drain(queue)
-            queue.receive(self.frame(2))
-            self.assertFalse(queue.poll()[0])
-            now[0] += module.PING_TIMEOUT + 1
-            self.assertTrue(queue.poll()[0])
-            output = drain(queue)
-            self.assertIn(b"a=t", output)
-            self.assertNotIn(module.PING, output)
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, paced=True, window=0, clock=now)
+        queue.receive(self.frame(1))
+        drain(queue)
+        queue.receive(self.frame(2))
+        self.assertFalse(queue.poll()[0])
+        now.advance(module.PING_TIMEOUT + 1)
+        self.assertTrue(queue.poll()[0])
+        output = drain(queue)
+        self.assertIn(b"a=t", output)
+        self.assertNotIn(module.PING, output)
         self.assertEqual(queue.terminal_input(module.PONG), b"")
         self.assertEqual(queue.terminal_input(module.PONG), module.PONG)
 
     def test_queued_probe_keeps_its_reply_after_pacing_stops(self):
-        queue = module.ImageLifecycle(partial=True, paced=True)
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, paced=True, clock=now)
 
         def blocked(_):
             raise BlockingIOError
 
-        with clock() as now:
-            queue.receive(self.frame(1))
-            self.assertEqual(drain(queue).count(module.PING), 1)
-            queue.receive(self.frame(2) + module.PING)
-            # The second frame prepares a probe, but stdout won't accept it yet.
-            self.assertEqual(queue.write(blocked), 0)
-            now[0] += module.PING_TIMEOUT + 1
-            self.assertTrue(queue.poll()[0])
-            # The queued probe and Herdr's own request both reach the terminal.
-            self.assertEqual(drain(queue).count(module.PING), 2)
+        queue.receive(self.frame(1))
+        self.assertEqual(drain(queue).count(module.PING), 1)
+        queue.receive(self.frame(2) + module.PING)
+        # The second frame prepares a probe, but stdout won't accept it yet.
+        self.assertEqual(queue.write(blocked), 0)
+        now.advance(module.PING_TIMEOUT + 1)
+        self.assertTrue(queue.poll()[0])
+        # The queued probe and Herdr's own request both reach the terminal.
+        self.assertEqual(drain(queue).count(module.PING), 2)
         pong = module.PONG
         self.assertEqual(
             queue.terminal_input(pong + b"a" + pong + b"b" + pong + b"c"),
@@ -382,24 +387,24 @@ class PacingTests(unittest.TestCase):
         )
 
     def test_slow_reply_from_an_answering_terminal_keeps_pacing(self):
-        queue = module.ImageLifecycle(partial=True, paced=True, window=0)
-        with clock() as now:
-            queue.receive(self.frame(1))
-            drain(queue)
-            queue.terminal_input(module.PONG)
-            queue.receive(self.frame(2))
-            drain(queue)
-            # A burst delays this reply well past the no-reply timeout.
-            queue.receive(self.frame(3))
-            now[0] += module.PING_TIMEOUT + 1
-            self.assertFalse(queue.poll()[0])
-            queue.terminal_input(module.PONG)
-            self.assertIn(b"a=t", drain(queue))
-            # A reply that never arrives stops blocking frames, not pacing.
-            queue.receive(self.frame(4))
-            now[0] += module.SLOW_REPLY + 1
-            self.assertTrue(queue.poll()[0])
-            self.assertIn(module.PING, drain(queue))
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, paced=True, window=0, clock=now)
+        queue.receive(self.frame(1))
+        drain(queue)
+        queue.terminal_input(module.PONG)
+        queue.receive(self.frame(2))
+        drain(queue)
+        # A burst delays this reply well past the no-reply timeout.
+        queue.receive(self.frame(3))
+        now.advance(module.PING_TIMEOUT + 1)
+        self.assertFalse(queue.poll()[0])
+        queue.terminal_input(module.PONG)
+        self.assertIn(b"a=t", drain(queue))
+        # A reply that never arrives stops blocking frames, not pacing.
+        queue.receive(self.frame(4))
+        now.advance(module.SLOW_REPLY + 1)
+        self.assertTrue(queue.poll()[0])
+        self.assertIn(module.PING, drain(queue))
 
     def test_small_updates_fit_the_window_but_large_frames_wait(self):
         width, height = 128, 80
@@ -435,31 +440,32 @@ class ScrollTests(unittest.TestCase):
                         for y in range(self.height))
 
     def test_scrolls_send_exact_pixels_before_the_terminal_answers(self):
-        queue = module.ImageLifecycle(partial=True, paced=True, scroll_copy=True)
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, paced=True, scroll_copy=True, clock=now)
         link = Link(queue)
-        with clock():
-            first = self.page(12)
-            queue.receive(herdr_frame(b"9", first, self.width, self.height))
-            link.receive()
-            for start in (16, 20, 16):
-                raw = self.page(start)
-                queue.receive(herdr_frame(b"9", raw, self.width, self.height))
-                # The poll path must allow the scratch copy to bypass the whole-frame gate.
-                self.assertTrue(queue.poll()[0])
-                # Stop after the scratch copy, before repairs or the final copy.
-                prefix = link.receive(limit=200, answer=False)
-                self.assertIn(b"a=c", prefix)
-                self.assertEqual(bytes(link.model.images[b"9"][2]), first)
-                output = link.receive(answer=False)
-                self.assertLess(len(prefix + output), 8 * 1024)
-                self.assertEqual(bytes(link.model.images[b"9"][2]), raw)
-                self.assertFalse(link.model.scratch)
-                first = raw
-            self.assertEqual(link.unanswered, 3)
-            self.assertEqual(link.model.placed_missing, 0)
+        first = self.page(12)
+        queue.receive(herdr_frame(b"9", first, self.width, self.height))
+        link.receive()
+        for start in (16, 20, 16):
+            raw = self.page(start)
+            queue.receive(herdr_frame(b"9", raw, self.width, self.height))
+            # The poll path must allow the scratch copy to bypass the whole-frame gate.
+            self.assertTrue(queue.poll()[0])
+            # Stop after the scratch copy, before repairs or the final copy.
+            prefix = link.receive(limit=200, answer=False)
+            self.assertIn(b"a=c", prefix)
+            self.assertEqual(bytes(link.model.images[b"9"][2]), first)
+            output = link.receive(answer=False)
+            self.assertLess(len(prefix + output), 8 * 1024)
+            self.assertEqual(bytes(link.model.images[b"9"][2]), raw)
+            self.assertFalse(link.model.scratch)
+            first = raw
+        self.assertEqual(link.unanswered, 3)
+        self.assertEqual(link.model.placed_missing, 0)
 
     def test_scroll_reuses_coarse_pixels_then_sharpens_the_latest_frame(self):
-        queue = module.ImageLifecycle(partial=True, paced=True, scroll_copy=True)
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, paced=True, scroll_copy=True, clock=now)
         link = Link(queue)
 
         def enqueue(start):
@@ -467,46 +473,45 @@ class ScrollTests(unittest.TestCase):
             queue.receive(herdr_frame(b"9", raw, self.width, self.height))
             return raw
 
-        with clock() as now:
-            enqueue(0)
-            link.receive()
-            sharp = enqueue(32)
-            self.assertIn(b"a=c", link.receive(answer=False))
-            coarse = bytes(link.model.images[b"9"][2])
-            self.assertNotEqual(coarse, sharp)
-            enqueue(36)
-            latest = enqueue(40)
-            output = link.receive()
-            self.assertIn(b"a=c", output)
-            self.assertEqual(output.count(b"a=p,i=9,"), 1)
-            # The skipped frame is not the base. Pixels in the newly exposed
-            # band from the last sent frame are still coarse after shifting.
-            stride, y = self.width * 4, self.height - 18
-            shown = bytes(link.model.images[b"9"][2])
-            self.assertEqual(shown[y * stride:(y + 1) * stride], coarse[(y + 8) * stride:(y + 9) * stride])
-            self.assertNotEqual(shown, latest)
-            link.settle(now)
+        enqueue(0)
+        link.receive()
+        sharp = enqueue(32)
+        self.assertIn(b"a=c", link.receive(answer=False))
+        coarse = bytes(link.model.images[b"9"][2])
+        self.assertNotEqual(coarse, sharp)
+        enqueue(36)
+        latest = enqueue(40)
+        output = link.receive()
+        self.assertIn(b"a=c", output)
+        self.assertEqual(output.count(b"a=p,i=9,"), 1)
+        # The skipped frame is not the base. Pixels in the newly exposed
+        # band from the last sent frame are still coarse after shifting.
+        stride, y = self.width * 4, self.height - 18
+        shown = bytes(link.model.images[b"9"][2])
+        self.assertEqual(shown[y * stride:(y + 1) * stride], coarse[(y + 8) * stride:(y + 9) * stride])
+        self.assertNotEqual(shown, latest)
+        link.settle(now)
         self.assertEqual(bytes(link.model.images[b"9"][2]), latest)
 
     def test_scrolls_stop_sending_when_unanswered_bytes_fill_the_window(self):
-        queue = module.ImageLifecycle(partial=True, paced=True, scroll_copy=True)
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, paced=True, scroll_copy=True, clock=now)
         link = Link(queue)
-        with clock():
-            queue.receive(herdr_frame(b"9", self.page(0), self.width, self.height))
-            link.receive()
-            sent = 0
-            for i in range(32):
-                raw = self.page(4 * (1 + i % 2))
-                queue.receive(herdr_frame(b"9", raw, self.width, self.height))
-                sent += len(link.receive(answer=False))
-            self.assertGreater(sent, 32 * 1024)  # More than ordinary edits can pipeline.
-            self.assertLessEqual(sent, 64 * 1024 + 2048)  # Placement/text bytes aren't gated.
-            latest = self.page(12)
-            queue.receive(herdr_frame(b"9", latest, self.width, self.height))
-            self.assertNotIn(b"a=c", link.receive(answer=False))
-            link.receive()  # Acknowledge the in-flight deltas.
-            self.assertIn(b"a=c", link.receive())
-            self.assertEqual(bytes(link.model.images[b"9"][2]), latest)
+        queue.receive(herdr_frame(b"9", self.page(0), self.width, self.height))
+        link.receive()
+        sent = 0
+        for i in range(32):
+            raw = self.page(4 * (1 + i % 2))
+            queue.receive(herdr_frame(b"9", raw, self.width, self.height))
+            sent += len(link.receive(answer=False))
+        self.assertGreater(sent, 32 * 1024)  # More than ordinary edits can pipeline.
+        self.assertLessEqual(sent, 64 * 1024 + 2048)  # Placement/text bytes aren't gated.
+        latest = self.page(12)
+        queue.receive(herdr_frame(b"9", latest, self.width, self.height))
+        self.assertNotIn(b"a=c", link.receive(answer=False))
+        link.receive()  # Acknowledge the in-flight deltas.
+        self.assertIn(b"a=c", link.receive())
+        self.assertEqual(bytes(link.model.images[b"9"][2]), latest)
 
     def test_unrelated_content_keeps_the_existing_whole_frame_path(self):
         queue = module.ImageLifecycle(partial=True, scroll_copy=True)
@@ -525,25 +530,25 @@ class MotionTests(unittest.TestCase):
     def test_frames_in_motion_are_coarse_then_sharpened(self):
         rng = random.Random(4)
         frames = [bytes(rng.getrandbits(8) for _ in range(self.width * self.height * 4)) for _ in range(3)]
-        queue = module.ImageLifecycle(partial=True, paced=True, window=0)
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, paced=True, window=0, clock=now)
         link = Link(queue)
-        with clock() as now:
-            queue.receive(herdr_frame(b"9", frames[0], self.width, self.height))
-            link.receive(answer=False)
-            # The next frames arrive while the first is unanswered: motion.
-            for raw in frames[1:]:
-                queue.receive(herdr_frame(b"9", raw, self.width, self.height))
-            link.receive()  # Answers the first frame's request.
-            link.receive()
-            coarse = module.coarse(frames[2], self.width, self.height, 4)
-            self.assertEqual(bytes(link.model.images[b"9"][2]), coarse)
-            # With no new I/O, the advertised timeout wakes the sharp redraw.
-            writable, timeout = queue.poll()
-            self.assertFalse(writable)
-            self.assertIsNotNone(timeout)
-            now[0] += timeout + 0.001
-            queue.tick()
-            link.receive()
+        queue.receive(herdr_frame(b"9", frames[0], self.width, self.height))
+        link.receive(answer=False)
+        # The next frames arrive while the first is unanswered: motion.
+        for raw in frames[1:]:
+            queue.receive(herdr_frame(b"9", raw, self.width, self.height))
+        link.receive()  # Answers the first frame's request.
+        link.receive()
+        coarse = module.coarse(frames[2], self.width, self.height, 4)
+        self.assertEqual(bytes(link.model.images[b"9"][2]), coarse)
+        # With no new I/O, the advertised timeout wakes the sharp redraw.
+        writable, timeout = queue.poll()
+        self.assertFalse(writable)
+        self.assertIsNotNone(timeout)
+        now.advance(timeout + 0.001)
+        queue.tick()
+        link.receive()
         self.assertEqual(bytes(link.model.images[b"9"][2]), frames[2])
 
     def test_coarse_frames_are_much_smaller(self):
@@ -585,19 +590,19 @@ class HiddenImageTests(unittest.TestCase):
         self.assertEqual(model.placed_missing, 0)
 
     def test_held_delete_wakes_the_link_without_more_herdr_output(self):
-        queue = module.ImageLifecycle(partial=True)
-        with clock() as now:
-            queue.receive(herdr_frame(b"9", self.pixels(1), self.width, self.height))
-            drain(queue)
-            queue.receive(APC + b"a=d,d=I,i=9,q=2;" + ST)
-            writable, timeout = queue.poll()
-            self.assertFalse(writable)
-            self.assertIsNotNone(timeout)
-            queue.tick()
-            self.assertEqual(drain(queue), b"")
-            now[0] += timeout + 0.001
-            queue.tick()
-            self.assertIn(b"a=d,d=i,i=9,", drain(queue))
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, clock=now)
+        queue.receive(herdr_frame(b"9", self.pixels(1), self.width, self.height))
+        drain(queue)
+        queue.receive(APC + b"a=d,d=I,i=9,q=2;" + ST)
+        writable, timeout = queue.poll()
+        self.assertFalse(writable)
+        self.assertIsNotNone(timeout)
+        queue.tick()
+        self.assertEqual(drain(queue), b"")
+        now.advance(timeout + 0.001)
+        queue.tick()
+        self.assertIn(b"a=d,d=i,i=9,", drain(queue))
 
     def test_oldest_hidden_image_is_deleted_and_later_sent_whole(self):
         queue = module.ImageLifecycle(partial=True)
@@ -749,22 +754,22 @@ class LinkTests(unittest.TestCase):
     def run_link(self, seed, partial, step=None, paced=False, window=module.WINDOW):
         """Feed frames to the proxy while a slow link drains random amounts."""
         rng = random.Random(seed + 1)
-        queue = module.ImageLifecycle(partial=partial, paced=paced, window=window)
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=partial, paced=paced, window=window, clock=now)
         link, sent, last = Link(queue), 0, None
-        with clock() as now:
-            for raw in self.frames(seed, 40):
-                now[0] += rng.random() * 0.2
-                if rng.random() < 0.1:
-                    # Switching tabs deletes the image with no upload behind it.
-                    queue.receive(APC + b"a=d,d=I,i=9,q=2;" + ST + b"\x1b[Hother tab")
-                last = raw
-                queue.receive(herdr_frame(b"9", raw, self.width, self.height))
-                queue.tick()
-                # The terminal answers status requests some time after receiving them.
-                sent += len(link.receive(limit=step or rng.randrange(1, 300), answer=rng.random() < 0.5))
-            queue.finish()
-            link.receive()
-            link.settle(now)
+        for raw in self.frames(seed, 40):
+            now.advance(rng.random() * 0.2)
+            if rng.random() < 0.1:
+                # Switching tabs deletes the image with no upload behind it.
+                queue.receive(APC + b"a=d,d=I,i=9,q=2;" + ST + b"\x1b[Hother tab")
+            last = raw
+            queue.receive(herdr_frame(b"9", raw, self.width, self.height))
+            queue.tick()
+            # The terminal answers status requests some time after receiving them.
+            sent += len(link.receive(limit=step or rng.randrange(1, 300), answer=rng.random() < 0.5))
+        queue.finish()
+        link.receive()
+        link.settle(now)
         return link, last, sent
 
     def test_terminal_ends_on_the_newest_frame_over_any_link_speed(self):
@@ -782,16 +787,16 @@ class LinkTests(unittest.TestCase):
 
     def test_slowly_streamed_upload_still_becomes_an_edit(self):
         # Herdr streams a large upload over many PTY reads after its delete.
-        queue = module.ImageLifecycle(partial=True)
+        now = FakeClock()
+        queue = module.ImageLifecycle(partial=True, clock=now)
         frames = list(self.frames(5, 2))
         queue.receive(herdr_frame(b"9", frames[0], self.width, self.height))
         drain(queue)
         stream = herdr_frame(b"9", frames[1], self.width, self.height)
-        with clock() as now:
-            for index in range(0, len(stream), 512):
-                queue.receive(stream[index:index + 512])
-                now[0] += module.HOLD_SECONDS * 2
-                queue.tick()
+        for index in range(0, len(stream), 512):
+            queue.receive(stream[index:index + 512])
+            now.advance(module.HOLD_SECONDS * 2)
+            queue.tick()
         output = drain(queue)
         self.assertIn(b"a=f,i=9,", output)
         model = KittyModel()
