@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import { readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { readFileSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	CODEX_PROXY_LOGO,
+	cachedProxyPercentUsed,
 	codexAccountKey,
 	hasQuota,
 	isProxySnapshotStale,
@@ -20,38 +21,40 @@ import {
 	parseCachedCopilotUsage,
 	parseCopilotUsage,
 } from "./copilot-usage";
-import {
-	acquireSharedFileLease,
-	isLockCompromisedError,
-	isLockContentionError,
-	type SharedFileLease,
-} from "./file-lease";
 import type {
 	AuthCredentialLike,
 	ModelLike,
 	ModelRegistryLike,
 	ProviderUsageContext,
 } from "./pi-types";
-import { isUsageCacheFresh, usageSnapshotFreshness } from "./usage-freshness";
 import {
-	RETRYABLE_USAGE_STATUS_CODES,
-	usageRetryDelayMs,
-	waitForRetry,
-} from "./usage-retry";
+	isUsageCacheFresh,
+	runLeasedRefresh,
+	updateLeasedJsonFile,
+	usageSnapshotFreshness,
+} from "./usage-cache";
+import {
+	formatProviderScope,
+	isRecord,
+	nestedRecord,
+	numericField,
+	PROVIDER_BADGE_SEPARATOR,
+	type ProviderUsageScope,
+	parseOpenAiUsageBody,
+	parseUtilization,
+} from "./usage-quota";
+import { retryUsageRequest } from "./usage-retry";
 
 const PROVIDER_USAGE_FETCH_TIMEOUT_MS = 5000;
-const PROVIDER_USAGE_REFRESH_LOCK_STALE_MS = 20 * 1000;
-const PROVIDER_USAGE_REFRESH_LOCK_UPDATE_MS = 5 * 1000;
-const PROVIDER_USAGE_REFRESH_RETRY_MS = 100;
-const PROVIDER_USAGE_REFRESH_RETRIES = 550;
 const PROVIDER_USAGE_FETCH_MAX_ATTEMPTS = 3;
 const PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS = 50;
 const PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS = 1000;
 const PROVIDER_USAGE_RETRY_MAX_DELAY_MS = 20_000;
-export const PROVIDER_BADGE_SEPARATOR = " · ";
 const OPENAI_LOGO = "\u{F0004}";
 const OPENROUTER_LOGO = "\u{F0469}";
 const GITHUB_LOGO = "\uF09B";
+
+export type { ProviderUsageScope } from "./usage-quota";
 
 type ThemeLike = {
 	fg(color: string, text: string): string;
@@ -59,23 +62,6 @@ type ThemeLike = {
 
 type ProviderUsageAuthKind = "oauth" | "api_key" | "unknown";
 type ProviderUsageState = "ready" | "unknown" | "error" | "unsupported";
-
-export type ProviderUsageScope = {
-	sessionPercentUsed?: number;
-	sessionResetAt?: number;
-	weeklyPercentUsed?: number;
-	weeklyResetAt?: number;
-	monthlyPercentUsed?: number;
-	monthlyResetAt?: number;
-	percentUsed?: number;
-	resetAt?: number;
-	/** Reported duration of an unclassified quota window; never inferred from plan. */
-	windowSeconds?: number;
-	availableResets?: number;
-	balanceUsd?: number;
-	creditsUsd?: number;
-	spendUsd?: number;
-};
 
 export type ProviderUsageStatus = {
 	providerId: string;
@@ -139,10 +125,6 @@ let availableModelsCache = new WeakMap<
 let providerUsageInvalidation = 0;
 let providerUsageDiscoveryId = 0;
 let providerUsageResolutionId = 0;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function sharedCachePath(): string {
 	return (
@@ -274,61 +256,38 @@ function hydrateSharedCache(): void {
 }
 
 async function persistSharedCache(): Promise<void> {
-	const path = sharedCachePath();
-
-	let lease: SharedFileLease;
-	try {
-		lease = await acquireProviderFileLease(path, 10);
-	} catch {
-		return;
-	}
-
-	const temporaryPath = `${path}.${process.pid}.tmp`;
-	try {
-		lease.assertOwned();
-		const merged = readSharedCache();
-		for (const [key, memoryEntry] of providerUsageCache) {
-			const diskEntry = merged.get(key);
-			if (
-				!diskEntry ||
-				(memoryEntry.lastAttemptAt ?? 0) >= (diskEntry.lastAttemptAt ?? 0)
-			) {
-				merged.set(key, memoryEntry);
+	await updateLeasedJsonFile(
+		sharedCachePath(),
+		() => {
+			const merged = readSharedCache();
+			for (const [key, memoryEntry] of providerUsageCache) {
+				const diskEntry = merged.get(key);
+				if (
+					!diskEntry ||
+					(memoryEntry.lastAttemptAt ?? 0) >= (diskEntry.lastAttemptAt ?? 0)
+				) {
+					merged.set(key, memoryEntry);
+				}
 			}
-		}
 
-		const entries = Object.fromEntries(
-			[...merged.entries()].map(([key, entry]) => [
-				key,
-				{
-					providerId: entry.providerId,
-					authKind: entry.authKind,
-					state: entry.state,
-					scope: entry.scope,
-					copilot: entry.copilot,
-					fetchedAt: entry.fetchedAt,
-					lastAttemptAt: entry.lastAttemptAt,
-				},
-			]),
-		);
-		writeFileSync(temporaryPath, `${JSON.stringify({ entries })}\n`, {
-			mode: 0o600,
-		});
-		lease.assertOwned();
-		renameSync(temporaryPath, path);
-	} catch {
-		try {
-			unlinkSync(temporaryPath);
-		} catch {
-			// Best-effort cache writes must not affect the statusline.
-		}
-	} finally {
-		try {
-			await lease.release();
-		} catch {
-			// A compromised lease is already reported by the refresh owner.
-		}
-	}
+			const entries = Object.fromEntries(
+				[...merged.entries()].map(([key, entry]) => [
+					key,
+					{
+						providerId: entry.providerId,
+						authKind: entry.authKind,
+						state: entry.state,
+						scope: entry.scope,
+						copilot: entry.copilot,
+						fetchedAt: entry.fetchedAt,
+						lastAttemptAt: entry.lastAttemptAt,
+					},
+				]),
+			);
+			return { entries };
+		},
+		{ retries: 10 },
+	);
 }
 
 function credentialFingerprint(value: string): string {
@@ -337,18 +296,6 @@ function credentialFingerprint(value: string): string {
 
 function providerRefreshLeasePath(cacheKey: string): string {
 	return `${sharedCachePath()}.refresh-${credentialFingerprint(cacheKey)}`;
-}
-
-function acquireProviderFileLease(
-	lockPath: string,
-	retries = PROVIDER_USAGE_REFRESH_RETRIES,
-): Promise<SharedFileLease> {
-	return acquireSharedFileLease(lockPath, {
-		stale: PROVIDER_USAGE_REFRESH_LOCK_STALE_MS,
-		update: PROVIDER_USAGE_REFRESH_LOCK_UPDATE_MS,
-		retries,
-		retryMs: PROVIDER_USAGE_REFRESH_RETRY_MS,
-	});
 }
 
 function normalizeProviderId(providerId: string): string {
@@ -410,6 +357,16 @@ function credentialScopedKey(
 }
 
 /** Model routing uses the last recorded value, without refreshing OAuth or usage. */
+export function cachedProviderPercentUsed(
+	providerId: string,
+	ctx: ProviderUsageContext,
+): number | undefined {
+	const normalized = normalizeProviderId(providerId);
+	if (normalized === "github-copilot") return cachedCopilotPercentUsed(ctx);
+	if (normalized === "cliproxyapi") return cachedProxyPercentUsed();
+	return undefined;
+}
+
 export function cachedCopilotPercentUsed(
 	ctx: ProviderUsageContext,
 ): number | undefined {
@@ -877,33 +834,6 @@ function normalizeBaseUrl(url: string): string {
 	return url.trim().replace(/\/+$/, "");
 }
 
-function numericField(value: unknown): number | undefined {
-	if (typeof value === "number" && Number.isFinite(value)) return value;
-	if (typeof value !== "string") return undefined;
-	const parsed = Number(value);
-	return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function timestampMillis(value: unknown): number | undefined {
-	const numeric = numericField(value);
-	if (numeric !== undefined) {
-		const timestamp =
-			Math.abs(numeric) < 1_000_000_000_000 ? numeric * 1000 : numeric;
-		return timestamp > 0 ? timestamp : undefined;
-	}
-	if (typeof value !== "string") return undefined;
-	const timestamp = Date.parse(value);
-	return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
-}
-
-function nestedRecord(
-	value: Record<string, unknown>,
-	key: string,
-): Record<string, unknown> | undefined {
-	const child = value[key];
-	return isRecord(child) ? child : undefined;
-}
-
 function retryAfterMs(response: Response): number | undefined {
 	const value = response.headers.get("retry-after")?.trim();
 	if (!value) return undefined;
@@ -917,48 +847,25 @@ function retryAfterMs(response: Response): number | undefined {
 		: undefined;
 }
 
-function providerUsageRetryDelayMs(retry: number, status?: number): number {
-	return usageRetryDelayMs(retry, {
-		status,
-		transientBaseMs: PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS,
-		throttleBaseMs: PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS,
-		maxDelayMs: PROVIDER_USAGE_RETRY_MAX_DELAY_MS,
-	});
-}
-
 async function fetchProviderUsageResponse(
 	url: string,
 	init: RequestInit,
 ): Promise<Response> {
-	for (
-		let attempt = 0;
-		attempt < PROVIDER_USAGE_FETCH_MAX_ATTEMPTS;
-		attempt++
-	) {
-		try {
-			const response = await fetch(url, {
+	return retryUsageRequest(
+		() =>
+			fetch(url, {
 				...init,
 				signal: AbortSignal.timeout(PROVIDER_USAGE_FETCH_TIMEOUT_MS),
-			});
-			const canRetry =
-				attempt < PROVIDER_USAGE_FETCH_MAX_ATTEMPTS - 1 &&
-				RETRYABLE_USAGE_STATUS_CODES.has(response.status);
-			if (!canRetry) return response;
-
-			const serverDelay = retryAfterMs(response);
-			if (serverDelay !== undefined) {
-				if (serverDelay > PROVIDER_USAGE_RETRY_MAX_DELAY_MS) return response;
-				await waitForRetry(serverDelay);
-			} else {
-				await waitForRetry(providerUsageRetryDelayMs(attempt, response.status));
-			}
-		} catch (error) {
-			if (attempt === PROVIDER_USAGE_FETCH_MAX_ATTEMPTS - 1) throw error;
-			await waitForRetry(providerUsageRetryDelayMs(attempt));
-		}
-	}
-
-	throw new Error("Provider usage retry attempts exhausted");
+			}),
+		{
+			maxAttempts: PROVIDER_USAGE_FETCH_MAX_ATTEMPTS,
+			transientBaseMs: PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS,
+			throttleBaseMs: PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS,
+			maxDelayMs: PROVIDER_USAGE_RETRY_MAX_DELAY_MS,
+			statusOf: (response) => response.status,
+			serverDelayMs: retryAfterMs,
+		},
+	);
 }
 
 async function fetchJson(
@@ -968,15 +875,6 @@ async function fetchJson(
 	const response = await fetchProviderUsageResponse(url, init);
 	if (!response.ok) return undefined;
 	return response.json();
-}
-
-function clampPercent(value: number): number {
-	return Math.max(0, Math.min(100, value));
-}
-
-function parseUtilization(value: unknown): number | undefined {
-	const numeric = numericField(value);
-	return numeric === undefined ? undefined : clampPercent(numeric);
 }
 
 async function fetchOpenRouterKeyStatus(
@@ -1109,87 +1007,6 @@ async function fetchAnthropicOAuthUsage(
 	return sessionPercentUsed !== undefined || weeklyPercentUsed !== undefined
 		? { sessionPercentUsed, weeklyPercentUsed }
 		: undefined;
-}
-
-type OpenAiUsageWindowKind = "session" | "weekly" | "monthly" | "unknown";
-
-function openAiWindowPercent(
-	window: Record<string, unknown> | undefined,
-): number | undefined {
-	return window
-		? parseUtilization(
-				window.used_percent ?? window.used_percentage ?? window.utilization,
-			)
-		: undefined;
-}
-
-function openAiWindowResetAt(
-	window: Record<string, unknown> | undefined,
-): number | undefined {
-	return window
-		? timestampMillis(window.reset_at ?? window.resets_at ?? window.resetAt)
-		: undefined;
-}
-
-function openAiWindowKind(
-	window: Record<string, unknown> | undefined,
-	fallback: OpenAiUsageWindowKind,
-): OpenAiUsageWindowKind {
-	const durationSeconds = window
-		? numericField(window.limit_window_seconds)
-		: undefined;
-	if (durationSeconds === undefined) return fallback;
-
-	const daySeconds = 24 * 60 * 60;
-	if (durationSeconds === 5 * 60 * 60) return "session";
-	if (durationSeconds === 7 * daySeconds) return "weekly";
-	const days = durationSeconds / daySeconds;
-	if (Number.isInteger(days) && days >= 28 && days <= 31) return "monthly";
-	return "unknown";
-}
-
-export function parseOpenAiUsageBody(
-	body: unknown,
-): ProviderUsageScope | undefined {
-	if (!isRecord(body)) return undefined;
-
-	const rateLimit = nestedRecord(body, "rate_limit");
-	const primary = rateLimit
-		? nestedRecord(rateLimit, "primary_window")
-		: undefined;
-	const secondary = rateLimit
-		? nestedRecord(rateLimit, "secondary_window")
-		: undefined;
-	const credits = nestedRecord(body, "credits");
-	const scope: ProviderUsageScope = {};
-	for (const [window, fallbackKind] of [
-		[primary, "session"],
-		[secondary, "weekly"],
-	] satisfies [Record<string, unknown> | undefined, OpenAiUsageWindowKind][]) {
-		const percentUsed = openAiWindowPercent(window);
-		if (percentUsed === undefined) continue;
-		const kind = openAiWindowKind(window, fallbackKind);
-		const percentKey =
-			kind === "unknown" ? "percentUsed" : (`${kind}PercentUsed` as const);
-		const resetKey =
-			kind === "unknown" ? "resetAt" : (`${kind}ResetAt` as const);
-		// Preserve the most restrictive observation and its corresponding reset.
-		if (scope[percentKey] !== undefined && percentUsed < scope[percentKey])
-			continue;
-		scope[percentKey] = percentUsed;
-		scope[resetKey] = openAiWindowResetAt(window);
-		if (kind === "unknown")
-			scope.windowSeconds = numericField(window?.limit_window_seconds);
-	}
-	const balanceUsd =
-		credits?.has_credits === true
-			? numericField(
-					credits.balance ?? credits.remaining ?? credits.remaining_credits,
-				)
-			: undefined;
-
-	if (balanceUsd !== undefined) scope.balanceUsd = balanceUsd;
-	return Object.keys(scope).length > 0 ? scope : undefined;
 }
 
 function parseOpenAiResetCreditsBody(
@@ -1379,113 +1196,120 @@ async function refreshProviderUsageTarget(
 ): Promise<boolean> {
 	const beforeAttemptAt =
 		providerUsageCache.get(access.cacheKey)?.lastAttemptAt ?? 0;
-	let lease: SharedFileLease;
-	try {
-		lease = await acquireProviderFileLease(
-			providerRefreshLeasePath(access.cacheKey),
-		);
-	} catch (error) {
+	const outcome = await runLeasedRefresh(
+		providerRefreshLeasePath(access.cacheKey),
+		async (lease) => {
+			// Another process may have refreshed while this process acquired the lease.
+			const advanced = hydrateEntryIfAdvanced(access.cacheKey, beforeAttemptAt);
+			const hydratedEntry = providerUsageCache.get(access.cacheKey);
+			if (isUsageCacheFresh(hydratedEntry)) return advanced;
+
+			const previousEntry = hydratedEntry;
+			let entry: ProviderUsageCacheEntry;
+			try {
+				const status = await fetchProviderUsage(target, access);
+				const completedAt = status.fetchedAt ?? Date.now();
+				entry = {
+					...status,
+					scope:
+						status.scope ??
+						(status.state === "unknown" ? previousEntry?.scope : undefined),
+					copilot:
+						status.copilot ??
+						(status.state === "unknown" ? previousEntry?.copilot : undefined),
+					fetchedAt:
+						status.scope ||
+						status.copilot ||
+						!(previousEntry?.scope || previousEntry?.copilot)
+							? completedAt
+							: previousEntry.fetchedAt,
+					lastAttemptAt: completedAt,
+				};
+				if (status.state === "unknown") {
+					reportProviderUsageIssue(
+						ctx,
+						target,
+						"provider returned no usage data",
+					);
+				}
+			} catch (error) {
+				const completedAt = Date.now();
+				entry = {
+					providerId: target.providerId,
+					authKind: target.authKind,
+					state: "error",
+					scope: previousEntry?.scope,
+					copilot: previousEntry?.copilot,
+					fetchedAt:
+						previousEntry?.scope || previousEntry?.copilot
+							? previousEntry.fetchedAt
+							: completedAt,
+					lastAttemptAt: completedAt,
+				};
+				reportProviderUsageIssue(
+					ctx,
+					target,
+					error instanceof Error ? error.message : String(error),
+				);
+			}
+
+			lease.assertOwned();
+			if (fetchId !== providerUsageInvalidation) return false;
+			providerUsageCache.set(access.cacheKey, entry);
+			await persistSharedCache();
+			return true;
+		},
+		{
+			onReleaseError: (error) => {
+				reportProviderUsageIssue(
+					ctx,
+					target,
+					`failed to release refresh lease: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			},
+		},
+	);
+
+	if (outcome.status === "ok") return outcome.value;
+	if (outcome.status === "contended") {
 		const advanced = hydrateEntryIfAdvanced(access.cacheKey, beforeAttemptAt);
 		if (!isUsageCacheFresh(providerUsageCache.get(access.cacheKey))) {
 			reportProviderUsageIssue(
 				ctx,
 				target,
-				isLockContentionError(error)
-					? "timed out waiting for another process"
-					: `failed to acquire refresh lease: ${error instanceof Error ? error.message : String(error)}`,
+				"timed out waiting for another process",
 			);
 		}
 		return advanced;
 	}
-
-	try {
-		lease.assertOwned();
-		// Another process may have refreshed while this process acquired the lease.
+	if (outcome.status === "compromised") {
 		const advanced = hydrateEntryIfAdvanced(access.cacheKey, beforeAttemptAt);
-		const hydratedEntry = providerUsageCache.get(access.cacheKey);
-		if (isUsageCacheFresh(hydratedEntry)) return advanced;
-
-		const previousEntry = hydratedEntry;
-		let entry: ProviderUsageCacheEntry;
-		try {
-			const status = await fetchProviderUsage(target, access);
-			const completedAt = status.fetchedAt ?? Date.now();
-			entry = {
-				...status,
-				scope:
-					status.scope ??
-					(status.state === "unknown" ? previousEntry?.scope : undefined),
-				copilot:
-					status.copilot ??
-					(status.state === "unknown" ? previousEntry?.copilot : undefined),
-				fetchedAt:
-					status.scope ||
-					status.copilot ||
-					!(previousEntry?.scope || previousEntry?.copilot)
-						? completedAt
-						: previousEntry.fetchedAt,
-				lastAttemptAt: completedAt,
-			};
-			if (status.state === "unknown") {
-				reportProviderUsageIssue(
-					ctx,
-					target,
-					"provider returned no usage data",
-				);
-			}
-		} catch (error) {
-			const completedAt = Date.now();
-			entry = {
-				providerId: target.providerId,
-				authKind: target.authKind,
-				state: "error",
-				scope: previousEntry?.scope,
-				copilot: previousEntry?.copilot,
-				fetchedAt:
-					previousEntry?.scope || previousEntry?.copilot
-						? previousEntry.fetchedAt
-						: completedAt,
-				lastAttemptAt: completedAt,
-			};
-			reportProviderUsageIssue(
-				ctx,
-				target,
-				error instanceof Error ? error.message : String(error),
-			);
-		}
-
-		lease.assertOwned();
-		if (fetchId !== providerUsageInvalidation) return false;
-		providerUsageCache.set(access.cacheKey, entry);
-		await persistSharedCache();
-		return true;
-	} catch (error) {
-		if (isLockCompromisedError(error)) {
-			const advanced = hydrateEntryIfAdvanced(access.cacheKey, beforeAttemptAt);
-			reportProviderUsageIssue(
-				ctx,
-				target,
-				`refresh lease was compromised: ${error instanceof Error ? error.message : String(error)}`,
-			);
-			return advanced;
-		}
 		reportProviderUsageIssue(
 			ctx,
 			target,
-			error instanceof Error ? error.message : String(error),
+			`refresh lease was compromised: ${outcome.error.message}`,
 		);
-		return false;
-	} finally {
-		try {
-			await lease.release();
-		} catch (error) {
+		return advanced;
+	}
+	if (outcome.phase === "acquire") {
+		const advanced = hydrateEntryIfAdvanced(access.cacheKey, beforeAttemptAt);
+		if (!isUsageCacheFresh(providerUsageCache.get(access.cacheKey))) {
 			reportProviderUsageIssue(
 				ctx,
 				target,
-				`failed to release refresh lease: ${error instanceof Error ? error.message : String(error)}`,
+				`failed to acquire refresh lease: ${outcome.error instanceof Error ? outcome.error.message : String(outcome.error)}`,
 			);
 		}
+		return advanced;
 	}
+	reportProviderUsageIssue(
+		ctx,
+		target,
+		outcome.error instanceof Error
+			? outcome.error.message
+			: String(outcome.error),
+	);
+	return false;
 }
 
 async function queueProviderUsageRefresh(
@@ -1736,126 +1560,6 @@ export function providerDisplayLabel(providerId: string): string {
 		default:
 			return providerId;
 	}
-}
-
-function formatPercentValue(percent: number): string {
-	return Math.round(percent).toString();
-}
-
-function formatPercent(percent: number): string {
-	return `${formatPercentValue(percent)}%`;
-}
-
-function formatMoney(value: number): string {
-	return `$${value.toFixed(2)}`;
-}
-
-function formatLabeledPercent(label: string, percent: number): string {
-	return `${label}${formatPercent(percent)}`;
-}
-
-function formatResetCountdown(timestamp: number): string {
-	const remainingMinutes = Math.max(
-		0,
-		Math.ceil((timestamp - Date.now()) / 60_000),
-	);
-	if (remainingMinutes < 60) return `${remainingMinutes}m`;
-	if (remainingMinutes < 24 * 60) return `${Math.ceil(remainingMinutes / 60)}h`;
-	return `${Math.ceil(remainingMinutes / (24 * 60))}d`;
-}
-
-function formatWindowDuration(seconds: number | undefined): string | undefined {
-	if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0)
-		return undefined;
-	for (const [unit, size] of [
-		["d", 86400],
-		["h", 3600],
-		["m", 60],
-		["s", 1],
-	] as const) {
-		if (seconds % size === 0) return `${seconds / size}${unit}`;
-	}
-	return `${seconds}s`;
-}
-
-export function formatProviderScope(
-	scope: ProviderUsageScope | undefined,
-): string | undefined {
-	if (!scope) return undefined;
-	const percentageCandidates: {
-		label?: string;
-		value: number | undefined;
-		resetAt?: number;
-		duration?: string;
-	}[] = [
-		{
-			label: "S",
-			value: scope.sessionPercentUsed,
-			resetAt: scope.sessionResetAt,
-		},
-		{
-			label: "W",
-			value: scope.weeklyPercentUsed,
-			resetAt: scope.weeklyResetAt,
-		},
-		{
-			label: "M",
-			value: scope.monthlyPercentUsed,
-			resetAt: scope.monthlyResetAt,
-		},
-		{
-			value: scope.percentUsed,
-			resetAt: scope.resetAt,
-			duration: formatWindowDuration(scope.windowSeconds),
-		},
-	];
-	const percentages = percentageCandidates.filter(
-		(
-			entry,
-		): entry is {
-			label?: string;
-			value: number;
-			resetAt?: number;
-			duration?: string;
-		} =>
-			entry.value !== undefined &&
-			Number.isFinite(entry.value) &&
-			(entry.resetAt === undefined || entry.resetAt > Date.now()),
-	);
-	const resets =
-		scope.availableResets !== undefined && scope.availableResets > 0
-			? `↻${Math.floor(scope.availableResets)}`
-			: undefined;
-	let scopeText: string | undefined;
-	if (percentages.length > 0) {
-		const showScopeLabels = percentages.length > 1;
-		scopeText = percentages
-			.map(({ label, value, resetAt, duration }, index) => {
-				const percentage = duration
-					? `${duration} ${formatPercent(value)}`
-					: showScopeLabels && label
-						? formatLabeledPercent(label, value)
-						: formatPercent(value);
-				const details: string[] = [];
-				if (resetAt !== undefined) details.push(formatResetCountdown(resetAt));
-				if (index === percentages.length - 1 && resets) details.push(resets);
-				return details.length > 0
-					? `${percentage} (${details.join(" ")})`
-					: percentage;
-			})
-			.join("/");
-	} else if (scope.balanceUsd !== undefined) {
-		scopeText = formatMoney(scope.balanceUsd);
-	} else if (scope.creditsUsd !== undefined) {
-		scopeText = formatMoney(scope.creditsUsd);
-	} else if (scope.spendUsd !== undefined) {
-		scopeText = formatMoney(scope.spendUsd);
-	}
-
-	if (resets && percentages.length === 0) {
-		return scopeText ? `${scopeText} (${resets})` : `(${resets})`;
-	}
-	return scopeText;
 }
 
 function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {

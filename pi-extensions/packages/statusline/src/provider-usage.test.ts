@@ -2,23 +2,23 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import lockfile from "proper-lockfile";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
 
 import {
+	cachedProviderPercentUsed,
 	discoverProviderUsageTargets,
-	formatProviderScope,
 	formatProviderUsage,
 	invalidateProviderUsageCache,
 	mappedProviderUsageFamily,
 	type ProviderUsageTarget,
-	parseOpenAiUsageBody,
 	providerUsageCopilot,
 	refreshProviderUsage,
 	renderProviderUsage,
 } from "./provider-usage";
+import * as usageCache from "./usage-cache";
+import { formatProviderScope, parseOpenAiUsageBody } from "./usage-quota";
 
 const theme = { fg: (_color: string, text: string) => text };
 const OPENAI_LOGO = "\u{F0004}";
@@ -1701,22 +1701,24 @@ describe("provider usage", () => {
 		invalidateProviderUsageCache();
 		writeFileSync(cachePath, JSON.stringify(seeded));
 
-		const lockSpy = vi.spyOn(lockfile, "lock");
+		const refreshSpy = vi.spyOn(usageCache, "runLeasedRefresh");
 
 		// Non-contention lock error must not misreport contention timeout.
-		lockSpy.mockRejectedValueOnce(
-			Object.assign(new Error("permission denied"), { code: "EACCES" }),
-		);
+		refreshSpy.mockResolvedValueOnce({
+			status: "error",
+			phase: "acquire",
+			error: Object.assign(new Error("permission denied"), { code: "EACCES" }),
+		});
 		await refreshAndWait(ctx, targets);
 		expect(errors).toEqual([
 			"Provider usage (anthropic): failed to acquire refresh lease: permission denied",
 		]);
 
-		// Compromised lease hydrates fresh peer cache, notifies onUpdate even if an
-		// intervening render already hydrated memory, and skips redundant release errors.
+		// Compromised lease hydrates fresh peer cache and notifies onUpdate even if an
+		// intervening render already hydrated memory.
 		errors.length = 0;
 		const freshAt = Date.now();
-		lockSpy.mockImplementationOnce(async (_target, opts) => {
+		refreshSpy.mockImplementationOnce(async () => {
 			writeFileSync(
 				cachePath,
 				JSON.stringify({
@@ -1734,13 +1736,11 @@ describe("provider usage", () => {
 			);
 			// Simulate a concurrent render hydrating the peer cache mid-flight.
 			expect(render(targets)).toBe("Anthropic 27%");
-			opts?.onCompromised?.(
-				Object.assign(new Error("lock compromised"), { code: "ECOMPROMISED" }),
-			);
-			return async () => {
-				throw Object.assign(new Error("not acquired"), {
-					code: "ENOTACQUIRED",
-				});
+			return {
+				status: "compromised",
+				error: Object.assign(new Error("lock compromised"), {
+					code: "ECOMPROMISED",
+				}),
 			};
 		});
 		const onUpdate = vi.fn();
@@ -1750,5 +1750,86 @@ describe("provider usage", () => {
 		expect(errors).toEqual([
 			"Provider usage (anthropic): refresh lease was compromised: lock compromised",
 		]);
+	});
+
+	test("cachedProviderPercentUsed reads recorded Copilot and proxy values across expired TTLs while ignoring mismatched credentials and disabled accounts", () => {
+		const stamp = 946684800000;
+		const copilotPath = join(sharedTestRoot, "cached-routing-provider.json");
+		const proxyPath = join(sharedTestRoot, "cached-routing-proxy.json");
+		vi.stubEnv("PI_PROVIDER_USAGE_CACHE_PATH", copilotPath);
+		vi.stubEnv("PI_CLIPROXY_USAGE_CACHE_PATH", proxyPath);
+		vi.stubEnv("CLIPROXYAPI_BASE_URL", "https://example.invalid/v1");
+		vi.stubEnv("CLIPROXYAPI_MANAGEMENT_KEY", "test-management-key");
+
+		const hash = (value: string) =>
+			createHash("sha256").update(value).digest("hex");
+		const targetKey = "github-copilot:oauth";
+		const writeCopilot = (percent: number, identity: string) =>
+			writeFileSync(
+				copilotPath,
+				JSON.stringify({
+					entries: {
+						[`${targetKey}:${hash(`${targetKey}\0${identity}`).slice(0, 16)}`]:
+							{
+								providerId: "github-copilot",
+								authKind: "oauth",
+								state: "error",
+								fetchedAt: stamp,
+								lastAttemptAt: stamp + 1000,
+								copilot: {
+									premium: {
+										unit: "credits",
+										percentUsed: percent,
+										resetAt: stamp,
+									},
+								},
+							},
+					},
+				}),
+			);
+		const writeProxy = (activePercent: number) =>
+			writeFileSync(
+				proxyPath,
+				JSON.stringify({
+					source: hash("https://example.invalid\0test-management-key"),
+					fetchedAt: stamp,
+					accounts: [
+						{
+							provider: "codex",
+							scope: {
+								sessionPercentUsed: 40,
+								weeklyPercentUsed: activePercent,
+								weeklyResetAt: stamp,
+							},
+						},
+						{ provider: "codex", scope: { sessionPercentUsed: 1 } },
+						{
+							provider: "codex",
+							disabled: true,
+							scope: { sessionPercentUsed: 100 },
+						},
+					],
+				}),
+			);
+
+		const ctx = {
+			readStoredCredential: () => ({
+				type: "oauth" as const,
+				refresh: "active-test-grant",
+				access: "test-access",
+				expires: 0,
+			}),
+		};
+
+		writeCopilot(95, "active-test-grant");
+		writeProxy(98);
+		expect(cachedProviderPercentUsed("github-copilot", ctx)).toBe(95);
+		expect(cachedProviderPercentUsed("cliproxyapi", ctx)).toBe(98);
+		expect(cachedProviderPercentUsed("google-vertex", ctx)).toBeUndefined();
+
+		writeCopilot(100, "different-test-grant");
+		writeProxy(94.99);
+		expect(cachedProviderPercentUsed("github-copilot", ctx)).toBeUndefined();
+		expect(cachedProviderPercentUsed("cliproxyapi", ctx)).toBe(94.99);
 	});
 });

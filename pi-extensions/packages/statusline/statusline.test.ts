@@ -18,13 +18,13 @@ vi.mock("@earendil-works/pi-coding-agent", async (original) => ({
 }));
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import statusline from "./index";
 import {
 	FAST_CHANGED_EVENT,
 	FAST_READER_EVENT,
 	type SpeedMode,
 	type SpeedReader,
-} from "./src/cliproxy-fast";
+} from "../cliproxyapi";
+import statusline from "./index";
 import {
 	openAiRegistrationKey,
 	resetProxyUsageForTests,

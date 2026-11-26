@@ -15,9 +15,8 @@ import {
 import {
 	FAST_CHANGED_EVENT,
 	FAST_READER_EVENT,
-	getCliproxySpeed,
 	type SpeedReader,
-} from "./cliproxy-fast";
+} from "../../cliproxyapi";
 import {
 	GIT_REFRESH_INTERVAL_MS,
 	type GitStatus,
@@ -205,7 +204,10 @@ function renderModel(
 	if (modelName.startsWith("Claude ")) modelName = modelName.slice(7);
 
 	const model = color(theme, "model", withIcon(ICONS.model, modelName));
-	const speed = getCliproxySpeed(ctx.model, speedReader);
+	const speed =
+		ctx.model?.provider && ctx.model.id
+			? speedReader?.(ctx.model.provider, ctx.model.id)
+			: undefined;
 	if (!speed) return model;
 	const bolts = ICONS.bolt.repeat(speed === "ultrafast" ? 2 : 1);
 	return `${model} ${theme.fg("warning", bolts)}`;

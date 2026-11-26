@@ -13,3 +13,5 @@
 **SSH image lifecycle**: The progression of a Herdr pane image during an SSH attach. A newer frame may replace an unsent frame; a hidden image can retain its pixels for later reveal, while a released image needs a new upload.
 
 **Workstation cleanup maintenance**: The macOS plan that stops user LaunchAgents, Herdr sessions, and blocking Fish shells holding pruned targets, verifies retained replacements, and refreshes stale ones afterward without mutating system daemons.
+
+**Shared usage cache**: A disposable, cross-process disk snapshot of provider or CLIProxyAPI quota shared by Pi and SketchyBar, coordinated by a file lease and freshness policy so concurrent processes avoid duplicate lookups without storing credentials.

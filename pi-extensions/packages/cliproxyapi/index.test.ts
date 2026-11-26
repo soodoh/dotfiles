@@ -8,11 +8,11 @@ import { registerFastCommands } from "@router-for-me/pi-cliproxyapi-provider/ext
 import { resolveFastDefault } from "@router-for-me/pi-cliproxyapi-provider/extensions/lib";
 import { afterEach, expect, test, vi } from "vitest";
 import {
+	connectCliproxyFast,
 	FAST_CHANGED_EVENT,
 	FAST_READER_EVENT,
 	type SpeedReader,
-} from "../statusline/src/cliproxy-fast";
-import { connectCliproxyFast } from "./index";
+} from "./index";
 
 const directories: string[] = [];
 afterEach(async () => {

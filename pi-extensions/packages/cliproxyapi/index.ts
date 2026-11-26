@@ -1,11 +1,14 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { FastFooterController } from "@router-for-me/pi-cliproxyapi-provider/extensions/fast-footer";
 import provider from "@router-for-me/pi-cliproxyapi-provider/extensions/index";
-import {
-	FAST_CHANGED_EVENT,
-	FAST_READER_EVENT,
-	type SpeedReader,
-} from "../statusline/src/cliproxy-fast";
+
+export type SpeedMode = "fast" | "ultrafast";
+export type SpeedReader = (
+	provider: string,
+	modelId: string,
+) => SpeedMode | undefined;
+export const FAST_READER_EVENT = "dotfiles:cliproxyapi-fast-reader";
+export const FAST_CHANGED_EVENT = "dotfiles:cliproxyapi-fast-changed";
 
 type FastModel = Parameters<FastFooterController["isProviderModel"]>[0];
 type FastFooterReader =

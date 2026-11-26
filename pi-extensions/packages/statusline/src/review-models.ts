@@ -5,13 +5,20 @@ import {
 	readStoredCredential,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { cachedProxyPercentUsed } from "./cliproxy-usage";
-import { cachedCopilotPercentUsed } from "./provider-usage";
+import { cachedProviderPercentUsed } from "./provider-usage";
 
 const USAGE_CUTOFF = 95;
 const THINKING_SUFFIX = /:(off|minimal|low|medium|high|xhigh|max)$/;
 
-export function registerReviewModels(pi: ExtensionAPI): void {
+export type CachedProviderUsageReader = (
+	provider: string,
+) => number | undefined;
+
+export function registerReviewModels(
+	pi: ExtensionAPI,
+	readCachedUsage: CachedProviderUsageReader = (provider) =>
+		cachedProviderPercentUsed(provider, { readStoredCredential }),
+): void {
 	pi.registerTool({
 		name: "review_loop_models",
 		label: "Review loop models",
@@ -51,19 +58,13 @@ export function registerReviewModels(pi: ExtensionAPI): void {
 				];
 			});
 			const providers = new Set(candidates.map(({ provider }) => provider));
-			const usage = {
-				"github-copilot": providers.has("github-copilot")
-					? cachedCopilotPercentUsed({ readStoredCredential })
-					: undefined,
-				cliproxyapi: providers.has("cliproxyapi")
-					? cachedProxyPercentUsed()
-					: undefined,
-			};
-			const blockedProviders = new Map(
-				Object.entries(usage).filter(
-					([, used]) => used !== undefined && used >= USAGE_CUTOFF,
-				),
-			);
+			const blockedProviders = new Map<string, number>();
+			for (const provider of providers) {
+				const used = readCachedUsage(provider);
+				if (used !== undefined && used >= USAGE_CUTOFF) {
+					blockedProviders.set(provider, used);
+				}
+			}
 			const result = {
 				currentModel: ctx.model
 					? `${ctx.model.provider}/${ctx.model.id}`

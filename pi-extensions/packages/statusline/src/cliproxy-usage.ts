@@ -1,32 +1,23 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
-	acquireSharedFileLease,
-	isLockCompromisedError,
-	isLockContentionError,
-	type SharedFileLease,
-} from "./file-lease";
+	isUsageCacheFresh,
+	runLeasedRefresh,
+	usageSnapshotFreshness,
+	writeAtomicJsonFile,
+} from "./usage-cache";
 import {
 	formatProviderScope,
 	PROVIDER_BADGE_SEPARATOR,
 	type ProviderUsageScope,
 	parseOpenAiUsageBody,
-} from "./provider-usage";
-import { isUsageCacheFresh, usageSnapshotFreshness } from "./usage-freshness";
-import {
-	RETRYABLE_USAGE_STATUS_CODES,
-	usageRetryDelayMs,
-	waitForRetry,
-} from "./usage-retry";
+} from "./usage-quota";
+import { RETRYABLE_USAGE_STATUS_CODES, retryUsageRequest } from "./usage-retry";
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-const PROXY_REFRESH_LOCK_STALE_MS = 20_000;
-const PROXY_REFRESH_LOCK_UPDATE_MS = 5_000;
-const PROXY_REFRESH_LOCK_RETRY_MS = 100;
-const PROXY_REFRESH_LOCK_RETRIES = 550;
 const PROXY_REFRESH_BUDGET_MS = 45_000;
 const CLIPROXY_REQUEST_TIMEOUT_SECONDS = 10;
 const CLIPROXY_FETCH_MAX_ATTEMPTS = 3;
@@ -411,15 +402,6 @@ export function parseProxyAccounts(body: unknown, now = Date.now()): Account[] {
 		.filter((account) => usableScope(account, now) !== undefined);
 }
 
-function proxyRetryDelayMs(retry: number, status?: number): number {
-	return usageRetryDelayMs(retry, {
-		status,
-		transientBaseMs: CLIPROXY_TRANSIENT_RETRY_BASE_MS,
-		throttleBaseMs: CLIPROXY_THROTTLE_RETRY_BASE_MS,
-		maxDelayMs: CLIPROXY_RETRY_MAX_DELAY_MS,
-	});
-}
-
 class ProxyTransportError extends Error {}
 
 function requestManagementOnce(
@@ -528,59 +510,37 @@ async function requestManagement(
 	},
 ): Promise<{ status: number; body: unknown }> {
 	const deadlineMs = options?.deadlineMs;
-	for (let attempt = 0; attempt < CLIPROXY_FETCH_MAX_ATTEMPTS; attempt++) {
-		let timeoutSeconds = CLIPROXY_REQUEST_TIMEOUT_SECONDS;
-		if (deadlineMs !== undefined) {
-			const remainingMs = deadlineMs - performance.now();
-			if (remainingMs <= 0) {
-				throw new ProxyTransportError("CLIProxyAPI refresh budget exceeded");
+	return retryUsageRequest(
+		() => {
+			let timeoutSeconds = CLIPROXY_REQUEST_TIMEOUT_SECONDS;
+			if (deadlineMs !== undefined) {
+				const remainingMs = deadlineMs - performance.now();
+				if (remainingMs <= 0) {
+					throw new ProxyTransportError("CLIProxyAPI refresh budget exceeded");
+				}
+				timeoutSeconds = Math.max(
+					1,
+					Math.min(
+						CLIPROXY_REQUEST_TIMEOUT_SECONDS,
+						Math.ceil(remainingMs / 1000),
+					),
+				);
 			}
-			timeoutSeconds = Math.max(
-				1,
-				Math.min(
-					CLIPROXY_REQUEST_TIMEOUT_SECONDS,
-					Math.ceil(remainingMs / 1000),
-				),
-			);
-		}
-		try {
-			const response = await requestManagementOnce(
-				url,
-				key,
-				path,
-				data,
-				timeoutSeconds,
-			);
-			const status = RETRYABLE_USAGE_STATUS_CODES.has(response.status)
-				? response.status
-				: options?.retryStatus?.(response);
-			if (
-				attempt === CLIPROXY_FETCH_MAX_ATTEMPTS - 1 ||
-				status === undefined ||
-				!RETRYABLE_USAGE_STATUS_CODES.has(status)
-			) {
-				return response;
-			}
-			const delay = proxyRetryDelayMs(attempt, status);
-			if (deadlineMs !== undefined && deadlineMs - performance.now() <= delay) {
-				return response;
-			}
-			await waitForRetry(delay);
-		} catch (error) {
-			if (
-				!(error instanceof ProxyTransportError) ||
-				attempt === CLIPROXY_FETCH_MAX_ATTEMPTS - 1
-			) {
-				throw error;
-			}
-			const delay = proxyRetryDelayMs(attempt);
-			if (deadlineMs !== undefined && deadlineMs - performance.now() <= delay) {
-				throw error;
-			}
-			await waitForRetry(delay);
-		}
-	}
-	throw new Error("CLIProxyAPI retry attempts exhausted");
+			return requestManagementOnce(url, key, path, data, timeoutSeconds);
+		},
+		{
+			maxAttempts: CLIPROXY_FETCH_MAX_ATTEMPTS,
+			transientBaseMs: CLIPROXY_TRANSIENT_RETRY_BASE_MS,
+			throttleBaseMs: CLIPROXY_THROTTLE_RETRY_BASE_MS,
+			maxDelayMs: CLIPROXY_RETRY_MAX_DELAY_MS,
+			deadlineMs,
+			statusOf: (response) =>
+				RETRYABLE_USAGE_STATUS_CODES.has(response.status)
+					? response.status
+					: options?.retryStatus?.(response),
+			shouldRetryError: (error) => error instanceof ProxyTransportError,
+		},
+	);
 }
 
 async function fetchCodexBody(
@@ -855,25 +815,9 @@ async function update(
 ): Promise<ProxyUpdateOutcome> {
 	const { source, url, key } = config;
 	const path = cachePath();
-	let lease: SharedFileLease;
-	try {
-		lease = await acquireSharedFileLease(`${path}.refresh`, {
-			stale: PROXY_REFRESH_LOCK_STALE_MS,
-			update: PROXY_REFRESH_LOCK_UPDATE_MS,
-			retries: PROXY_REFRESH_LOCK_RETRIES,
-			retryMs: PROXY_REFRESH_LOCK_RETRY_MS,
-		});
-	} catch (error) {
-		if (!isLockContentionError(error)) return "failed";
-		// Another process owns the refresh lease; re-check disk without flagging an error.
-		return isProxySnapshotFresh(currentSnapshot(source), lookup)
-			? "fresh"
-			: "contended";
-	}
-	try {
-		lease.assertOwned();
+	const outcome = await runLeasedRefresh(`${path}.refresh`, async (lease) => {
 		const cached = currentSnapshot(source);
-		if (isProxySnapshotFresh(cached, lookup)) return "fresh";
+		if (isProxySnapshotFresh(cached, lookup)) return "fresh" as const;
 		const accounts = await fetchProxyAccounts(
 			url,
 			key,
@@ -886,31 +830,19 @@ async function update(
 			fetchedAt: Date.now(),
 			...accounts,
 		};
-		const temporary = `${path}.${process.pid}.tmp`;
-		try {
-			writeFileSync(temporary, `${JSON.stringify(updated)}\n`, { mode: 0o600 });
-			lease.assertOwned();
-			renameSync(temporary, path);
-		} finally {
-			try {
-				unlinkSync(temporary);
-			} catch {
-				/* renamed */
-			}
-		}
+		writeAtomicJsonFile(path, updated, lease);
 		state.snapshot = updated;
-		return "updated";
-	} catch (error) {
-		if (isLockCompromisedError(error)) {
-			return isProxySnapshotFresh(currentSnapshot(source), lookup)
-				? "fresh"
-				: "contended";
-		}
-		// A failing read never erases a recent, usable snapshot.
-		return "failed";
-	} finally {
-		await lease.release().catch(() => {});
+		return "updated" as const;
+	});
+	if (outcome.status === "ok") return outcome.value;
+	if (outcome.status === "contended" || outcome.status === "compromised") {
+		// Another process owns or took over the refresh lease; re-check disk without flagging an error.
+		return isProxySnapshotFresh(currentSnapshot(source), lookup)
+			? "fresh"
+			: "contended";
 	}
+	// A failing read never erases a recent, usable snapshot.
+	return "failed";
 }
 
 function recordProxyRefreshOutcome(

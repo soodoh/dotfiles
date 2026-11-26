@@ -8,7 +8,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import lockfile from "proper-lockfile";
 import { afterEach, expect, test, vi } from "vitest";
 import {
 	parseProxyAccounts,
@@ -17,7 +16,6 @@ import {
 	refreshProxyUsage,
 	resetProxyUsageForTests,
 } from "./cliproxy-usage";
-import * as fileLease from "./file-lease";
 import type { AuthCredentialLike, ProviderUsageContext } from "./pi-types";
 import {
 	discoverProviderUsageTargets,
@@ -29,6 +27,7 @@ import {
 	refreshProviderUsage,
 	renderProviderUsage,
 } from "./provider-usage";
+import * as usageCache from "./usage-cache";
 
 const directory = mkdtempSync(join(tmpdir(), "cliproxy-usage-test-"));
 const originalEnv = { ...process.env };
@@ -1455,7 +1454,18 @@ test("waits across multi-second lock contention and does not mark contended refr
 	resetProxyUsageForTests();
 
 	// Hold the refresh lock across multiple retry intervals, then publish a fresh snapshot.
-	const release = await lockfile.lock(`${path}.refresh`, { realpath: false });
+	let releasePeer!: () => void;
+	let peerAcquired!: () => void;
+	const peerReady = new Promise<void>((resolve) => {
+		peerAcquired = resolve;
+	});
+	const peerRefresh = usageCache.runLeasedRefresh(`${path}.refresh`, () => {
+		peerAcquired();
+		return new Promise<void>((resolve) => {
+			releasePeer = resolve;
+		});
+	});
+	await peerReady;
 	const updates = vi.fn();
 	const waiting = refreshProxyUsage(updates);
 	await new Promise((resolve) => setTimeout(resolve, 250));
@@ -1466,8 +1476,8 @@ test("waits across multi-second lock contention and does not mark contended refr
 			fetchedAt: Date.now(),
 		}),
 	);
-	await release();
-	await waiting;
+	releasePeer();
+	await Promise.all([peerRefresh, waiting]);
 	expect(updates).toHaveBeenCalledOnce();
 	expect(proxyUsageAccounts()[0]?.stale).toBe(false);
 
@@ -1477,20 +1487,22 @@ test("waits across multi-second lock contention and does not mark contended refr
 	graceCached.fetchedAt = Date.now() - 6 * 60_000;
 	writeFileSync(path, JSON.stringify(graceCached));
 	resetProxyUsageForTests();
-	let rejectLease!: (error: Error) => void;
-	const leaseSpy = vi
-		.spyOn(fileLease, "acquireSharedFileLease")
+	let resolveContended!: (
+		result: usageCache.LeasedRefreshResult<unknown>,
+	) => void;
+	const refreshSpy = vi
+		.spyOn(usageCache, "runLeasedRefresh")
 		.mockImplementationOnce(
 			() =>
-				new Promise<fileLease.SharedFileLease>((_resolve, reject) => {
-					rejectLease = reject;
-				}),
+				new Promise((resolve) => {
+					resolveContended = resolve;
+				}) as ReturnType<typeof usageCache.runLeasedRefresh>,
 		);
 	const firstContended = refreshProxyUsage(() => {});
 	const joinedContended = refreshProxyUsage(() => {});
-	rejectLease(Object.assign(new Error("ELOCKED"), { code: "ELOCKED" }));
+	resolveContended({ status: "contended" });
 	await Promise.all([firstContended, joinedContended]);
-	expect(leaseSpy).toHaveBeenCalledTimes(1);
+	expect(refreshSpy).toHaveBeenCalledTimes(1);
 	expect(proxyUsageAccounts()[0]?.stale).toBe(false);
 
 	// Because contention clears the throttle, the next call can immediately refresh.
@@ -1505,35 +1517,37 @@ test("waits across multi-second lock contention and does not mark contended refr
 	errorCached.fetchedAt = Date.now() - 6 * 60_000;
 	writeFileSync(path, JSON.stringify(errorCached));
 	resetProxyUsageForTests();
-	leaseSpy.mockClear();
-	let rejectFailure!: (error: Error) => void;
-	leaseSpy.mockImplementationOnce(
+	refreshSpy.mockClear();
+	let resolveFailure!: (
+		result: usageCache.LeasedRefreshResult<unknown>,
+	) => void;
+	refreshSpy.mockImplementationOnce(
 		() =>
-			new Promise<fileLease.SharedFileLease>((_resolve, reject) => {
-				rejectFailure = reject;
-			}),
+			new Promise((resolve) => {
+				resolveFailure = resolve;
+			}) as ReturnType<typeof usageCache.runLeasedRefresh>,
 	);
 	const failedUpdates = vi.fn();
 	const joinedFailedUpdates = vi.fn();
 	const failedLeader = refreshProxyUsage(failedUpdates);
 	const failedWaiter = refreshProxyUsage(joinedFailedUpdates);
-	rejectFailure(
-		Object.assign(new Error("permission denied"), { code: "EACCES" }),
-	);
+	resolveFailure({
+		status: "error",
+		phase: "acquire",
+		error: Object.assign(new Error("permission denied"), { code: "EACCES" }),
+	});
 	await Promise.all([failedLeader, failedWaiter]);
 	expect(failedUpdates).toHaveBeenCalledOnce();
 	expect(joinedFailedUpdates).toHaveBeenCalledOnce();
 	expect(proxyUsageAccounts()[0]?.stale).toBe(true);
 	await refreshProxyUsage(() => {});
-	expect(leaseSpy).toHaveBeenCalledTimes(1);
+	expect(refreshSpy).toHaveBeenCalledTimes(1);
 
 	// Contention after a failed refresh's cooldown must keep the failure warning visible
 	// while still allowing an immediate subsequent retry.
 	const now = Date.now();
 	vi.spyOn(Date, "now").mockReturnValue(now + 65_000);
-	leaseSpy.mockRejectedValueOnce(
-		Object.assign(new Error("ELOCKED"), { code: "ELOCKED" }),
-	);
+	refreshSpy.mockResolvedValueOnce({ status: "contended" });
 	await refreshProxyUsage(() => {});
 	expect(proxyUsageAccounts()[0]?.stale).toBe(true);
 	const recovered = vi.fn();
@@ -1556,12 +1570,18 @@ test("notifies a stricter waiter when a peer publishes a fresh snapshot during a
 	writeFileSync(path, JSON.stringify(cached));
 	resetProxyUsageForTests();
 
-	let resolveLock!: (release: () => Promise<void>) => void;
-	vi.spyOn(lockfile, "lock").mockImplementationOnce(
-		() =>
-			new Promise<() => Promise<void>>((resolve) => {
-				resolveLock = resolve;
-			}),
+	let releaseGate!: () => void;
+	const gate = new Promise<void>((resolve) => {
+		releaseGate = resolve;
+	});
+	vi.spyOn(usageCache, "runLeasedRefresh").mockImplementationOnce(
+		async (_lockPath, work) => {
+			await gate;
+			return {
+				status: "ok",
+				value: await work({ assertOwned() {} }),
+			};
+		},
 	);
 	const weakerUpdates = vi.fn();
 	const nativeUpdates = vi.fn();
@@ -1575,7 +1595,7 @@ test("notifies a stricter waiter when a peer publishes a fresh snapshot during a
 			openaiRegistrations: {},
 		}),
 	);
-	resolveLock(async () => {});
+	releaseGate();
 	await Promise.all([first, second]);
 	expect(weakerUpdates).toHaveBeenCalledOnce();
 	expect(nativeUpdates).toHaveBeenCalledOnce();
@@ -1598,12 +1618,14 @@ test("aborts cache write without throwing or falsely marking fresh peer data sta
 		...cached,
 		fetchedAt: Date.now() - 10,
 	};
-	vi.spyOn(lockfile, "lock").mockImplementationOnce(async (_target, opts) => {
+	vi.spyOn(usageCache, "runLeasedRefresh").mockImplementationOnce(async () => {
 		writeFileSync(path, JSON.stringify(newerSnapshot));
-		opts?.onCompromised?.(
-			Object.assign(new Error("lock compromised"), { code: "ECOMPROMISED" }),
-		);
-		return async () => {};
+		return {
+			status: "compromised",
+			error: Object.assign(new Error("lock compromised"), {
+				code: "ECOMPROMISED",
+			}),
+		};
 	});
 	const updates = vi.fn();
 	await refreshProxyUsage(updates);
