@@ -7,21 +7,26 @@ import shlex
 import signal
 import subprocess
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 MISE_PRUNE = ("mise", "prune")
 MISE_CACHE_PRUNE = ("mise", "cache", "prune")
-ENV = dict(
-    os.environ,
-    NO_COLOR="1",
-    MISE_QUIET="0",
-    MISE_LOG_LEVEL="info",
-    HOMEBREW_NO_AUTO_UPDATE="1",
-    # Mise's formula plan owns orphan removal. Don't let native cleanup add
-    # an independent uninstall pass on top of that plan.
-    HOMEBREW_NO_AUTOREMOVE="1",
-)
+
+
+def cleanup_env(environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    base = dict(os.environ if environ is None else environ)
+    base.update(
+        NO_COLOR="1",
+        MISE_QUIET="0",
+        MISE_LOG_LEVEL="info",
+        HOMEBREW_NO_AUTO_UPDATE="1",
+        # Mise's formula plan owns orphan removal. Don't let native cleanup add
+        # an independent uninstall pass on top of that plan.
+        HOMEBREW_NO_AUTOREMOVE="1",
+    )
+    return base
 
 
 def run(
@@ -29,13 +34,30 @@ def run(
     show: bool = False,
     stdout_only: bool = False,
     runner=subprocess.run,
+    environ: Mapping[str, str] | None = None,
 ) -> str:
-    result = runner(command, env=ENV, capture_output=True, text=True, check=False)
+    result = runner(
+        command,
+        env=cleanup_env(environ),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if show or result.returncode:
         print(result.stdout, end="", flush=True)
         print(result.stderr, end="", file=sys.stderr, flush=True)
     result.check_returncode()
     return result.stdout if stdout_only else result.stdout + result.stderr
+
+
+def _command_context(runner, macos_host):
+    effective_runner = (
+        runner
+        if runner is not None
+        else (macos_host.run if macos_host is not None else subprocess.run)
+    )
+    effective_environ = macos_host.environ if macos_host is not None else None
+    return effective_runner, effective_environ
 
 
 def pipx_blockers(installs: list[Path]) -> list[str]:
@@ -85,17 +107,32 @@ def preflight(
     *,
     show: bool,
     darwin: bool,
-    runner=subprocess.run,
+    runner=None,
     macos_host=None,
 ) -> Plan:
-    preview = run(*MISE_PRUNE, "--dry-run", show=show, runner=runner)
+    effective_runner, effective_environ = _command_context(runner, macos_host)
+    preview = run(
+        *MISE_PRUNE,
+        "--dry-run",
+        show=show,
+        runner=effective_runner,
+        environ=effective_environ,
+    )
     processes = []
     for line in preview.splitlines():
         if " is kept: still running" in line:
             match = re.search(r"still running as pid (\d+)", line)
             processes.append(Blocker(line, int(match[1]) if match else None))
     catalog = json.loads(
-        run("mise", "ls", "--prunable", "--json", stdout_only=True, runner=runner)
+        run(
+            "mise",
+            "ls",
+            "--prunable",
+            "--json",
+            stdout_only=True,
+            runner=effective_runner,
+            environ=effective_environ,
+        )
     )
     installs = [
         Path(item["install_path"]) for rows in catalog.values() for item in rows
@@ -121,17 +158,18 @@ def report(heading, issues):
         print("\n".join(dict.fromkeys(issues)), file=sys.stderr)
 
 
-def prune(plan: Plan, *, runner=subprocess.run) -> int:
+def prune(plan: Plan, *, runner=None, macos_host=None) -> int:
     if plan.references or plan.processes:
         report(
             "Cleanup blocked; no packages were pruned:",
             [*plan.references, *(item.message for item in plan.processes)],
         )
         return 1
-    run(*MISE_PRUNE, "--yes", show=True, runner=runner)
-    run(*MISE_CACHE_PRUNE, show=True, runner=runner)
+    effective_runner, effective_environ = _command_context(runner, macos_host)
+    run(*MISE_PRUNE, "--yes", show=True, runner=effective_runner, environ=effective_environ)
+    run(*MISE_CACHE_PRUNE, show=True, runner=effective_runner, environ=effective_environ)
     for step in plan.steps:
-        run(*step, show=True, runner=runner)
+        run(*step, show=True, runner=effective_runner, environ=effective_environ)
     return 0
 
 
@@ -184,7 +222,7 @@ def _apply_macos(
                 show=False, darwin=True, runner=runner, macos_host=env
             )
             maintenance.check_replacements(final.targets)
-            if prune(final, runner=runner):
+            if prune(final, runner=runner, macos_host=env):
                 return 1
             if final.targets:
                 remaining = preflight(
@@ -215,11 +253,19 @@ def cleanup(
     worker: bool = False,
     darwin: bool | None = None,
     profile: str | None = None,
-    runner=subprocess.run,
+    runner=None,
     macos_host=None,
 ) -> int:
     is_darwin = sys.platform == "darwin" if darwin is None else darwin
-    selected_profile = os.environ.get("MISE_ENV") if profile is None else profile
+    selected_profile = (
+        (
+            macos_host.env_get("MISE_ENV")
+            if macos_host is not None
+            else os.environ.get("MISE_ENV")
+        )
+        if profile is None
+        else profile
+    )
     if is_darwin and selected_profile not in {"personal-macos", "work-macos"}:
         raise ValueError(
             "select personal-macos or work-macos before reviewing or pruning Homebrew"
@@ -234,8 +280,15 @@ def cleanup(
         show=not apply, darwin=is_darwin, runner=runner, macos_host=macos_host
     )
     if apply:
-        return prune(plan, runner=runner)
-    run(*MISE_CACHE_PRUNE, "--dry-run", show=True, runner=runner)
+        return prune(plan, runner=runner, macos_host=macos_host)
+    effective_runner, effective_environ = _command_context(runner, macos_host)
+    run(
+        *MISE_CACHE_PRUNE,
+        "--dry-run",
+        show=True,
+        runner=effective_runner,
+        environ=effective_environ,
+    )
     if is_darwin:
         import cleanup_macos as macos
 

@@ -14,6 +14,7 @@ from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+import cleanup
 import macos_host as host
 
 LSOF = "/usr/sbin/lsof"
@@ -33,20 +34,6 @@ HANDOFF_SCRIPT = (
 
 def _confirm(prompt: str) -> bool:
     return input(prompt).strip().lower() in {"y", "yes"}
-
-
-def _cleanup_env(environ: Mapping[str, str] | None = None) -> dict[str, str]:
-    base = dict(os.environ if environ is None else environ)
-    base.update(
-        NO_COLOR="1",
-        MISE_QUIET="0",
-        MISE_LOG_LEVEL="info",
-        HOMEBREW_NO_AUTO_UPDATE="1",
-        # Mise's formula plan owns orphan removal. Don't let native cleanup add
-        # an independent uninstall pass on top of that plan.
-        HOMEBREW_NO_AUTOREMOVE="1",
-    )
-    return base
 
 
 @dataclass(frozen=True)
@@ -73,18 +60,12 @@ class Host:
         return source.get(key)
 
     def command(self, *args: str, show: bool = False) -> str:
-        result = self.run(
-            args,
-            env=_cleanup_env(self.environ),
-            capture_output=True,
-            text=True,
-            check=False,
+        return cleanup.run(
+            *args,
+            show=show,
+            runner=self.run,
+            environ=self.environ,
         )
-        if show or result.returncode:
-            print(result.stdout, end="", flush=True)
-            print(result.stderr, end="", file=sys.stderr, flush=True)
-        result.check_returncode()
-        return result.stdout + result.stderr
 
 
 DEFAULT_HOST = Host()

@@ -5,7 +5,6 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
 
 import cleanup
 import cleanup_macos as macos
@@ -20,6 +19,7 @@ class FakeCleanupHost:
         *,
         confirm: bool = True,
         herdr_env: bool = False,
+        environ: dict[str, str] | None = None,
         commands: dict[tuple[str, ...], str | list[str] | Exception] | None = None,
         probes: dict[tuple[str, ...], subprocess.CompletedProcess[str] | list] | None = None,
         uid: int = 501,
@@ -32,8 +32,11 @@ class FakeCleanupHost:
         self.commands = dict(commands or {})
         self.probes = dict(probes or {})
         self.uid = uid
-        self.herdr_env = herdr_env
+        self.environ = dict(environ or {})
+        if herdr_env:
+            self.environ["HERDR_ENV"] = "1"
         self.calls: list[tuple[str, ...]] = []
+        self.call_envs: dict[tuple[str, ...], dict[str, str] | None] = {}
         self.launchctl_calls: list[tuple[str, ...]] = []
         self.handoff_launches: list[tuple[str, ...]] = []
         self.kills: list[tuple[int, int]] = []
@@ -70,11 +73,17 @@ class FakeCleanupHost:
     def run(self, args, **kwargs) -> subprocess.CompletedProcess[str]:
         cmd = tuple(args)
         self.calls.append(cmd)
+        self.call_envs[cmd] = kwargs.get("env")
         if cmd[:1] == ("/usr/bin/open",):
             self.handoff_launches.append(cmd)
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:1] == ("/bin/launchctl",):
             self.launchctl_calls.append(cmd)
+            if cmd in self.commands:
+                response = self._next(self.commands, cmd)
+                if isinstance(response, Exception):
+                    raise response
+                return subprocess.CompletedProcess(cmd, 0, stdout=response, stderr="")
             action = cmd[1]
             target = cmd[-1]
             if action == "bootout":
@@ -183,7 +192,7 @@ class FakeCleanupHost:
             ppid=lambda: 1,
             uid=lambda: self.uid,
             home=lambda: self.home,
-            environ={"HERDR_ENV": "1"} if self.herdr_env else {},
+            environ=self.environ,
         )
 
 
@@ -267,18 +276,29 @@ class CleanupTests(unittest.TestCase):
                 )
                 if open_path is None:
                     commands.update(dict.fromkeys(mutations, ""))
-                fake = FakeCleanupHost(self.root, commands=commands)
+                fake = FakeCleanupHost(
+                    self.root,
+                    environ={"CUSTOM_CLEANUP_SENTINEL": "from-host"},
+                    commands=commands,
+                )
                 with contextlib.redirect_stderr(io.StringIO()) as err:
                     plan = cleanup.preflight(
                         show=False,
                         darwin=True,
-                        runner=fake.run,
                         macos_host=fake.host,
                     )
                     self.assertEqual(
-                        cleanup.prune(plan, runner=fake.run),
+                        cleanup.prune(plan, macos_host=fake.host),
                         int(open_path is not None),
                     )
+                self.assertEqual(
+                    fake.call_envs[("mise", "prune", "--dry-run")]["CUSTOM_CLEANUP_SENTINEL"],
+                    "from-host",
+                )
+                self.assertEqual(
+                    fake.call_envs[("mise", "prune", "--dry-run")]["HOMEBREW_NO_AUTOREMOVE"],
+                    "1",
+                )
                 self.assertFalse(
                     mutations.intersection(fake.calls[: fake.calls.index(process_scan)])
                 )
@@ -290,14 +310,14 @@ class CleanupTests(unittest.TestCase):
                     self.assertIn("PID 42", err.getvalue())
 
     def test_fish_or_herdr_invocation_only_opens_the_maintenance_window(self):
-        fake = FakeCleanupHost(self.root, herdr_env=True)
+        fake = FakeCleanupHost(
+            self.root, herdr_env=True, environ={"MISE_ENV": "work-macos"}
+        )
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(
                 cleanup.cleanup(
                     apply=True,
                     darwin=True,
-                    profile="work-macos",
-                    runner=fake.run,
                     macos_host=fake.host,
                 ),
                 0,
@@ -330,7 +350,6 @@ class CleanupTests(unittest.TestCase):
                     apply=True,
                     darwin=True,
                     profile="work-macos",
-                    runner=fake.run,
                     macos_host=fake.host,
                 ),
                 1,
@@ -369,7 +388,6 @@ class CleanupTests(unittest.TestCase):
                             apply=False,
                             darwin=True,
                             profile="personal-macos",
-                            runner=fake.run,
                             macos_host=fake.host,
                         ),
                         0,
@@ -381,7 +399,6 @@ class CleanupTests(unittest.TestCase):
                             apply=True,
                             darwin=True,
                             profile="personal-macos",
-                            runner=fake.run,
                             macos_host=fake.host,
                         )
                 self.assertIn(str(refusal.exception), err.getvalue())
@@ -435,7 +452,6 @@ class CleanupTests(unittest.TestCase):
                                 apply=True,
                                 darwin=True,
                                 profile="work-macos",
-                                runner=fake.run,
                                 macos_host=fake.host,
                             ),
                             1,
@@ -446,7 +462,6 @@ class CleanupTests(unittest.TestCase):
                                 apply=True,
                                 darwin=True,
                                 profile="work-macos",
-                                runner=fake.run,
                                 macos_host=fake.host,
                             )
                 self.assertEqual(
@@ -500,7 +515,6 @@ class CleanupTests(unittest.TestCase):
                     apply=True,
                     darwin=True,
                     profile="work-macos",
-                    runner=fake.run,
                     macos_host=fake.host,
                 ),
                 0,
@@ -535,7 +549,6 @@ class CleanupTests(unittest.TestCase):
                     apply=True,
                     darwin=True,
                     profile="work-macos",
-                    runner=fake.run,
                     macos_host=fake.host,
                 ),
                 1,
@@ -544,12 +557,18 @@ class CleanupTests(unittest.TestCase):
         self.assertIn("incomplete", err.getvalue())
 
     def test_handoff_holds_both_warnings_and_startup_failures_until_enter(self):
-        fake_host = FakeCleanupHost(self.root)
+        fake_host = FakeCleanupHost(self.root, herdr_env=True)
         fake_mise = fake_host.home / ".local/bin/mise"
         fake_mise.parent.mkdir(parents=True)
         with contextlib.redirect_stdout(io.StringIO()):
-            macos.open_handoff(
-                "work-macos", cleanup.worker_command(), env=fake_host.host
+            self.assertEqual(
+                cleanup.cleanup(
+                    apply=True,
+                    darwin=True,
+                    profile="work-macos",
+                    macos_host=fake_host.host,
+                ),
+                0,
             )
         command = fake_host.handoff_launches[0][-1].removeprefix(
             "--initial-command=shell:"
@@ -582,48 +601,115 @@ class CleanupTests(unittest.TestCase):
                     self.assertIn(result, output)
                     self.assertIn("Press Enter", output)
 
-    def test_current_binary_is_not_selected_but_its_blocking_child_is(self):
+    def test_current_binary_is_not_selected_but_its_blocking_child_and_stale_binary_are(self):
+        old_keg = self.root / "Cellar/sketchybar/1.0"
+        old_keg.mkdir(parents=True)
         installed = self.root / "Cellar/sketchybar/2.0/bin/sketchybar"
         installed.parent.mkdir(parents=True)
-        installed.touch()
+        installed.touch(mode=0o755)
         (self.root / "bin").mkdir(exist_ok=True)
         (self.root / "bin/sketchybar").symlink_to(installed)
 
-        lsof_result = subprocess.CompletedProcess(
-            [],
-            0,
-            stdout=f"p42\0\nftxt\0i{installed.stat().st_ino}\0n{installed}\0",
-            stderr="",
-        )
-        fake = FakeCleanupHost(
-            self.root,
-            probes={
-                (macos.LSOF, "-nP", "-a", "-d", "txt", "-p", "42,43", "-F0pfin"): lsof_result,
-            },
-        )
-        fake.add_loaded_job("sketchybar", pid=42, executable=installed)
-        tree = {42: (1, "sketchybar"), 43: (42, "helper")}
-        self.assertEqual(
-            macos.service_changes("work-macos", set(), tree, env=fake.host), []
-        )
-        [change] = macos.service_changes("work-macos", {43}, tree, env=fake.host)
-        self.assertTrue(change.blocking)
-        lsof_result.stdout = "p42\0\nftxt\0n/old/sketchybar\0"
-        [change] = macos.service_changes("work-macos", set(), tree, env=fake.host)
-        self.assertFalse(change.blocking)
+        for label, open_files, running_txt, expected in (
+            (
+                "current-unblocked",
+                "",
+                f"p42\0\nftxt\0i{installed.stat().st_ino}\0n{installed}\0",
+                None,
+            ),
+            (
+                "blocking-child",
+                f"p43\0chelper\0\nftxt\0n{old_keg}/lib/helper\0\n",
+                f"p42\0\nftxt\0i{installed.stat().st_ino}\0n{installed}\0",
+                "Pause for prune: gui/501/dev.mise.sketchybar",
+            ),
+            (
+                "stale-executable",
+                "",
+                "p42\0\nftxt\0n/old/sketchybar\0",
+                "Refresh after prune: gui/501/dev.mise.sketchybar",
+            ),
+        ):
+            with self.subTest(case=label):
+                fake = FakeCleanupHost(
+                    self.root,
+                    commands={
+                        ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--dry-run"): "remove brew:sketchybar@1.0",
+                        (macos.LSOF, "-nP", "-F0pcn"): open_files,
+                    },
+                    probes={
+                        ("/bin/ps", "-axo", "pid=,ppid=,comm="): subprocess.CompletedProcess(
+                            [], 0, stdout="42 1 sketchybar\n43 42 helper\n", stderr=""
+                        ),
+                        (macos.LSOF, "-nP", "-a", "-d", "txt", "-p", "42,43", "-F0pfin"): subprocess.CompletedProcess(
+                            [], 0, stdout=running_txt, stderr=""
+                        ),
+                    },
+                )
+                fake.add_loaded_job("sketchybar", pid=42, executable=installed)
+                with (
+                    contextlib.redirect_stdout(io.StringIO()) as out,
+                    contextlib.redirect_stderr(io.StringIO()),
+                ):
+                    self.assertEqual(
+                        cleanup.cleanup(
+                            apply=False,
+                            darwin=True,
+                            profile="work-macos",
+                            macos_host=fake.host,
+                        ),
+                        0,
+                    )
+                if expected is None:
+                    self.assertNotIn("dev.mise.sketchybar", out.getvalue())
+                else:
+                    self.assertIn(expected, out.getvalue())
 
     def test_failure_to_restore_one_job_does_not_skip_other_jobs(self):
-        failed = Mock(spec=macos.UserAgentJob, label="first")
-        failed.restore.side_effect = ValueError("failed to start")
-        remaining = Mock(spec=macos.UserAgentJob, label="second")
-        env = FakeCleanupHost(self.root).host
+        keg = self.root / "Cellar/sketchybar/1.0"
+        keg.mkdir(parents=True)
+        replacement_sb = self.root / "Cellar/sketchybar/2.0/bin/sketchybar"
+        replacement_sb.parent.mkdir(parents=True)
+        replacement_sb.touch(mode=0o755)
+        (self.root / "bin").mkdir(exist_ok=True)
+        (self.root / "bin/sketchybar").symlink_to(replacement_sb)
+
+        fake = FakeCleanupHost(
+            self.root,
+            confirm=True,
+            commands={
+                ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--dry-run"): [
+                    "remove brew:sketchybar@1.0",
+                    "remove brew:sketchybar@1.0",
+                    "brew: nothing to prune\n",
+                ],
+                ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--yes"): "",
+                (macos.LSOF, "-nP", "-F0pcn"): [
+                    f"p42\0cAeroSpace\0\nftxt\0n{keg}/a\0\np43\0csketchybar\0\nftxt\0n{keg}/b\0\n",
+                    "",
+                ],
+            },
+        )
+        aerospace = fake.home / "Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
+        aerospace.parent.mkdir(parents=True, exist_ok=True)
+        aerospace.touch(mode=0o755)
+        aerospace_plist = fake.add_loaded_job("aerospace", pid=42, executable=aerospace)
+        fake.add_loaded_job("sketchybar", pid=43, executable=replacement_sb)
+        fake.commands[
+            ("/bin/launchctl", "bootstrap", f"gui/{fake.uid}", str(aerospace_plist))
+        ] = ValueError("failed to start")
+
         with (
             contextlib.redirect_stdout(io.StringIO()),
-            self.assertRaisesRegex(ValueError, "first: failed to start"),
-            macos.paused([failed, remaining], [], {}, env=env),
+            self.assertRaisesRegex(ValueError, "dev.mise.aerospace: failed to start"),
         ):
-            pass
-        remaining.restore.assert_called_once_with(env=env)
+            cleanup.cleanup(
+                apply=True,
+                darwin=True,
+                profile="work-macos",
+                macos_host=fake.host,
+            )
+        self.assertIn("restore dev.mise.sketchybar", fake.events)
 
     def test_user_agent_job_refuses_system_domain(self):
         with self.assertRaisesRegex(ValueError, "user LaunchAgents"):
@@ -635,30 +721,62 @@ class CleanupTests(unittest.TestCase):
             )
 
     def test_fish_pid_reuse_does_not_signal_the_replacement(self):
+        keg = self.root / "Cellar/fish/1.0"
+        keg.mkdir(parents=True)
+        replacement = self.root / "Cellar/fish/2.0/bin/fish"
+        replacement.parent.mkdir(parents=True)
+        replacement.touch(mode=0o755)
+        (self.root / "bin").mkdir(exist_ok=True)
+        (self.root / "bin/fish").symlink_to(replacement)
         fake = FakeCleanupHost(
             self.root,
+            confirm=True,
+            commands={
+                ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--dry-run"): [
+                    "remove brew:fish@1.0",
+                    "remove brew:fish@1.0",
+                    "brew: nothing to prune\n",
+                ],
+                ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--yes"): "",
+                (macos.LSOF, "-nP", "-F0pcn"): [
+                    f"p42\0cfish\0\nftxt\0n{keg}/bin/fish\0\n",
+                    "",
+                ],
+            },
             probes={
-                ("/bin/ps", "-p", "42", "-o", "uid=,tty=,lstart=,comm="): subprocess.CompletedProcess(
+                (macos.LSOF, "-nP", "-a", "-d", "txt", "-p", "42", "-F0pn"): subprocess.CompletedProcess(
                     [],
                     0,
-                    stdout="501 ttys001 Mon Nov 26 00:00:00 2026 -fish\n",
+                    stdout=f"p42\0\nftxt\0n{keg}/bin/fish\0",
                     stderr="",
                 ),
+                ("/bin/ps", "-p", "42", "-o", "uid=,tty=,lstart=,comm="): [
+                    subprocess.CompletedProcess(
+                        [],
+                        0,
+                        stdout="501 ttys001 Sun Nov 25 23:00:00 2026 -fish\n",
+                        stderr="",
+                    ),
+                    subprocess.CompletedProcess(
+                        [],
+                        0,
+                        stdout="501 ttys001 Mon Nov 26 00:00:00 2026 -fish\n",
+                        stderr="",
+                    ),
+                ],
             },
         )
-        macos.close_fish({42: "confirmed start time"}, env=fake.host)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(
+                cleanup.cleanup(
+                    apply=True,
+                    darwin=True,
+                    profile="work-macos",
+                    macos_host=fake.host,
+                ),
+                0,
+            )
         self.assertEqual(fake.kills, [])
-
-    def test_replacement_symlink_pointing_into_a_pruned_keg_is_rejected(self):
-        keg = self.root / "Cellar" / "gost" / "1"
-        executable = keg / "bin/gost"
-        executable.parent.mkdir(parents=True)
-        executable.touch(mode=0o755)
-        link = self.root / "gost"
-        link.symlink_to(executable)
-        with self.assertRaisesRegex(ValueError, "no retained replacement"):
-            macos.check_replacements([link], [keg])
-        macos.check_replacements([link], [keg.parent / "2"])
 
 
 if __name__ == "__main__":
