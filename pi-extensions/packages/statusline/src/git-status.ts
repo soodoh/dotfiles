@@ -1,11 +1,5 @@
 import { spawn } from "node:child_process";
 
-export type ReadonlyFooterDataProvider = {
-	getGitBranch(): string | null;
-	getExtensionStatuses(): ReadonlyMap<string, string>;
-	onBranchChange(callback: () => void): () => void;
-};
-
 export type GitStatus = {
 	branch: string | null;
 	staged: number;
@@ -15,20 +9,24 @@ export type GitStatus = {
 
 type GitStatusCacheEntry = Omit<GitStatus, "branch"> & { timestamp: number };
 type GitBranchCacheEntry = { branch: string | null; timestamp: number };
+type PendingFetch = {
+	promise: Promise<void>;
+	listeners: Set<() => void>;
+};
 
 export const GIT_REFRESH_INTERVAL_MS = 5000;
 const STATUS_TTL_MS = GIT_REFRESH_INTERVAL_MS;
 const BRANCH_TTL_MS = GIT_REFRESH_INTERVAL_MS;
-export const MAX_GIT_STDOUT_BYTES = 64 * 1024;
+const MAX_GIT_STDOUT_BYTES = 64 * 1024;
 
 const cachedStatusByCwd = new Map<string, GitStatusCacheEntry>();
 const cachedBranchByCwd = new Map<string, GitBranchCacheEntry>();
-const pendingStatusFetchByCwd = new Map<string, Promise<void>>();
-const pendingBranchFetchByCwd = new Map<string, Promise<void>>();
+const pendingStatusFetchByCwd = new Map<string, PendingFetch>();
+const pendingBranchFetchByCwd = new Map<string, PendingFetch>();
 let statusInvalidation = 0;
 let branchInvalidation = 0;
 
-export function runGit(
+function runGit(
 	cwd: string,
 	args: string[],
 	timeoutMs = 200,
@@ -74,7 +72,7 @@ export function runGit(
 	});
 }
 
-export function parseGitStatus(output: string): Omit<GitStatus, "branch"> {
+function parseGitStatus(output: string): Omit<GitStatus, "branch"> {
 	let staged = 0;
 	let unstaged = 0;
 	let untracked = 0;
@@ -115,21 +113,27 @@ function getCurrentBranch(
 		return cachedBranch.branch;
 	}
 
-	if (!pendingBranchFetchByCwd.has(cwd)) {
+	const existing = pendingBranchFetchByCwd.get(cwd);
+	if (existing) {
+		existing.listeners.add(onUpdate);
+	} else {
 		const fetchId = branchInvalidation;
-		const pending = fetchGitBranch(cwd).then((result) => {
-			if (fetchId === branchInvalidation) {
+		const listeners = new Set<() => void>([onUpdate]);
+		const entry: PendingFetch = {
+			listeners,
+			promise: fetchGitBranch(cwd).then((result) => {
+				if (pendingBranchFetchByCwd.get(cwd) === entry) {
+					pendingBranchFetchByCwd.delete(cwd);
+				}
+				if (fetchId !== branchInvalidation) return;
 				cachedBranchByCwd.set(cwd, {
 					branch: result,
 					timestamp: Date.now(),
 				});
-			}
-			if (pendingBranchFetchByCwd.get(cwd) === pending) {
-				pendingBranchFetchByCwd.delete(cwd);
-			}
-			onUpdate();
-		});
-		pendingBranchFetchByCwd.set(cwd, pending);
+				for (const listener of listeners) listener();
+			}),
+		};
+		pendingBranchFetchByCwd.set(cwd, entry);
 	}
 
 	return cachedBranch ? cachedBranch.branch : providerBranch;
@@ -145,17 +149,31 @@ export function getGitStatus(
 	const cachedStatus = cachedStatusByCwd.get(cwd);
 
 	if (cachedStatus && now - cachedStatus.timestamp < STATUS_TTL_MS) {
-		return { branch, ...cachedStatus };
+		return {
+			branch,
+			staged: cachedStatus.staged,
+			unstaged: cachedStatus.unstaged,
+			untracked: cachedStatus.untracked,
+		};
 	}
 
-	if (!pendingStatusFetchByCwd.has(cwd)) {
+	const existing = pendingStatusFetchByCwd.get(cwd);
+	if (existing) {
+		existing.listeners.add(onUpdate);
+	} else {
 		const fetchId = statusInvalidation;
-		const pending = runGit(
-			cwd,
-			["--no-optional-locks", "status", "--porcelain"],
-			500,
-		).then((output) => {
-			if (fetchId === statusInvalidation) {
+		const listeners = new Set<() => void>([onUpdate]);
+		const entry: PendingFetch = {
+			listeners,
+			promise: runGit(
+				cwd,
+				["--no-optional-locks", "status", "--porcelain"],
+				500,
+			).then((output) => {
+				if (pendingStatusFetchByCwd.get(cwd) === entry) {
+					pendingStatusFetchByCwd.delete(cwd);
+				}
+				if (fetchId !== statusInvalidation) return;
 				const parsed =
 					output !== null
 						? parseGitStatus(output)
@@ -164,17 +182,19 @@ export function getGitStatus(
 					...parsed,
 					timestamp: Date.now(),
 				});
-			}
-			if (pendingStatusFetchByCwd.get(cwd) === pending) {
-				pendingStatusFetchByCwd.delete(cwd);
-			}
-			onUpdate();
-		});
-		pendingStatusFetchByCwd.set(cwd, pending);
+				for (const listener of listeners) listener();
+			}),
+		};
+		pendingStatusFetchByCwd.set(cwd, entry);
 	}
 
 	return cachedStatus
-		? { branch, ...cachedStatus }
+		? {
+				branch,
+				staged: cachedStatus.staged,
+				unstaged: cachedStatus.unstaged,
+				untracked: cachedStatus.untracked,
+			}
 		: { branch, staged: 0, unstaged: 0, untracked: 0 };
 }
 

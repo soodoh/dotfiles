@@ -25,7 +25,6 @@ import {
 	type SpeedReader,
 } from "../cliproxyapi";
 import statusline from "./index";
-import { resetProxyUsageForTests } from "./src/cliproxy-usage";
 import * as gitStatus from "./src/git-status";
 import * as providerUsage from "./src/provider-usage";
 
@@ -189,7 +188,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
 	for (const dispose of disposers.splice(0)) dispose();
-	resetProxyUsageForTests();
+	providerUsage.invalidateProviderUsageCache();
 	vi.useRealTimers();
 	vi.restoreAllMocks();
 	vi.unstubAllEnvs();

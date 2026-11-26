@@ -7,10 +7,7 @@ import {
 import type { ModelRegistryLike, ProviderUsageContext } from "./pi-types";
 import {
 	discoverProviderUsageTargetsAsync,
-	formatDirectProviderUsage,
-	formatProviderUsage,
-	providerUsageCopilot,
-	providerUsageProxyAccounts,
+	providerUsageCliSnapshot,
 	refreshProviderUsage,
 } from "./provider-usage";
 
@@ -41,13 +38,4 @@ const targets = await discoverProviderUsageTargetsAsync(ctx);
 
 await refreshProviderUsage(ctx, targets, () => {});
 
-process.stdout.write(
-	`${JSON.stringify({
-		text: formatProviderUsage(targets, false, true) ?? "",
-		directText: formatDirectProviderUsage(
-			targets.filter((target) => target.providerId !== "github-copilot"),
-		),
-		copilot: providerUsageCopilot(targets),
-		proxyAccounts: providerUsageProxyAccounts(targets),
-	})}\n`,
-);
+process.stdout.write(`${JSON.stringify(providerUsageCliSnapshot(targets))}\n`);

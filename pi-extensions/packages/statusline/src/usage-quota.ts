@@ -17,6 +17,15 @@ export type ProviderUsageScope = {
 	spendUsd?: number;
 };
 
+export function hasQuota(scope: ProviderUsageScope | undefined): boolean {
+	return (
+		scope?.sessionPercentUsed !== undefined ||
+		scope?.weeklyPercentUsed !== undefined ||
+		scope?.monthlyPercentUsed !== undefined ||
+		scope?.percentUsed !== undefined
+	);
+}
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

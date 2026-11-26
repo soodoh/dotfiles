@@ -8,7 +8,6 @@ import {
 	readStoredCredential,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, expect, test, vi } from "vitest";
-import { resetProxyUsageForTests } from "./cliproxy-usage";
 import { invalidateProviderUsageCache } from "./provider-usage";
 import { registerReviewModels } from "./review-models";
 
@@ -104,10 +103,9 @@ function seedSharedUsageCaches(usage?: {
 }
 
 afterEach(() => {
+	invalidateProviderUsageCache();
 	vi.unstubAllEnvs();
 	vi.mocked(readStoredCredential).mockReset();
-	invalidateProviderUsageCache();
-	resetProxyUsageForTests();
 	for (const dir of tempDirs.splice(0)) {
 		rmSync(dir, { recursive: true, force: true });
 	}

@@ -1,10 +1,10 @@
 // Locally authored adapter for moshi-hook 0.3.19's socket protocol, not a generated hook.
 import { execFileSync } from "node:child_process";
+import net from "node:net";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { createMoshiWriter } from "./moshi-transport";
-import type { Snapshot } from "./state";
+import type { Snapshot } from "./index";
 
 function socketPath() {
 	if (process.env.MOSHI_SOCKET_PATH) return process.env.MOSHI_SOCKET_PATH;
@@ -19,6 +19,7 @@ function socketPath() {
 	if (process.platform === "win32") return "\\\\.\\pipe\\moshi-hook";
 	return join(process.env.XDG_RUNTIME_DIR || "/tmp", "moshi-hook.sock");
 }
+
 function terminalContext(): Record<string, string> {
 	const env = process.env;
 	if (env.TMUX && env.TMUX_PANE) {
@@ -66,9 +67,74 @@ function terminalContext(): Record<string, string> {
 	return { terminalKind: "" };
 }
 
+/** JSON-line/half-close/ack Moshi adapter. Latest state plus a resolution barrier; no retries. */
 export function createMoshi() {
-	const writer = createMoshiWriter(socketPath());
+	const endpoint = socketPath();
 	const terminal = terminalContext();
+	let closed = false;
+	let draining = false;
+	const pending = new Map<"state" | "resolution", string>();
+	let cancel: (() => void) | undefined;
+
+	function attempt(line: string): Promise<void> {
+		return new Promise((resolve) => {
+			let socket: net.Socket | undefined;
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			let finished = false;
+			function finish() {
+				if (finished) return;
+				finished = true;
+				clearTimeout(timer);
+				socket?.destroy();
+				cancel = undefined;
+				resolve();
+			}
+			cancel = finish;
+			try {
+				socket = net.createConnection(endpoint);
+				socket.on("error", finish);
+				socket.on("close", finish);
+				socket.on("end", finish);
+				socket.on("data", finish);
+				socket.on("connect", () => {
+					if (finished) return;
+					socket?.write(line);
+					socket?.end();
+				});
+				timer = setTimeout(finish, 1000);
+				timer.unref();
+			} catch {
+				finish();
+			}
+		});
+	}
+
+	async function drain() {
+		if (closed || draining) return;
+		draining = true;
+		try {
+			while (!closed && pending.size > 0) {
+				const next = pending.entries().next().value;
+				if (!next) break;
+				pending.delete(next[0]);
+				await attempt(next[1]);
+			}
+		} finally {
+			draining = false;
+		}
+	}
+
+	function send(payload: Record<string, unknown>, resolution = false) {
+		if (closed) return;
+		// A resolved prompt supersedes any queued waiting state. Retain the
+		// resolution before subsequent completion so Moshi clears its input marker.
+		if (resolution) pending.delete("state");
+		const key = resolution ? "resolution" : "state";
+		pending.delete(key);
+		pending.set(key, `${JSON.stringify(payload)}\n`);
+		void drain();
+	}
+
 	function envelope(
 		ctx: ExtensionContext,
 		eventName: string,
@@ -102,16 +168,17 @@ export function createMoshi() {
 			return undefined;
 		}
 	}
+
 	return {
 		associate(ctx: ExtensionContext) {
 			const base = envelope(ctx, "SessionStart");
-			if (base) writer.send(base); // Silent identity carrier, not a session-start notification.
+			if (base) send(base); // Silent identity carrier, not a session-start notification.
 		},
 		update(snapshot: Snapshot, ctx: ExtensionContext) {
 			const base = envelope(ctx, "AgentState");
 			if (!base) return;
 			if (snapshot.previous === "blocked" && snapshot.state !== "blocked") {
-				writer.send(
+				send(
 					{
 						...base,
 						eventName: "PermissionResolved",
@@ -126,7 +193,7 @@ export function createMoshi() {
 			if (snapshot.state === "blocked") {
 				// The documented category covers both permission and user answers.
 				// No actionId/toolName: never manufacture an actionable approval target.
-				writer.send({
+				send({
 					...base,
 					eventName: "InputRequest",
 					category: "approval_required",
@@ -135,21 +202,21 @@ export function createMoshi() {
 					subtitle: "Answer in terminal",
 				});
 			} else if (snapshot.state === "working") {
-				writer.send({
+				send({
 					...base,
 					eventName: "AgentStart",
 					category: "session_started",
 					title: "Pi is working",
 				});
 			} else if (snapshot.outcome === "stop") {
-				writer.send({
+				send({
 					...base,
 					eventName: "AgentEnd",
 					category: "task_complete",
 					title: "Pi task finished",
 				});
 			} else if (snapshot.outcome) {
-				writer.send({
+				send({
 					...base,
 					eventName: "AgentEnd",
 					category: "error",
@@ -159,21 +226,26 @@ export function createMoshi() {
 							: "Pi task ended with an error",
 				});
 			} else {
-				writer.send({ ...base, phase: "idle" }); // Startup/dialog closure is not task completion.
+				send({ ...base, phase: "idle" }); // Startup/dialog closure is not task completion.
 			}
 		},
-		close(ctx?: ExtensionContext) {
+		async close(ctx?: ExtensionContext) {
+			if (closed) return;
+			closed = true;
+			pending.clear();
+			cancel?.();
+			// Only a real session quit closes Moshi's session. Teardown never completes a task.
 			const base = ctx ? envelope(ctx, "SessionEnd") : undefined;
-			return writer.close(
-				base
-					? {
-							...base,
-							type: "session.closed",
-							category: "session_ended",
-							title: "Pi session ended",
-						}
-					: undefined,
-			);
+			if (base) {
+				await attempt(
+					`${JSON.stringify({
+						...base,
+						type: "session.closed",
+						category: "session_ended",
+						title: "Pi session ended",
+					})}\n`,
+				);
+			}
 		},
 	};
 }

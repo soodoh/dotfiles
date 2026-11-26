@@ -132,11 +132,11 @@ contributions; simply appearing in FleetView does not register liveness.
 
 ## Transport, identity and privacy
 
-- `state.ts` owns all lifecycle decisions. `index.ts` wires `herdr.ts` and `moshi.ts`.
-- Herdr retains its Apache-derived ordered transport (`transport.ts`): immutable
+- `index.ts` owns all lifecycle decisions and wires `herdr.ts`, `moshi.ts`, and `liveness.ts`.
+- Herdr retains its Apache-derived ordered transport inside `herdr.ts`: immutable
   identity snapshots, monotonic sequences, one pending request per method and
   bounded 500/1500-ms attempts with obsolete-retry suppression.
-- Moshi uses its JSON-line, half-close, ack protocol (`moshi-transport.ts`): one
+- Moshi uses its JSON-line, half-close, ack protocol inside `moshi.ts`: one
   in-flight attempt, latest pending state plus at most one input-resolution
   barrier, 1000-ms timeout and **no notification retries**. Both transports are
   best-effort, cancel queued work on teardown and never start daemons.

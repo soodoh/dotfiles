@@ -7,16 +7,13 @@ import type {
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { registerActivity } from "./liveness.test.fixture";
 
-// These inherited regressions isolate Herdr; moshi.test.ts exercises both adapters.
-vi.mock("./moshi", () => ({
-	createMoshi: () => ({ associate() {}, update() {}, close() {} }),
-}));
-
 type Handler = (
 	event: Record<string, unknown>,
 	ctx: ExtensionContext,
 ) => unknown;
 type Report = { method: string; params: Record<string, unknown> };
+const HERDR_SOCKET = "/fixture-herdr.sock";
+const MOSHI_SOCKET = "/fixture-moshi.sock";
 const flush = async () => {
 	for (let n = 0; n < 3; n++)
 		await new Promise<void>((resolve) => setImmediate(resolve));
@@ -27,17 +24,23 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 	const reports: Report[] = [];
 	const sockets: EventEmitter[] = [];
 	let respond = true;
-	vi.spyOn(net, "createConnection").mockImplementation((() => {
+	vi.spyOn(net, "createConnection").mockImplementation(((endpoint: unknown) => {
+		const isHerdr = endpoint === HERDR_SOCKET;
 		const socket = new EventEmitter();
 		Object.assign(socket, {
 			destroy: vi.fn(),
+			end: vi.fn(),
 			write: (line: string) => {
-				reports.push(JSON.parse(line));
-				if (respond)
+				if (isHerdr) {
+					reports.push(JSON.parse(line));
+					if (respond)
+						queueMicrotask(() => socket.emit("data", Buffer.from("{}\n")));
+				} else {
 					queueMicrotask(() => socket.emit("data", Buffer.from("{}\n")));
+				}
 			},
 		});
-		sockets.push(socket);
+		if (isHerdr) sockets.push(socket);
 		queueMicrotask(() => socket.emit("connect"));
 		return socket;
 	}) as unknown as typeof net.createConnection);
@@ -62,6 +65,7 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 	const ctx = {
 		mode,
 		hasUI: mode === "tui" || mode === "rpc",
+		cwd: "/tmp/test-project",
 		isIdle: () => idle,
 		hasPendingMessages: () => pending,
 		ui: { notify: vi.fn() },
@@ -113,8 +117,9 @@ async function fixture(mode: ExtensionContext["mode"] = "tui") {
 beforeEach(() => {
 	vi.resetModules();
 	vi.stubEnv("HERDR_ENV", "1");
-	vi.stubEnv("HERDR_SOCKET_PATH", "/unused.sock");
+	vi.stubEnv("HERDR_SOCKET_PATH", HERDR_SOCKET);
 	vi.stubEnv("HERDR_PANE_ID", "w1:p1");
+	vi.stubEnv("MOSHI_SOCKET_PATH", MOSHI_SOCKET);
 	vi.stubEnv("PI_SUBAGENT_CHILD", "0");
 });
 afterEach(async () => {

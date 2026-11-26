@@ -4,14 +4,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	cachedProxyPercentUsed,
-	type DirectProxyFallback,
+	hashProxyTargetIdentity,
+	type ProxySnapshotView,
 	type ProxyUsageAccount,
-	proxyTargetQuotaState,
-	proxyUsageAccounts,
-	proxyUsageBadges,
-	pruneProxyTargetLinks,
-	refreshProxyUsage,
-	setProxyTargetLink,
+	readProxySnapshot,
+	refreshProxySnapshot,
+	resetProxySnapshot,
 } from "./cliproxy-usage";
 import {
 	type CopilotUsageDetails,
@@ -32,6 +30,7 @@ import {
 } from "./usage-cache";
 import {
 	formatProviderScope,
+	hasQuota,
 	isRecord,
 	nestedRecord,
 	numericField,
@@ -48,9 +47,11 @@ const PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS = 50;
 const PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS = 1000;
 const PROVIDER_USAGE_RETRY_MAX_DELAY_MS = 20_000;
 const OPENAI_LOGO = "\u{F0004}";
+const CODEX_PROXY_LOGO = "\uF120"; // nf-fa-terminal
 const OPENROUTER_LOGO = "\u{F0469}";
 const GITHUB_LOGO = "\uF09B";
 
+export type { ProxyUsageAccount } from "./cliproxy-usage";
 export type { ProviderUsageScope } from "./usage-quota";
 
 type ThemeLike = {
@@ -108,16 +109,112 @@ type AvailableModelsCacheEntry = {
 	callbacks: Set<() => void>;
 };
 
+type ProxyTargetIdentity = {
+	kind: "native" | "codex";
+	id: string;
+};
+
+type ProxyTargetLink = {
+	kind: "native" | "codex";
+	hash: string;
+};
+
+type DirectProxyFallback = {
+	scope?: ProviderUsageScope;
+	freshness: "fresh" | "stale" | "expired";
+	state: ProviderUsageState;
+	fetchedAt?: number;
+	lastAttemptAt?: number;
+};
+
 const providerUsageCache = new Map<string, ProviderUsageCacheEntry>();
 const providerUsageRefreshes = new Map<string, Promise<void>>();
 const providerUsageResolvedCacheKeys = new Map<string, string>();
 const providerUsageResolutionIds = new Map<string, number>();
+/** Process-local verified proxy links keyed by target; never a second quota cache. */
+const proxyTargetLinks = new Map<string, ProxyTargetLink>();
 let providerUsageCachePath: string | undefined;
 let availableModelsCache = new WeakMap<
 	ModelRegistryLike,
 	AvailableModelsCacheEntry
 >();
 let providerUsageInvalidation = 0;
+
+function setProxyTargetLink(
+	targetKey: string,
+	identity?: ProxyTargetIdentity,
+	options?: { clearOnlyOnMismatch?: boolean },
+): boolean {
+	const previous = proxyTargetLinks.get(targetKey);
+	const next = identity
+		? {
+				kind: identity.kind,
+				hash: hashProxyTargetIdentity(identity.kind, identity.id),
+			}
+		: undefined;
+	const same = previous?.kind === next?.kind && previous?.hash === next?.hash;
+	if (options?.clearOnlyOnMismatch) {
+		if (same || !previous) return false;
+		proxyTargetLinks.delete(targetKey);
+		return true;
+	}
+	if (same) return false;
+	if (!next) proxyTargetLinks.delete(targetKey);
+	else proxyTargetLinks.set(targetKey, next);
+	return true;
+}
+
+function pruneProxyTargetLinks(activeTargetKeys?: Iterable<string>): void {
+	if (!activeTargetKeys) {
+		proxyTargetLinks.clear();
+		return;
+	}
+	const active = new Set(activeTargetKeys);
+	for (const key of proxyTargetLinks.keys()) {
+		if (!active.has(key)) proxyTargetLinks.delete(key);
+	}
+}
+
+function hasNativeProxyTargetLink(): boolean {
+	for (const link of proxyTargetLinks.values()) {
+		if (link.kind === "native") return true;
+	}
+	return false;
+}
+
+function linkedProxyAccountKey(
+	snapshot: ProxySnapshotView | undefined,
+	targetKey: string,
+): string | undefined {
+	if (!snapshot) return undefined;
+	const link = proxyTargetLinks.get(targetKey);
+	if (!link) return undefined;
+	const matches =
+		link.kind === "native"
+			? snapshot.openaiRegistrations
+			: snapshot.codexAccounts;
+	if (
+		!matches ||
+		typeof matches !== "object" ||
+		Array.isArray(matches) ||
+		!Object.hasOwn(matches, link.hash)
+	)
+		return undefined;
+	return matches[link.hash];
+}
+
+function proxyTargetQuotaState(
+	targetKey: string,
+	snapshot: ProxySnapshotView | undefined = readProxySnapshot(),
+): "unlinked" | "stale" | "fresh" {
+	const accountKey = linkedProxyAccountKey(snapshot, targetKey);
+	if (!accountKey || !snapshot) return "unlinked";
+	const account = snapshot.accounts.find((entry) => entry.key === accountKey);
+	if (!account) return "unlinked";
+	return snapshot.freshness === "fresh" && hasQuota(account.scope)
+		? "fresh"
+		: "stale";
+}
 let providerUsageDiscoveryId = 0;
 let providerUsageResolutionId = 0;
 
@@ -362,7 +459,7 @@ export function cachedProviderPercentUsed(
 	return undefined;
 }
 
-export function cachedCopilotPercentUsed(
+function cachedCopilotPercentUsed(
 	ctx: ProviderUsageContext,
 ): number | undefined {
 	const credential = getStoredOAuthCredential(ctx, "github-copilot");
@@ -1151,6 +1248,7 @@ export function invalidateProviderUsageCache(): void {
 	providerUsageRefreshes.clear();
 	providerUsageResolvedCacheKeys.clear();
 	pruneProxyTargetLinks();
+	resetProxySnapshot();
 	providerUsageResolutionIds.clear();
 	providerUsageCachePath = undefined;
 	try {
@@ -1495,9 +1593,13 @@ export function refreshProviderUsage(
 			refreshNativeOpenAiBinding(ctx, target, fetchId, onUpdate),
 		),
 	).then(() =>
-		refreshProxyUsage(
+		refreshProxySnapshot(
 			onUpdate,
-			targets.some(isLegacyCodex) ? "codex" : undefined,
+			hasNativeProxyTargetLink()
+				? "native"
+				: targets.some(isLegacyCodex)
+					? "codex"
+					: undefined,
 		),
 	);
 	return Promise.all([
@@ -1518,7 +1620,7 @@ export function refreshProviderUsage(
 	});
 }
 
-export function providerDisplayLabel(providerId: string): string {
+function providerDisplayLabel(providerId: string): string {
 	switch (providerFamily(providerId)) {
 		case LLMHUB_USAGE_PROVIDER_ID:
 			return "LLMHub";
@@ -1551,27 +1653,35 @@ function providerUsageLabelsForTarget(target: ProviderUsageTarget): string[] {
 	];
 }
 
+function isTargetActive(
+	target: ProviderUsageTarget,
+	activeFamilyOverride?: string,
+): boolean {
+	return (
+		target.active ||
+		(activeFamilyOverride !== undefined &&
+			providerFamily(target.providerId) === activeFamilyOverride)
+	);
+}
+
 function directProviderUsageBadges(
 	targets: ProviderUsageTarget[],
 	activeOnly: boolean,
-	activeFamilyOverride?: string,
-	hydrate = true,
+	activeFamilyOverride: string | undefined,
+	proxySnapshot: ProxySnapshotView | undefined,
 ): { active: boolean; text: string }[] {
-	if (hydrate) hydrateSharedCache();
 	return targets
 		.filter(
 			(target) =>
 				isProviderSupportedAuth(target.providerId, target.authKind) &&
 				proxyTargetQuotaState(
 					providerTargetKey(target.providerId, target.authKind),
+					proxySnapshot,
 				) === "unlinked",
 		)
 		.map((target) => ({
 			...target,
-			active:
-				target.active ||
-				(activeFamilyOverride !== undefined &&
-					providerFamily(target.providerId) === activeFamilyOverride),
+			active: isTargetActive(target, activeFamilyOverride),
 		}))
 		.filter((target) => !activeOnly || target.active)
 		.sort((a, b) => compareProviderIds(a.providerId, b.providerId))
@@ -1586,7 +1696,9 @@ function directProviderUsageBadges(
 export function formatDirectProviderUsage(
 	targets: ProviderUsageTarget[],
 ): string {
-	return directProviderUsageBadges(targets, false)
+	hydrateSharedCache();
+	const proxySnapshot = readProxySnapshot();
+	return directProviderUsageBadges(targets, false, undefined, proxySnapshot)
 		.map(({ text }) => text)
 		.join(PROVIDER_BADGE_SEPARATOR);
 }
@@ -1600,11 +1712,9 @@ export type CopilotUsageAccount = {
 	stale: boolean;
 };
 
-/** One separately hoverable direct provider, using the same credential-scoped cache as Pi. */
-export function providerUsageCopilot(
+function buildCopilotUsageAccount(
 	targets: ProviderUsageTarget[],
 ): CopilotUsageAccount | undefined {
-	hydrateSharedCache();
 	const target = targets.find(
 		(target) =>
 			target.providerId === "github-copilot" && target.authKind === "oauth",
@@ -1625,6 +1735,14 @@ export function providerUsageCopilot(
 		lastAttemptAt: status?.lastAttemptAt,
 		stale: freshness === "stale",
 	};
+}
+
+/** One separately hoverable direct provider, using the same credential-scoped cache as Pi. */
+export function providerUsageCopilot(
+	targets: ProviderUsageTarget[],
+): CopilotUsageAccount | undefined {
+	hydrateSharedCache();
+	return buildCopilotUsageAccount(targets);
 }
 
 function legacyCodexDirectFallbacks(
@@ -1650,47 +1768,157 @@ function legacyCodexDirectFallbacks(
 	return fallbacks;
 }
 
+function mergeDirectFallback(
+	account: ProxyUsageAccount,
+	fallback: DirectProxyFallback | undefined,
+	proxySnapshotStale: boolean,
+): ProxyUsageAccount {
+	if (!fallback || (hasQuota(account.scope) && !proxySnapshotStale))
+		return account;
+	if (
+		!fallback.scope ||
+		fallback.freshness === "expired" ||
+		!hasQuota(fallback.scope)
+	)
+		return account;
+	const directObservedAt =
+		fallback.fetchedAt ?? fallback.lastAttemptAt ?? account.observedAt;
+	if (
+		hasQuota(account.scope) &&
+		(fallback.freshness !== "fresh" || directObservedAt <= account.observedAt)
+	) {
+		return account;
+	}
+	const scope = {
+		...fallback.scope,
+		availableResets:
+			fallback.scope.availableResets ?? account.scope.availableResets,
+	};
+	return {
+		...account,
+		scope,
+		summary: formatProviderScope(scope) ?? account.summary,
+		observedAt: directObservedAt,
+		quotaLookupFailed: fallback.state !== "ready",
+		stale:
+			fallback.freshness === "stale" ||
+			(fallback.scope.availableResets === undefined &&
+				account.resetLookupFailed),
+		...(fallback.scope.availableResets !== undefined
+			? {
+					resetCredits: undefined,
+					resetCreditsObservedAt: fallback.fetchedAt,
+					resetLookupFailed: fallback.state !== "ready",
+				}
+			: {}),
+	};
+}
+
+function resolveProxyAccounts(
+	targets: ProviderUsageTarget[],
+	proxySnapshot: ProxySnapshotView | undefined,
+): ProxyUsageAccount[] {
+	if (!proxySnapshot) return [];
+	const directFallbacks = legacyCodexDirectFallbacks(targets);
+	if (!directFallbacks.size) return proxySnapshot.accounts;
+	const fallbacksByAccount = new Map<string, DirectProxyFallback>();
+	for (const [targetKey, fallback] of directFallbacks) {
+		if (proxyTargetLinks.get(targetKey)?.kind !== "codex") continue;
+		const accountKey = linkedProxyAccountKey(proxySnapshot, targetKey);
+		if (accountKey) fallbacksByAccount.set(accountKey, fallback);
+	}
+	if (!fallbacksByAccount.size) return proxySnapshot.accounts;
+	const proxySnapshotStale = proxySnapshot.freshness !== "fresh";
+	return proxySnapshot.accounts.map((account) =>
+		mergeDirectFallback(
+			account,
+			fallbacksByAccount.get(account.key),
+			proxySnapshotStale,
+		),
+	);
+}
+
 /** External renderers keep one proxy item, even when a direct fallback supplies its missing or stale quota. */
 export function providerUsageProxyAccounts(
 	targets: ProviderUsageTarget[],
 ): ProxyUsageAccount[] {
 	hydrateSharedCache();
-	return proxyUsageAccounts(legacyCodexDirectFallbacks(targets));
+	return resolveProxyAccounts(targets, readProxySnapshot());
 }
 
-function providerUsageBadges(
+function renderProxyUsageBadges(
 	targets: ProviderUsageTarget[],
-	activeOnly: boolean,
-	activeFamilyOverride?: string,
-	compact = false,
-	activeProxy = false,
-	renderPart: (text: string, active: boolean) => string = (text) => text,
-): { active: boolean; text: string; proxy?: boolean }[] {
-	hydrateSharedCache();
-	const proxyBadges = proxyUsageBadges({
-		compact,
-		activeOnly,
-		activeProxy,
-		directLogo: OPENAI_LOGO,
-		directTargets: targets.map((target) => ({
-			targetKey: providerTargetKey(target.providerId, target.authKind),
-			active:
-				target.active ||
-				(activeFamilyOverride !== undefined &&
-					providerFamily(target.providerId) === activeFamilyOverride),
-		})),
-		directFallbacks: legacyCodexDirectFallbacks(targets),
-		renderPart,
+	proxySnapshot: ProxySnapshotView | undefined,
+	options: {
+		compact: boolean;
+		activeOnly: boolean;
+		activeFamilyOverride?: string;
+		activeProxy: boolean;
+	},
+	renderPart: (text: string, active: boolean) => string,
+): string[] {
+	if (!proxySnapshot) return [];
+	const linked = new Map<string, boolean>();
+	for (const target of targets) {
+		const accountKey = linkedProxyAccountKey(
+			proxySnapshot,
+			providerTargetKey(target.providerId, target.authKind),
+		);
+		if (!accountKey) continue;
+		linked.set(
+			accountKey,
+			!!linked.get(accountKey) ||
+				isTargetActive(target, options.activeFamilyOverride),
+		);
+	}
+	const valid = resolveProxyAccounts(targets, proxySnapshot).filter(
+		(account) =>
+			!options.activeOnly || options.activeProxy || linked.get(account.key),
+	);
+	const visible = options.compact ? valid.slice(0, 2) : valid;
+	const scopes = visible.map((account) => {
+		const proxyActive = options.activeProxy && !account.disabled;
+		if (linked.has(account.key)) {
+			const directActive = linked.get(account.key) === true;
+			return `${renderPart(OPENAI_LOGO, directActive)} ${renderPart(CODEX_PROXY_LOGO, proxyActive)} ${renderPart(account.summary, directActive || proxyActive)}`;
+		}
+		return renderPart(`${CODEX_PROXY_LOGO} ${account.summary}`, proxyActive);
 	});
+	if (scopes.length === 0) return [];
+	if (options.compact && valid.length > visible.length)
+		scopes.push(renderPart(`+${valid.length - visible.length}`, false));
 	return [
-		...directProviderUsageBadges(
-			targets,
-			activeOnly,
-			activeFamilyOverride,
-			false,
-		),
-		...proxyBadges.map((text) => ({ active: false, proxy: true, text })),
+		`${scopes.join(renderPart(PROVIDER_BADGE_SEPARATOR, false))}${valid.some((account) => account.stale) ? renderPart(" !", false) : ""}`,
 	];
+}
+
+function renderUsageLine(
+	targets: ProviderUsageTarget[],
+	proxySnapshot: ProxySnapshotView | undefined,
+	options: {
+		activeOnly: boolean;
+		activeFamilyOverride?: string;
+		compact: boolean;
+		activeProxy: boolean;
+	},
+	renderPart: (text: string, active: boolean) => string,
+): string | undefined {
+	const directBadges = directProviderUsageBadges(
+		targets,
+		options.activeOnly,
+		options.activeFamilyOverride,
+		proxySnapshot,
+	).map(({ active, text }) => renderPart(text, active));
+	const proxyBadges = renderProxyUsageBadges(
+		targets,
+		proxySnapshot,
+		options,
+		renderPart,
+	);
+	const parts = [...directBadges, ...proxyBadges];
+	return parts.length > 0
+		? parts.join(renderPart(PROVIDER_BADGE_SEPARATOR, false))
+		: undefined;
 }
 
 export function formatProviderUsage(
@@ -1698,10 +1926,13 @@ export function formatProviderUsage(
 	activeOnly = false,
 	compact = false,
 ): string | undefined {
-	const badges = providerUsageBadges(targets, activeOnly, undefined, compact);
-	return badges.length > 0
-		? badges.map(({ text }) => text).join(PROVIDER_BADGE_SEPARATOR)
-		: undefined;
+	hydrateSharedCache();
+	return renderUsageLine(
+		targets,
+		readProxySnapshot(),
+		{ activeOnly, compact, activeProxy: false },
+		(text) => text,
+	);
 }
 
 export function renderProviderUsage(
@@ -1712,19 +1943,48 @@ export function renderProviderUsage(
 	activeFamilyOverride?: string,
 	activeProxy = false,
 ): string | undefined {
-	const badges = providerUsageBadges(
+	hydrateSharedCache();
+	return renderUsageLine(
 		targets,
-		activeOnly,
-		activeFamilyOverride,
-		false,
-		activeProxy,
+		readProxySnapshot(),
+		{ activeOnly, activeFamilyOverride, compact: false, activeProxy },
 		(text, active) => (active ? renderActive(text) : theme.fg("dim", text)),
 	);
-	if (badges.length === 0) return undefined;
-	const separator = theme.fg("dim", PROVIDER_BADGE_SEPARATOR);
-	return badges
-		.map(({ active, text, proxy }) =>
-			proxy ? text : active ? renderActive(text) : theme.fg("dim", text),
+}
+
+export type ProviderUsageCliSnapshot = {
+	text: string;
+	directText: string;
+	copilot?: CopilotUsageAccount;
+	proxyAccounts: ProxyUsageAccount[];
+};
+
+/** One-pass snapshot projection for external renderers (e.g. SketchyBar). */
+export function providerUsageCliSnapshot(
+	targets: ProviderUsageTarget[],
+): ProviderUsageCliSnapshot {
+	hydrateSharedCache();
+	const proxySnapshot = readProxySnapshot();
+	const nonCopilotTargets = targets.filter(
+		(target) => target.providerId !== "github-copilot",
+	);
+	return {
+		text:
+			renderUsageLine(
+				targets,
+				proxySnapshot,
+				{ activeOnly: false, compact: true, activeProxy: false },
+				(text) => text,
+			) ?? "",
+		directText: directProviderUsageBadges(
+			nonCopilotTargets,
+			false,
+			undefined,
+			proxySnapshot,
 		)
-		.join(separator);
+			.map(({ text }) => text)
+			.join(PROVIDER_BADGE_SEPARATOR),
+		copilot: buildCopilotUsageAccount(targets),
+		proxyAccounts: resolveProxyAccounts(targets, proxySnapshot),
+	};
 }
