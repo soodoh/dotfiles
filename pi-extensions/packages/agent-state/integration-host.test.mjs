@@ -4,11 +4,11 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { mkdirSync, readFileSync, realpathSync } from "node:fs";
-import { createRequire, syncBuiltinESMExports } from "node:module";
+import { syncBuiltinESMExports } from "node:module";
 import net from "node:net";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { resolvePiHost } from "../../test-support/host-runtime.mjs";
+import { createHostJiti, resolvePiHost } from "../../test-support/pi-host.mjs";
 
 const [launcher, mode, profile] = process.argv.slice(2);
 assert.ok(["personal", "work"].includes(profile));
@@ -54,13 +54,10 @@ net.createConnection = (path) => {
 syncBuiltinESMExports();
 const pi = await import(pathToFileURL(join(host.root, "dist/index.js")).href);
 const bus = pi.createEventBus();
-const requireSubagents = createRequire(
+const jiti = await createHostJiti(
 	join(root, "pi-extensions/node_modules/pi-subagents/package.json"),
+	{ callerUrl: import.meta.url },
 );
-const { createJiti } = await import(
-	pathToFileURL(requireSubagents.resolve("jiti")).href
-);
-const jiti = createJiti(import.meta.url, { fsCache: false });
 const subagentSource = join(
 	root,
 	"pi-extensions/node_modules/pi-subagents/src",

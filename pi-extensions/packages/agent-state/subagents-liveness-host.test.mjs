@@ -2,11 +2,11 @@
 // No model calls, child launches, workstation services or live notifications.
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { createRequire, syncBuiltinESMExports } from "node:module";
+import { syncBuiltinESMExports } from "node:module";
 import net from "node:net";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { resolvePiHost } from "../../test-support/host-runtime.mjs";
+import { createHostJiti, resolvePiHost } from "../../test-support/pi-host.mjs";
 
 const [launcher, order] = process.argv.slice(2);
 const root = resolve(import.meta.dirname, "../../..");
@@ -42,15 +42,13 @@ const loader = new pi.DefaultResourceLoader({
 	noThemes: true,
 	noContextFiles: true,
 });
-const requireSubagents = createRequire(
+const jiti = await createHostJiti(
 	join(root, "pi-extensions/node_modules/pi-subagents/package.json"),
+	{ callerUrl: import.meta.url },
 );
-const { createJiti } = await import(
-	pathToFileURL(requireSubagents.resolve("jiti")).href
+const { createLiveness } = await jiti.import(
+	join(root, "pi-extensions/packages/agent-state/liveness.ts"),
 );
-const { createLiveness } = await createJiti(import.meta.url, {
-	fsCache: false,
-}).import(join(root, "pi-extensions/packages/agent-state/liveness.ts"));
 const session = pi.SessionManager.inMemory(process.cwd());
 const sessionId = session.getSessionId();
 const errors = [];

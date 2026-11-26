@@ -178,7 +178,7 @@ policy belongs to [Moshi](https://getmoshi.app/docs/notifications), not this mod
 
 ```sh
 bun run --cwd pi-extensions test packages/agent-state
-python3 pi-extensions/packages/agent-state/integration.test.py "$(mise which pi)"
+node pi-extensions/packages/agent-state/integration-suite.test.mjs "$(mise which pi)"
 mise run validate:agents:integration
 ```
 

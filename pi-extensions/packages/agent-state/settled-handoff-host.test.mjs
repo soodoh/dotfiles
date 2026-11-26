@@ -2,14 +2,15 @@
 // producer retains authoritative activity until the wake starts; no child spawn.
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { createRequire, syncBuiltinESMExports } from "node:module";
+import { syncBuiltinESMExports } from "node:module";
 import net from "node:net";
 import { join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import {
+	createHostJiti,
 	createSessionFixture,
 	runSessionWorker,
-} from "../../test-support/session-host.mjs";
+} from "../../test-support/pi-host.mjs";
 
 if (process.argv[2] !== "worker") {
 	runSessionWorker(process.argv[2], new URL(import.meta.url));
@@ -31,15 +32,12 @@ if (process.argv[2] !== "worker") {
 		return socket;
 	};
 	syncBuiltinESMExports();
-	const requireSubagents = createRequire(
+	const jiti = await createHostJiti(
 		fileURLToPath(
 			new URL("../../node_modules/pi-subagents/package.json", import.meta.url),
 		),
+		{ callerUrl: import.meta.url },
 	);
-	const { createJiti } = await import(
-		pathToFileURL(requireSubagents.resolve("jiti")).href
-	);
-	const jiti = createJiti(import.meta.url, { fsCache: false });
 	const { registerPiWebSessionLiveness } = await jiti.import(
 		fileURLToPath(
 			new URL(

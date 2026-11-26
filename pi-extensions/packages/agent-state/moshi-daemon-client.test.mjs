@@ -1,15 +1,11 @@
 // Optional smoke-test client: real local adapter/transport against an unpaired daemon.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import { createRequire, syncBuiltinESMExports } from "node:module";
+import { syncBuiltinESMExports } from "node:module";
 import net from "node:net";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { createHostJiti } from "../../test-support/pi-host.mjs";
 
-const require = createRequire(new URL("../../package.json", import.meta.url));
-const { createJiti } = await import(
-	pathToFileURL(require.resolve("jiti")).href
-);
 const acknowledgments = [];
 const sent = [];
 const connect = net.createConnection;
@@ -27,9 +23,13 @@ net.createConnection = (...args) => {
 	return socket;
 };
 syncBuiltinESMExports();
-const { createMoshi } = await createJiti(import.meta.url, {
-	fsCache: false,
-}).import(join(import.meta.dirname, "moshi.ts"));
+const jiti = await createHostJiti(
+	new URL("../../package.json", import.meta.url),
+	{ callerUrl: import.meta.url },
+);
+const { createMoshi } = await jiti.import(
+	join(import.meta.dirname, "moshi.ts"),
+);
 const moshi = createMoshi();
 const ctx = {
 	cwd: process.env.HOME,

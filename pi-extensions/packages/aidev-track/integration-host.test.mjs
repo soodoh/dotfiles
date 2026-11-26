@@ -3,23 +3,21 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+	createHostJiti,
 	createSessionFixture,
 	runSessionWorker,
-} from "../../test-support/session-host.mjs";
+} from "../../test-support/pi-host.mjs";
 
 if (process.argv[2] !== "worker") {
 	runSessionWorker(process.argv[2], new URL(import.meta.url));
 } else {
 	const hostRoot = process.argv[3];
-	const requireHost = createRequire(join(hostRoot, "package.json"));
-	const { createJiti } = await import(
-		pathToFileURL(requireHost.resolve("jiti")).href
-	);
-	const jiti = createJiti(import.meta.url, { fsCache: false });
+	const jiti = await createHostJiti(join(hostRoot, "package.json"), {
+		callerUrl: import.meta.url,
+	});
 	const { createAidevTrackExtension } = await jiti.import(
 		fileURLToPath(new URL("./index.ts", import.meta.url)),
 	);

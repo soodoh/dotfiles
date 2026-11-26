@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import {
 	mkdirSync,
 	mkdtempSync,
@@ -13,7 +12,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { resolvePiHost } from "./test-support/host-runtime.mjs";
+import {
+	createHostJiti,
+	resolvePiHost,
+	runIsolatedWorker,
+} from "./test-support/pi-host.mjs";
 
 const extensionRoot = fileURLToPath(
 	new URL("./node_modules/pi-subagents/", import.meta.url),
@@ -24,11 +27,10 @@ const manifest = JSON.parse(
 const declared = JSON.parse(
 	readFileSync(new URL("./package.json", import.meta.url), "utf8"),
 );
-const requireExtension = createRequire(join(extensionRoot, "package.json"));
-const { createJiti } = await import(
-	pathToFileURL(requireExtension.resolve("jiti")).href
-);
-const jiti = createJiti(import.meta.url);
+const jiti = await createHostJiti(join(extensionRoot, "package.json"), {
+	fsCache: true,
+	callerUrl: import.meta.url,
+});
 const { HOST_PEER_ALIASES, resolveHostPeerAliases } = await jiti.import(
 	join(extensionRoot, "src/runs/background/runner-aliases.js"),
 );
@@ -237,24 +239,17 @@ test("actual mise launcher: all required host aliases import as native ESM", {
 	await t.test(
 		"native runner preload preserves host identity and can complete a session",
 		() => {
-			const temporary = realpathSync(
-				mkdtempSync(join(tmpdir(), "pi-subagents-runner-")),
-			);
-			try {
-				for (const directory of ["home", "agent", "cache", "work/.git"])
-					mkdirSync(join(temporary, directory), { recursive: true });
-				const probe = spawnSync(
-					process.execPath,
-					[
-						"--import",
-						join(extensionRoot, "runner-peer-preload.mjs"),
-						"--input-type=module",
-						"--eval",
-						`
+			const probe = runIsolatedWorker(
+				[
+					"--import",
+					join(extensionRoot, "runner-peer-preload.mjs"),
+					"--input-type=module",
+					"--eval",
+					`
 						import assert from "node:assert/strict";
 						import { Agent } from "@earendil-works/pi-agent-core";
 						import * as pi from "@earendil-works/pi-coding-agent";
-						import { createSessionFixture } from ${JSON.stringify(new URL("./test-support/session-host.mjs", import.meta.url).href)};
+						import { createSessionFixture } from ${JSON.stringify(new URL("./test-support/pi-host.mjs", import.meta.url).href)};
 						const fixture = await createSessionFixture(process.argv[1], {
 							respond: async () => ({ content: [{ type: "text", text: "runner-ok" }] }),
 						});
@@ -269,39 +264,21 @@ test("actual mise launcher: all required host aliases import as native ESM", {
 						}
 						console.log("PASS native runner host identity and session");
 					`,
-						root,
-					],
-					{
-						cwd: join(temporary, "work"),
-						env: {
-							HOME: join(temporary, "home"),
-							TMPDIR: temporary,
-							PI_CODING_AGENT_DIR: join(temporary, "agent"),
-							XDG_CONFIG_HOME: join(temporary, "home/.config"),
-							XDG_CACHE_HOME: join(temporary, "cache"),
-							JITI_ALIAS: JSON.stringify(result.aliases),
-							PI_ASYNC_NATIVE_RUNNER: "1",
-							PI_OFFLINE: "1",
-							PI_SKIP_VERSION_CHECK: "1",
-							PI_TELEMETRY: "0",
-							JITI_FS_CACHE: "false",
-							TERM: "dumb",
-							NO_COLOR: "1",
-						},
-						timeout: 15000,
-						killSignal: "SIGKILL",
-						encoding: "utf8",
+					root,
+				],
+				{
+					prefix: "pi-subagents-runner-",
+					timeout: 15000,
+					env: {
+						JITI_ALIAS: JSON.stringify(result.aliases),
+						PI_ASYNC_NATIVE_RUNNER: "1",
 					},
-				);
-				assert.ifError(probe.error);
-				assert.equal(probe.status, 0, `${probe.stderr}\n${probe.stdout}`);
-				assert.match(
-					probe.stdout,
-					/PASS native runner host identity and session/,
-				);
-			} finally {
-				rmSync(temporary, { recursive: true, force: true });
-			}
+				},
+			);
+			assert.match(
+				probe.stdout,
+				/PASS native runner host identity and session/,
+			);
 		},
 	);
 	t.diagnostic(`Node ${process.version}: ${process.execPath}; host: ${root}`);

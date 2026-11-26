@@ -1,19 +1,11 @@
 // Actual mise Pi client/codemode, synthetic credentials, local MCP servers only.
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import {
-	mkdtempSync,
-	readFileSync,
-	realpathSync,
-	rmSync,
-	writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { grafanaEnvironment } from "./packages/grafana-bridge/test-support/fixture.ts";
-import { resolvePiHost } from "./test-support/host-runtime.mjs";
+import { resolvePiHost, runIsolatedWorker } from "./test-support/pi-host.mjs";
 
 const file = fileURLToPath(import.meta.url);
 const repo = dirname(dirname(file));
@@ -22,39 +14,23 @@ const fixture = join(dirname(file), "test-support/mcp-fixture.mjs");
 if (process.argv[2] !== "--worker") {
 	await test("native MCP configuration, environment routing, and codemode behavior", () => {
 		const host = resolvePiHost(process.argv[2]);
-		const root = realpathSync(mkdtempSync(join(tmpdir(), "pi-native-mcp-")));
-		try {
-			const result = spawnSync(
-				process.execPath,
-				[file, "--worker", host.root],
-				{
-					cwd: root,
-					env: {
-						...grafanaEnvironment,
-						HOME: root,
-						TMPDIR: root,
-						PATH: process.env.PATH,
-						PI_CODING_AGENT_DIR: root,
-						PI_OFFLINE: "1",
-						PI_SKIP_VERSION_CHECK: "1",
-						AZURE_CONFIG_DIR: join(root, ".azure/dev/.azure"),
-						AZURE_SUBSCRIPTION_ID: "fixture-production-subscription",
-						ADO_MCP_PAT_BASIC: "fixture-pat",
-						YNAB_API_TOKEN: "fixture-ynab-token",
-						GWS_MCP_CLIENT_SECRET: "fixture-google-oauth-secret",
-						HTTPS_PROXY: "http://127.0.0.1:1055",
-						INHERITED_SENTINEL: "fixture-inherited",
-					},
-					timeout: 60000,
-					killSignal: "SIGKILL",
-					encoding: "utf8",
-				},
-			);
-			assert.ifError(result.error);
-			assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-		} finally {
-			rmSync(root, { recursive: true, force: true });
-		}
+		runIsolatedWorker([file, "--worker", host.root], {
+			prefix: "pi-native-mcp-",
+			cwd: ({ root }) => root,
+			agentDir: ({ root }) => root,
+			env: ({ root }) => ({
+				...grafanaEnvironment,
+				HOME: root,
+				PATH: process.env.PATH,
+				AZURE_CONFIG_DIR: join(root, ".azure/dev/.azure"),
+				AZURE_SUBSCRIPTION_ID: "fixture-production-subscription",
+				ADO_MCP_PAT_BASIC: "fixture-pat",
+				YNAB_API_TOKEN: "fixture-ynab-token",
+				GWS_MCP_CLIENT_SECRET: "fixture-google-oauth-secret",
+				HTTPS_PROXY: "http://127.0.0.1:1055",
+				INHERITED_SENTINEL: "fixture-inherited",
+			}),
+		});
 	});
 } else {
 	const host = process.argv[3];

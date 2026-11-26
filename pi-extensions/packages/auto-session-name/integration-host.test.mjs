@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
 	createSessionFixture,
 	runSessionWorker,
-} from "../../test-support/session-host.mjs";
+} from "../../test-support/pi-host.mjs";
 
 if (process.argv[2] !== "worker") {
 	runSessionWorker(process.argv[2], new URL(import.meta.url));
