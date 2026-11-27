@@ -20,6 +20,11 @@ import {
 	type SessionTreeEvent,
 	type TurnEndEvent,
 } from "@earendil-works/pi-coding-agent";
+import {
+	type AuthoritativeTitleInfo,
+	type AutoTitleState,
+	createTitleOwnershipState,
+} from "./title-ownership";
 
 type AutoSessionNameContext = Pick<ExtensionContext, "model" | "signal"> & {
 	modelRegistry: Pick<ExtensionContext["modelRegistry"], "getAll"> & {
@@ -63,16 +68,6 @@ type AutoSessionNameAPI = Pick<
 type AutoSessionNameSettings = {
 	enabled: boolean;
 	titleModel: string[];
-};
-
-type AutoTitleState = {
-	title: string;
-	originalRequest: string;
-	phase: "initial" | "refinement";
-	refinementAttempted: boolean;
-	initialFallback: boolean;
-	/** Explicit user ownership survives reload, even if the old title is restored. */
-	ownershipReleased?: boolean;
 };
 
 type RefinementEligibilityInput = {
@@ -554,137 +549,57 @@ const authoritativeTitleInfo = (
 };
 
 export default function autoSessionName(pi: AutoSessionNameAPI) {
-	let active = true;
-	let sessionEpoch = 0;
-	let initialEligible = true;
-	let firstRawRequest: string | undefined;
-	let recentRawRequests: string[] = [];
-	let autoTitleState: AutoTitleState | undefined;
-	let ownsTitle = false;
-	let manualOverride = false;
-	let inFlight: "initial" | "refinement" | undefined;
-	let requestController: AbortController | undefined;
-	let applyingTitle: string | undefined;
+	const state = createTitleOwnershipState({
+		maxRecentRawRequests: MAX_RECENT_RAW_REQUESTS,
+		timeoutMs: TITLE_TIMEOUT_MS,
+	});
 
-	const abortRequest = () => {
-		requestController?.abort();
-		requestController = undefined;
-	};
+	const titleInfoFor = (ctx: AutoSessionNameContext): AuthoritativeTitleInfo =>
+		authoritativeTitleInfo(pi, ctx);
 
-	const restoreBranchState = (
-		ctx: AutoSessionNameContext,
-		allowExistingRequests = false,
-	) => {
-		abortRequest();
-		sessionEpoch += 1;
-		firstRawRequest = undefined;
-		recentRawRequests = [];
-		inFlight = undefined;
-		autoTitleState = reconstructAutoTitleState(ctx.sessionManager.getBranch());
-		const { name: currentName, released } = authoritativeTitleInfo(pi, ctx);
-		ownsTitle = Boolean(
-			autoTitleState &&
-				!released &&
-				!autoTitleState.ownershipReleased &&
-				currentName === autoTitleState.title,
-		);
-		manualOverride = Boolean(
-			released ||
-				autoTitleState?.ownershipReleased ||
-				(autoTitleState && currentName !== autoTitleState.title) ||
-				(!autoTitleState && currentName),
-		);
-		initialEligible =
-			!autoTitleState &&
-			!manualOverride &&
-			(allowExistingRequests ||
-				extractUserRequests(ctx.sessionManager.getBranch()).length === 0);
-	};
-
-	const applyAutomaticTitle = (nextState: AutoTitleState) => {
-		autoTitleState = nextState;
-		ownsTitle = true;
-		manualOverride = false;
-		applyingTitle = nextState.title;
-		try {
-			pi.setSessionName(nextState.title);
-			pi.appendEntry(STATE_ENTRY_TYPE, nextState);
-		} finally {
-			applyingTitle = undefined;
-		}
-	};
-
-	const appendState = (nextState: AutoTitleState) => {
-		autoTitleState = nextState;
+	const persistState = (nextState: AutoTitleState) => {
 		pi.appendEntry(STATE_ENTRY_TYPE, nextState);
 	};
 
-	const createRequestController = (parentSignal: AbortSignal | undefined) => {
-		const controller = new AbortController();
-		const abortFromParent = () => controller.abort();
-		if (parentSignal?.aborted) controller.abort();
-		else
-			parentSignal?.addEventListener("abort", abortFromParent, { once: true });
-		requestController = controller;
-		const timeout = setTimeout(() => controller.abort(), TITLE_TIMEOUT_MS);
-		return {
-			controller,
-			cleanup() {
-				clearTimeout(timeout);
-				parentSignal?.removeEventListener("abort", abortFromParent);
-				if (requestController === controller) requestController = undefined;
-			},
-		};
+	const persistTitle = (committed: AutoTitleState) => {
+		pi.setSessionName(committed.title);
+		pi.appendEntry(STATE_ENTRY_TYPE, committed);
 	};
 
-	const canApplyInitial = (
-		epoch: number,
+	const restoreBranch = (
 		ctx: AutoSessionNameContext,
-	): boolean => {
-		if (!active || sessionEpoch !== epoch || manualOverride || autoTitleState)
-			return false;
-		const info = authoritativeTitleInfo(pi, ctx);
-		return !info.name && !info.released;
-	};
-
-	const canApplyRefinement = (
-		epoch: number,
-		currentTitle: string,
-		ctx: AutoSessionNameContext,
-	): boolean => {
-		if (
-			!active ||
-			sessionEpoch !== epoch ||
-			!ownsTitle ||
-			manualOverride ||
-			autoTitleState?.title !== currentTitle
-		)
-			return false;
-		const info = authoritativeTitleInfo(pi, ctx);
-		return info.name === currentTitle && !info.released;
+		options?: { allowExistingRequests?: boolean; activate?: boolean },
+	) => {
+		const branch = ctx.sessionManager.getBranch();
+		state.restore({
+			branchState: reconstructAutoTitleState(branch),
+			titleInfo: titleInfoFor(ctx),
+			hasExistingRequests: extractUserRequests(branch).length > 0,
+			allowExistingRequests: options?.allowExistingRequests,
+			activate: options?.activate,
+		});
 	};
 
 	const runInitialNaming = async (
 		ctx: AutoSessionNameContext,
 		storedRequests: string[],
 	) => {
-		if (inFlight || !initialEligible || manualOverride || sessionName(pi))
-			return;
-		inFlight = "initial";
-		const epoch = sessionEpoch;
+		const lease = state.beginInitial(sessionName(pi));
+		if (!lease) return;
 		try {
 			const settings = await readSettings();
-			if (!settings.enabled || !canApplyInitial(epoch, ctx)) return;
+			if (!settings.enabled || !lease.canCommit(() => titleInfoFor(ctx))) {
+				return;
+			}
 
-			const fallbackRequest = storedRequests[0];
-			const cleanedRequest = firstRawRequest ?? fallbackRequest;
+			const cleanedRequest = state.firstRequest(storedRequests[0]);
 			if (!cleanedRequest) return;
 			const request = truncateHeadAndTail(
 				compactWhitespace(extractUserRequest(cleanedRequest)),
 			);
 			if (!isMeaningfulUserRequest(request)) return;
 
-			const generation = createRequestController(ctx.signal);
+			const generation = lease.createController(ctx.signal);
 			let generatedTitle: string | undefined;
 			try {
 				generatedTitle = await generateTitle(
@@ -699,60 +614,61 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 				generation.cleanup();
 			}
 
-			if (!canApplyInitial(epoch, ctx)) return;
 			const title = generatedTitle ?? makeFallbackTitle(request);
 			if (!title) return;
-			applyAutomaticTitle({
-				title,
-				originalRequest: request,
-				phase: "initial",
-				refinementAttempted: false,
-				initialFallback: !generatedTitle,
-			});
-			initialEligible = false;
+			lease.commit(
+				() => titleInfoFor(ctx),
+				{
+					title,
+					originalRequest: request,
+					phase: "initial",
+					refinementAttempted: false,
+					initialFallback: !generatedTitle,
+				},
+				persistTitle,
+			);
 		} finally {
-			if (sessionEpoch === epoch) inFlight = undefined;
+			lease.finish();
 		}
 	};
 
 	const runRefinement = async (
 		ctx: AutoSessionNameContext,
-		state: AutoTitleState,
+		candidate: AutoTitleState,
 		storedRequests: string[],
 	) => {
-		if (inFlight || !canApplyRefinement(sessionEpoch, state.title, ctx)) return;
-		inFlight = "refinement";
-		const epoch = sessionEpoch;
-		const currentTitle = state.title;
+		const currentTitle = candidate.title;
+		const lease = state.beginRefinement(currentTitle, () => titleInfoFor(ctx));
+		if (!lease) return;
 		try {
 			const settings = await readSettings();
-			if (!settings.enabled || !canApplyRefinement(epoch, currentTitle, ctx))
-				return;
+			if (!settings.enabled) return;
 
-			const consumedState = { ...state, refinementAttempted: true };
-			appendState(consumedState);
-
+			const consumedState = lease.markAttempted(
+				() => titleInfoFor(ctx),
+				persistState,
+			);
+			if (!consumedState) return;
+			const recentRaw = state.recentRequests();
 			const recentRequests = (
-				recentRawRequests.length > 0
-					? recentRawRequests
-					: storedRequests.slice(-2)
+				recentRaw.length > 0 ? recentRaw : storedRequests.slice(-2)
 			)
 				.slice(-2)
 				.map((request) =>
 					truncateHeadAndTail(request, MAX_RECENT_REQUEST_CHARS),
 				);
 			const anchors = extractStableAnchors([
-				...recentRawRequests.slice(-2).reverse(),
+				...recentRaw.slice(-2).reverse(),
 				...storedRequests.slice(-2).reverse(),
-				state.originalRequest,
+				candidate.originalRequest,
 			]);
 			const prompt = createRefinementTitlePrompt({
 				currentTitle,
-				originalRequest: state.originalRequest,
+				originalRequest: candidate.originalRequest,
 				recentRequests,
 				anchors,
 			});
-			const generation = createRequestController(ctx.signal);
+			const generation = lease.createController(ctx.signal);
 			let refinedTitle: string | undefined;
 			try {
 				refinedTitle = await generateTitle(
@@ -767,20 +683,20 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 				generation.cleanup();
 			}
 
-			if (
-				!refinedTitle ||
-				refinedTitle === currentTitle ||
-				!canApplyRefinement(epoch, currentTitle, ctx)
-			) {
+			if (!refinedTitle || refinedTitle === currentTitle) {
 				return;
 			}
-			applyAutomaticTitle({
-				...consumedState,
-				title: refinedTitle,
-				phase: "refinement",
-			});
+			lease.commit(
+				() => titleInfoFor(ctx),
+				{
+					...consumedState,
+					title: refinedTitle,
+					phase: "refinement",
+				},
+				persistTitle,
+			);
 		} finally {
-			if (sessionEpoch === epoch) inFlight = undefined;
+			lease.finish();
 		}
 	};
 
@@ -790,66 +706,43 @@ export default function autoSessionName(pi: AutoSessionNameAPI) {
 
 		const request = cleanRawUserInput(event.text);
 		if (!request || !isMeaningfulUserRequest(request)) return;
-		firstRawRequest ??= request;
-		recentRawRequests = [...recentRawRequests, request].slice(
-			-MAX_RECENT_RAW_REQUESTS,
-		);
+		state.recordInput(request);
 	});
 
 	pi.on("turn_end", async (_event, ctx) => {
-		if (!active || manualOverride || autoTitleState) return;
+		if (!state.shouldRunInitial()) return;
 		const storedRequests = extractUserRequests(ctx.sessionManager.getBranch());
 		await runInitialNaming(ctx, storedRequests).catch(() => undefined);
 	});
 
 	pi.on("agent_settled", async (event, ctx) => {
-		if (
-			event.aborted ||
-			!active ||
-			manualOverride ||
-			!autoTitleState ||
-			!ownsTitle
-		)
-			return;
+		if (event.aborted) return;
+		const candidate = state.refinementCandidate();
+		if (!candidate) return;
 		const storedRequests = extractUserRequests(ctx.sessionManager.getBranch());
-		if (
-			shouldRefineTitle({ state: autoTitleState, userRequests: storedRequests })
-		) {
-			await runRefinement(ctx, autoTitleState, storedRequests).catch(
+		if (shouldRefineTitle({ state: candidate, userRequests: storedRequests })) {
+			await runRefinement(ctx, candidate, storedRequests).catch(
 				() => undefined,
 			);
 		}
 	});
 
 	pi.on("session_start", (event, ctx) => {
-		active = true;
-		restoreBranchState(ctx, event.reason === "fork");
+		restoreBranch(ctx, {
+			activate: true,
+			allowExistingRequests: event.reason === "fork",
+		});
 	});
 
 	pi.on("session_tree", (_event, ctx) => {
-		restoreBranchState(ctx);
+		restoreBranch(ctx);
 	});
 
 	pi.on("session_info_changed", (event) => {
-		if (applyingTitle === event.name) return;
-		if (autoTitleState && event.name !== autoTitleState.title) {
-			ownsTitle = false;
-			manualOverride = true;
-			abortRequest();
-			if (!autoTitleState.ownershipReleased)
-				appendState({ ...autoTitleState, ownershipReleased: true });
-			return;
-		}
-		if (!autoTitleState && event.name?.trim()) {
-			manualOverride = true;
-			abortRequest();
-		}
+		state.handleSessionInfoChanged(event.name, persistState);
 	});
 
 	pi.on("session_shutdown", () => {
-		active = false;
-		sessionEpoch += 1;
-		abortRequest();
-		inFlight = undefined;
+		state.shutdown();
 	});
 }
