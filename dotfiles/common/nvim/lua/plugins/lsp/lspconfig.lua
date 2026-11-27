@@ -1,40 +1,5 @@
 local typescript_lsp = require("typescript-lsp")
 
-local get_default_opts = function(opts)
-  local lsp_opts = {}
-
-  -- On attach, used for formatting logic
-  lsp_opts.on_attach = function(client, bufnr)
-    -- Explicitly enable/disable formatting per LSP provider
-    if opts ~= nil and opts.format ~= nil then
-      client.server_capabilities.documentFormattingProvider = opts.format
-    end
-    if opts ~= nil and opts.hover ~= nil then
-      client.server_capabilities.hoverProvider = opts.hover
-    end
-  end
-
-  -- Optional settings
-  if opts ~= nil and opts.settings ~= nil then
-    lsp_opts.settings = opts.settings
-  end
-
-  lsp_opts.capabilities = require("blink.cmp").get_lsp_capabilities()
-  -- Needed for nvim-ufo (LSP-based folding)
-  -- foldingRange isn't there by default
-  lsp_opts.capabilities =
-    vim.tbl_deep_extend("force", lsp_opts.capabilities, {
-      textDocument = {
-        foldingRange = {
-          dynamicRegistration = false,
-          lineFoldingOnly = true,
-        },
-      },
-    })
-
-  return lsp_opts
-end
-
 return {
   -- Configs for nvim LSP client
   {
@@ -48,10 +13,24 @@ return {
       },
     },
     config = function()
-      -- LSP mappings
+      local capability_overrides = {}
+
+      -- LSP mappings and per-server capability overrides (preserves upstream on_attach hooks)
       vim.api.nvim_create_autocmd("LspAttach", {
         group = vim.api.nvim_create_augroup("UserLspConfig", {}),
         callback = function(ev)
+          local client = vim.lsp.get_client_by_id(ev.data.client_id)
+          local override = client and capability_overrides[client.name]
+          if override ~= nil then
+            if override.format ~= nil then
+              client.server_capabilities.documentFormattingProvider =
+                override.format
+            end
+            if override.hover ~= nil then
+              client.server_capabilities.hoverProvider = override.hover
+            end
+          end
+
           require("which-key").add({
             {
               "<leader>s",
@@ -101,145 +80,111 @@ return {
         },
       })
 
-      -- Unix
-      vim.lsp.config("awk_ls", get_default_opts())
-      vim.lsp.config("bashls", get_default_opts())
-      vim.lsp.config("jsonls", get_default_opts())
-      vim.lsp.config("taplo", get_default_opts())
-      vim.lsp.config("vimls", get_default_opts())
-      vim.lsp.config("yamlls", get_default_opts())
-      -- Web
-      vim.lsp.config(
-        "biome",
-        get_default_opts({
-          format = true,
-        })
-      )
-      vim.lsp.config(
-        "cssls",
-        get_default_opts({
-          settings = {
-            css = { lint = { unknownAtRules = "ignore" } },
-          },
-        })
-      )
-      vim.lsp.config(
-        "eslint",
-        get_default_opts({
-          format = true,
-        })
-      )
-      vim.lsp.config(
-        "oxlint",
-        vim.tbl_deep_extend(
+      -- Shared capabilities for all LSP servers (blink.cmp + nvim-ufo folding)
+      vim.lsp.config("*", {
+        capabilities = vim.tbl_deep_extend(
           "force",
-          get_default_opts({
-            format = true,
-          }),
+          require("blink.cmp").get_lsp_capabilities(),
           {
-            -- The pinned oxlint CLI needs its LSP mode selected explicitly.
-            cmd = { "oxlint", "--lsp" },
-            -- Avoid health warnings for filetypes not registered in Neovim 0.11.
-            filetypes = {
-              "javascript",
-              "javascriptreact",
-              "typescript",
-              "typescriptreact",
-            },
-            root_markers = {
-              ".oxlintrc.json",
-              "oxlint.config.ts",
-              "oxlint.config.js",
-              "oxlint.config.mjs",
-              "oxlint.config.cjs",
+            textDocument = {
+              foldingRange = {
+                dynamicRegistration = false,
+                lineFoldingOnly = true,
+              },
             },
           }
-        )
-      )
-      vim.lsp.config("graphql", get_default_opts())
-      vim.lsp.config("html", get_default_opts())
-      vim.lsp.config("marksman", get_default_opts())
+        ),
+      })
 
       local ts_ls_root_dir = vim.lsp.config.ts_ls.root_dir
       local tsc_config = vim.lsp.config.tsc
-      vim.lsp.config(
-        "ts_ls",
-        vim.tbl_deep_extend(
-          "force",
-          get_default_opts({ format = false }),
-          {
-            root_dir = typescript_lsp.filter_root(
-              "ts_ls",
-              ts_ls_root_dir,
-              ts_ls_root_dir
-            ),
-          }
-        )
-      )
-      vim.lsp.config(
-        "tsc",
-        vim.tbl_deep_extend(
-          "force",
-          get_default_opts({ format = false }),
-          {
-            -- Keep cmd and root_dir from the same upstream config instance so
-            -- its selected native binary is available to the cmd callback.
-            cmd = tsc_config.cmd,
-            root_dir = typescript_lsp.filter_root(
-              "tsc",
-              tsc_config.root_dir,
-              ts_ls_root_dir
-            ),
-          }
-        )
-      )
-      -- Server
-      vim.lsp.config("csharp_ls", get_default_opts())
-      vim.lsp.config("docker_language_server", get_default_opts())
-      vim.lsp.config("gopls", get_default_opts())
-      vim.lsp.config("lua_ls", get_default_opts({ format = false }))
-      vim.lsp.config(
-        "pyright",
-        get_default_opts({
+
+      local servers = {
+        -- Unix
+        awk_ls = {},
+        bashls = {},
+        jsonls = {},
+        taplo = {},
+        vimls = {},
+        yamlls = {},
+        -- Web
+        biome = { overrides = { format = true } },
+        cssls = {
+          settings = {
+            css = { lint = { unknownAtRules = "ignore" } },
+          },
+        },
+        eslint = { overrides = { format = true } },
+        oxlint = {
+          overrides = { format = true },
+          -- The pinned oxlint CLI needs its LSP mode selected explicitly.
+          cmd = { "oxlint", "--lsp" },
+          -- Avoid health warnings for filetypes not registered in Neovim 0.11.
+          filetypes = {
+            "javascript",
+            "javascriptreact",
+            "typescript",
+            "typescriptreact",
+          },
+          root_markers = {
+            ".oxlintrc.json",
+            "oxlint.config.ts",
+            "oxlint.config.js",
+            "oxlint.config.mjs",
+            "oxlint.config.cjs",
+          },
+        },
+        graphql = {},
+        html = {},
+        marksman = {},
+        ts_ls = {
+          overrides = { format = false },
+          root_dir = typescript_lsp.filter_root(
+            "ts_ls",
+            ts_ls_root_dir,
+            ts_ls_root_dir
+          ),
+        },
+        tsc = {
+          overrides = { format = false },
+          -- Keep cmd and root_dir from the same upstream config instance so
+          -- its selected native binary is available to the cmd callback.
+          cmd = tsc_config.cmd,
+          root_dir = typescript_lsp.filter_root(
+            "tsc",
+            tsc_config.root_dir,
+            ts_ls_root_dir
+          ),
+        },
+        -- Server
+        docker_language_server = {},
+        gopls = {},
+        lua_ls = { overrides = { format = false } },
+        pyright = {
           settings = {
             pyright = {
               disableOrganizeImports = true,
             },
           },
-        })
-      )
-      vim.lsp.config(
-        "ruff",
-        get_default_opts({
-          format = false,
-          hover = false,
-        })
-      )
-      vim.lsp.config("rust_analyzer", get_default_opts())
+        },
+        ruff = { overrides = { format = false, hover = false } },
+        rust_analyzer = {},
+      }
 
-      vim.lsp.enable({
-        "awk_ls",
-        "bashls",
-        "biome",
-        "cssls",
-        "docker_language_server",
-        "eslint",
-        "gopls",
-        "graphql",
-        "html",
-        "jsonls",
-        "lua_ls",
-        "marksman",
-        "oxlint",
-        "pyright",
-        "ruff",
-        "rust_analyzer",
-        "taplo",
-        "ts_ls",
-        "tsc",
-        "vimls",
-        "yamlls",
-      })
+      local enabled = {}
+      for name, spec in pairs(servers) do
+        local cfg = vim.deepcopy(spec)
+        if cfg.overrides ~= nil then
+          capability_overrides[name] = cfg.overrides
+          cfg.overrides = nil
+        end
+        if next(cfg) ~= nil then
+          vim.lsp.config(name, cfg)
+        end
+        table.insert(enabled, name)
+      end
+      table.sort(enabled)
+      vim.lsp.enable(enabled)
     end,
   },
 }
