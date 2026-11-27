@@ -622,6 +622,22 @@ class MiseLockTests(unittest.TestCase):
                 (root / "mise.toml").read_text(),
             )
 
+    def test_check_lockfiles_rejects_mise_resolution_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_minimal_repository(root)
+
+            def warn_run(command, **_kwargs) -> subprocess.CompletedProcess[str]:
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout="{}",
+                    stderr="WARN Failed to resolve aqua:example@1.0.0\n",
+                )
+
+            with self.assertRaisesRegex(SystemExit, "Failed to resolve"):
+                self.module.check_lockfiles(root, run_command=warn_run)
+
 
 if __name__ == "__main__":
     unittest.main()

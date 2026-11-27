@@ -15,7 +15,7 @@ from pathlib import Path
 from types import ModuleType
 from urllib.parse import urlsplit
 
-from mise_resolution import read_tool_declarations, resolve_profile_declarations
+from mise_resolution import CONFIG_FILES, LOCK_FILES
 
 ROOT = Path(__file__).resolve().parent
 
@@ -137,8 +137,9 @@ class MiseConfigurationTests(unittest.TestCase):
                 )
 
     def test_profile_bootstrap_plans_only_run_on_macos(self) -> None:
-        commands = load_toml("mise.toml")["tasks"]["validate:config"]["run"]
-        script = commands[-1]
+        tasks = load_toml("mise.toml")["tasks"]
+        self.assertIn("validate:bootstrap-plans", tasks["validate:fast"]["depends"])
+        script = tasks["validate:bootstrap-plans"]["run"]
         with tempfile.TemporaryDirectory() as directory:
             tools = Path(directory)
             (tools / "uname").write_text('#!/bin/sh\nprintf "%s\\n" "$FAKE_UNAME"\n')
@@ -566,7 +567,7 @@ class MiseConfigurationTests(unittest.TestCase):
                         stage = Path(directory)
                         home = stage / "home"
                         home.mkdir()
-                        for name in load_mise_lock_module().CONFIG_FILES:
+                        for name in CONFIG_FILES:
                             shutil.copy2(ROOT / name, stage / name)
                         environment = {
                             "HOME": str(home),
@@ -733,7 +734,7 @@ class MiseConfigurationTests(unittest.TestCase):
                         ROOT / "dotfiles" / profile / "miserc.toml",
                     )
                     self.assertEqual((config / "conf.d/dotfiles").resolve(), ROOT)
-                    for name in load_mise_lock_module().LOCK_FILES:
+                    for name in LOCK_FILES:
                         self.assertEqual((config / name).resolve(), ROOT / name)
                     # Repeat from both discovery paths without --env: installed
                     # miserc must select the same profile, with stable source paths.
@@ -917,46 +918,6 @@ class MiseConfigurationTests(unittest.TestCase):
                             self.assertEqual(resolved.get(variable), ssl_cert_file)
                         else:
                             self.assertIn(resolved.get(variable), (None, ""))
-
-    def test_every_declared_tool_version_has_a_matching_lock_entry(self) -> None:
-        mise = shutil.which("mise")
-        self.assertIsNotNone(mise)
-        mise_lock = load_mise_lock_module()
-        configs = {name: load_toml(name) for name in mise_lock.CONFIG_FILES}
-        declarations = {
-            name: read_tool_declarations(config.get("tools", {}), name)
-            for name, config in configs.items()
-        }
-        for profile in (None, "personal-macos", "work-macos"):
-            config_tools = dict(self.base["tools"])
-            lock_tools = dict(load_toml("mise.lock")["tools"])
-            if profile:
-                config_tools.update(configs[f"mise.{profile}.toml"].get("tools", {}))
-                # Private tool runtimes can add versions without replacing the
-                # shared runtime, so retain entries from both lockfile scopes.
-                for tool, entries in load_toml(f"mise.{profile}.lock").get("tools", {}).items():
-                    lock_tools[tool] = [*lock_tools.get(tool, []), *entries]
-            resolution = resolve_profile_declarations(
-                ROOT, configs, declarations, profile=profile
-            )
-            self.assertNotIn("Failed to resolve", resolution.warnings)
-            by_tool: dict[str, list[tuple[str, str]]] = {}
-            for match in resolution.matches:
-                by_tool.setdefault(match.tool, []).append(
-                    (match.request.version, match.version)
-                )
-            self.assertEqual(set(by_tool), set(config_tools))
-            for tool, specification in config_tools.items():
-                with self.subTest(profile=profile, tool=tool):
-                    requested = tool_version(specification)
-                    locked = [entry["version"] for entry in lock_tools.get(tool, [])]
-                    records = by_tool[tool]
-                    self.assertEqual([req for req, _ in records], [requested])
-                    for _, version in records:
-                        self.assertIn(
-                            version, locked,
-                            f"{profile}: {tool}@{version} is missing from the lock",
-                        )
 
     def test_yarn_lock_covers_every_supported_platform(self) -> None:
         yarn_tool = "aqua:yarnpkg/berry"

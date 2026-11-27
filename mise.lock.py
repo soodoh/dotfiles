@@ -19,10 +19,6 @@ from mise_resolution import (
 )
 
 ROOT = Path(__file__).resolve().parent
-PROFILE_LOCKS = {
-    "personal-macos": "mise.personal-macos.lock",
-    "work-macos": "mise.work-macos.lock",
-}
 UNSUPPORTED_TOOLS = {
     "personal-macos": ("http:gcloud",),
     "work-macos": ("http:twg",),
@@ -78,7 +74,9 @@ def generate_profile_lockfiles(
     *,
     run_command: RunCommand = subprocess.run,
 ) -> dict[str, bytes]:
-    profile_lock = PROFILE_LOCKS[profile]
+    if profile not in PROFILES:
+        raise KeyError(profile)
+    profile_lock = f"mise.{profile}.lock"
     files = ("mise.toml", f"mise.{profile}.toml", "mise.lock", profile_lock)
     with staged_repository(root, files) as generation_root:
         set_tool_locking(generation_root, locked=False)

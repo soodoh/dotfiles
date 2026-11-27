@@ -418,6 +418,7 @@ run = [{ task = "validate:fast" }, { task = "validate:integration" }]
 [tasks."validate:fast"]
 description = "Run syntax, policy, unit, and repository checks"
 depends = [
+  "validate:bootstrap-plans",
   "validate:config",
   "validate:locks",
   "validate:dotfiles:fast",
@@ -434,6 +435,13 @@ depends = [
   "validate:neovim",
 ]
 
+[tasks."validate:bootstrap-plans"]
+description = "Verify macOS profile bootstrap plans on Darwin"
+run = '''if [ "$(uname -s)" = Darwin ]; then
+  mise --env personal-macos bootstrap plan >/dev/null
+  mise --env work-macos bootstrap plan >/dev/null
+fi'''
+
 [tasks."validate:config"]
 run = [
   "python3 mise.bootstrap.test.py",
@@ -447,10 +455,6 @@ run = [
   "python3 dotfiles/common/herdr/process-icons/icons.test.py",
   # Remove this narrow exception once actionlint supports GitHub-hosted Ubuntu 26 upstream.
   "actionlint -ignore '^label \"ubuntu-26[.]04\" is unknown[.]'",
-  '''if [ "$(uname -s)" = Darwin ]; then
-    mise --env personal-macos bootstrap plan >/dev/null
-    mise --env work-macos bootstrap plan >/dev/null
-  fi''',
 ]
 
 [tasks."validate:locks"]

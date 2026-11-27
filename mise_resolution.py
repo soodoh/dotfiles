@@ -772,6 +772,11 @@ def validate_lockfiles(
                 locks=locks,
                 run_command=run_command,
             )
+            if "Failed to resolve" in resolution.warnings:
+                raise ValueError(
+                    f"{profile or 'shared'}: mise reported resolution warnings:\n"
+                    f"{resolution.warnings}"
+                )
             for match in resolution.matches:
                 requests = matches[match.lock_name].setdefault(
                     (match.tool, match.version), []
