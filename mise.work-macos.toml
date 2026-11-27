@@ -17,7 +17,7 @@ MISE_BREW_CASK_OPT_APPDIR = "{{ env.HOME }}/Applications"
 "aqua:helm/helm" = "4.3.2"
 "aqua:kubernetes/kubernetes/kubectl" = "1.37.3"
 "npm:@azure/mcp" = "3.0.0"
-"npm:@azure-devops/mcp" = { version = "2.11.0", allow_builds = ["keytar"] }
+"npm:@azure-devops/mcp" = { version = "2.11.1", allow_builds = ["keytar"] }
 "npm:figma-developer-mcp" = "0.13.2"
 "github:grafana/mcp-grafana" = "v2.4.0"
 
