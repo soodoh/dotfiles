@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import macos_host as host
-from cleanup_host import CleanupHost
+from cleanup_host import Blocker, CleanupHost
 
 LSOF = "/usr/sbin/lsof"
 MISE_PACKAGES = ("mise", "bootstrap", "packages", "prune", "--manager")
@@ -43,6 +43,7 @@ class Host(host.MacOSHost, CleanupHost):
     which: Callable[[str], str | None] = shutil.which
     kill: Callable[[int, int], None] = os.kill
     confirm: Callable[[str], bool] = _confirm
+    pid: Callable[[], int] = os.getpid
     ppid: Callable[[], int] = os.getppid
     uid: Callable[[], int] = os.getuid
     home: Callable[[], Path] = Path.home
@@ -61,10 +62,17 @@ class OpenFileEntry:
 
 
 @dataclass(frozen=True)
+class OpenFileBlocker:
+    message: str
+    pid: int | None
+    target: str
+
+
+@dataclass(frozen=True)
 class PlanAdditions:
     steps: tuple[tuple[str, ...], ...]
     targets: tuple[Path, ...]
-    blockers: tuple[tuple[str, int | None], ...]
+    blockers: tuple[OpenFileBlocker, ...]
 
 
 def parse_lsof(output: str) -> list[OpenFileEntry]:
@@ -132,7 +140,7 @@ def brew_cleanup_targets(output: str) -> list[Path]:
 
 def open_file_blockers(
     targets: Sequence[Path], open_files: str
-) -> list[tuple[str, int | None]]:
+) -> list[OpenFileBlocker]:
     roots = {path for target in targets for path in (target, target.resolve())}
     matches: set[tuple[Path, int, str]] = set()
     for entry in parse_lsof(open_files):
@@ -144,7 +152,7 @@ def open_file_blockers(
             for root in roots.intersection((path, *path.parents))
         )
     return [
-        (f"{root} is open in {name} (PID {pid})", pid or None)
+        OpenFileBlocker(f"{root} is open in {name} (PID {pid})", pid or None, str(root))
         for root, pid, name in sorted(matches)
     ]
 
@@ -494,11 +502,18 @@ def stop_colima(*, env: Host = DEFAULT_HOST):
 
 
 def fish_identity(pid: int, *, env: Host = DEFAULT_HOST) -> str | None:
+    if pid <= 1:
+        return None
     result = env.probe("/bin/ps", "-p", str(pid), "-o", "uid=,tty=,lstart=,comm=")
     if result.returncode == 1 and not result.stderr:
         return None  # Process exited.
     identity = host.checked(result).strip()
-    uid, tty, *_, name = identity.split(maxsplit=7)
+    if not identity:
+        return None
+    parts = identity.split(maxsplit=7)
+    if len(parts) < 8:
+        return None
+    uid, tty, *_, name = parts
     if (
         uid == str(env.uid())
         and tty != "??"
@@ -620,8 +635,219 @@ def stale_herdr(*, env: Host = DEFAULT_HOST) -> list[Herdr]:
     return result
 
 
+@dataclass(frozen=True)
+class BlockingProcess:
+    pid: int
+    identity: str
+    name: str
+    parent: str | None
+    reasons: tuple[str, ...]
+
+
+def mise_install_path(
+    tool: str, version: str, *, env: Host = DEFAULT_HOST
+) -> Path | None:
+    result = env.probe("mise", "ls", "--json", "--", tool)
+    if result.returncode:
+        return None
+    try:
+        data = json.loads(result.stdout)
+    except ValueError:
+        return None
+    if isinstance(data, dict):
+        rows = data.get(tool, [])
+    elif isinstance(data, list):
+        rows = data
+    else:
+        return None
+    for row in rows:
+        if (
+            isinstance(row, dict)
+            and row.get("version") == version
+            and row.get("install_path")
+        ):
+            return Path(row["install_path"])
+    return None
+
+
+def pids_matching_command(paths: Sequence[Path], ps_commands: str) -> set[int]:
+    roots = {str(p) for path in paths for p in (path, path.resolve())}
+    if not roots:
+        return set()
+    pattern = re.compile(
+        r"(?:^|[\s=:\"'\\])(?:"
+        + "|".join(re.escape(root) for root in sorted(roots, key=len, reverse=True))
+        + r")(?=$|/|[\s:\"'\\])"
+    )
+    matches: set[int] = set()
+    for line in ps_commands.splitlines():
+        parts = line.strip().split(maxsplit=1)
+        if len(parts) < 2:
+            continue
+        pid_text, command = parts
+        if pid_text.isdigit() and pattern.search(command):
+            matches.add(int(pid_text))
+    return matches
+
+
+def resolve_blockers(
+    processes: Sequence[Blocker], *, env: Host = DEFAULT_HOST
+) -> tuple[list[tuple[Blocker, set[int] | None]], set[int], dict[int, list[str]]]:
+    resolved: list[tuple[Blocker, set[int] | None]] = []
+    blockers: set[int] = set()
+    reasons_by_pid: dict[int, list[str]] = {}
+    ps_commands: str | None = None
+    open_files: str | None = None
+
+    for item in processes:
+        pids: set[int] | None
+        if not item.truncated:
+            pids = set(item.pids) if item.pids else None
+        elif item.mise_tool is None:
+            pids = None
+        else:
+            tool, version = item.mise_tool
+            install_path = mise_install_path(tool, version, env=env)
+            if install_path is None:
+                pids = None
+            else:
+                if ps_commands is None:
+                    ps_commands = host.checked(
+                        env.probe("/bin/ps", "-axo", "pid=,command=")
+                    )
+                if open_files is None:
+                    lsof_result = env.probe(LSOF, "-nP", "-F0pcn")
+                    if lsof_result.returncode and lsof_result.stderr:
+                        host.checked(lsof_result)
+                    open_files = lsof_result.stdout
+                discovered = set(item.pids)
+                discovered.update(pids_matching_command([install_path], ps_commands))
+                discovered.update(
+                    entry.pid
+                    for entry in open_file_blockers([install_path], open_files)
+                    if entry.pid
+                )
+                expected = len(item.pids) + item.more_count
+                pids = discovered if len(discovered) >= expected else None
+
+        resolved.append((item, pids))
+        if pids:
+            blockers.update(pids)
+            if item.reason:
+                for pid in pids:
+                    reasons_by_pid.setdefault(pid, []).append(item.reason)
+
+    return resolved, blockers, reasons_by_pid
+
+
+def protected_pids(
+    tree: Mapping[int, tuple[int, str]], *, env: Host = DEFAULT_HOST
+) -> set[int]:
+    protected: set[int] = set()
+    pid = env.pid()
+    while pid > 1 and pid not in protected:
+        protected.add(pid)
+        if pid in tree:
+            pid = tree[pid][0]
+        elif pid == env.pid():
+            pid = env.ppid()
+        else:
+            break
+    return protected
+
+
+def process_identity(pid: int, *, env: Host = DEFAULT_HOST) -> tuple[str, str] | None:
+    if pid <= 1:
+        return None
+    result = env.probe("/bin/ps", "-p", str(pid), "-o", "uid=,lstart=,comm=")
+    if result.returncode == 1 and not result.stderr:
+        return None  # Process exited.
+    identity = host.checked(result).strip()
+    if not identity:
+        return None
+    parts = identity.split(maxsplit=6)
+    if len(parts) < 7:
+        return None
+    uid, *_, comm = parts
+    if uid != str(env.uid()):
+        return None
+    return identity, Path(comm.strip()).name.lstrip("-")
+
+
+def blocking_processes(
+    pids,
+    tree: Mapping[int, tuple[int, str]],
+    reasons_by_pid: Mapping[int, Sequence[str]],
+    *,
+    protected: set[int],
+    env: Host = DEFAULT_HOST,
+) -> list[BlockingProcess]:
+    matched: list[BlockingProcess] = []
+    for pid in sorted(pids):
+        if pid <= 1 or pid in protected:
+            continue
+        info = process_identity(pid, env=env)
+        if info is None:
+            continue
+        identity, name = info
+        parent: str | None = None
+        if pid in tree:
+            ppid = tree[pid][0]
+            if ppid > 1 and ppid in tree:
+                parent = tree[ppid][1]
+        reasons = tuple(dict.fromkeys(reasons_by_pid.get(pid, ())))
+        matched.append(BlockingProcess(pid, identity, name, parent, reasons))
+    return matched
+
+
+def terminate_processes(
+    processes: Sequence[BlockingProcess], *, env: Host = DEFAULT_HOST
+) -> None:
+    if not processes:
+        return
+    # Only signal the same confirmed, same-user processes that blocked the plan.
+    pending: list[BlockingProcess] = []
+    for proc in processes:
+        current = process_identity(proc.pid, env=env)
+        if current is not None and current[0] == proc.identity:
+            print(f"Terminating {proc.name} (PID {proc.pid})", flush=True)
+            try:
+                env.kill(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                continue
+            pending.append(proc)
+    if not pending:
+        return
+
+    def exited() -> bool:
+        pending[:] = [
+            proc
+            for proc in pending
+            if (current := process_identity(proc.pid, env=env)) is not None
+            and current[0] == proc.identity
+        ]
+        return not pending
+
+    try:
+        env.wait_for(exited, "blocking processes to exit")
+    except ValueError as exc:
+        if pending and "timed out" in str(exc):
+            remaining = ", ".join(f"{proc.name} (PID {proc.pid})" for proc in pending)
+            raise ValueError(
+                f"timed out waiting for blocking processes to exit: {remaining}"
+            ) from exc
+        raise
+
+
 @contextmanager
-def paused(jobs_to_pause, sessions, fish, *, env: Host = DEFAULT_HOST):
+def paused(
+    jobs_to_pause,
+    sessions,
+    fish,
+    processes: Sequence[BlockingProcess] = (),
+    *,
+    env: Host = DEFAULT_HOST,
+):
     # Record intent before the operation: an interrupted command can still have
     # stopped a job. Restore every attempted job, even if another restore fails.
     attempted_jobs, attempted_sessions = [], []
@@ -631,6 +857,7 @@ def paused(jobs_to_pause, sessions, fish, *, env: Host = DEFAULT_HOST):
             attempted_sessions.append(session)
             session.stop(env=env)
         close_fish(fish, env=env)
+        terminate_processes(processes, env=env)
         for job in reversed(jobs_to_pause):
             print(f"Stopping {job.label}", flush=True)
             if job.label == "dev.mise.colima-default":
@@ -664,12 +891,19 @@ class MaintenancePlan:
     before: tuple[Herdr, ...]
     after: tuple[Herdr, ...]
     fish: dict[int, str]
+    processes: tuple[BlockingProcess, ...]
     unknown: tuple[str, ...]
     env: Host = DEFAULT_HOST
 
     @property
     def has_actions(self) -> bool:
-        return bool(self.changes or self.before or self.after or self.fish)
+        return bool(
+            self.changes
+            or self.before
+            or self.after
+            or self.fish
+            or self.processes
+        )
 
     @property
     def programs(self) -> list[Path]:
@@ -696,9 +930,16 @@ class MaintenancePlan:
             lines.append(
                 f"Close blocking Fish shell on {identity.split()[1]} (PID {pid})"
             )
+        for proc in self.processes:
+            parent = f", child of {proc.parent}" if proc.parent else ""
+            reasons = ", ".join(proc.reasons)
+            detail = f" — holds {reasons}" if reasons else ""
+            lines.append(
+                f"Terminate blocking process: {proc.name} (PID {proc.pid}{parent}){detail}"
+            )
         if not lines:
             lines.append(
-                "No managed services or sessions need to be stopped or restarted."
+                "No managed services, sessions, or processes need to be stopped or restarted."
             )
         return lines
 
@@ -708,21 +949,23 @@ class MaintenancePlan:
     @contextmanager
     def paused_for_prune(self):
         blocking_jobs = [change.job for change in self.changes if change.blocking]
-        with paused(blocking_jobs, self.before, self.fish, env=self.env):
+        with paused(
+            blocking_jobs, self.before, self.fish, self.processes, env=self.env
+        ):
             yield
 
     def refresh_deferred(self) -> None:
         refresh_jobs = [change.job for change in self.changes if not change.blocking]
         if refresh_jobs or self.after:
             # These processes did not need to be offline while packages were pruned.
-            with paused(refresh_jobs, self.after, {}, env=self.env):
+            with paused(refresh_jobs, self.after, {}, (), env=self.env):
                 pass
 
 
 def plan_maintenance(
-    processes, profile: str, *, env: Host = DEFAULT_HOST
+    processes: Sequence[Blocker], profile: str, *, env: Host = DEFAULT_HOST
 ) -> MaintenancePlan:
-    blockers = {item.pid for item in processes if item.pid}
+    resolved, blockers, reasons_by_pid = resolve_blockers(processes, env=env)
     tree = process_tree(env=env)
     changes = tuple(service_changes(profile, blockers, tree, env=env))
     fish = blocking_fish(blockers, env=env)
@@ -738,5 +981,21 @@ def plan_maintenance(
             covered.update(pids)
         else:
             after.append(session)
-    unknown = tuple(item.message for item in processes if item.pid not in covered)
-    return MaintenancePlan(changes, tuple(before), tuple(after), fish, unknown, env)
+    to_terminate = tuple(
+        blocking_processes(
+            blockers - covered,
+            tree,
+            reasons_by_pid,
+            protected=protected_pids(tree, env=env),
+            env=env,
+        )
+    )
+    covered.update(proc.pid for proc in to_terminate)
+    unknown = tuple(
+        item.message
+        for item, pids in resolved
+        if not pids or not pids.issubset(covered)
+    )
+    return MaintenancePlan(
+        changes, tuple(before), tuple(after), fish, to_terminate, unknown, env
+    )

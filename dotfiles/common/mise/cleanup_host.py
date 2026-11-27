@@ -80,4 +80,17 @@ class CleanupHost(ProcessHost):
         )
 
 
+@dataclass(frozen=True)
+class Blocker:
+    message: str
+    pids: tuple[int, ...] = ()
+    reason: str | None = None
+    mise_tool: tuple[str, str] | None = None
+    more_count: int = 0
+
+    @property
+    def truncated(self) -> bool:
+        return self.more_count > 0
+
+
 DEFAULT_CLEANUP_HOST = CleanupHost()

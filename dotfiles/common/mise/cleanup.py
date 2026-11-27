@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cleanup_host import DEFAULT_CLEANUP_HOST, CleanupHost
+from cleanup_host import DEFAULT_CLEANUP_HOST, Blocker, CleanupHost
 
 if TYPE_CHECKING:
     import cleanup_macos as macos
@@ -48,10 +48,29 @@ def pipx_blockers(installs: list[Path]) -> list[str]:
     return blockers
 
 
-@dataclass(frozen=True)
-class Blocker:
-    message: str
-    pid: int | None = None
+def parse_mise_blocker(line: str) -> Blocker:
+    _, marker, detail = line.partition("is kept: still running")
+    scope = detail if marker else line
+    pids = tuple(dict.fromkeys(int(pid) for pid in re.findall(r"\bpid (\d+)\b", scope)))
+    more_match = re.search(r"\band (\d+) more\b", scope)
+    more_count = int(more_match[1]) if more_match else 0
+    mise_tool: tuple[str, str] | None = None
+    reason: str | None = None
+    match = re.match(r"^\s*mise\s+(\S+)\s+is kept: still running\b", line)
+    if match:
+        spec = match[1]
+        if "@" in spec:
+            tool, version = spec.rsplit("@", 1)
+            if tool and version:
+                mise_tool = (tool, version)
+                reason = spec
+    return Blocker(
+        message=line,
+        pids=pids,
+        reason=reason,
+        mise_tool=mise_tool,
+        more_count=more_count,
+    )
 
 
 @dataclass
@@ -83,11 +102,11 @@ def _preflight_resolved(
     macos_host: "macos.Host | None",
 ) -> Plan:
     preview = effective_host.command(*MISE_PRUNE, "--dry-run", show=show)
-    processes = []
-    for line in preview.splitlines():
-        if " is kept: still running" in line:
-            match = re.search(r"still running as pid (\d+)", line)
-            processes.append(Blocker(line, int(match[1]) if match else None))
+    processes = [
+        parse_mise_blocker(line)
+        for line in preview.splitlines()
+        if " is kept: still running" in line
+    ]
     catalog = json.loads(
         effective_host.command(
             "mise",
@@ -109,7 +128,12 @@ def _preflight_resolved(
         steps.extend(additions.steps)
         targets.extend(additions.targets)
         processes.extend(
-            Blocker(message, pid) for message, pid in additions.blockers
+            Blocker(
+                message=item.message,
+                pids=(item.pid,) if item.pid else (),
+                reason=item.target,
+            )
+            for item in additions.blockers
         )
     return Plan(steps, targets, pipx_blockers(installs), processes)
 
@@ -181,10 +205,11 @@ def _apply_macos(
 
         if maintenance.has_actions:
             print(
-                "Save terminal work and stop important Docker workloads first. Live pane jobs can be lost."
+                "Save open work and stop important Docker workloads first. "
+                "Terminated processes and live pane jobs can be lost."
             )
             if not env.confirm(
-                "Interrupt these sessions/services and prune? [y/N] "
+                "Interrupt these processes/sessions/services and prune? [y/N] "
             ):
                 print("Cleanup cancelled.")
                 return 1

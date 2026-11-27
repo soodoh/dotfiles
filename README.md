@@ -276,8 +276,10 @@ mise run cleanup       # pause blockers, prune, verify, then refresh stale servi
 
 On macOS, run apply **locally at the Mac, not over SSH or with sudo**. From Fish
 or Herdr it opens a separate Ghostty maintenance window that does not start the
-login shell. Save terminal work and stop important Docker workloads before
-confirming there. Apply closes blocking Homebrew Fish shells and restarts stale
+login shell. Save open work and stop important Docker workloads before
+confirming there. Apply closes blocking Homebrew Fish shells (`SIGHUP`),
+terminates other same-user blocking processes (`SIGTERM`, excluding cleanup
+itself and its ancestors) after listing them and confirming, and restarts stale
 Herdr servers; restored layouts do not preserve live pane jobs. A current Herdr
 server stays running. Opening the maintenance window does **not** mean cleanup
 succeeded. The window reports the result and waits for Enter before closing, so
@@ -290,8 +292,9 @@ AeroSpace, SketchyBar, Borders, Colima/Lima, Moshi Hook, the work-only PAC and
 GOST proxy. The root Tailscale daemon is outside Homebrew and is not restarted
 by cleanup. Colima is shut down gracefully. Cleanup attempts to restore
 stopped services even if pruning fails, and reports any removals still pending.
-It does not start unloaded services or kill unrelated processes. Avoid starting
-apps or installs during cleanup.
+It does not start unloaded services, signal root/other-user processes or its own
+ancestors, or kill unrelated processes. Avoid starting apps or installs during
+cleanup.
 
 Cleanup forgets stale mise config records, prunes unused tool versions and cache
 files, and, on macOS, removes undeclared Homebrew formulae, unchanged mise-owned

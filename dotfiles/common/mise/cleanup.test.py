@@ -30,6 +30,8 @@ class FakeCleanupHost:
         ]
         | None = None,
         uid: int = 501,
+        pid: int = 99999,
+        ppid: int = 1,
     ):
         self.root = root
         self.home = root / "home"
@@ -38,6 +40,8 @@ class FakeCleanupHost:
         self.confirm_calls: list[str] = []
         self.commands = dict(commands or {})
         self.uid = uid
+        self.pid = pid
+        self.ppid = ppid
         self.environ = dict(environ or {})
         if herdr_env:
             self.environ["HERDR_ENV"] = "1"
@@ -195,7 +199,8 @@ class FakeCleanupHost:
             maintenance_lock=self.maintenance_lock,
             wait_for=lambda done, desc, **_: None if done() else (_ for _ in ()).throw(ValueError(f"timed out: {desc}")),
             confirm=self.confirm,
-            ppid=lambda: 1,
+            pid=lambda: self.pid,
+            ppid=lambda: self.ppid,
             uid=lambda: self.uid,
             home=lambda: self.home,
             environ=self.environ,
@@ -823,6 +828,331 @@ class CleanupTests(unittest.TestCase):
         self.assertNotEqual(active_handlers.get(signal.SIGTERM), previous_term)
         self.assertEqual(signal.getsignal(signal.SIGHUP), previous_hup)
         self.assertEqual(signal.getsignal(signal.SIGTERM), previous_term)
+
+    def test_truncated_mise_blocker_expands_and_terminates_all_same_user_pids(self):
+        old_install = self.root / "mise/installs/npm-azure-devops-mcp/2.11.0"
+        new_install = self.root / "mise/installs/npm-azure-devops-mcp/2.11.1"
+        old_install.mkdir(parents=True)
+        new_install.mkdir(parents=True)
+        kept_line = (
+            "mise npm:@azure-devops/mcp@2.11.0 is kept: still running as "
+            "pid 101 (node), pid 102 (node), pid 103 (node) and 1 more"
+        )
+        ls_tool = json.dumps(
+            [
+                {
+                    "version": "2.11.0",
+                    "install_path": str(old_install),
+                    "installed": True,
+                    "active": False,
+                },
+                {
+                    "version": "2.11.1",
+                    "install_path": str(new_install),
+                    "installed": True,
+                    "active": True,
+                },
+            ]
+        )
+        prunable_after_kill = json.dumps(
+            {"npm:@azure-devops/mcp": [{"version": "2.11.0", "install_path": str(old_install)}]}
+        )
+        ps_tree = (
+            "50 1 pi\n"
+            "101 50 node\n"
+            "102 50 node\n"
+            "103 50 node\n"
+            "104 50 node\n"
+            "200 50 node\n"
+        )
+        ps_commands = "\n".join(
+            [
+                f"101 node {old_install}/dist/index.js",
+                f"102 node {old_install}/dist/index.js",
+                f"103 node {old_install}/dist/index.js",
+                f"104 node {old_install}/dist/index.js",
+                f"200 node {new_install}/dist/index.js",
+            ]
+        )
+
+        def base_commands():
+            cmds = {
+                ("mise", "prune", "--dry-run"): [kept_line, "", ""],
+                ("mise", "ls", "--prunable", "--json"): ["{}", prunable_after_kill, "{}"],
+                ("mise", "ls", "--json", "--", "npm:@azure-devops/mcp"): ls_tool,
+                ("/bin/ps", "-axo", "pid=,ppid=,comm="): ps_tree,
+                ("/bin/ps", "-axo", "pid=,command="): ps_commands,
+            }
+            for pid in (101, 102, 103, 104):
+                cmds[("/bin/ps", "-p", str(pid), "-o", "uid=,lstart=,comm=")] = [
+                    "501 Fri Nov 27 11:31:07 2026 node\n",
+                    "501 Fri Nov 27 11:31:07 2026 node\n",
+                    subprocess.CompletedProcess((), 1, stdout="", stderr=""),
+                ]
+            return cmds
+
+        declined = FakeCleanupHost(self.root, confirm=False, commands=base_commands())
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(
+                cleanup.cleanup(
+                    apply=True, darwin=True, profile="work-macos", host=declined.host
+                ),
+                1,
+            )
+        self.assertEqual(declined.kills, [])
+        self.assertNotIn(("mise", "prune", "--yes"), declined.calls)
+        for pid in (101, 102, 103, 104):
+            self.assertIn(
+                f"Terminate blocking process: node (PID {pid}, child of pi) — holds npm:@azure-devops/mcp@2.11.0",
+                out.getvalue(),
+            )
+        self.assertNotIn("PID 200", out.getvalue())
+
+        confirmed = FakeCleanupHost(self.root, confirm=True, commands=base_commands())
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(
+                cleanup.cleanup(
+                    apply=True, darwin=True, profile="work-macos", host=confirmed.host
+                ),
+                0,
+            )
+        self.assertEqual(
+            confirmed.kills,
+            [(pid, signal.SIGTERM) for pid in (101, 102, 103, 104)],
+        )
+        self.assertIn(("mise", "prune", "--yes"), confirmed.calls)
+
+    def test_same_user_brew_blocker_terminates_and_skips_reused_pid(self):
+        keg = self.root / "Cellar/demo/1.0"
+        keg.mkdir(parents=True)
+        for reused in (False, True):
+            with self.subTest(reused=reused):
+                ps_sequence = (
+                    [
+                        "501 Fri Nov 27 11:00:00 2026 demo\n",
+                        "501 Fri Nov 27 12:00:00 2026 other\n",
+                    ]
+                    if reused
+                    else [
+                        "501 Fri Nov 27 11:00:00 2026 demo\n",
+                        "501 Fri Nov 27 11:00:00 2026 demo\n",
+                        subprocess.CompletedProcess((), 1, stdout="", stderr=""),
+                    ]
+                )
+                fake = FakeCleanupHost(
+                    self.root,
+                    confirm=True,
+                    commands={
+                        ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--dry-run"): [
+                            "remove brew:demo@1.0",
+                            "remove brew:demo@1.0",
+                            "brew: nothing to prune\n",
+                        ],
+                        ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--yes"): "",
+                        (macos.LSOF, "-nP", "-F0pcn"): [
+                            f"p42\0cdemo\0\nftxt\0n{keg}/bin/demo\0\n",
+                            "",
+                        ],
+                        ("/bin/ps", "-axo", "pid=,ppid=,comm="): "42 1 demo\n",
+                        ("/bin/ps", "-p", "42", "-o", "uid=,lstart=,comm="): ps_sequence,
+                    },
+                )
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(
+                        cleanup.cleanup(
+                            apply=True, darwin=True, profile="work-macos", host=fake.host
+                        ),
+                        0,
+                    )
+                self.assertEqual(
+                    fake.kills, [] if reused else [(42, signal.SIGTERM)]
+                )
+
+    def test_cleanup_refuses_root_ancestor_and_unresolvable_truncated_blockers(self):
+        keg = self.root / "Cellar/demo/1.0"
+        keg.mkdir(parents=True)
+        old_install = self.root / "mise/installs/npm-azure-devops-mcp/2.11.0"
+        old_install.mkdir(parents=True)
+        ls_tool = json.dumps(
+            [
+                {
+                    "version": "2.11.0",
+                    "install_path": str(old_install),
+                    "installed": True,
+                    "active": False,
+                }
+            ]
+        )
+        cases = (
+            (
+                "root-process",
+                {
+                    ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--dry-run"): "remove brew:demo@1.0",
+                    (macos.LSOF, "-nP", "-F0pcn"): f"p42\0cdaemon\0\nftxt\0n{keg}/bin/daemon\0\n",
+                    ("/bin/ps", "-axo", "pid=,ppid=,comm="): "42 1 daemon\n",
+                    ("/bin/ps", "-p", "42", "-o", "uid=,lstart=,comm="): "0 Fri Nov 27 11:00:00 2026 daemon\n",
+                },
+                500,
+                1,
+                "PID 42",
+            ),
+            (
+                "ancestor-process",
+                {
+                    ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--dry-run"): "remove brew:demo@1.0",
+                    (macos.LSOF, "-nP", "-F0pcn"): f"p300\0cGhostty\0\nftxt\0n{keg}/Ghostty\0\n",
+                    ("/bin/ps", "-axo", "pid=,ppid=,comm="): "300 1 Ghostty\n400 300 mise\n500 400 python3\n",
+                    ("/bin/ps", "-p", "400", "-o", "ppid=,comm="): "300 mise\n",
+                    ("/bin/ps", "-p", "300", "-o", "ppid=,comm="): "1 Ghostty\n",
+                    ("/bin/ps", "-p", "300", "-o", "uid=,lstart=,comm="): "501 Fri Nov 27 11:00:00 2026 Ghostty\n",
+                },
+                500,
+                400,
+                "PID 300",
+            ),
+            (
+                "mixed-user-and-root-mise-blocker",
+                {
+                    ("mise", "prune", "--dry-run"): (
+                        "mise npm:demo@1.0.0 is kept: still running as pid 101 (node), pid 102 (daemon)"
+                    ),
+                    ("/bin/ps", "-axo", "pid=,ppid=,comm="): "101 1 node\n102 1 daemon\n",
+                    ("/bin/ps", "-p", "101", "-o", "uid=,lstart=,comm="): "501 Fri Nov 27 11:00:00 2026 node\n",
+                    ("/bin/ps", "-p", "102", "-o", "uid=,lstart=,comm="): "0 Fri Nov 27 11:00:00 2026 daemon\n",
+                },
+                500,
+                1,
+                "pid 102",
+            ),
+            (
+                "unresolvable-truncated",
+                {
+                    ("mise", "prune", "--dry-run"): (
+                        "mise npm:@azure-devops/mcp@2.11.0 is kept: still running as "
+                        "pid 101 (node), pid 102 (node), pid 103 (node) and 1 more"
+                    ),
+                    ("mise", "ls", "--json", "--", "npm:@azure-devops/mcp"): "[]",
+                },
+                500,
+                1,
+                "and 1 more",
+            ),
+            (
+                "under-resolved-truncated",
+                {
+                    ("mise", "prune", "--dry-run"): (
+                        "mise npm:@azure-devops/mcp@2.11.0 is kept: still running as "
+                        "pid 101 (node), pid 102 (node), pid 103 (node) and 1 more"
+                    ),
+                    ("mise", "ls", "--json", "--", "npm:@azure-devops/mcp"): ls_tool,
+                    ("/bin/ps", "-axo", "pid=,ppid=,comm="): "101 1 node\n102 1 node\n103 1 node\n",
+                    ("/bin/ps", "-axo", "pid=,command="): "\n".join(
+                        f"{pid} node {old_install}/dist/index.js" for pid in (101, 102, 103)
+                    ),
+                    ("/bin/ps", "-p", "101", "-o", "uid=,lstart=,comm="): "501 Fri Nov 27 11:00:00 2026 node\n",
+                    ("/bin/ps", "-p", "102", "-o", "uid=,lstart=,comm="): "501 Fri Nov 27 11:00:00 2026 node\n",
+                    ("/bin/ps", "-p", "103", "-o", "uid=,lstart=,comm="): "501 Fri Nov 27 11:00:00 2026 node\n",
+                },
+                500,
+                1,
+                "and 1 more",
+            ),
+        )
+        for label, commands, host_pid, host_ppid, expected_err in cases:
+            with self.subTest(case=label):
+                fake = FakeCleanupHost(
+                    self.root,
+                    confirm=True,
+                    commands=commands,
+                    pid=host_pid,
+                    ppid=host_ppid,
+                )
+                with (
+                    contextlib.redirect_stdout(io.StringIO()),
+                    contextlib.redirect_stderr(io.StringIO()) as err,
+                ):
+                    self.assertEqual(
+                        cleanup.cleanup(
+                            apply=True, darwin=True, profile="work-macos", host=fake.host
+                        ),
+                        1,
+                    )
+                self.assertIn(expected_err, err.getvalue())
+                self.assertEqual(fake.confirm_calls, [])
+                self.assertEqual(fake.kills, [])
+                self.assertNotIn(("mise", "prune", "--yes"), fake.calls)
+
+    def test_truncated_mise_blocker_expands_hidden_pid_via_lsof(self):
+        old_install = self.root / "mise/installs/npm-demo/1.0.0"
+        old_install.mkdir(parents=True)
+        kept_line = (
+            "mise npm:demo@1.0.0 is kept: still running as "
+            "pid 101 (node), pid 102 (node), pid 103 (node) and 1 more"
+        )
+        ls_tool = json.dumps(
+            [
+                {
+                    "version": "1.0.0",
+                    "install_path": str(old_install),
+                    "installed": True,
+                    "active": False,
+                }
+            ]
+        )
+        prunable_after_kill = json.dumps(
+            {"npm:demo": [{"version": "1.0.0", "install_path": str(old_install)}]}
+        )
+        cmds = {
+            ("mise", "prune", "--dry-run"): [kept_line, "", ""],
+            ("mise", "ls", "--prunable", "--json"): ["{}", prunable_after_kill, "{}"],
+            ("mise", "ls", "--json", "--", "npm:demo"): ls_tool,
+            ("/bin/ps", "-axo", "pid=,ppid=,comm="): "101 1 node\n102 1 node\n103 1 node\n104 1 worker\n",
+            ("/bin/ps", "-axo", "pid=,command="): "104 worker --custom-title\n",
+            (macos.LSOF, "-nP", "-F0pcn"): [
+                f"p104\0cworker\0\nfcwd\0n{old_install}\0\n",
+                "",
+            ],
+        }
+        for pid, name in ((101, "node"), (102, "node"), (103, "node"), (104, "worker")):
+            cmds[("/bin/ps", "-p", str(pid), "-o", "uid=,lstart=,comm=")] = [
+                f"501 Fri Nov 27 11:31:07 2026 {name}\n",
+                f"501 Fri Nov 27 11:31:07 2026 {name}\n",
+                subprocess.CompletedProcess((), 1, stdout="", stderr=""),
+            ]
+        fake = FakeCleanupHost(self.root, confirm=True, commands=cmds)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(
+                cleanup.cleanup(
+                    apply=True, darwin=True, profile="work-macos", host=fake.host
+                ),
+                0,
+            )
+        self.assertEqual(
+            fake.kills,
+            [(pid, signal.SIGTERM) for pid in (101, 102, 103, 104)],
+        )
+
+    def test_blocking_process_timeout_aborts_without_pruning(self):
+        fake = FakeCleanupHost(
+            self.root,
+            confirm=True,
+            commands={
+                ("mise", "prune", "--dry-run"): "mise npm:demo@1.0.0 is kept: still running as pid 42 (node)",
+                ("/bin/ps", "-axo", "pid=,ppid=,comm="): "42 1 node\n",
+                ("/bin/ps", "-p", "42", "-o", "uid=,lstart=,comm="): "501 Fri Nov 27 11:00:00 2026 node\n",
+            },
+        )
+        with (
+            contextlib.redirect_stdout(io.StringIO()),
+            self.assertRaisesRegex(
+                ValueError, r"blocking processes to exit: node \(PID 42\)"
+            ),
+        ):
+            cleanup.cleanup(
+                apply=True, darwin=True, profile="work-macos", host=fake.host
+            )
+        self.assertEqual(fake.kills, [(42, signal.SIGTERM)])
+        self.assertNotIn(("mise", "prune", "--yes"), fake.calls)
 
 
 if __name__ == "__main__":
