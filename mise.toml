@@ -81,7 +81,7 @@ rust = { version = "1.100.0", components = ["clippy", "rustfmt", "rust-src", "ru
 "cargo:taplo-cli" = "0.10.0"
 "go:golang.org/x/tools/gopls" = "v0.24.0"
 "pipx:yamllint" = "1.38.0"
-"npm:@earendil-works/pi-coding-agent" = "1.6.1"
+"npm:@earendil-works/pi-coding-agent" = "1.7.0"
 "npm:awk-language-server" = "0.10.6"
 "npm:bash-language-server" = { version = "5.8.1", trust_policy_excludes = ["fastq@1.20.2"] }
 "npm:@biomejs/biome" = "2.6.9"

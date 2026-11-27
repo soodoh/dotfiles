@@ -1680,7 +1680,7 @@ version = "2.6.9"
 backend = "npm:@biomejs/biome"
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
-version = "1.6.1"
+version = "1.7.0"
 backend = "npm:@earendil-works/pi-coding-agent"
 
 [[tools."npm:awk-language-server"]]
