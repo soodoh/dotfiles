@@ -255,8 +255,15 @@ await test("actual host: both macOS profiles discover the bundled browser skill"
 	const install = dirname(dirname(browser));
 	const config = join(root, "project");
 	mkdirSync(config);
-	for (const file of ["mise.toml", "mise.lock"])
-		copyFileSync(join(repo, file), join(config, file));
+	for (const file of [
+		"mise.toml",
+		"mise.lock",
+		"dotfiles/macos/herdr/browser.sh",
+	]) {
+		const destination = join(config, file);
+		mkdirSync(dirname(destination), { recursive: true });
+		copyFileSync(join(repo, file), destination);
+	}
 	const emptyConfig = join(root, "empty.toml");
 	writeFileSync(emptyConfig, "");
 	const upstream = realpathSync(

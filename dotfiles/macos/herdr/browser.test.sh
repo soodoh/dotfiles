@@ -166,3 +166,82 @@ ln -s "$work/does-not-exist" "$work/broken-cwd/herdr-browser"
 : >"$log"
 (cd "$work/broken-cwd" && PATH="$work/links:$PATH" run_browser bash --posix herdr-browser open)
 grep -Fq 'browser|no_telemetry=1|url_env=UNSET|args=open --no-merge about:blank' "$log"
+
+# 11. configure-skill writes skills-choice, links the bundled skill, and enforces safety guards.
+bundle_root="$work/install/terminal-browser"
+bundle_bin="$bundle_root/bin"
+bundle_skill="$bundle_root/skills/default/terminal-browser"
+mkdir -p "$bundle_bin" "$bundle_skill"
+cp "$work/bin/terminal-browser" "$bundle_bin/terminal-browser"
+chmod 0755 "$bundle_bin/terminal-browser"
+
+# Missing SKILL.md fails without notifying Herdr.
+skill_home="$work/skill-home"
+skill_state="$work/skill-state"
+mkdir -p "$skill_home"
+: >"$log"
+if HOME="$skill_home" XDG_STATE_HOME="$skill_state" TEST_BIN="$bundle_bin" \
+  TEST_LOG="$log" EXPECTED_REPO="$checkout" MISE_BIN="$work/bin/mise" \
+  HERDR_BIN_PATH="$work/bin/herdr" \
+  /bin/sh "$browser_sh" configure-skill 2>"$work/err"; then
+  printf 'expected missing SKILL.md to fail\n' >&2
+  exit 1
+fi
+grep -Fq 'Missing bundled skill:' "$work/err"
+if grep -Fq 'herdr|notification show' "$log"; then
+  printf 'expected configure-skill failure not to notify Herdr\n' >&2
+  exit 1
+fi
+[[ ! -e "$skill_state/terminal-browser/skills-choice" ]]
+
+# With SKILL.md present, configure-skill creates skills-choice=no and symlinks the skill.
+printf '# terminal-browser\n' >"$bundle_skill/SKILL.md"
+HOME="$skill_home" XDG_STATE_HOME="$skill_state" TEST_BIN="$bundle_bin" \
+  TEST_LOG="$log" EXPECTED_REPO="$checkout" MISE_BIN="$work/bin/mise" \
+  /bin/sh "$browser_sh" configure-skill
+[[ $(cat "$skill_state/terminal-browser/skills-choice") == "no" ]]
+[[ -L "$skill_home/.pi/agent/skills/terminal-browser" ]]
+[[ $(readlink "$skill_home/.pi/agent/skills/terminal-browser") == "$bundle_skill" ]]
+
+# Idempotent repeat run succeeds and preserves skills-choice.
+HOME="$skill_home" XDG_STATE_HOME="$skill_state" TEST_BIN="$bundle_bin" \
+  TEST_LOG="$log" EXPECTED_REPO="$checkout" MISE_BIN="$work/bin/mise" \
+  /bin/sh "$browser_sh" configure-skill
+
+# Pre-existing non-no skills-choice is rejected without overwriting it.
+skill_home_optin="$work/skill-home-optin"
+skill_state_optin="$work/skill-state-optin"
+mkdir -p "$skill_home_optin" "$skill_state_optin/terminal-browser"
+printf 'yes\n' >"$skill_state_optin/terminal-browser/skills-choice"
+if HOME="$skill_home_optin" XDG_STATE_HOME="$skill_state_optin" TEST_BIN="$bundle_bin" \
+  TEST_LOG="$log" EXPECTED_REPO="$checkout" MISE_BIN="$work/bin/mise" \
+  /bin/sh "$browser_sh" configure-skill 2>"$work/err"; then
+  printf 'expected opt-in skills-choice to fail\n' >&2
+  exit 1
+fi
+grep -Fq 'decline agent skill installation' "$work/err"
+[[ $(cat "$skill_state_optin/terminal-browser/skills-choice") == "yes" ]]
+[[ ! -e "$skill_home_optin/.pi/agent/skills/terminal-browser" ]]
+
+# Refuses to replace a non-symlink skill directory.
+skill_home_dir="$work/skill-home-dir"
+mkdir -p "$skill_home_dir/.pi/agent/skills/terminal-browser"
+printf 'local\n' >"$skill_home_dir/.pi/agent/skills/terminal-browser/local.txt"
+if HOME="$skill_home_dir" XDG_STATE_HOME="relative/ignored" TEST_BIN="$bundle_bin" \
+  TEST_LOG="$log" EXPECTED_REPO="$checkout" MISE_BIN="$work/bin/mise" \
+  /bin/sh "$browser_sh" configure-skill 2>"$work/err"; then
+  printf 'expected non-symlink target to fail\n' >&2
+  exit 1
+fi
+grep -Fq 'Refusing to replace' "$work/err"
+[[ -f "$skill_home_dir/.pi/agent/skills/terminal-browser/local.txt" ]]
+[[ ! -e "$skill_home_dir/.local/state/terminal-browser/skills-choice" ]]
+
+# Relative XDG_STATE_HOME falls back to $HOME/.local/state.
+skill_home_default="$work/skill-home-default"
+mkdir -p "$skill_home_default"
+HOME="$skill_home_default" XDG_STATE_HOME="relative/ignored" TEST_BIN="$bundle_bin" \
+  TEST_LOG="$log" EXPECTED_REPO="$checkout" MISE_BIN="$work/bin/mise" \
+  /bin/sh "$browser_sh" configure-skill
+[[ $(cat "$skill_home_default/.local/state/terminal-browser/skills-choice") == "no" ]]
+[[ $(readlink "$skill_home_default/.pi/agent/skills/terminal-browser") == "$bundle_skill" ]]

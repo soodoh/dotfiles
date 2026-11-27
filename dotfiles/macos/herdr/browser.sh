@@ -43,7 +43,13 @@ case "$script" in
 esac
 self="$self_dir/${script##*/}"
 repo=$(CDPATH='' cd -P -- "$self_dir/../../.." && pwd -P)
-mise="${MISE_BIN:-$HOME/.local/bin/mise}"
+if [ -n "${MISE_BIN:-}" ]; then
+  mise="$MISE_BIN"
+elif mise=$(command -v mise 2>/dev/null); then
+  :
+else
+  mise="$HOME/.local/bin/mise"
+fi
 mode="${1:-}"
 
 # Quote for both POSIX sh and Fish: escape single quotes and backslashes
@@ -66,9 +72,14 @@ sh_quote() {
 
 fail() {
   printf 'Herdr browser: %s\n' "$1" >&2
-  if [ "$mode" != open ] && [ -n "${HERDR_BIN_PATH:-}" ]; then
-    "$HERDR_BIN_PATH" notification show 'Herdr browser' --body "$1" >/dev/null 2>&1 || :
-  fi
+  case "$mode" in
+    open|configure-skill) ;;
+    *)
+      if [ -n "${HERDR_BIN_PATH:-}" ]; then
+        "$HERDR_BIN_PATH" notification show 'Herdr browser' --body "$1" >/dev/null 2>&1 || :
+      fi
+      ;;
+  esac
   exit 1
 }
 
@@ -76,8 +87,30 @@ case "${XDG_STATE_HOME:-}" in
   /*) state="$XDG_STATE_HOME" ;;
   *) state="$HOME/.local/state" ;;
 esac
+choice="$state/terminal-browser/skills-choice"
+
+if [ "$mode" = configure-skill ]; then
+  browser=$("$mise" -C "$repo" --no-env --no-hooks which terminal-browser) || fail 'Install terminal-browser with mise first.'
+  skill="${browser%/bin/terminal-browser}/skills/default/terminal-browser"
+  target="$HOME/.pi/agent/skills/terminal-browser"
+  [ -f "$skill/SKILL.md" ] || fail "Missing bundled skill: $skill"
+  if [ -e "$target" ] && [ ! -L "$target" ]; then
+    fail "Refusing to replace $target"
+  fi
+  # The CLI otherwise installs into ~/.agents/skills on first use.
+  if [ ! -e "$choice" ] && [ ! -L "$choice" ]; then
+    mkdir -p "${choice%/*}"
+    (set -C; printf 'no\n' > "$choice") 2>/dev/null || :
+    [ -e "$choice" ] || [ -L "$choice" ] || fail "Could not write $choice."
+  fi
+  grep -qx no "$choice" 2>/dev/null || fail 'Run terminal-browser setup and decline agent skill installation.'
+  mkdir -p "${target%/*}"
+  ln -sfn "$skill" "$target"
+  exit 0
+fi
+
 # Upstream otherwise installs agent skills automatically on first launch.
-if ! grep -qx no "$state/terminal-browser/skills-choice" 2>/dev/null; then
+if ! grep -qx no "$choice" 2>/dev/null; then
   fail 'Run mise run configure:terminal-browser-skill first.'
 fi
 
@@ -124,7 +157,7 @@ case "$mode" in
     result=$("$herdr" pane split "${HERDR_ACTIVE_PANE_ID:?missing pane}" --direction right --focus) || fail 'Could not create a browser split.'
     pane=$(printf '%s\n' "$result" | "$jq" -er '.result.pane.pane_id') || fail 'Could not identify the new split pane.'
     ;;
-  *) fail 'Expected tab, split, open, link, or open-link.' ;;
+  *) fail 'Expected configure-skill, tab, split, open, link, or open-link.' ;;
 esac
 "$herdr" pane run "$pane" "/bin/sh $(sh_quote "$self") open" >/dev/null || fail 'Could not start the browser in the new pane.'
 printf '%s\n' "$pane"
