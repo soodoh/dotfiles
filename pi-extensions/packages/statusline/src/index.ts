@@ -18,10 +18,10 @@ import {
 	type SpeedReader,
 } from "../../cliproxyapi";
 import {
+	defaultGitStatusStore,
 	GIT_REFRESH_INTERVAL_MS,
 	type GitStatus,
-	getGitStatus,
-	invalidateGit,
+	type GitStatusStore,
 } from "./git-status";
 import {
 	defaultProviderUsageStore,
@@ -340,14 +340,13 @@ function buildStatusLines(
 				case "git":
 					return git ? renderGit(git, theme) : undefined;
 				case "provider_usage":
-					return usageStore.render(
-						providerUsageTargets,
+					return usageStore.render(providerUsageTargets, {
 						theme,
-						providerMode === "active",
-						(text) => color(theme, "model", text),
-						mappedProviderUsageFamily(ctx.model),
-						ctx.model?.provider === "cliproxyapi",
-					);
+						activeOnly: providerMode === "active",
+						renderActive: (text) => color(theme, "model", text),
+						activeFamilyOverride: mappedProviderUsageFamily(ctx.model),
+						activeProxy: ctx.model?.provider === "cliproxyapi",
+					});
 				case "context":
 					return context;
 				default:
@@ -382,9 +381,13 @@ const PROVIDER_DISCOVERY_INTERVAL_MS = 60_000;
 
 export default function statusline(
 	pi: ExtensionAPI,
-	options?: { usageStore?: ProviderUsageStore },
+	options?: {
+		usageStore?: ProviderUsageStore;
+		gitStatusStore?: GitStatusStore;
+	},
 ): void {
 	const usageStore = options?.usageStore ?? defaultProviderUsageStore;
+	const gitStatusStore = options?.gitStatusStore ?? defaultGitStatusStore;
 	registerReviewModels(pi, usageStore);
 	let currentCtx: ExtensionContext | null = null;
 	let tuiRef: TuiLike | null = null;
@@ -421,11 +424,15 @@ export default function statusline(
 			};
 			const updateGit = () => {
 				if (disposed || !currentCtx || !sections.includes("git")) return;
-				git = getGitStatus(sessionCwd(currentCtx), data.getGitBranch(), () => {
-					if (disposed) return;
-					updateGit();
-					onUpdate();
-				});
+				git = gitStatusStore.getStatus(
+					sessionCwd(currentCtx),
+					data.getGitBranch(),
+					() => {
+						if (disposed) return;
+						updateGit();
+						onUpdate();
+					},
+				);
 			};
 			const updateProviders = (rediscover = false) => {
 				if (disposed || !currentCtx || !sections.includes("provider_usage"))
@@ -451,7 +458,7 @@ export default function statusline(
 			refreshProviders = updateProviders;
 			const unsubscribe = data.onBranchChange(() => {
 				if (disposed) return;
-				invalidateGit();
+				gitStatusStore.invalidate();
 				updateGit();
 				onUpdate();
 			});
@@ -556,7 +563,7 @@ export default function statusline(
 			event.toolName === "write" ||
 			event.toolName === "edit"
 		) {
-			invalidateGit();
+			gitStatusStore.invalidate();
 			refreshGit?.();
 		}
 	});

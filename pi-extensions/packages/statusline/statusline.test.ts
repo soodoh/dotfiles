@@ -24,7 +24,7 @@ import {
 	type SpeedReader,
 } from "../cliproxyapi";
 import statusline from "./index";
-import * as gitStatus from "./src/git-status";
+import { createGitStatusStore, type GitStatusStore } from "./src/git-status";
 import {
 	createProviderUsageStore,
 	type ModelLike,
@@ -90,8 +90,28 @@ function createPi(
 	};
 }
 
+function fakeGitStatusStore(
+	getStatusImpl: GitStatusStore["getStatus"] = () => ({
+		branch: "main",
+		staged: 0,
+		unstaged: 0,
+		untracked: 0,
+	}),
+): GitStatusStore & {
+	getStatus: ReturnType<typeof vi.fn<GitStatusStore["getStatus"]>>;
+	invalidate: ReturnType<typeof vi.fn<GitStatusStore["invalidate"]>>;
+} {
+	return {
+		getStatus: vi.fn<GitStatusStore["getStatus"]>(getStatusImpl),
+		invalidate: vi.fn<GitStatusStore["invalidate"]>(),
+	};
+}
+
 function harness(
-	overrides: Partial<Context> & { usageStore?: ProviderUsageStore } = {},
+	overrides: Partial<Context> & {
+		usageStore?: ProviderUsageStore;
+		gitStatusStore?: GitStatusStore;
+	} = {},
 	thinking: "off" | "high" = "off",
 ) {
 	let footer: Footer | undefined;
@@ -111,7 +131,8 @@ function harness(
 		overrides.readStoredCredential ?? (() => undefined),
 	);
 	const usageStore = overrides.usageStore ?? createProviderUsageStore();
-	statusline(pi as unknown as ExtensionAPI, { usageStore });
+	const gitStatusStore = overrides.gitStatusStore ?? createGitStatusStore();
+	statusline(pi as unknown as ExtensionAPI, { usageStore, gitStatusStore });
 	const data = {
 		getGitBranch: () => "main",
 		getAvailableProviderCount: () => 0,
@@ -184,7 +205,6 @@ function settings(sections: unknown): Settings {
 
 beforeEach(async () => {
 	vi.stubEnv("CLIPROXYAPI_MANAGEMENT_KEY", undefined);
-	gitStatus.invalidateGit();
 	const cacheDir = await tempDir("pi-statusline-provider-cache");
 	vi.stubEnv(
 		"PI_PROVIDER_USAGE_CACHE_PATH",
@@ -356,13 +376,8 @@ describe("statusline extension", () => {
 	});
 
 	test("invalid effective sections fall back to defaults", () => {
-		vi.spyOn(gitStatus, "getGitStatus").mockReturnValue({
-			branch: "main",
-			staged: 0,
-			unstaged: 0,
-			untracked: 0,
-		});
 		const h = harness({
+			gitStatusStore: fakeGitStatusStore(),
 			settings: {
 				...settings(["unknown"]),
 			},
@@ -373,13 +388,13 @@ describe("statusline extension", () => {
 	});
 
 	test("wraps overflow within viewport width without dropping sections", () => {
-		vi.spyOn(gitStatus, "getGitStatus").mockReturnValue({
-			branch: "paul/autobranding",
-			staged: 0,
-			unstaged: 0,
-			untracked: 0,
-		});
 		const h = harness({
+			gitStatusStore: fakeGitStatusStore(() => ({
+				branch: "paul/autobranding",
+				staged: 0,
+				unstaged: 0,
+				untracked: 0,
+			})),
 			model: { name: "GPT-5.5", contextWindow: 272000 },
 			settings: settings(["model", "git", "context"]),
 			getContextUsage: () => ({
@@ -398,17 +413,12 @@ describe("statusline extension", () => {
 	});
 
 	test("handles async model discovery and puts provider usage on the default second row", async () => {
-		vi.spyOn(gitStatus, "getGitStatus").mockReturnValue({
-			branch: "main",
-			staged: 0,
-			unstaged: 0,
-			untracked: 0,
-		});
 		const fetchMock = vi.fn(async () =>
 			Response.json({ five_hour: { used_percent: 10 } }),
 		);
 		vi.stubGlobal("fetch", fetchMock);
 		const h = harness({
+			gitStatusStore: fakeGitStatusStore(),
 			settings: { compaction: { enabled: true } },
 			model: {
 				name: "Claude Sonnet Test",
@@ -478,12 +488,8 @@ describe("statusline extension", () => {
 	});
 
 	test("render and invalidation perform no git, provider discovery, or auth work", async () => {
-		const getGitStatus = vi.spyOn(gitStatus, "getGitStatus").mockReturnValue({
-			branch: "main",
-			staged: 0,
-			unstaged: 0,
-			untracked: 0,
-		});
+		const gitStatusStore = fakeGitStatusStore();
+		const getGitStatus = gitStatusStore.getStatus;
 		const usageStore = createProviderUsageStore();
 		const discovery = vi.spyOn(usageStore, "discoverTargetsAsync");
 		const refresh = vi.spyOn(usageStore, "refresh");
@@ -491,6 +497,7 @@ describe("statusline extension", () => {
 		const getApiKeyForProvider = vi.fn(async () => undefined);
 		const h = harness({
 			usageStore,
+			gitStatusStore,
 			settings: settings(["model", "git", "provider_usage"]),
 			modelRegistry: { getAvailable, getApiKeyForProvider },
 		});
@@ -537,10 +544,12 @@ describe("statusline extension", () => {
 	test("does not install UI or start refreshes outside TUI mode", () => {
 		const usageStore = createProviderUsageStore();
 		const discovery = vi.spyOn(usageStore, "discoverTargetsAsync");
-		const git = vi.spyOn(gitStatus, "getGitStatus");
+		const gitStatusStore = fakeGitStatusStore();
+		const git = gitStatusStore.getStatus;
 		for (const mode of ["rpc", "print", "json"]) {
 			const h = harness({
 				usageStore,
+				gitStatusStore,
 				mode,
 				hasUI: mode === "rpc",
 				settings: settings(["git", "provider_usage"]),
@@ -555,12 +564,8 @@ describe("statusline extension", () => {
 
 	test("polls only configured sources, refreshes on tool/branch changes, and disposes idempotently", async () => {
 		vi.useFakeTimers();
-		const git = vi.spyOn(gitStatus, "getGitStatus").mockReturnValue({
-			branch: "main",
-			staged: 0,
-			unstaged: 0,
-			untracked: 0,
-		});
+		const gitStatusStore = fakeGitStatusStore();
+		const git = gitStatusStore.getStatus;
 		const usageStore = createProviderUsageStore();
 		const discovery = vi
 			.spyOn(usageStore, "discoverTargetsAsync")
@@ -568,6 +573,7 @@ describe("statusline extension", () => {
 		vi.spyOn(usageStore, "refresh").mockResolvedValue();
 		const h = harness({
 			usageStore,
+			gitStatusStore,
 			settings: settings(["git", "provider_usage"]),
 		});
 		await vi.advanceTimersByTimeAsync(60_000);
@@ -722,13 +728,12 @@ describe("statusline extension", () => {
 
 	test("ignores late git callbacks after footer disposal", () => {
 		let update: (() => void) | undefined;
-		const git = vi
-			.spyOn(gitStatus, "getGitStatus")
-			.mockImplementation((_cwd, _branch, onUpdate) => {
-				update = onUpdate;
-				return { branch: "main", staged: 0, unstaged: 0, untracked: 0 };
-			});
-		const h = harness({ settings: settings(["git"]) });
+		const gitStatusStore = fakeGitStatusStore((_cwd, _branch, onUpdate) => {
+			update = onUpdate;
+			return { branch: "main", staged: 0, unstaged: 0, untracked: 0 };
+		});
+		const git = gitStatusStore.getStatus;
+		const h = harness({ gitStatusStore, settings: settings(["git"]) });
 		h.footer().dispose?.();
 		git.mockClear();
 		h.requestRender.mockClear();

@@ -1,49 +1,45 @@
 import { createHash } from "node:crypto";
 import {
 	createProxyUsageStore,
-	type DirectProxyFallback,
 	type ProxyRequestFn,
-	type ProxySnapshotView,
-	type ProxyUsageAccount,
 	type ProxyUsageStore,
 } from "./cliproxy-usage";
 import {
 	createSharedKeyedCache,
 	isUsageCacheFresh,
 	type SharedKeyedCache,
-	usageSnapshotFreshness,
 } from "./usage-cache";
 import {
-	formatProviderScope,
 	isRecord,
 	nestedRecord,
 	numericField,
-	PROVIDER_BADGE_SEPARATOR,
 	type ProviderUsageScope,
 	parseOpenAiResetCreditsBody,
 	parseOpenAiUsageBody,
 	parseUtilization,
 } from "./usage-quota";
+import {
+	buildProviderUsageCliSnapshot,
+	type CopilotUsageDetails,
+	compareProviderFamilies,
+	LLMHUB_USAGE_PROVIDER_ID,
+	type ProviderUsageAuthKind,
+	type ProviderUsageCliSnapshot,
+	type ProviderUsageRenderOptions,
+	type ProviderUsageRenderSnapshot,
+	type ProviderUsageState,
+	renderProviderUsageLine,
+} from "./usage-render";
 import { retryUsageRequest } from "./usage-retry";
 
-/** Sanitized account data only: never retain identity, organizations, SKU or tokens. */
-export type CopilotQuota = {
-	unit: "credits" | "requests" | "unknown";
-	unlimited?: boolean;
-	percentUsed?: number;
-	allowance?: number;
-	remaining?: number;
-	used?: number;
-	creditsUsed?: number;
-	overagePermitted?: boolean;
-	overageUsed?: number;
-	resetAt?: number;
-};
-
-export type CopilotUsageDetails = {
-	plan?: string;
-	premium?: CopilotQuota;
-};
+export type {
+	CopilotQuota,
+	CopilotUsageAccount,
+	CopilotUsageDetails,
+	ProviderUsageCliSnapshot,
+	ProviderUsageRenderOptions,
+	ThemeLike,
+} from "./usage-render";
 
 export type ProviderUsageStoreOptions = {
 	fetch?: typeof globalThis.fetch;
@@ -112,20 +108,9 @@ const PROVIDER_USAGE_FETCH_MAX_ATTEMPTS = 3;
 const PROVIDER_USAGE_TRANSIENT_RETRY_BASE_MS = 50;
 const PROVIDER_USAGE_THROTTLE_RETRY_BASE_MS = 1000;
 const PROVIDER_USAGE_RETRY_MAX_DELAY_MS = 20_000;
-const OPENAI_LOGO = "\u{F0004}";
-const CODEX_PROXY_LOGO = "\uF120"; // nf-fa-terminal
-const OPENROUTER_LOGO = "\u{F0469}";
-const GITHUB_LOGO = "\uF09B";
 
 export type { ProxyUsageAccount } from "./cliproxy-usage";
 export type { ProviderUsageScope } from "./usage-quota";
-
-type ThemeLike = {
-	fg(color: string, text: string): string;
-};
-
-type ProviderUsageAuthKind = "oauth" | "api_key" | "unknown";
-type ProviderUsageState = "ready" | "unknown" | "error" | "unsupported";
 
 export type ProviderUsageStatus = {
 	providerId: string;
@@ -152,7 +137,6 @@ const OAUTH_PROVIDER_IDS = new Set([
 	"openai-codex",
 	"github-copilot",
 ]);
-const LLMHUB_USAGE_PROVIDER_ID = "llm-hub";
 const LITELLM_PROVIDER_ID = "litellm";
 const OPENAI_USAGE_FAMILY = "openai";
 const API_KEY_PROVIDER_IDS = new Set([
@@ -162,12 +146,6 @@ const API_KEY_PROVIDER_IDS = new Set([
 	LLMHUB_USAGE_PROVIDER_ID,
 ]);
 const USAGE_IGNORED_PROVIDER_IDS = new Set([LITELLM_PROVIDER_ID]);
-const PROVIDER_FAMILY_ORDER = [
-	LLMHUB_USAGE_PROVIDER_ID,
-	"github-copilot",
-	"openai",
-	"openrouter",
-];
 
 type AvailableModelsCacheEntry = {
 	models?: ModelLike[];
@@ -589,13 +567,7 @@ export function mappedProviderUsageFamily(
 }
 
 function compareProviderIds(a: string, b: string): number {
-	const aFamily = providerFamily(a);
-	const bFamily = providerFamily(b);
-	const aIndex = PROVIDER_FAMILY_ORDER.indexOf(aFamily);
-	const bIndex = PROVIDER_FAMILY_ORDER.indexOf(bFamily);
-	const aOrder = aIndex === -1 ? PROVIDER_FAMILY_ORDER.length : aIndex;
-	const bOrder = bIndex === -1 ? PROVIDER_FAMILY_ORDER.length : bIndex;
-	return aOrder - bOrder || aFamily.localeCompare(bFamily);
+	return compareProviderFamilies(providerFamily(a), providerFamily(b));
 }
 
 function providerTargetKey(
@@ -1083,7 +1055,9 @@ async function resolveProviderUsageAccess(
 		? credentialScopedKey(targetKey, credentialIdentity)
 		: targetKey;
 	const accountId =
-		isLegacyCodex(target) && token ? extractOpenAiAccountId(token) : undefined;
+		isLegacyCodexTarget(target) && token
+			? extractOpenAiAccountId(token)
+			: undefined;
 	return {
 		cacheKey,
 		token,
@@ -1654,7 +1628,7 @@ async function queueProviderUsageRefresh(
 	if (isLatestResolution) {
 		mappingChanged = state.resolvedCacheKeys.get(targetKey) !== access.cacheKey;
 		state.resolvedCacheKeys.set(targetKey, access.cacheKey);
-		if (isLegacyCodex(target)) {
+		if (isLegacyCodexTarget(target)) {
 			const bindingChanged = state.proxyStore.setTargetLink(
 				targetKey,
 				access.codexAccountId
@@ -1665,7 +1639,7 @@ async function queueProviderUsageRefresh(
 		}
 	}
 
-	if (isLegacyCodex(target)) {
+	if (isLegacyCodexTarget(target)) {
 		// Give the shared reader first refusal, including cold-cache refreshes.
 		await proxyRefresh;
 		if (state.resolutionIds.get(targetKey) !== resolutionId) return;
@@ -1710,11 +1684,15 @@ async function queueProviderUsageRefresh(
 	}
 }
 
-function isNativeOpenAi(target: ProviderUsageTarget): boolean {
+function isNativeOpenAiTarget(
+	target: Pick<ProviderUsageTarget, "providerId" | "authKind">,
+): boolean {
 	return target.providerId === "openai" && target.authKind === "oauth";
 }
 
-function isLegacyCodex(target: ProviderUsageTarget): boolean {
+function isLegacyCodexTarget(
+	target: Pick<ProviderUsageTarget, "providerId" | "authKind">,
+): boolean {
 	return target.providerId === "openai-codex" && target.authKind === "oauth";
 }
 
@@ -1783,7 +1761,7 @@ function refreshProviderUsageInStore(
 			providerTargetKey(target.providerId, target.authKind),
 		),
 	);
-	const nativeTargets = targets.filter(isNativeOpenAi);
+	const nativeTargets = targets.filter(isNativeOpenAiTarget);
 	const proxyRefresh = Promise.all(
 		nativeTargets.map((target) =>
 			refreshNativeOpenAiBinding(state, ctx, target, onUpdate),
@@ -1793,7 +1771,7 @@ function refreshProviderUsageInStore(
 			onUpdate,
 			state.proxyStore.hasNativeTargetLink()
 				? "native"
-				: targets.some(isLegacyCodex)
+				: targets.some(isLegacyCodexTarget)
 					? "codex"
 					: undefined,
 		),
@@ -1803,7 +1781,7 @@ function refreshProviderUsageInStore(
 		...targets
 			.filter(
 				(target) =>
-					!isNativeOpenAi(target) &&
+					!isNativeOpenAiTarget(target) &&
 					isProviderSupportedAuth(target.providerId, target.authKind),
 			)
 			.map((target) =>
@@ -1815,236 +1793,26 @@ function refreshProviderUsageInStore(
 	});
 }
 
-function providerDisplayLabel(providerId: string): string {
-	switch (providerFamily(providerId)) {
-		case LLMHUB_USAGE_PROVIDER_ID:
-			return "LLMHub";
-		case "anthropic":
-			return "Anthropic";
-		case "openai":
-			return OPENAI_LOGO;
-		case "openrouter":
-			return OPENROUTER_LOGO;
-		case "github-copilot":
-			return GITHUB_LOGO;
-		default:
-			return providerId;
-	}
-}
-
-function providerUsageLabelsForTarget(
-	state: ProviderUsageStoreState,
-	target: ProviderUsageTarget,
-): string[] {
-	if (isNativeOpenAi(target)) {
-		return [`${providerDisplayLabel(target.providerId)} ?`];
-	}
-	const status = state.cache.get(
-		providerCacheKey(state, target.providerId, target.authKind),
-	);
-	const freshness = usageSnapshotFreshness(status);
-	const scopeText =
-		freshness === "expired" ? undefined : formatProviderScope(status?.scope);
-	if (!scopeText && !target.active) return [];
-	return [
-		`${providerDisplayLabel(target.providerId)} ${scopeText ? `${scopeText}${freshness === "stale" ? " !" : ""}` : "?"}`,
-	];
-}
-
-function isTargetActive(
-	target: ProviderUsageTarget,
-	activeFamilyOverride?: string,
-): boolean {
-	return (
-		target.active ||
-		(activeFamilyOverride !== undefined &&
-			providerFamily(target.providerId) === activeFamilyOverride)
-	);
-}
-
-function directProviderUsageBadges(
+function buildRenderSnapshot(
 	state: ProviderUsageStoreState,
 	targets: ProviderUsageTarget[],
-	activeOnly: boolean,
-	activeFamilyOverride: string | undefined,
-	proxySnapshot: ProxySnapshotView | undefined,
-): { active: boolean; text: string }[] {
-	return targets
-		.filter(
-			(target) =>
-				isProviderSupportedAuth(target.providerId, target.authKind) &&
-				(proxySnapshot?.targetQuotaState(
-					providerTargetKey(target.providerId, target.authKind),
-				) ?? "unlinked") === "unlinked",
-		)
-		.map((target) => ({
-			...target,
-			active: isTargetActive(target, activeFamilyOverride),
-		}))
-		.filter((target) => !activeOnly || target.active)
-		.sort((a, b) => compareProviderIds(a.providerId, b.providerId))
-		.flatMap((target) =>
-			providerUsageLabelsForTarget(state, target).map((text) => ({
-				active: target.active,
-				text,
-			})),
-		);
-}
-
-export type CopilotUsageAccount = {
-	summary: string;
-	details?: CopilotUsageDetails;
-	state: ProviderUsageState;
-	fetchedAt?: number;
-	lastAttemptAt?: number;
-	stale: boolean;
-};
-
-function buildCopilotUsageAccount(
-	state: ProviderUsageStoreState,
-	targets: ProviderUsageTarget[],
-): CopilotUsageAccount | undefined {
-	const target = targets.find(
-		(target) =>
-			target.providerId === "github-copilot" && target.authKind === "oauth",
-	);
-	if (!target) return undefined;
-	const status = state.cache.get(
-		providerCacheKey(state, target.providerId, target.authKind),
-	);
-	const freshness = usageSnapshotFreshness(status);
+): ProviderUsageRenderSnapshot {
+	hydrateSharedCache(state);
 	return {
-		summary:
-			freshness === "expired"
-				? "?"
-				: (formatProviderScope(status?.scope) ?? "?"),
-		details: freshness === "expired" ? undefined : status?.copilot,
-		state: status?.state ?? "unknown",
-		fetchedAt: status?.fetchedAt,
-		lastAttemptAt: status?.lastAttemptAt,
-		stale: freshness === "stale",
+		targets: targets.map((target) => ({
+			...target,
+			family: providerFamily(target.providerId),
+			targetKey: providerTargetKey(target.providerId, target.authKind),
+			supported: isProviderSupportedAuth(target.providerId, target.authKind),
+			proxyOnly: isNativeOpenAiTarget(target),
+			proxyFallback: isLegacyCodexTarget(target),
+			status: state.cache.get(
+				providerCacheKey(state, target.providerId, target.authKind),
+			),
+		})),
+		proxySnapshot: state.proxyStore.readSnapshot(),
 	};
 }
-
-function legacyCodexDirectFallbacks(
-	state: ProviderUsageStoreState,
-	targets: ProviderUsageTarget[],
-): Map<string, DirectProxyFallback> {
-	const fallbacks = new Map<string, DirectProxyFallback>();
-	for (const target of targets) {
-		if (!isLegacyCodex(target)) continue;
-		const status = state.cache.get(
-			providerCacheKey(state, target.providerId, target.authKind),
-		);
-		if (!status?.scope) continue;
-		const freshness = usageSnapshotFreshness(status);
-		if (freshness === "expired") continue;
-		fallbacks.set(providerTargetKey(target.providerId, target.authKind), {
-			scope: status.scope,
-			freshness,
-			state: status.state,
-			fetchedAt: status.fetchedAt,
-			lastAttemptAt: status.lastAttemptAt,
-		});
-	}
-	return fallbacks;
-}
-
-function resolveProxyAccounts(
-	state: ProviderUsageStoreState,
-	targets: ProviderUsageTarget[],
-	proxySnapshot: ProxySnapshotView | undefined,
-): ProxyUsageAccount[] {
-	if (!proxySnapshot) return [];
-	return proxySnapshot.resolveAccounts(
-		legacyCodexDirectFallbacks(state, targets),
-	);
-}
-
-function renderProxyUsageBadges(
-	state: ProviderUsageStoreState,
-	targets: ProviderUsageTarget[],
-	proxySnapshot: ProxySnapshotView | undefined,
-	options: {
-		compact: boolean;
-		activeOnly: boolean;
-		activeFamilyOverride?: string;
-		activeProxy: boolean;
-	},
-	renderPart: (text: string, active: boolean) => string,
-): string[] {
-	if (!proxySnapshot) return [];
-	const linked = new Map<string, boolean>();
-	for (const target of targets) {
-		const accountKey = proxySnapshot.linkedAccountKey(
-			providerTargetKey(target.providerId, target.authKind),
-		);
-		if (!accountKey) continue;
-		linked.set(
-			accountKey,
-			!!linked.get(accountKey) ||
-				isTargetActive(target, options.activeFamilyOverride),
-		);
-	}
-	const valid = resolveProxyAccounts(state, targets, proxySnapshot).filter(
-		(account) =>
-			!options.activeOnly || options.activeProxy || linked.get(account.key),
-	);
-	const visible = options.compact ? valid.slice(0, 2) : valid;
-	const scopes = visible.map((account) => {
-		const proxyActive = options.activeProxy && !account.disabled;
-		if (linked.has(account.key)) {
-			const directActive = linked.get(account.key) === true;
-			return `${renderPart(OPENAI_LOGO, directActive)} ${renderPart(CODEX_PROXY_LOGO, proxyActive)} ${renderPart(account.summary, directActive || proxyActive)}`;
-		}
-		return renderPart(`${CODEX_PROXY_LOGO} ${account.summary}`, proxyActive);
-	});
-	if (scopes.length === 0) return [];
-	if (options.compact && valid.length > visible.length)
-		scopes.push(renderPart(`+${valid.length - visible.length}`, false));
-	return [
-		`${scopes.join(renderPart(PROVIDER_BADGE_SEPARATOR, false))}${valid.some((account) => account.stale) ? renderPart(" !", false) : ""}`,
-	];
-}
-
-function renderUsageLine(
-	state: ProviderUsageStoreState,
-	targets: ProviderUsageTarget[],
-	proxySnapshot: ProxySnapshotView | undefined,
-	options: {
-		activeOnly: boolean;
-		activeFamilyOverride?: string;
-		compact: boolean;
-		activeProxy: boolean;
-	},
-	renderPart: (text: string, active: boolean) => string,
-): string | undefined {
-	const directBadges = directProviderUsageBadges(
-		state,
-		targets,
-		options.activeOnly,
-		options.activeFamilyOverride,
-		proxySnapshot,
-	).map(({ active, text }) => renderPart(text, active));
-	const proxyBadges = renderProxyUsageBadges(
-		state,
-		targets,
-		proxySnapshot,
-		options,
-		renderPart,
-	);
-	const parts = [...directBadges, ...proxyBadges];
-	return parts.length > 0
-		? parts.join(renderPart(PROVIDER_BADGE_SEPARATOR, false))
-		: undefined;
-}
-
-export type ProviderUsageCliSnapshot = {
-	text: string;
-	directText: string;
-	copilot?: CopilotUsageAccount;
-	proxyAccounts: ProxyUsageAccount[];
-};
 
 export type ProviderUsageStore = {
 	discoverTargetsAsync(
@@ -2057,11 +1825,7 @@ export type ProviderUsageStore = {
 	): Promise<void>;
 	render(
 		targets: ProviderUsageTarget[],
-		theme: ThemeLike,
-		activeOnly: boolean,
-		renderActive?: (text: string) => string,
-		activeFamilyOverride?: string,
-		activeProxy?: boolean,
+		options: ProviderUsageRenderOptions,
 	): string | undefined;
 	cliSnapshot(targets: ProviderUsageTarget[]): ProviderUsageCliSnapshot;
 	cachedPercentUsed(
@@ -2082,50 +1846,14 @@ export function createProviderUsageStore(
 		refresh(ctx, targets, onUpdate) {
 			return refreshProviderUsageInStore(state, ctx, targets, onUpdate);
 		},
-		render(
-			targets,
-			theme,
-			activeOnly,
-			renderActive = (text) => theme.fg("dim", text),
-			activeFamilyOverride,
-			activeProxy = false,
-		) {
-			hydrateSharedCache(state);
-			return renderUsageLine(
-				state,
-				targets,
-				state.proxyStore.readSnapshot(),
-				{ activeOnly, activeFamilyOverride, compact: false, activeProxy },
-				(text, active) => (active ? renderActive(text) : theme.fg("dim", text)),
+		render(targets, renderOptions) {
+			return renderProviderUsageLine(
+				buildRenderSnapshot(state, targets),
+				renderOptions,
 			);
 		},
 		cliSnapshot(targets) {
-			hydrateSharedCache(state);
-			const proxySnapshot = state.proxyStore.readSnapshot();
-			const nonCopilotTargets = targets.filter(
-				(target) => target.providerId !== "github-copilot",
-			);
-			return {
-				text:
-					renderUsageLine(
-						state,
-						targets,
-						proxySnapshot,
-						{ activeOnly: false, compact: true, activeProxy: false },
-						(text) => text,
-					) ?? "",
-				directText: directProviderUsageBadges(
-					state,
-					nonCopilotTargets,
-					false,
-					undefined,
-					proxySnapshot,
-				)
-					.map(({ text }) => text)
-					.join(PROVIDER_BADGE_SEPARATOR),
-				copilot: buildCopilotUsageAccount(state, targets),
-				proxyAccounts: resolveProxyAccounts(state, targets, proxySnapshot),
-			};
+			return buildProviderUsageCliSnapshot(buildRenderSnapshot(state, targets));
 		},
 		cachedPercentUsed(providerId, ctx) {
 			return cachedProviderPercentUsedInStore(state, providerId, ctx);

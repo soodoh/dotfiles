@@ -7,24 +7,22 @@ export type GitStatus = {
 	untracked: number;
 };
 
-type GitStatusCacheEntry = Omit<GitStatus, "branch"> & { timestamp: number };
-type GitBranchCacheEntry = { branch: string | null; timestamp: number };
-type PendingFetch = {
-	promise: Promise<void>;
-	listeners: Set<() => void>;
+export type GitStatusStore = {
+	getStatus(
+		cwd: string,
+		providerBranch: string | null,
+		onUpdate: () => void,
+	): GitStatus;
+	invalidate(): void;
 };
+
+type GitStatusCounts = Omit<GitStatus, "branch">;
+type CacheEntry<T> = { value: T; timestamp: number };
 
 export const GIT_REFRESH_INTERVAL_MS = 5000;
 const STATUS_TTL_MS = GIT_REFRESH_INTERVAL_MS;
 const BRANCH_TTL_MS = GIT_REFRESH_INTERVAL_MS;
 const MAX_GIT_STDOUT_BYTES = 64 * 1024;
-
-const cachedStatusByCwd = new Map<string, GitStatusCacheEntry>();
-const cachedBranchByCwd = new Map<string, GitBranchCacheEntry>();
-const pendingStatusFetchByCwd = new Map<string, PendingFetch>();
-const pendingBranchFetchByCwd = new Map<string, PendingFetch>();
-let statusInvalidation = 0;
-let branchInvalidation = 0;
 
 function runGit(
 	cwd: string,
@@ -33,10 +31,16 @@ function runGit(
 	maxStdoutBytes = MAX_GIT_STDOUT_BYTES,
 ): Promise<string | null> {
 	return new Promise((resolve) => {
-		const proc = spawn("git", args, {
-			cwd,
-			stdio: ["ignore", "pipe", "ignore"],
-		});
+		let proc: ReturnType<typeof spawn>;
+		try {
+			proc = spawn("git", args, {
+				cwd,
+				stdio: ["ignore", "pipe", "ignore"],
+			});
+		} catch {
+			resolve(null);
+			return;
+		}
 		const chunks: Buffer[] = [];
 		let stdoutBytes = 0;
 		let resolved = false;
@@ -53,7 +57,7 @@ function runGit(
 			resolve(result);
 		}
 
-		proc.stdout.on("data", (data: Buffer | string) => {
+		proc.stdout?.on("data", (data: Buffer | string) => {
 			const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data);
 			stdoutBytes += chunk.byteLength;
 			if (stdoutBytes > maxStdoutBytes) {
@@ -102,107 +106,110 @@ async function fetchGitBranch(cwd: string): Promise<string | null> {
 	return sha ? `${sha} (detached)` : "detached";
 }
 
-function getCurrentBranch(
-	cwd: string,
-	providerBranch: string | null,
-	onUpdate: () => void,
-): string | null {
-	const now = Date.now();
-	const cachedBranch = cachedBranchByCwd.get(cwd);
-	if (cachedBranch && now - cachedBranch.timestamp < BRANCH_TTL_MS) {
-		return cachedBranch.branch;
-	}
+const EMPTY_COUNTS: GitStatusCounts = {
+	staged: 0,
+	unstaged: 0,
+	untracked: 0,
+};
 
-	const existing = pendingBranchFetchByCwd.get(cwd);
-	if (existing) {
-		existing.listeners.add(onUpdate);
-	} else {
-		const fetchId = branchInvalidation;
-		const listeners = new Set<() => void>([onUpdate]);
-		const entry: PendingFetch = {
-			listeners,
-			promise: fetchGitBranch(cwd).then((result) => {
-				if (pendingBranchFetchByCwd.get(cwd) === entry) {
-					pendingBranchFetchByCwd.delete(cwd);
-				}
-				if (fetchId !== branchInvalidation) return;
-				cachedBranchByCwd.set(cwd, {
-					branch: result,
-					timestamp: Date.now(),
-				});
-				for (const listener of listeners) listener();
-			}),
-		};
-		pendingBranchFetchByCwd.set(cwd, entry);
+function notifyListeners(listeners: Iterable<() => void>): void {
+	for (const listener of listeners) {
+		try {
+			listener();
+		} catch {
+			// Isolate throwing listeners so remaining callers still receive updates.
+		}
 	}
-
-	return cachedBranch ? cachedBranch.branch : providerBranch;
 }
 
-export function getGitStatus(
-	cwd: string,
-	providerBranch: string | null,
-	onUpdate: () => void,
-): GitStatus {
-	const now = Date.now();
-	const branch = getCurrentBranch(cwd, providerBranch, onUpdate);
-	const cachedStatus = cachedStatusByCwd.get(cwd);
+function createCoalescedCache<T>(ttlMs: number) {
+	const cachedByKey = new Map<string, CacheEntry<T>>();
+	const pendingByKey = new Map<string, Set<() => void>>();
+	let invalidation = 0;
 
-	if (cachedStatus && now - cachedStatus.timestamp < STATUS_TTL_MS) {
-		return {
-			branch,
-			staged: cachedStatus.staged,
-			unstaged: cachedStatus.unstaged,
-			untracked: cachedStatus.untracked,
-		};
-	}
-
-	const existing = pendingStatusFetchByCwd.get(cwd);
-	if (existing) {
-		existing.listeners.add(onUpdate);
-	} else {
-		const fetchId = statusInvalidation;
-		const listeners = new Set<() => void>([onUpdate]);
-		const entry: PendingFetch = {
-			listeners,
-			promise: runGit(
-				cwd,
-				["--no-optional-locks", "status", "--porcelain"],
-				500,
-			).then((output) => {
-				if (pendingStatusFetchByCwd.get(cwd) === entry) {
-					pendingStatusFetchByCwd.delete(cwd);
-				}
-				if (fetchId !== statusInvalidation) return;
-				const parsed =
-					output !== null
-						? parseGitStatus(output)
-						: (cachedStatus ?? { staged: 0, unstaged: 0, untracked: 0 });
-				cachedStatusByCwd.set(cwd, {
-					...parsed,
-					timestamp: Date.now(),
-				});
-				for (const listener of listeners) listener();
-			}),
-		};
-		pendingStatusFetchByCwd.set(cwd, entry);
-	}
-
-	return cachedStatus
-		? {
-				branch,
-				staged: cachedStatus.staged,
-				unstaged: cachedStatus.unstaged,
-				untracked: cachedStatus.untracked,
+	return {
+		read(
+			key: string,
+			fallback: T,
+			onUpdate: () => void,
+			load: (previous: T | undefined) => Promise<T>,
+		): T {
+			const now = Date.now();
+			const cached = cachedByKey.get(key);
+			if (cached && now - cached.timestamp < ttlMs) {
+				return cached.value;
 			}
-		: { branch, staged: 0, unstaged: 0, untracked: 0 };
+
+			const existing = pendingByKey.get(key);
+			if (existing) {
+				existing.add(onUpdate);
+			} else {
+				const fetchId = invalidation;
+				const listeners = new Set<() => void>([onUpdate]);
+				pendingByKey.set(key, listeners);
+				void Promise.resolve().then(async () => {
+					if (fetchId !== invalidation) {
+						if (pendingByKey.get(key) === listeners) {
+							pendingByKey.delete(key);
+						}
+						return;
+					}
+					let value: T;
+					try {
+						value = await load(cached?.value);
+					} catch {
+						value = cached ? cached.value : fallback;
+					} finally {
+						if (pendingByKey.get(key) === listeners) {
+							pendingByKey.delete(key);
+						}
+					}
+					if (fetchId !== invalidation) return;
+					cachedByKey.set(key, { value, timestamp: Date.now() });
+					notifyListeners(listeners);
+				});
+			}
+
+			return cached ? cached.value : fallback;
+		},
+		invalidate(): void {
+			cachedByKey.clear();
+			pendingByKey.clear();
+			invalidation++;
+		},
+	};
 }
 
-export function invalidateGit(): void {
-	cachedStatusByCwd.clear();
-	cachedBranchByCwd.clear();
-	pendingStatusFetchByCwd.clear();
-	pendingBranchFetchByCwd.clear();
-	statusInvalidation++;
-	branchInvalidation++;
+export function createGitStatusStore(): GitStatusStore {
+	const branchCache = createCoalescedCache<string | null>(BRANCH_TTL_MS);
+	const statusCache = createCoalescedCache<GitStatusCounts>(STATUS_TTL_MS);
+
+	return {
+		getStatus(cwd, providerBranch, onUpdate) {
+			const branch = branchCache.read(cwd, providerBranch, onUpdate, () =>
+				fetchGitBranch(cwd),
+			);
+			const counts = statusCache.read(cwd, EMPTY_COUNTS, onUpdate, (previous) =>
+				runGit(cwd, ["--no-optional-locks", "status", "--porcelain"], 500).then(
+					(output) =>
+						output !== null
+							? parseGitStatus(output)
+							: (previous ?? EMPTY_COUNTS),
+				),
+			);
+
+			return {
+				branch,
+				staged: counts.staged,
+				unstaged: counts.unstaged,
+				untracked: counts.untracked,
+			};
+		},
+		invalidate() {
+			statusCache.invalidate();
+			branchCache.invalidate();
+		},
+	};
 }
+
+export const defaultGitStatusStore = createGitStatusStore();

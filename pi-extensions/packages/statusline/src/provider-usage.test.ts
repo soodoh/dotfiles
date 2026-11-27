@@ -110,7 +110,7 @@ async function refreshAndWait(
 }
 
 function render(targets: ProviderUsageTarget[], activeOnly = false): string {
-	return renderProviderUsage(targets, theme, activeOnly) ?? "";
+	return renderProviderUsage(targets, { theme, activeOnly }) ?? "";
 }
 
 function renderStyled(
@@ -119,13 +119,12 @@ function renderStyled(
 	activeFamilyOverride?: string,
 ): string {
 	return (
-		renderProviderUsage(
-			targets,
-			styledTheme,
+		renderProviderUsage(targets, {
+			theme: styledTheme,
 			activeOnly,
-			(text) => `<model>${text}</model>`,
+			renderActive: (text) => `<model>${text}</model>`,
 			activeFamilyOverride,
-		) ?? ""
+		}) ?? ""
 	);
 }
 
@@ -284,7 +283,7 @@ describe("provider usage", () => {
 		await refreshAndWait(ctx, targets);
 
 		expect(fetchMock).not.toHaveBeenCalled();
-		expect(renderProviderUsage(targets, theme, false)).toBe(
+		expect(renderProviderUsage(targets, { theme, activeOnly: false })).toBe(
 			"Anthropic S12%/W55%",
 		);
 		expect(render(targets)).toBe("Anthropic S12%/W55%");
@@ -1169,7 +1168,7 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(renderProviderUsage(targets, theme, false)).toBe(
+		expect(renderProviderUsage(targets, { theme, activeOnly: false })).toBe(
 			`${OPENROUTER_LOGO} $2.50 · Anthropic 10%`,
 		);
 		expect(render(targets)).toBe(`${OPENROUTER_LOGO} $2.50 · Anthropic 10%`);
@@ -1613,7 +1612,9 @@ describe("provider usage", () => {
 		expect(targets).toEqual([
 			{ providerId: "openai-codex", authKind: "oauth", active: false },
 		]);
-		expect(renderProviderUsage(targets, theme, false)).toBeUndefined();
+		expect(
+			renderProviderUsage(targets, { theme, activeOnly: false }),
+		).toBeUndefined();
 		expect(renderStyled(targets, false, activeFamily)).toBe(
 			`<model>${OPENAI_LOGO} ?</model>`,
 		);
@@ -1657,7 +1658,9 @@ describe("provider usage", () => {
 
 		await refreshAndWait(ctx, targets);
 
-		expect(renderProviderUsage(targets, theme, false)).toBeUndefined();
+		expect(
+			renderProviderUsage(targets, { theme, activeOnly: false }),
+		).toBeUndefined();
 		expect(
 			renderStyled(targets, false, mappedProviderUsageFamily(ctx.model)),
 		).toBe(`<model>${OPENAI_LOGO} ?</model>`);

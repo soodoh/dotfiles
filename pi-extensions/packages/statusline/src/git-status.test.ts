@@ -5,10 +5,10 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+	createGitStatusStore,
 	GIT_REFRESH_INTERVAL_MS,
 	type GitStatus,
-	getGitStatus,
-	invalidateGit,
+	type GitStatusStore,
 } from "./git-status";
 
 const execFileAsync = promisify(execFile);
@@ -40,29 +40,30 @@ async function initRepo(dir: string): Promise<void> {
 }
 
 async function waitForStatus(
+	store: GitStatusStore,
 	cwd: string,
 	predicate: (status: GitStatus) => boolean,
 	timeoutMs = 2000,
 ): Promise<GitStatus> {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
-		const status = getGitStatus(cwd, null, () => {});
+		const status = store.getStatus(cwd, null, () => {});
 		if (predicate(status)) return status;
 		await new Promise((resolve) => setTimeout(resolve, 15));
 	}
-	return getGitStatus(cwd, null, () => {});
+	return store.getStatus(cwd, null, () => {});
 }
 
 afterEach(async () => {
-	invalidateGit();
 	vi.restoreAllMocks();
 	await Promise.all(
 		tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
 	);
 });
 
-describe("statusline git status cache", () => {
+describe("statusline git status store", () => {
 	test("reports branch and leading-column porcelain counts for staged, unstaged, and untracked files", async () => {
+		const store = createGitStatusStore();
 		const dir = await tempDir();
 		await initRepo(dir);
 		await writeFile(join(dir, "tracked.txt"), "modified\n");
@@ -71,7 +72,7 @@ describe("statusline git status cache", () => {
 		await writeFile(join(dir, "untracked.txt"), "new\n");
 
 		const onUpdate = vi.fn();
-		const initial = getGitStatus(dir, "fallback", onUpdate);
+		const initial = store.getStatus(dir, "fallback", onUpdate);
 		expect(initial).toEqual({
 			branch: "fallback",
 			staged: 0,
@@ -80,6 +81,7 @@ describe("statusline git status cache", () => {
 		});
 
 		const settled = await waitForStatus(
+			store,
 			dir,
 			(s) => s.branch === "main" && s.unstaged === 1,
 		);
@@ -93,11 +95,13 @@ describe("statusline git status cache", () => {
 	});
 
 	test("preserves leading porcelain space when the first entry is unstaged only", async () => {
+		const store = createGitStatusStore();
 		const dir = await tempDir();
 		await initRepo(dir);
 		await writeFile(join(dir, "tracked.txt"), "modified\n");
 
 		const settled = await waitForStatus(
+			store,
 			dir,
 			(s) => s.branch === "main" && s.unstaged === 1,
 		);
@@ -110,6 +114,7 @@ describe("statusline git status cache", () => {
 	});
 
 	test("formats detached HEAD with short commit SHA", async () => {
+		const store = createGitStatusStore();
 		const dir = await tempDir();
 		await initRepo(dir);
 		const { stdout } = await execFileAsync(
@@ -123,6 +128,7 @@ describe("statusline git status cache", () => {
 		await execFileAsync("git", ["checkout", "--detach", "HEAD"], { cwd: dir });
 
 		const settled = await waitForStatus(
+			store,
 			dir,
 			(s) => s.branch === `${sha} (detached)`,
 		);
@@ -130,16 +136,18 @@ describe("statusline git status cache", () => {
 	});
 
 	test("delivers completion notifications to later callers joining an in-flight fetch", async () => {
+		const store = createGitStatusStore();
 		const dir = await tempDir();
 		await initRepo(dir);
 		await writeFile(join(dir, "tracked.txt"), "modified\n");
 
 		const firstUpdate = vi.fn();
 		const secondUpdate = vi.fn();
-		getGitStatus(dir, null, firstUpdate);
-		getGitStatus(dir, null, secondUpdate);
+		store.getStatus(dir, null, firstUpdate);
+		store.getStatus(dir, null, secondUpdate);
 
 		const settled = await waitForStatus(
+			store,
 			dir,
 			(s) => s.branch === "main" && s.unstaged === 1,
 		);
@@ -148,21 +156,36 @@ describe("statusline git status cache", () => {
 		expect(secondUpdate).toHaveBeenCalled();
 	});
 
-	test("invalidateGit suppresses callbacks from superseded in-flight fetches and forces a fresh read", async () => {
+	test("invalidate suppresses callbacks from superseded in-flight fetches without affecting other stores", async () => {
+		const storeA = createGitStatusStore();
+		const storeB = createGitStatusStore();
 		const dir = await tempDir();
 		await initRepo(dir);
 
+		const settledB = await waitForStatus(
+			storeB,
+			dir,
+			(s) => s.branch === "main",
+		);
+		expect(settledB.branch).toBe("main");
+
 		const staleUpdate = vi.fn();
-		getGitStatus(dir, null, staleUpdate);
-		invalidateGit();
+		storeA.getStatus(dir, null, staleUpdate);
+		storeA.invalidate();
 
 		await new Promise((resolve) => setTimeout(resolve, 150));
 		expect(staleUpdate).not.toHaveBeenCalled();
 
+		// Invalidating storeA leaves storeB's cached branch intact.
+		const cachedB = vi.fn();
+		expect(storeB.getStatus(dir, "fallback", cachedB).branch).toBe("main");
+		expect(cachedB).not.toHaveBeenCalled();
+
 		await writeFile(join(dir, "untracked.txt"), "after-invalidate\n");
 		const freshUpdate = vi.fn();
-		getGitStatus(dir, null, freshUpdate);
+		storeA.getStatus(dir, null, freshUpdate);
 		const settled = await waitForStatus(
+			storeA,
 			dir,
 			(s) => s.branch === "main" && s.untracked === 1,
 		);
@@ -171,16 +194,17 @@ describe("statusline git status cache", () => {
 	});
 
 	test("falls back cleanly outside a git repository and honors TTL cache", async () => {
+		const store = createGitStatusStore();
 		const dir = await tempDir();
 		const now = vi.spyOn(Date, "now");
 		let clock = 100_000;
 		now.mockImplementation(() => clock);
 
 		const onUpdate = vi.fn();
-		getGitStatus(dir, "provider-branch", onUpdate);
+		store.getStatus(dir, "provider-branch", onUpdate);
 		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
 
-		expect(getGitStatus(dir, "provider-branch", vi.fn())).toEqual({
+		expect(store.getStatus(dir, "provider-branch", vi.fn())).toEqual({
 			branch: null,
 			staged: 0,
 			unstaged: 0,
@@ -190,8 +214,51 @@ describe("statusline git status cache", () => {
 		// Within TTL, no new refresh triggers.
 		const cachedUpdate = vi.fn();
 		clock += GIT_REFRESH_INTERVAL_MS - 1;
-		getGitStatus(dir, "provider-branch", cachedUpdate);
+		store.getStatus(dir, "provider-branch", cachedUpdate);
 		await new Promise((resolve) => setTimeout(resolve, 80));
 		expect(cachedUpdate).not.toHaveBeenCalled();
+	});
+
+	test("isolates throwing listeners so later coalesced callers still receive updates", async () => {
+		const store = createGitStatusStore();
+		const dir = await tempDir();
+		await initRepo(dir);
+		await writeFile(join(dir, "tracked.txt"), "modified\n");
+
+		const failingUpdate = vi.fn(() => {
+			throw new Error("boom");
+		});
+		const healthyUpdate = vi.fn();
+		store.getStatus(dir, null, failingUpdate);
+		store.getStatus(dir, null, healthyUpdate);
+
+		const settled = await waitForStatus(
+			store,
+			dir,
+			(s) => s.branch === "main" && s.unstaged === 1,
+		);
+		expect(settled.unstaged).toBe(1);
+		expect(failingUpdate).toHaveBeenCalled();
+		expect(healthyUpdate).toHaveBeenCalled();
+	});
+
+	test("handles synchronous spawn errors cleanly without throwing or wedging the store", async () => {
+		const store = createGitStatusStore();
+		const invalidCwd = "invalid\0cwd";
+		const onUpdate = vi.fn();
+
+		expect(store.getStatus(invalidCwd, "fallback", onUpdate)).toEqual({
+			branch: "fallback",
+			staged: 0,
+			unstaged: 0,
+			untracked: 0,
+		});
+		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+		expect(store.getStatus(invalidCwd, "fallback", vi.fn())).toEqual({
+			branch: null,
+			staged: 0,
+			unstaged: 0,
+			untracked: 0,
+		});
 	});
 });

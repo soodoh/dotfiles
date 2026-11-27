@@ -133,7 +133,7 @@ const formatProviderUsage = (
 ): string | undefined =>
 	compact
 		? store.cliSnapshot(targets).text || undefined
-		: store.render(targets, plainTheme, activeOnly);
+		: store.render(targets, { theme: plainTheme, activeOnly });
 
 const refreshProxySnapshot = (onUpdate: () => void): Promise<void> =>
 	store.refresh({}, [], onUpdate);
@@ -336,14 +336,11 @@ test("gives each proxy account an icon and provider separator without caching cr
 	]);
 	expect(formatProviderUsage([], false, true)).toBe(labels[0]);
 	expect(
-		renderProviderUsage(
-			[],
-			{ fg: (_color, text) => text },
-			true,
-			undefined,
-			undefined,
-			true,
-		),
+		renderProviderUsage([], {
+			theme: { fg: (_color, text) => text },
+			activeOnly: true,
+			activeProxy: true,
+		}),
 	).toContain(proxyUsageBadges(false)[0]);
 	const cached = readFileSync(path, "utf8");
 	expect(cached).not.toContain("private-management-key");
@@ -420,9 +417,12 @@ test("fetches manual reset counts per account through the proxy", async () => {
 	expect(badges[0]).toContain("W47% (2d ↻2)");
 	expect(badges[0]).toContain("W88% (2d ↻3)");
 	expect(formatProviderUsage([], false, true)).toBe(badges[0]);
-	expect(renderProviderUsage([], { fg: (_color, text) => text }, false)).toBe(
-		badges[0],
-	);
+	expect(
+		renderProviderUsage([], {
+			theme: { fg: (_color, text) => text },
+			activeOnly: false,
+		}),
+	).toBe(badges[0]);
 	const calls = proxyState.requests.filter(
 		({ data }) =>
 			typeof data?.url === "string" &&
@@ -669,14 +669,12 @@ test("retains bounded observations only after disabled account lookups fail, the
 		resetCreditsObservedAt: resetObservedAt,
 		resetCredits: [{ expiresAt: Date.parse("2035-01-01T00:00:00Z") }],
 	});
-	const rendered = renderProviderUsage(
-		[],
-		{ fg: (color, text) => `<${color}>${text}</${color}>` },
-		false,
-		(text) => `<active>${text}</active>`,
-		undefined,
-		true,
-	);
+	const rendered = renderProviderUsage([], {
+		theme: { fg: (color, text) => `<${color}>${text}</${color}>` },
+		activeOnly: false,
+		renderActive: (text) => `<active>${text}</active>`,
+		activeProxy: true,
+	});
 	expect(rendered).toContain("<dim>\uF120 S20% (2h)/W47% (2d ↻2)</dim>");
 	expect(rendered).toContain("<active>\uF120 S20% (2h)/W88% (2d ↻3)</active>");
 	makeDue(true);
@@ -1918,7 +1916,12 @@ test.each(["native", "legacy"])(
 		};
 		const active = (text: string) => `<active>${text}</active>`;
 		const render = (proxy: boolean, activeOnly = false) =>
-			renderProviderUsage(targets, theme, activeOnly, active, undefined, proxy);
+			renderProviderUsage(targets, {
+				theme,
+				activeOnly,
+				renderActive: active,
+				activeProxy: proxy,
+			});
 		expect(render(false)).toContain(
 			`<active>\u{F0004}</active> <dim>\uF120</dim> <active>${summary}</active>`,
 		);
@@ -1944,14 +1947,12 @@ test("a disabled proxy route does not dim an active direct OpenAI route", async 
 	const targets = await discoverProviderUsageTargetsAsync(ctx);
 	await refreshProviderUsage(ctx, targets, () => {});
 	const render = (proxy: boolean) =>
-		renderProviderUsage(
-			targets,
-			{ fg: (_color, text) => `<dim>${text}</dim>` },
-			false,
-			(text) => `<active>${text}</active>`,
-			undefined,
-			proxy,
-		);
+		renderProviderUsage(targets, {
+			theme: { fg: (_color, text) => `<dim>${text}</dim>` },
+			activeOnly: false,
+			renderActive: (text) => `<active>${text}</active>`,
+			activeProxy: proxy,
+		});
 	expect(render(false)).toContain(
 		"<active>\u{F0004}</active> <dim>\uF120</dim> <active>S20%",
 	);
