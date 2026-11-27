@@ -1837,7 +1837,7 @@ checksum = "sha256:b53eef3371fa5d3e3b74340edcd015f06d5d8853968d4e539a5264fce41ed
 url = "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-4.0.10.tar.gz"
 
 [[tools.rust]]
-version = "1.100.0"
+version = "1.100.1"
 backend = "core:rust"
 
 [tools.rust.options]
