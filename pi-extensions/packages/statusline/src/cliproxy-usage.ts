@@ -478,7 +478,7 @@ function resolveManagementEndpoint(url: string, path: string): string {
 	).toString();
 }
 
-export function requestManagementViaCurl(
+function requestManagementViaCurl(
 	request: ProxyRequest,
 ): Promise<ProxyResponse> {
 	return new Promise((resolve, reject) => {

@@ -11,10 +11,10 @@ import { join } from "node:path";
 import lockfile from "proper-lockfile";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import {
+	createProxyUsageStore,
 	type ProxyRequest,
 	type ProxyResponse,
 	ProxyTransportError,
-	requestManagementViaCurl,
 } from "./cliproxy-usage";
 import {
 	type AuthCredentialLike,
@@ -1588,17 +1588,23 @@ test("retries transient management, upstream, and transport errors within a sing
 	expect(proxyState.requests).toHaveLength(1);
 });
 
-test("production curl adapter passes key on stdin, validates responses, and classifies exit codes", async () => {
+test("production curl adapter passes key on stdin, validates responses, and classifies exit codes through the store seam", async () => {
 	const curlDir = mkdtempSync(join(tmpdir(), "cliproxy-curl-adapter-"));
 	const originalPath = process.env.PATH;
 	const capturePath = join(curlDir, "captured.json");
+	const cachePath = join(curlDir, "cliproxy-usage.json");
 	const fakeCurl = join(curlDir, "curl");
 	writeFileSync(
 		fakeCurl,
 		`#!${process.execPath}
 const fs = require("node:fs");
 const config = fs.readFileSync(0, "utf8");
-fs.writeFileSync(${JSON.stringify(capturePath)}, JSON.stringify({ config, argv: process.argv.slice(2) }));
+const argv = process.argv.slice(2);
+const entries = fs.existsSync(${JSON.stringify(capturePath)})
+  ? JSON.parse(fs.readFileSync(${JSON.stringify(capturePath)}, "utf8"))
+  : [];
+entries.push({ config, argv });
+fs.writeFileSync(${JSON.stringify(capturePath)}, JSON.stringify(entries));
 const mode = process.env.CURL_ADAPTER_TEST_MODE || "ok";
 if (mode === "oversized") {
   process.stdout.write("x".repeat(2 * 1024 * 1024 + 1024) + "\\n200");
@@ -1614,62 +1620,75 @@ if (mode === "bad-json") {
   process.stdout.write("{invalid\\n200");
   process.exit(0);
 }
-process.stdout.write(JSON.stringify({ ok: true }) + "\\n200");
+const endpoint = argv[argv.length - 1] || "";
+if (endpoint.endsWith("/v8/management/credentials")) {
+  process.stdout.write(JSON.stringify({
+    files: [{
+      provider: "codex",
+      auth_index: "idx-1",
+      email: "user@example.test",
+      account_id: "acct-1",
+      status: "active",
+      disabled: false,
+    }],
+  }) + "\\n200");
+  process.exit(0);
+}
+const usageBody = JSON.stringify({
+  plan_type: "plus",
+  rate_limit: {
+    primary_window: { used_percent: 25 },
+    secondary_window: { used_percent: 40 },
+  },
+});
+process.stdout.write(JSON.stringify({ status_code: 200, body: usageBody }) + "\\n200");
 `,
 	);
 	chmodSync(fakeCurl, 0o755);
 	process.env.PATH = `${curlDir}:${originalPath ?? ""}`;
-	const baseRequest: ProxyRequest = {
-		url: "https://proxy.example.test/v1",
-		endpoint: "https://proxy.example.test/v8/management/credentials",
-		key: "private-stdin-key",
-		path: "v8/management/credentials",
-		data: { ping: 1 },
-		timeoutSeconds: 5,
+	const curlEnv: NodeJS.ProcessEnv = {
+		CLIPROXYAPI_BASE_URL: "https://proxy.example.test/v1",
+		CLIPROXYAPI_MANAGEMENT_KEY: "private-stdin-key",
+		PI_CLIPROXY_USAGE_CACHE_PATH: cachePath,
 	};
-	try {
-		process.env.CURL_ADAPTER_TEST_MODE = "ok";
-		const ok = await requestManagementViaCurl(baseRequest);
-		expect(ok).toEqual({ status: 200, body: { ok: true } });
-		const captured = JSON.parse(readFileSync(capturePath, "utf8")) as {
+	const runRefresh = async (mode: string) => {
+		rmSync(capturePath, { force: true });
+		rmSync(cachePath, { force: true });
+		process.env.CURL_ADAPTER_TEST_MODE = mode;
+		const curlStore = createProxyUsageStore({ env: curlEnv });
+		await curlStore.refreshSnapshot(() => {});
+		const calls = JSON.parse(readFileSync(capturePath, "utf8")) as Array<{
 			config: string;
 			argv: string[];
-		};
-		expect(captured.config).toContain(
-			'header = "Authorization: Bearer private-stdin-key"',
-		);
-		expect(captured.config).toContain('request = "POST"');
-		expect(JSON.stringify(captured.argv)).not.toContain("private-stdin-key");
+		}>;
+		return { calls, snapshot: curlStore.readSnapshot() };
+	};
+	try {
+		const ok = await runRefresh("ok");
+		expect(ok.snapshot?.accounts).toHaveLength(1);
+		expect(ok.snapshot?.accounts[0]?.scope.weeklyPercentUsed).toBe(40);
+		expect(ok.calls.length).toBeGreaterThanOrEqual(2);
+		for (const call of ok.calls) {
+			expect(call.config).toContain(
+				'header = "Authorization: Bearer private-stdin-key"',
+			);
+			expect(JSON.stringify(call.argv)).not.toContain("private-stdin-key");
+		}
+		expect(
+			ok.calls.some((call) => call.config.includes('request = "POST"')),
+		).toBe(true);
 
-		// Oversized responses reject as non-retryable Error (not ProxyTransportError).
-		process.env.CURL_ADAPTER_TEST_MODE = "oversized";
-		const oversizedErr = await requestManagementViaCurl(baseRequest).catch(
-			(e) => e,
-		);
-		expect(oversizedErr).toBeInstanceOf(Error);
-		expect(oversizedErr).not.toBeInstanceOf(ProxyTransportError);
+		// Oversized, permanent TLS error (exit 60), bad status, and bad JSON fail fast (1 attempt).
+		for (const mode of ["oversized", "exit60", "bad-status", "bad-json"]) {
+			const res = await runRefresh(mode);
+			expect(res.calls).toHaveLength(1);
+			expect(res.snapshot).toBeUndefined();
+		}
 
-		// Permanent TLS error (exit 60) is non-retryable; timeout (exit 28) is retryable.
-		process.env.CURL_ADAPTER_TEST_MODE = "exit60";
-		const permErr = await requestManagementViaCurl(baseRequest).catch((e) => e);
-		expect(permErr).toBeInstanceOf(Error);
-		expect(permErr).not.toBeInstanceOf(ProxyTransportError);
-
-		process.env.CURL_ADAPTER_TEST_MODE = "exit28";
-		const retryErr = await requestManagementViaCurl(baseRequest).catch(
-			(e) => e,
-		);
-		expect(retryErr).toBeInstanceOf(ProxyTransportError);
-
-		process.env.CURL_ADAPTER_TEST_MODE = "bad-status";
-		await expect(requestManagementViaCurl(baseRequest)).rejects.toThrow(
-			/invalid HTTP status/,
-		);
-
-		process.env.CURL_ADAPTER_TEST_MODE = "bad-json";
-		await expect(requestManagementViaCurl(baseRequest)).rejects.toThrow(
-			/invalid JSON/,
-		);
+		// Transient curl timeout (exit 28) is classified as retryable and retried 3 times.
+		const retried = await runRefresh("exit28");
+		expect(retried.calls).toHaveLength(3);
+		expect(retried.snapshot).toBeUndefined();
 	} finally {
 		delete process.env.CURL_ADAPTER_TEST_MODE;
 		if (originalPath === undefined) delete process.env.PATH;
