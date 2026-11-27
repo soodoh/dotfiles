@@ -221,7 +221,7 @@ checksum = "sha256:11e7d286ebb2734ec2f4452b42b13754c5eb65b2fbaa8afe9c8a06cb1e9da
 url = "https://teamwork-graph.atlassian.com/cli/twg-darwin-x64-v1.3.5"
 
 [[tools."npm:@azure-devops/mcp"]]
-version = "2.11.0"
+version = "2.11.1"
 backend = "npm:@azure-devops/mcp"
 
 [tools."npm:@azure-devops/mcp".options]
