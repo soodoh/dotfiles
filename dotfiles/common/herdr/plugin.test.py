@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 import plugin
 
@@ -19,57 +18,88 @@ class PluginTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix="herdr-plugin-test-")
         self.addCleanup(temporary.cleanup)
         self.home = Path(temporary.name).resolve()
-        self.enterContext(
-            patch.dict(
-                os.environ,
-                {
-                    "HOME": str(self.home),
-                    "XDG_CONFIG_HOME": str(self.home / "config"),
-                    "MISE_ENV": "personal-macos",
-                    "PATH": os.environ["PATH"],
-                    "GIT_CONFIG_NOSYSTEM": "1",
-                    "GIT_CONFIG_GLOBAL": os.devnull,
-                    "GIT_AUTHOR_NAME": "Test",
-                    "GIT_AUTHOR_EMAIL": "test@example.invalid",
-                    "GIT_COMMITTER_NAME": "Test",
-                    "GIT_COMMITTER_EMAIL": "test@example.invalid",
-                },
-                clear=True,
-            )
-        )
-        self.enterContext(
-            patch.object(plugin.platform, "system", return_value="Darwin")
-        )
+        self.env = {
+            "HOME": str(self.home),
+            "XDG_CONFIG_HOME": str(self.home / "config"),
+            "MISE_ENV": "personal-macos",
+            "PATH": os.environ["PATH"],
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_AUTHOR_NAME": "Test",
+            "GIT_AUTHOR_EMAIL": "test@example.invalid",
+            "GIT_COMMITTER_NAME": "Test",
+            "GIT_COMMITTER_EMAIL": "test@example.invalid",
+        }
+        self.system_name = "Darwin"
+        self.installs: list[tuple[str, str]] = []
+        self.remote_calls: list[list[str]] = []
+        self.install_behavior = None
+        self.remote_behavior = None
+        self.host = self.make_host()
+
         self.config_dir = self.home / "config/herdr"
         self.config_dir.mkdir(parents=True)
         self.registry = self.config_dir / "plugins.json"
         self.checkout = self.config_dir / "plugins/github" / self.spec.checkout
         self.upstream = self.home / "upstream"
-        plugin.git("init", "--quiet", self.upstream)
+        plugin.git("init", "--quiet", self.upstream, host=self.host)
         (self.upstream / ".gitignore").write_text("/target/\n/bin/\n")
         (self.upstream / "herdr-plugin.toml").write_text(
             f'id = "{self.spec.id}"\nversion = "0.11.0"\n'
         )
-        plugin.git("-C", self.upstream, "add", ".")
-        plugin.git("-C", self.upstream, "commit", "--quiet", "-m", "initial")
-        self.old = plugin.git("-C", self.upstream, "rev-parse", "HEAD")
+        plugin.git("-C", self.upstream, "add", ".", host=self.host)
+        plugin.git(
+            "-C", self.upstream, "commit", "--quiet", "-m", "initial", host=self.host
+        )
+        self.old = plugin.git("-C", self.upstream, "rev-parse", "HEAD", host=self.host)
         (self.upstream / "source").write_text("next revision\n")
-        plugin.git("-C", self.upstream, "add", ".")
-        plugin.git("-C", self.upstream, "commit", "--quiet", "-m", "next")
-        self.new = plugin.git("-C", self.upstream, "rev-parse", "HEAD")
-        self.installer = self.enterContext(
-            patch.object(plugin, "install", side_effect=self.seed_install)
+        plugin.git("-C", self.upstream, "add", ".", host=self.host)
+        plugin.git(
+            "-C", self.upstream, "commit", "--quiet", "-m", "next", host=self.host
+        )
+        self.new = plugin.git("-C", self.upstream, "rev-parse", "HEAD", host=self.host)
+
+    def make_host(self, *, environ=None, system_name=None):
+        env = self.env if environ is None else environ
+        os_name = self.system_name if system_name is None else system_name
+
+        def run(args, **kwargs):
+            if args[:3] == ["herdr", "plugin", "install"]:
+                repo, pin = args[3], args[5]
+                self.assertEqual(
+                    args, ["herdr", "plugin", "install", repo, "--ref", pin, "--yes"]
+                )
+                self.installs.append((repo, pin))
+                if self.install_behavior is not None:
+                    return self.install_behavior(args, repo, pin)
+                self.assertEqual(repo, self.spec.repo)
+                self.seed_install(pin)
+                return subprocess.CompletedProcess(args, 0, "", "")
+            if args[:2] == ["git", "ls-remote"]:
+                self.remote_calls.append(list(args))
+                if self.remote_behavior is not None:
+                    return self.remote_behavior(args)
+                raise AssertionError(f"unexpected ls-remote: {args}")
+            check = kwargs.pop("check", False)
+            return subprocess.run(args, check=check, **kwargs)
+
+        return plugin.Host(
+            run=run,
+            environ=env,
+            system=lambda: os_name,
+            which=lambda cmd: f"/fixture/bin/{cmd}",
+            home=lambda: self.home,
         )
 
-    def seed_install(self, pin, spec=None):
-        if spec is not None:
-            self.assertEqual(spec, self.spec)
+    def seed_install(self, pin):
         if self.checkout.exists():
             shutil.rmtree(
                 self.checkout
             )  # Disposable fixture only, not production behavior.
-        plugin.git("clone", "--quiet", self.upstream, self.checkout)
-        plugin.git("-C", self.checkout, "checkout", "--quiet", "--detach", pin)
+        plugin.git("clone", "--quiet", self.upstream, self.checkout, host=self.host)
+        plugin.git(
+            "-C", self.checkout, "checkout", "--quiet", "--detach", pin, host=self.host
+        )
         binary = self.checkout / self.spec.binary
         binary.parent.mkdir(parents=True)
         binary.write_text("fixture only: must never execute\n")
@@ -96,44 +126,56 @@ class PluginTests(unittest.TestCase):
     def test_bootstrap_installs_once_and_update_applies_only_changed_pin(self):
         for profile in ("personal-macos", "work-macos"):
             with self.subTest(profile=profile):
-                os.environ["MISE_ENV"] = profile
-                plugin.reconcile("bootstrap", self.old, self.spec)
-        self.installer.assert_called_once_with(self.old, self.spec)
-        plugin.reconcile("update", self.new, self.spec)
-        plugin.reconcile("update", self.new, self.spec)
-        self.assertEqual(self.installer.call_count, 2)
-        self.assertEqual(plugin.installed_pin(self.config_dir, self.spec), self.new)
+                self.env["MISE_ENV"] = profile
+                plugin.reconcile("bootstrap", self.old, self.spec, host=self.host)
+        self.assertEqual(self.installs, [(self.spec.repo, self.old)])
+        plugin.reconcile("update", self.new, self.spec, host=self.host)
+        plugin.reconcile("update", self.new, self.spec, host=self.host)
+        self.assertEqual(
+            self.installs, [(self.spec.repo, self.old), (self.spec.repo, self.new)]
+        )
+        self.assertEqual(
+            plugin.installed_pin(self.config_dir, self.spec, host=self.host), self.new
+        )
 
     def test_both_actions_apply_changed_committed_pins_including_rollbacks(self):
         for action in ("bootstrap", "update"):
             with self.subTest(action=action):
                 self.seed_install(self.old)
-                self.installer.reset_mock()
+                self.installs.clear()
                 for desired in (self.new, self.old):
-                    plugin.reconcile(action, desired, self.spec)
-                    self.installer.assert_called_with(desired, self.spec)
+                    plugin.reconcile(action, desired, self.spec, host=self.host)
+                    self.assertEqual(self.installs[-1], (self.spec.repo, desired))
                     self.assertEqual(
-                        plugin.installed_pin(self.config_dir, self.spec), desired
+                        plugin.installed_pin(
+                            self.config_dir, self.spec, host=self.host
+                        ),
+                        desired,
                     )
                     before = self.registry.read_bytes()
-                    calls = self.installer.call_count
-                    plugin.reconcile(action, desired, self.spec)
-                    self.assertEqual(self.installer.call_count, calls)
+                    calls = len(self.installs)
+                    plugin.reconcile(action, desired, self.spec, host=self.host)
+                    self.assertEqual(len(self.installs), calls)
                     self.assertEqual(self.registry.read_bytes(), before)
-                self.assertEqual(self.installer.call_count, 2)
+                self.assertEqual(len(self.installs), 2)
 
     def test_platform_scoping_and_explicit_macos_profile(self):
-        os.environ.pop("MISE_ENV")
+        without_profile = self.make_host(
+            environ={k: v for k, v in self.env.items() if k != "MISE_ENV"}
+        )
         with self.assertRaisesRegex(ValueError, "choose --env"):
-            plugin.reconcile("bootstrap", self.new, self.spec)
-        self.installer.assert_not_called()
-        with patch.object(plugin.platform, "system", return_value="Linux"):
-            for action in ("bootstrap", "update"):
-                plugin.reconcile(action, self.new, self.spec)
+            plugin.reconcile("bootstrap", self.new, self.spec, host=without_profile)
+        self.assertEqual(self.installs, [])
+        linux_host = self.make_host(
+            environ={k: v for k, v in self.env.items() if k != "MISE_ENV"},
+            system_name="Linux",
+        )
+        for action in ("bootstrap", "update"):
+            plugin.reconcile(action, self.new, self.spec, host=linux_host)
         if "Linux" in self.spec.systems:
-            self.installer.assert_called_once_with(self.new, self.spec)
+            self.assertEqual(self.installs, [(self.spec.repo, self.new)])
         else:
-            self.installer.assert_not_called()
+            self.assertEqual(self.installs, [])
             self.assertFalse(self.registry.exists())
 
     def test_unsafe_state_is_not_replaced_even_on_explicit_update(self):
@@ -172,7 +214,13 @@ class PluginTests(unittest.TestCase):
                     (self.checkout / "notes").write_text("keep me\n")
                 elif state == "head":
                     plugin.git(
-                        "-C", self.checkout, "checkout", "--quiet", "--detach", self.new
+                        "-C",
+                        self.checkout,
+                        "checkout",
+                        "--quiet",
+                        "--detach",
+                        self.new,
+                        host=self.host,
                     )
                 elif state == "binary":
                     (self.checkout / self.spec.binary).unlink()
@@ -186,34 +234,41 @@ class PluginTests(unittest.TestCase):
                 before = self.registry.read_bytes()
                 for action in ("bootstrap", "update"):
                     with self.assertRaises(ValueError):
-                        plugin.reconcile(action, self.new, self.spec)
+                        plugin.reconcile(action, self.new, self.spec, host=self.host)
                 self.assertEqual(self.registry.read_bytes(), before)
-        self.installer.assert_not_called()
+        self.assertEqual(self.installs, [])
 
     def test_installer_failure_or_missing_postcondition_is_not_success(self):
-        self.installer.side_effect = subprocess.CalledProcessError(1, "herdr")
+        def fail_install(args, _repo, _pin):
+            raise subprocess.CalledProcessError(1, args)
+
+        self.install_behavior = fail_install
         with self.assertRaises(subprocess.CalledProcessError):
-            plugin.reconcile("bootstrap", self.new, self.spec)
-        self.installer.side_effect = None
+            plugin.reconcile("bootstrap", self.new, self.spec, host=self.host)
+
+        self.install_behavior = lambda args, _repo, _pin: subprocess.CompletedProcess(
+            args, 0, "", ""
+        )
         with self.assertRaisesRegex(ValueError, "installer did not produce"):
-            plugin.reconcile("bootstrap", self.new, self.spec)
+            plugin.reconcile("bootstrap", self.new, self.spec, host=self.host)
 
     def test_pin_refresh_changes_only_pin_and_is_idempotent(self):
         config = self.home / "mise.toml"
         original = f'# preserve formatting\n[vars]\n{self.spec.pin_key} = "{self.old}" # pin\nother = "keep"\n'
         config.write_text(original)
-        with patch.object(
-            plugin, "git", return_value=f"{self.new}\t{plugin.BRANCH}"
-        ) as remote:
-            plugin.refresh_pin(config, self.spec)
-            self.assertEqual(config.read_text(), original.replace(self.old, self.new))
-            stamp = config.stat().st_mtime_ns
-            plugin.refresh_pin(config, self.spec)
-            self.assertEqual(config.stat().st_mtime_ns, stamp)
-            remote.assert_called_with(
-                "ls-remote", "--exit-code", self.spec.url, plugin.BRANCH
-            )
-        self.installer.assert_not_called()
+        self.remote_behavior = lambda args: subprocess.CompletedProcess(
+            args, 0, f"{self.new}\t{plugin.BRANCH}\n", ""
+        )
+        plugin.refresh_pin(config, self.spec, host=self.host)
+        self.assertEqual(config.read_text(), original.replace(self.old, self.new))
+        stamp = config.stat().st_mtime_ns
+        plugin.refresh_pin(config, self.spec, host=self.host)
+        self.assertEqual(config.stat().st_mtime_ns, stamp)
+        self.assertEqual(
+            self.remote_calls[-1],
+            ["git", "ls-remote", "--exit-code", self.spec.url, plugin.BRANCH],
+        )
+        self.assertEqual(self.installs, [])
 
     def test_bad_remote_response_or_failure_leaves_pin_untouched(self):
         config = self.home / "mise.toml"
@@ -225,38 +280,40 @@ class PluginTests(unittest.TestCase):
             f"{self.new} refs/heads/wrong",
             f"{self.new} {plugin.BRANCH}\n{self.old} {plugin.BRANCH}",
         ):
-            with (
-                self.subTest(output=output),
-                patch.object(plugin, "git", return_value=output),
-            ):
+            with self.subTest(output=output):
+                self.remote_behavior = lambda args, output=output: (
+                    subprocess.CompletedProcess(args, 0, output, "")
+                )
                 with self.assertRaises(ValueError):
-                    plugin.refresh_pin(config, self.spec)
+                    plugin.refresh_pin(config, self.spec, host=self.host)
                 self.assertEqual(config.read_text(), original)
-        with (
-            patch.object(
-                plugin, "git", side_effect=subprocess.CalledProcessError(1, "git")
-            ),
-            self.assertRaises(subprocess.CalledProcessError),
-        ):
-            plugin.refresh_pin(config, self.spec)
+
+        def fail_remote(args):
+            raise subprocess.CalledProcessError(1, args)
+
+        self.remote_behavior = fail_remote
+        with self.assertRaises(subprocess.CalledProcessError):
+            plugin.refresh_pin(config, self.spec, host=self.host)
         self.assertEqual(config.read_text(), original)
-        self.installer.assert_not_called()
+        self.assertEqual(self.installs, [])
 
     def test_healthy_release_install_is_adopted_without_rebuilding(self):
         self.seed_install(self.old)
-        self.assertEqual(plugin.git("-C", self.checkout, "tag", "--list"), "")
+        self.assertEqual(
+            plugin.git("-C", self.checkout, "tag", "--list", host=self.host), ""
+        )
         self.entry["source"]["requested_ref"] = "v0.11.0"
         self.save_registry()
         before = self.registry.read_bytes()
         for action in ("bootstrap", "update"):
-            plugin.reconcile(action, self.old, self.spec)
-        self.installer.assert_not_called()
+            plugin.reconcile(action, self.old, self.spec, host=self.host)
+        self.assertEqual(self.installs, [])
         self.assertEqual(self.registry.read_bytes(), before)
         self.entry["source"]["requested_ref"] = "v0.12.0"
         self.save_registry()
         with self.assertRaisesRegex(ValueError, "release differs"):
-            plugin.reconcile("update", self.new, self.spec)
-        self.installer.assert_not_called()
+            plugin.reconcile("update", self.new, self.spec, host=self.host)
+        self.assertEqual(self.installs, [])
 
 
 class SeshTests(PluginTests):
@@ -267,37 +324,53 @@ class InstallerTests(unittest.TestCase):
     def test_install_delegates_to_herdr_with_explicit_pin(self):
         pin = "a" * 40
         for spec in plugin.PLUGINS:
-            with (
-                self.subTest(plugin=spec.id),
-                patch.object(
-                    plugin.shutil, "which", return_value="/fixture/bin"
-                ) as which,
-                patch.object(plugin.subprocess, "run") as run,
-            ):
-                plugin.install(pin, spec)
-                run.assert_called_once_with(
-                    ["herdr", "plugin", "install", spec.repo, "--ref", pin, "--yes"],
-                    check=True,
-                )
+            with self.subTest(plugin=spec.id):
+                looked_up: list[str] = []
+                invocations: list[tuple[list[str], dict]] = []
+
+                def which(cmd, looked_up=looked_up):
+                    looked_up.append(cmd)
+                    return "/fixture/bin"
+
+                def run(args, invocations=invocations, **kwargs):
+                    invocations.append((list(args), kwargs))
+                    return subprocess.CompletedProcess(args, 0, "", "")
+
+                host = plugin.Host(run=run, which=which)
+                plugin.install(pin, spec, host=host)
                 self.assertEqual(
-                    [call.args[0] for call in which.call_args_list],
-                    ["herdr", "git", *spec.prerequisites],
+                    invocations,
+                    [
+                        (
+                            [
+                                "herdr",
+                                "plugin",
+                                "install",
+                                spec.repo,
+                                "--ref",
+                                pin,
+                                "--yes",
+                            ],
+                            {"check": True},
+                        )
+                    ],
                 )
+                self.assertEqual(looked_up, ["herdr", "git", *spec.prerequisites])
+
             for missing in ("herdr", "git", *spec.prerequisites):
-                with (
-                    self.subTest(plugin=spec.id, missing=missing),
-                    patch.object(
-                        plugin.shutil,
-                        "which",
-                        side_effect=lambda cmd, missing=missing: (
+                with self.subTest(plugin=spec.id, missing=missing):
+                    invocations = []
+                    host = plugin.Host(
+                        run=lambda args, invocations=invocations, **kwargs: (
+                            invocations.append(list(args))
+                        ),
+                        which=lambda cmd, missing=missing: (
                             None if cmd == missing else "/fixture/bin"
                         ),
-                    ),
-                    patch.object(plugin.subprocess, "run") as run,
-                ):
+                    )
                     with self.assertRaisesRegex(ValueError, f"missing {missing}"):
-                        plugin.install(pin, spec)
-                    run.assert_not_called()
+                        plugin.install(pin, spec, host=host)
+                    self.assertEqual(invocations, [])
 
 
 class LocalPluginTests(unittest.TestCase):
@@ -307,37 +380,210 @@ class LocalPluginTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix="herdr-local-plugin-test-")
         self.addCleanup(temporary.cleanup)
         config = Path(temporary.name).resolve()
-        self.enterContext(patch.dict(os.environ, {"XDG_CONFIG_HOME": str(config)}))
         self.registry = config / "herdr/plugins.json"
         self.registry.parent.mkdir()
-        self.enterContext(patch.object(plugin.shutil, "which", return_value="/bin"))
-        self.run_ = self.enterContext(patch.object(plugin.subprocess, "run"))
+        self.commands: list[list[str]] = []
+        self.host = plugin.Host(
+            run=self.record_run,
+            environ={"XDG_CONFIG_HOME": str(config)},
+            which=lambda _cmd: "/bin/herdr",
+        )
+
+    def record_run(self, args, **kwargs):
+        self.commands.append(list(args))
+        return subprocess.CompletedProcess(args, 0, "", "")
 
     def register(self, **entry):
         entry = {"plugin_id": self.plugin_id, "enabled": True, **entry}
         self.registry.write_text(json.dumps([entry]))
 
-    def linked(self):
-        return [call.args[0] for call in self.run_.call_args_list]
-
     def test_absent_or_owned_plugins_are_relinked_to_refresh_the_manifest(self):
-        plugin.link_local(self.plugin_id, self.root)
+        plugin.link_local(self.plugin_id, self.root, host=self.host)
         self.register(plugin_root=str(self.root), source={"kind": "local"})
-        plugin.link_local(self.plugin_id, self.root)
+        plugin.link_local(self.plugin_id, self.root, host=self.host)
         link = ["herdr", "plugin", "link", str(self.root)]
-        self.assertEqual(self.linked(), [link, link])
+        self.assertEqual(self.commands, [link, link])
 
     def test_disabled_or_foreign_registrations_are_preserved(self):
         self.register(plugin_root=str(self.root), enabled=False)
-        plugin.link_local(self.plugin_id, self.root)
+        plugin.link_local(self.plugin_id, self.root, host=self.host)
         for root, source in (
             ("/elsewhere", {"kind": "local"}),
             (str(self.root), {"kind": "github", "owner": "x", "repo": "y"}),
         ):
             self.register(plugin_root=root, source=source)
             with self.assertRaisesRegex(ValueError, "another source"):
-                plugin.link_local(self.plugin_id, self.root)
-        self.assertEqual(self.linked(), [])
+                plugin.link_local(self.plugin_id, self.root, host=self.host)
+        self.assertEqual(self.commands, [])
+
+
+class HostTests(unittest.TestCase):
+    def test_herdr_config_dir_ignores_empty_or_relative_xdg_config_home(self):
+        with tempfile.TemporaryDirectory(prefix="herdr-host-test-") as directory:
+            home = Path(directory).resolve()
+            expected_default = (home / ".config/herdr").resolve()
+            for environ in ({}, {"XDG_CONFIG_HOME": ""}, {"XDG_CONFIG_HOME": "rel/cfg"}):
+                with self.subTest(environ=environ):
+                    host = plugin.Host(environ=environ, home=lambda: home)
+                    self.assertEqual(host.herdr_config_dir(), expected_default)
+            custom = home / "xdg"
+            host = plugin.Host(environ={"XDG_CONFIG_HOME": str(custom)}, home=lambda: home)
+            self.assertEqual(host.herdr_config_dir(), (custom / "herdr").resolve())
+            env_home_host = plugin.Host(environ={"HOME": str(home)})
+            self.assertEqual(env_home_host.herdr_config_dir(), expected_default)
+            for missing_home in ({}, {"HOME": ""}, {"HOME": "rel/home"}):
+                with self.subTest(missing_home=missing_home):
+                    isolated = plugin.Host(environ=missing_home)
+                    with self.assertRaisesRegex(ValueError, "absolute HOME"):
+                        isolated.herdr_config_dir()
+
+    def test_find_executable_uses_injected_environ_path(self):
+        with tempfile.TemporaryDirectory(prefix="herdr-path-test-") as directory:
+            bindir = Path(directory).resolve()
+            tool = bindir / "herdr-fake-tool"
+            tool.write_text("#!/bin/sh\n")
+            tool.chmod(0o755)
+            host_with_path = plugin.Host(environ={"PATH": str(bindir)})
+            self.assertEqual(host_with_path.find_executable("herdr-fake-tool"), str(tool))
+            self.assertIsNone(host_with_path.find_executable("sh"))
+            host_without_path = plugin.Host(environ={})
+            self.assertIsNone(host_without_path.find_executable("sh"))
+
+
+class RunActionTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="herdr-run-action-test-")
+        self.addCleanup(temporary.cleanup)
+        self.home = Path(temporary.name).resolve()
+        self.config_dir = self.home / "config/herdr"
+        self.config_dir.mkdir(parents=True)
+        self.old = "a" * 40
+        self.new = "b" * 40
+        self.config = self.home / "mise.toml"
+        self.config.write_text(
+            "[vars]\n"
+            + "".join(f'{spec.pin_key} = "{self.old}"\n' for spec in plugin.PLUGINS)
+        )
+
+    def test_refresh_pin_updates_all_pins_without_linking_local_plugins(self):
+        commands: list[list[str]] = []
+
+        def run(args, **kwargs):
+            commands.append(list(args))
+            if args[:2] == ["git", "ls-remote"]:
+                return subprocess.CompletedProcess(
+                    args, 0, f"{self.new}\t{plugin.BRANCH}\n", ""
+                )
+            raise AssertionError(f"unexpected command: {args}")
+
+        host = plugin.Host(
+            run=run,
+            environ={"HOME": str(self.home), "XDG_CONFIG_HOME": str(self.home / "config")},
+            system=lambda: "Darwin",
+            which=lambda cmd: f"/bin/{cmd}",
+        )
+        plugin.run_action("refresh-pin", config=self.config, host=host)
+        self.assertEqual(
+            commands,
+            [
+                ["git", "ls-remote", "--exit-code", spec.url, plugin.BRANCH]
+                for spec in plugin.PLUGINS
+            ],
+        )
+        for spec in plugin.PLUGINS:
+            self.assertIn(f'{spec.pin_key} = "{self.new}"', self.config.read_text())
+
+    def test_bootstrap_links_darwin_only_local_plugins_only_on_darwin(self):
+        browser_links = (
+            Path(plugin.__file__).resolve().parents[2] / "macos/herdr/browser-links"
+        )
+        for system_name, expected_roots in (
+            ("Linux", [root for _, root in plugin.LOCAL_PLUGINS]),
+            (
+                "Darwin",
+                [*(root for _, root in plugin.LOCAL_PLUGINS), browser_links],
+            ),
+        ):
+            with self.subTest(system=system_name):
+                links: list[Path] = []
+                applicable = [s for s in plugin.PLUGINS if system_name in s.systems]
+                base_env = {
+                    "HOME": str(self.home),
+                    "XDG_CONFIG_HOME": str(self.home / f"cfg-{system_name}"),
+                    "MISE_ENV": "personal-macos",
+                    "PATH": os.environ["PATH"],
+                    "GIT_CONFIG_NOSYSTEM": "1",
+                    "GIT_CONFIG_GLOBAL": os.devnull,
+                    "GIT_AUTHOR_NAME": "Test",
+                    "GIT_AUTHOR_EMAIL": "test@example.invalid",
+                    "GIT_COMMITTER_NAME": "Test",
+                    "GIT_COMMITTER_EMAIL": "test@example.invalid",
+                }
+                cfg = Path(base_env["XDG_CONFIG_HOME"]) / "herdr"
+                cfg.mkdir(parents=True)
+                entries = []
+                pins: dict[str, str] = {}
+                real_host = plugin.Host(environ=base_env)
+                for spec in applicable:
+                    checkout = cfg / "plugins/github" / spec.checkout
+                    checkout.mkdir(parents=True)
+                    plugin.git("init", "--quiet", checkout, host=real_host)
+                    (checkout / ".gitignore").write_text("/target/\n/bin/\n")
+                    (checkout / "herdr-plugin.toml").write_text(
+                        f'id = "{spec.id}"\nversion = "0.1.0"\n'
+                    )
+                    plugin.git("-C", checkout, "add", ".", host=real_host)
+                    plugin.git(
+                        "-C", checkout, "commit", "--quiet", "-m", "init", host=real_host
+                    )
+                    sha = plugin.git("-C", checkout, "rev-parse", "HEAD", host=real_host)
+                    pins[spec.pin_key] = sha
+                    binary = checkout / spec.binary
+                    binary.parent.mkdir(parents=True)
+                    binary.write_text("fixture\n")
+                    binary.chmod(0o755)
+                    owner, repo = spec.repo.split("/")
+                    entries.append(
+                        {
+                            "plugin_id": spec.id,
+                            "plugin_root": str(checkout),
+                            "manifest_path": str(checkout / "herdr-plugin.toml"),
+                            "enabled": True,
+                            "source": {
+                                "kind": "github",
+                                "owner": owner,
+                                "repo": repo,
+                                "requested_ref": sha,
+                                "resolved_commit": sha,
+                                "managed_path": str(checkout),
+                            },
+                        }
+                    )
+                (cfg / "plugins.json").write_text(json.dumps(entries))
+                mise_cfg = self.home / f"mise-{system_name}.toml"
+                mise_cfg.write_text(
+                    "[vars]\n"
+                    + "".join(
+                        f'{s.pin_key} = "{pins.get(s.pin_key, self.old)}"\n'
+                        for s in plugin.PLUGINS
+                    )
+                )
+
+                def run(args, **kwargs):
+                    if args[:3] == ["herdr", "plugin", "link"]:
+                        links.append(Path(args[3]))
+                        return subprocess.CompletedProcess(args, 0, "", "")
+                    check = kwargs.pop("check", False)
+                    return subprocess.run(args, check=check, **kwargs)
+
+                host = plugin.Host(
+                    run=run,
+                    environ=base_env,
+                    system=lambda name=system_name: name,
+                    which=lambda cmd: f"/bin/{cmd}",
+                )
+                plugin.run_action("bootstrap", config=mise_cfg, host=host)
+                self.assertEqual(links, expected_roots)
 
 
 if __name__ == "__main__":

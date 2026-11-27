@@ -9,10 +9,10 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-
-import tomllib
 
 CONFIG = Path(__file__).resolve().parents[3] / "mise.toml"
 BRANCH = "refs/heads/main"
@@ -62,14 +62,67 @@ LOCAL_PLUGINS = (
 )
 
 
+@dataclass(frozen=True)
+class Host:
+    run: Callable[..., subprocess.CompletedProcess] = subprocess.run
+    environ: Mapping[str, str] | None = None
+    system: Callable[[], str] = platform.system
+    which: Callable[[str], str | None] | None = None
+    home: Callable[[], Path] | None = None
+
+    def env_get(self, key: str, default: str | None = None) -> str | None:
+        source = os.environ if self.environ is None else self.environ
+        return source.get(key, default)
+
+    def find_executable(self, command: str) -> str | None:
+        if self.which is not None:
+            return self.which(command)
+        if self.environ is not None:
+            return shutil.which(command, path=self.environ.get("PATH", ""))
+        return shutil.which(command)
+
+    def home_dir(self) -> Path:
+        if self.home is not None:
+            return self.home()
+        if self.environ is not None:
+            raw_home = self.environ.get("HOME")
+            require(
+                bool(raw_home) and Path(raw_home).is_absolute(),
+                "injected host environ requires an absolute HOME or home callback",
+            )
+            return Path(raw_home)
+        return Path.home()
+
+    def herdr_config_dir(self) -> Path:
+        raw = self.env_get("XDG_CONFIG_HOME")
+        base = (
+            Path(raw)
+            if raw and Path(raw).is_absolute()
+            else self.home_dir() / ".config"
+        )
+        return (base / "herdr").resolve()
+
+    def exec(self, args: list[str], **kwargs):
+        if self.environ is not None and "env" not in kwargs:
+            kwargs["env"] = dict(self.environ)
+        return self.run(args, **kwargs)
+
+
+DEFAULT_HOST = Host()
+
+
 def require(condition, message):
     if not condition:
         raise ValueError(message)
 
 
-def git(*args):
-    return subprocess.run(
-        ["git", *map(str, args)], check=True, capture_output=True, text=True, timeout=60
+def git(*args, host: Host = DEFAULT_HOST):
+    return host.exec(
+        ["git", *map(str, args)],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
     ).stdout.strip()
 
 
@@ -90,7 +143,7 @@ def registry_entries(config_dir):
     return entries
 
 
-def installed_pin(config_dir, spec):
+def installed_pin(config_dir, spec, *, host: Host = DEFAULT_HOST):
     """Return a healthy, owned pin or None; ambiguity is never permission to replace."""
     checkout = config_dir / "plugins/github" / spec.checkout
     matches = [e for e in registry_entries(config_dir) if e["plugin_id"] == spec.id]
@@ -144,15 +197,18 @@ def installed_pin(config_dir, spec):
         "missing, linked or symlinked checkout",
     )
     require(
-        Path(git("-C", checkout, "rev-parse", "--show-toplevel")) == checkout,
+        Path(git("-C", checkout, "rev-parse", "--show-toplevel", host=host))
+        == checkout,
         "checkout is not its own Git repository",
     )
     require(
-        git("-C", checkout, "rev-parse", "HEAD") == pin,
+        git("-C", checkout, "rev-parse", "HEAD", host=host) == pin,
         "checkout HEAD differs from registry",
     )
     require(
-        not git("-C", checkout, "status", "--porcelain", "--untracked-files=all"),
+        not git(
+            "-C", checkout, "status", "--porcelain", "--untracked-files=all", host=host
+        ),
         "dirty plugin checkout; preserve local changes and inspect manually",
     )
     manifest = tomllib.loads((checkout / "herdr-plugin.toml").read_text())
@@ -172,53 +228,49 @@ def installed_pin(config_dir, spec):
     return pin
 
 
-def install(pin, spec):
+def install(pin, spec, *, host: Host = DEFAULT_HOST):
     for command in ("herdr", "git", *spec.prerequisites):
         require(
-            shutil.which(command),
+            host.find_executable(command),
             f"missing {command}; provision declared tools/platform dependencies first",
         )
-    subprocess.run(
+    host.exec(
         ["herdr", "plugin", "install", spec.repo, "--ref", pin, "--yes"], check=True
     )
 
 
-def herdr_config_dir():
-    return (
-        Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "herdr"
-    ).resolve()
-
-
-def reconcile(action, pin, spec):
+def reconcile(action, pin, spec, *, host: Host = DEFAULT_HOST):
     """Bootstrap and update both apply the committed pin to healthy owned state."""
     require(action in ("bootstrap", "update"), "unsupported reconciliation action")
-    if platform.system() not in spec.systems:
+    if host.system() not in spec.systems:
         return
-    if platform.system() == "Darwin":
+    if host.system() == "Darwin":
         require(
-            os.environ.get("MISE_ENV") in ("personal-macos", "work-macos"),
+            host.env_get("MISE_ENV") in ("personal-macos", "work-macos"),
             "choose --env personal-macos or --env work-macos",
         )
     require(
         isinstance(pin, str) and SHA.fullmatch(pin),
         "desired plugin pin must be a full commit SHA",
     )
-    config_dir = herdr_config_dir()
-    current = installed_pin(config_dir, spec)
+    config_dir = host.herdr_config_dir()
+    current = installed_pin(config_dir, spec, host=host)
     if current == pin:
         print(f"{spec.id}: already at {pin}")
         return
-    print(f"{spec.id}: applying committed pin {current or 'absent'} -> {pin}", flush=True)
-    install(pin, spec)
+    print(
+        f"{spec.id}: applying committed pin {current or 'absent'} -> {pin}", flush=True
+    )
+    install(pin, spec, host=host)
     require(
-        installed_pin(config_dir, spec) == pin,
+        installed_pin(config_dir, spec, host=host) == pin,
         "installer did not produce the desired healthy plugin state",
     )
 
 
-def link_local(plugin_id, root):
+def link_local(plugin_id, root, *, host: Host = DEFAULT_HOST):
     """(Re)link a repository plugin; Herdr caches its manifest until the next link."""
-    config_dir = herdr_config_dir()
+    config_dir = host.herdr_config_dir()
     matches = [e for e in registry_entries(config_dir) if e["plugin_id"] == plugin_id]
     if matches:
         entry = matches[0]
@@ -233,14 +285,16 @@ def link_local(plugin_id, root):
             # Linking would silently re-enable it.
             print(f"{plugin_id}: disabled; leaving it unchanged")
             return
-    require(shutil.which("herdr"), "missing herdr; install declared tools first")
-    subprocess.run(
+    require(
+        host.find_executable("herdr"), "missing herdr; install declared tools first"
+    )
+    host.exec(
         ["herdr", "plugin", "link", str(root)], check=True, stdout=subprocess.DEVNULL
     )
     print(f"{plugin_id}: linked {root}")
 
 
-def refresh_pin(config, spec):
+def refresh_pin(config, spec, *, host: Host = DEFAULT_HOST):
     """Resolve main to a SHA; edit only the pin, without checkout/build/installation."""
     text = config.read_text()
     old = tomllib.loads(text)["vars"][spec.pin_key]
@@ -248,7 +302,7 @@ def refresh_pin(config, spec):
         isinstance(old, str) and SHA.fullmatch(old),
         "existing plugin pin must be a full commit SHA",
     )
-    fields = git("ls-remote", "--exit-code", spec.url, BRANCH).split()
+    fields = git("ls-remote", "--exit-code", spec.url, BRANCH, host=host).split()
     require(
         len(fields) == 2 and SHA.fullmatch(fields[0]) and fields[1] == BRANCH,
         "expected exactly one full commit SHA for the tracked upstream branch",
@@ -265,22 +319,26 @@ def refresh_pin(config, spec):
     print(f"{spec.id}: https://github.com/{spec.repo}/compare/{old}...{new}")
 
 
+def run_action(action, *, config=CONFIG, host: Host = DEFAULT_HOST):
+    pins = tomllib.loads(config.read_text())["vars"]
+    for spec in PLUGINS:
+        if action == "refresh-pin":
+            refresh_pin(config, spec, host=host)
+        else:
+            reconcile(action, pins[spec.pin_key], spec, host=host)
+    if action != "refresh-pin":
+        for plugin_id, root in LOCAL_PLUGINS:
+            link_local(plugin_id, root, host=host)
+        if host.system() == "Darwin":
+            root = Path(__file__).resolve().parents[2] / "macos/herdr/browser-links"
+            link_local("dotfiles.browser-links", root, host=host)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("bootstrap", "update", "refresh-pin"))
     args = parser.parse_args()
-    pins = tomllib.loads(CONFIG.read_text())["vars"]
-    for spec in PLUGINS:
-        if args.action == "refresh-pin":
-            refresh_pin(CONFIG, spec)
-        else:
-            reconcile(args.action, pins[spec.pin_key], spec)
-    if args.action != "refresh-pin":
-        for plugin_id, root in LOCAL_PLUGINS:
-            link_local(plugin_id, root)
-        if platform.system() == "Darwin":
-            root = Path(__file__).resolve().parents[2] / "macos/herdr/browser-links"
-            link_local("dotfiles.browser-links", root)
+    run_action(args.action)
 
 
 if __name__ == "__main__":
