@@ -1,9 +1,68 @@
 #!/bin/sh
 set -eu
 
-repo="$HOME/.local/share/dotfiles"
-mise="$HOME/.local/bin/mise"
-mode="$1"
+script="$0"
+case "$script" in
+  */*) ;;
+  *)
+    if [ ! -e "$script" ]; then
+      resolved=$(command -v -- "$script" 2>/dev/null || :)
+      case "$resolved" in
+        */*) script="$resolved" ;;
+      esac
+    fi
+    ;;
+esac
+hops=0
+while [ -L "$script" ]; do
+  hops=$((hops + 1))
+  [ "$hops" -le 40 ] || {
+    printf 'Herdr browser: too many symlink levels resolving %s\n' "$0" >&2
+    exit 1
+  }
+  link=$(readlink -- "$script")
+  case "$link" in
+    /*) script="$link" ;;
+    *)
+      dir="${script%/*}"
+      [ "$dir" = "$script" ] && dir=.
+      dir=$(CDPATH='' cd -P -- "${dir:-/}" && pwd -P)
+      case "$dir" in
+        /) script="/$link" ;;
+        *) script="$dir/$link" ;;
+      esac
+      ;;
+  esac
+done
+case "$script" in
+  */*)
+    dir="${script%/*}"
+    self_dir=$(CDPATH='' cd -P -- "${dir:-/}" && pwd -P)
+    ;;
+  *) self_dir=$(pwd -P) ;;
+esac
+self="$self_dir/${script##*/}"
+repo=$(CDPATH='' cd -P -- "$self_dir/../../.." && pwd -P)
+mise="${MISE_BIN:-$HOME/.local/bin/mise}"
+mode="${1:-}"
+
+# Quote for both POSIX sh and Fish: escape single quotes and backslashes
+# outside single-quoted segments so neither shell interprets them.
+sh_quote() {
+  awk -- 'BEGIN {
+    q = sprintf("%c", 39)
+    s = ARGV[1]
+    out = q
+    for (i = 1; i <= length(s); i++) {
+      c = substr(s, i, 1)
+      if (c == q) out = out q "\\" q q
+      else if (c == "\\") out = out q "\\\\" q
+      else out = out c
+    }
+    printf "%s%s", out, q
+    exit
+  }' "$1"
+}
 
 fail() {
   printf 'Herdr browser: %s\n' "$1" >&2
@@ -67,7 +126,5 @@ case "$mode" in
     ;;
   *) fail 'Expected tab, split, open, link, or open-link.' ;;
 esac
-# Expand HOME in the destination pane, not in the detached launcher.
-# shellcheck disable=SC2016
-"$herdr" pane run "$pane" '/bin/sh "$HOME/.local/share/dotfiles/dotfiles/macos/herdr/browser.sh" open' >/dev/null || fail 'Could not start the browser in the new pane.'
+"$herdr" pane run "$pane" "/bin/sh $(sh_quote "$self") open" >/dev/null || fail 'Could not start the browser in the new pane.'
 printf '%s\n' "$pane"
