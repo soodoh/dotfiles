@@ -167,6 +167,34 @@ struct Palette {
     active = environment["ACTIVE_COLOR"] ?? "0x88FF00FF"
     itemBackground = environment["ITEM_BG_COLOR"] ?? "0xff353c3f"
   }
+  var environmentArguments: [String] {
+    [
+      "ACCENT_COLOR=\(accent)",
+      "DIMMED_COLOR=\(dimmed)",
+      "BAR_COLOR=\(background)",
+      "INACTIVE_BORDER_COLOR=\(border)",
+      "ACTIVE_COLOR=\(active)",
+      "ITEM_BG_COLOR=\(itemBackground)",
+    ]
+  }
+}
+
+// Sketchybar runs scripts through a shell. Quote only fixed configuration;
+// account/provider text travels as Process argv, never executable script.
+func helperCommand(
+  binary: String,
+  configDirectory: String,
+  palette: Palette,
+  extraEnvironment: [(String, String)] = [],
+  arguments: [String]
+) -> String {
+  var parts = ["/usr/bin/env", "CONFIG_DIR=\(configDirectory)"] + palette.environmentArguments
+  for (key, value) in extraEnvironment where !value.isEmpty {
+    parts.append("\(key)=\(value)")
+  }
+  parts.append(binary)
+  parts += arguments
+  return parts.map(shellQuote).joined(separator: " ")
 }
 
 // Serialize only writers of the bounded diagnostics log. Logging failures must

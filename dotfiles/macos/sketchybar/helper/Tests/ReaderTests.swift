@@ -101,6 +101,41 @@ final class ReaderTests {
     try controller.guardClick(name: "--remove")
     try requireEqual(fake.mutations.count, count)
   }
+  func testHelperCommandMarshaling() throws {
+    let palette = Palette(environment: [
+      "ACCENT_COLOR": "0xff111111",
+      "DIMMED_COLOR": "0xff222222",
+      "BAR_COLOR": "0xff333333",
+      "INACTIVE_BORDER_COLOR": "0xff444444",
+      "ACTIVE_COLOR": "0xff555555",
+      "ITEM_BG_COLOR": "0xff666666",
+    ])
+    let command = helperCommand(
+      binary: "/bin/sh",
+      configDirectory: "/tmp/it's config",
+      palette: palette,
+      extraEnvironment: [("XDG_CACHE_HOME", "/tmp/cache dir"), ("EMPTY_VAR", "")],
+      arguments: [
+        "-c",
+        "printf '%s|%s|%s|%s|%s' \"$CONFIG_DIR\" \"$ACTIVE_COLOR\" \"$ITEM_BG_COLOR\" \"$XDG_CACHE_HOME\" \"$1\"",
+        "_",
+        "arg with 'quote'",
+      ]
+    )
+    try requireFalse(command.contains("EMPTY_VAR"), "Empty extraEnvironment entries must be omitted")
+    let executed = try runProcess("/bin/sh", ["-c", command], environment: [:])
+    try requireEqual(executed.status, 0)
+    try requireEqual(
+      String(decoding: executed.output, as: UTF8.self),
+      "/tmp/it's config|0xff555555|0xff666666|/tmp/cache dir|arg with 'quote'"
+    )
+    let fake = FakeBar()
+    let controller = fake.controller()
+    let barScript = controller.script("refresh")
+    try require(barScript.contains("ACTIVE_COLOR="), "BarController.script should forward ACTIVE_COLOR")
+    try require(
+      barScript.contains("ITEM_BG_COLOR="), "BarController.script should forward ITEM_BG_COLOR")
+  }
   func testEmptyNativeRepliesRetryButMalformedRepliesDoNot() throws {
     var calls = 0
     let delayed = BarClient { args in
@@ -151,6 +186,7 @@ final class ReaderTests {
     ("standalone and failure preservation", testStandaloneAndFailureDoNotEraseBar),
     ("argv and bounded diagnostics", testProcessArgumentsAndDiagnostics),
     ("script quoting and cached hover", testScriptQuotingAndCachedHover),
+    ("helper command env marshaling", testHelperCommandMarshaling),
     ("native query timeouts", testEmptyNativeRepliesRetryButMalformedRepliesDoNot),
     ("live cleanup after failure", testLiveCleanupSurvivesFailures),
   ]

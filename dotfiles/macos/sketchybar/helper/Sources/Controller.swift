@@ -8,14 +8,13 @@ struct BarController {
   var sections = Section.defaults
   var notches: () throws -> [NotchedDisplay] = nativeNotches
 
-  // Sketchybar runs scripts through a shell. Quote only fixed configuration;
-  // account/provider text travels as Process argv, never executable script.
   func script(_ mode: String) -> String {
-    [
-      "/usr/bin/env", "CONFIG_DIR=\(configDirectory)", "ACCENT_COLOR=\(palette.accent)",
-      "DIMMED_COLOR=\(palette.dimmed)", "BAR_COLOR=\(palette.background)",
-      "INACTIVE_BORDER_COLOR=\(palette.border)", binary, mode,
-    ].map(shellQuote).joined(separator: " ")
+    helperCommand(
+      binary: binary,
+      configDirectory: configDirectory,
+      palette: palette,
+      arguments: [mode]
+    )
   }
   func popupProperties(height: Int) -> [String] {
     [

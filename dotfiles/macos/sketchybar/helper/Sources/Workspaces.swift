@@ -135,21 +135,14 @@ struct WorkspaceController {
   }
 
   private func refreshScript(generation: String, workspaces: [String]) -> String {
-    var parts = [
-      "/usr/bin/env",
-      "CONFIG_DIR=\(configDirectory)",
-      "ACCENT_COLOR=\(palette.accent)",
-      "DIMMED_COLOR=\(palette.dimmed)",
-      "BAR_COLOR=\(palette.background)",
-      "INACTIVE_BORDER_COLOR=\(palette.border)",
-      "ACTIVE_COLOR=\(palette.active)",
-      "ITEM_BG_COLOR=\(palette.itemBackground)",
-    ]
-    if let xdgCacheHome, !xdgCacheHome.isEmpty {
-      parts.append("XDG_CACHE_HOME=\(xdgCacheHome)")
-    }
-    parts += [binary, "workspaces-refresh", generation] + workspaces
-    return parts.map(shellQuote).joined(separator: " ")
+    let extra = xdgCacheHome.map { [("XDG_CACHE_HOME", $0)] } ?? []
+    return helperCommand(
+      binary: binary,
+      configDirectory: configDirectory,
+      palette: palette,
+      extraEnvironment: extra,
+      arguments: ["workspaces-refresh", generation] + workspaces
+    )
   }
 
   private func appendFocusArgs(
