@@ -16,25 +16,8 @@ gost_bin=$(command -v gost) || {
 authorization=$(printf '%s:%s' "$GOST_AUTH_USERNAME" "$GOST_AUTH_PASSWORD" | base64 | tr -d '\n')
 unset GOST_AUTH_USERNAME GOST_AUTH_PASSWORD
 
-render_config() {
+render_relay_node() {
   cat <<EOF
-services:
-  - name: tailscale-control-local
-    addr: "127.0.0.1:1055"
-    handler:
-      type: http
-      chain: tailscale-control-relay
-    listener:
-      type: tcp
-
-chains:
-  - name: tailscale-control-relay
-    hops:
-      - name: home-lab
-        # Only these destinations use the authenticated remote relay.
-        # Other requests through this loopback proxy exit directly from this Mac.
-        bypass: relay-destinations
-        nodes:
           - name: authenticated-websocket
             addr: "gost.diloreto.com:443"
             connector:
@@ -50,6 +33,43 @@ chains:
                   Authorization: "Basic ${authorization}"
             tls:
               serverName: gost.diloreto.com
+EOF
+}
+
+render_config() {
+  cat <<EOF
+services:
+  - name: tailscale-control-local
+    addr: "127.0.0.1:1055"
+    handler:
+      type: http
+      chain: tailscale-control-relay
+    listener:
+      type: tcp
+  - name: browser-relay-local
+    addr: "127.0.0.1:1056"
+    handler:
+      type: http
+      chain: browser-relay
+    listener:
+      type: tcp
+
+chains:
+  - name: tailscale-control-relay
+    hops:
+      - name: home-lab-selective
+        # Only these destinations use the authenticated remote relay.
+        # Other requests through this loopback proxy exit directly from this Mac.
+        bypass: relay-destinations
+        nodes:
+$(render_relay_node)
+  - name: browser-relay
+    hops:
+      - name: home-lab-all
+        # Every request through this loopback proxy uses the authenticated remote relay
+        # with no direct fallback if the relay is unavailable.
+        nodes:
+$(render_relay_node)
 
 bypasses:
   - name: relay-destinations

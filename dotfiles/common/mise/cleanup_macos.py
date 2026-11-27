@@ -329,10 +329,7 @@ def jobs(profile: str, *, env: Host = DEFAULT_HOST) -> list[UserAgentJob]:
         ("moshi-hook", (prefix / "opt/moshi-hook/bin/moshi-hook",)),
     )
     if profile == "work-macos":
-        agents += (
-            ("cli-proxy-pac", (Path(sys.executable),)),
-            ("tailscale-control-proxy", (bin_dir / "gost",)),
-        )
+        agents += (("tailscale-control-proxy", (bin_dir / "gost",)),)
     gui = f"gui/{env.uid()}"
     return [
         UserAgentJob(

@@ -69,30 +69,6 @@ environment = { PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr
 stdout_path = "~/Library/Logs/tailscale-control-proxy.log"
 stderr_path = "~/Library/Logs/tailscale-control-proxy.error.log"
 
-# Serves the public routing rule on loopback for browser-specific PAC settings.
-[bootstrap.macos.launchd.agents.cli-proxy-pac]
-program = "~/.local/bin/mise"
-args = [
-  "--env",
-  "work-macos",
-  "exec",
-  "--",
-  "python3",
-  "-m",
-  "http.server",
-  "1056",
-  "--bind",
-  "127.0.0.1",
-  "--directory",
-  "dotfiles/work/pac/site",
-]
-run_at_load = true
-keep_alive = true
-working_directory = "~/.local/share/dotfiles"
-environment = { PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", MISE_EXEC_AUTO_INSTALL = "false" }
-stdout_path = "~/Library/Logs/cli-proxy-pac.log"
-stderr_path = "~/Library/Logs/cli-proxy-pac.error.log"
-
 [bootstrap.user]
 login_shell = "/opt/homebrew/bin/fish"
 

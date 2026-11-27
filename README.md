@@ -201,7 +201,7 @@ for installation and usage.
 
 ### Manual steps for Work macOS
 
-- In Zen/Firefox, open **Settings > Network Settings > Settings**, select **Automatic proxy configuration URL**, and enter `http://127.0.0.1:1056/cli-proxy.pac`. Click **Reload** and save.
+- In Zen/Firefox, open **Settings > Network Settings > Settings**, select **Manual proxy configuration**, set **HTTP Proxy** to `127.0.0.1` port `1056`, enable **Also use this proxy for HTTPS**, and save.
 - Authenticate TWG: `twg login`
 - Create isolated Azure CLI profiles. Bare `az` and the read-only `azure-test` Pi MCP use the development profile; the read-only `azure` Pi MCP uses the production profile. Run these after bootstrap from a fresh work-profile shell so mise has decrypted `AZURE_DEV_TENANT_ID`, `AZURE_PROD_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`:
 
@@ -288,8 +288,8 @@ there is time to read warnings and errors.
 Apply pauses running managed services only when they hold a planned removal
 open. Other services with stale executables restart after verified pruning;
 current services that do not block a removal stay running. This covers
-AeroSpace, SketchyBar, Borders, Colima/Lima, Moshi Hook, the work-only PAC and
-GOST proxy. The root Tailscale daemon is outside Homebrew and is not restarted
+AeroSpace, SketchyBar, Borders, Colima/Lima, Moshi Hook, and the work-only GOST
+proxy. The root Tailscale daemon is outside Homebrew and is not restarted
 by cleanup. Colima is shut down gracefully. Cleanup attempts to restore
 stopped services even if pruning fails, and reports any removals still pending.
 It does not start unloaded services, signal root/other-user processes or its own
