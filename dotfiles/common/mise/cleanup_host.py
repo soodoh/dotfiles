@@ -43,7 +43,7 @@ def run(
 
 
 @dataclass(frozen=True)
-class CleanupHost:
+class ProcessHost:
     run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run
     environ: Mapping[str, str] | None = None
 
@@ -51,6 +51,20 @@ class CleanupHost:
         source = os.environ if self.environ is None else self.environ
         return source.get(key)
 
+    def probe(self, *args: str) -> subprocess.CompletedProcess[str]:
+        kwargs: dict[str, object] = {
+            "check": False,
+            "capture_output": True,
+            "text": True,
+            "timeout": 15,
+        }
+        if self.environ is not None:
+            kwargs["env"] = dict(self.environ)
+        return self.run(args, **kwargs)
+
+
+@dataclass(frozen=True)
+class CleanupHost(ProcessHost):
     def command(
         self,
         *args: str,

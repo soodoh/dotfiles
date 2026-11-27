@@ -5,24 +5,16 @@ import json
 import os
 import plistlib
 import re
-import signal
 import stat
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import macos_host as host
 
 LABEL = "dev.dotfiles.tailscaled"
-DAEMON_DIR = Path("/Library/Application Support/dotfiles-tailscale")
-DAEMON = DAEMON_DIR / "tailscaled"
-NEXT = DAEMON_DIR / "tailscaled.next"
-PREVIOUS = DAEMON_DIR / "tailscaled.previous"
-PLIST = Path(f"/Library/LaunchDaemons/{LABEL}.plist")
-STAGED_PLIST = DAEMON_DIR / PLIST.name
-SOURCE_PLIST = host.REPO / "dotfiles/macos/tailscale" / PLIST.name
 INSTALL = "/usr/bin/install"
 TEE = "/usr/bin/tee"
 SUDO = "/usr/bin/sudo"
@@ -80,9 +72,9 @@ def move(source, dest):
 
 @dataclass(frozen=True)
 class Paths:
-    daemon_dir: Path = DAEMON_DIR
-    plist: Path = PLIST
-    source_plist: Path = SOURCE_PLIST
+    daemon_dir: Path = Path("/Library/Application Support/dotfiles-tailscale")
+    plist: Path = Path(f"/Library/LaunchDaemons/{LABEL}.plist")
+    source_plist: Path = host.REPO / "dotfiles/macos/tailscale" / f"{LABEL}.plist"
     protected_parents: tuple[Path, ...] | None = None
 
     @property
@@ -109,14 +101,11 @@ class Paths:
 
 
 @dataclass(frozen=True)
-class Host:
+class Host(host.MacOSHost):
     paths: Paths = Paths()
-    probe: Callable[..., subprocess.CompletedProcess[str]] = host.probe
     authorize: Callable[[list[tuple[str, ...]]], None] = authorize
     root: Callable[[tuple[str, ...], bytes | None], None] = root
-    require_local_terminal: Callable[[], None] = host.require_local_terminal
     confirm: Callable[[str], None] = confirm
-    wait_for: Callable[..., None] = host.wait_for
     owner_uid: int = 0
     check_writable: bool = True
 
@@ -157,11 +146,12 @@ def digest(path: Path) -> bytes:
         return hashlib.file_digest(stream, "sha256").digest()
 
 
-def validate_plist(contents: bytes, *, daemon_path: Path = DAEMON) -> dict:
+def validate_plist(contents: bytes, *, daemon_path: Path | None = None) -> dict:
+    expected_daemon = Paths().daemon if daemon_path is None else daemon_path
     config = plistlib.loads(contents)
     if config != {
         "Label": LABEL,
-        "ProgramArguments": [str(daemon_path)],
+        "ProgramArguments": [str(expected_daemon)],
         "RunAtLoad": True,
         "KeepAlive": True,
     }:
@@ -444,7 +434,7 @@ def deploy(*, refresh: bool = False, env: Host = DEFAULT_HOST):
         print(f"System Tailscale daemon is already on {candidate.version}.")
         return
     try:
-        env.require_local_terminal()
+        env.check_local_terminal()
     except ValueError:
         if not refresh:
             raise
@@ -466,12 +456,19 @@ def deploy(*, refresh: bool = False, env: Host = DEFAULT_HOST):
     )
 
 
-def main():
-    if sys.argv[1:] not in ([], ["--refresh"]):
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    env: Host = DEFAULT_HOST,
+    darwin: bool | None = None,
+) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args not in ([], ["--refresh"]):
         print("usage: tailscale_macos.py [--refresh]", file=sys.stderr)
         return 2
-    refresh = bool(sys.argv[1:])
-    if sys.platform != "darwin" or os.environ.get("MISE_ENV") not in {
+    refresh = bool(args)
+    is_darwin = sys.platform == "darwin" if darwin is None else darwin
+    if not is_darwin or env.env_get("MISE_ENV") not in {
         "personal-macos",
         "work-macos",
     }:
@@ -481,16 +478,12 @@ def main():
         )
         return 2
 
-    def interrupt(*_):
-        raise KeyboardInterrupt
-
-    signal.signal(signal.SIGHUP, interrupt)
-    signal.signal(signal.SIGTERM, interrupt)
     try:
-        if not refresh:
-            host.require_local_terminal()
-        with host.maintenance_lock():
-            deploy(refresh=refresh)
+        with host.interrupt_on_hangup():
+            if not refresh:
+                env.check_local_terminal()
+            with env.maintenance_lock():
+                deploy(refresh=refresh, env=env)
     except (
         EOFError,
         KeyboardInterrupt,

@@ -1,10 +1,13 @@
 import contextlib
 import io
 import json
+import signal
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import cleanup
 import cleanup_macos as macos
@@ -21,8 +24,11 @@ class FakeCleanupHost:
         confirm: bool = True,
         herdr_env: bool = False,
         environ: dict[str, str] | None = None,
-        commands: dict[tuple[str, ...], str | list[str] | Exception] | None = None,
-        probes: dict[tuple[str, ...], subprocess.CompletedProcess[str] | list] | None = None,
+        commands: dict[
+            tuple[str, ...],
+            str | subprocess.CompletedProcess[str] | list | Exception,
+        ]
+        | None = None,
         uid: int = 501,
     ):
         self.root = root
@@ -31,7 +37,6 @@ class FakeCleanupHost:
         self.confirm_answer = confirm
         self.confirm_calls: list[str] = []
         self.commands = dict(commands or {})
-        self.probes = dict(probes or {})
         self.uid = uid
         self.environ = dict(environ or {})
         if herdr_env:
@@ -71,6 +76,17 @@ class FakeCleanupHost:
             return value.pop(0) if len(value) > 1 else value[0]
         return value
 
+    def _result(
+        self,
+        cmd: tuple[str, ...],
+        response: str | subprocess.CompletedProcess[str] | Exception,
+    ) -> subprocess.CompletedProcess[str]:
+        if isinstance(response, Exception):
+            raise response
+        if isinstance(response, subprocess.CompletedProcess):
+            return response
+        return subprocess.CompletedProcess(cmd, 0, stdout=response, stderr="")
+
     def run(self, args, **kwargs) -> subprocess.CompletedProcess[str]:
         cmd = tuple(args)
         self.calls.append(cmd)
@@ -78,13 +94,25 @@ class FakeCleanupHost:
         if cmd[:1] == ("/usr/bin/open",):
             self.handoff_launches.append(cmd)
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ("/bin/launchctl", "print"):
+            if cmd in self.commands:
+                return self._result(cmd, self._next(self.commands, cmd))
+            target = cmd[2]
+            info = self.jobs_loaded.get(target)
+            if info and info["running"]:
+                return subprocess.CompletedProcess(
+                    cmd,
+                    0,
+                    stdout=f"path = {info['plist']}\npid = {info['pid']}\n",
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(
+                cmd, 113, stdout="", stderr="Could not find service"
+            )
         if cmd[:1] == ("/bin/launchctl",):
             self.launchctl_calls.append(cmd)
             if cmd in self.commands:
-                response = self._next(self.commands, cmd)
-                if isinstance(response, Exception):
-                    raise response
-                return subprocess.CompletedProcess(cmd, 0, stdout=response, stderr="")
+                return self._result(cmd, self._next(self.commands, cmd))
             action = cmd[1]
             target = cmd[-1]
             if action == "bootout":
@@ -101,10 +129,7 @@ class FakeCleanupHost:
                     self.jobs_loaded[target]["running"] = True
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd in self.commands:
-            response = self._next(self.commands, cmd)
-            if isinstance(response, Exception):
-                raise response
-            return subprocess.CompletedProcess(cmd, 0, stdout=response, stderr="")
+            return self._result(cmd, self._next(self.commands, cmd))
         if cmd == ("mise", "prune", "--yes"):
             self.events.append("prune")
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
@@ -120,25 +145,6 @@ class FakeCleanupHost:
             return subprocess.CompletedProcess(cmd, 0, stdout=f"{cmd[5]}: nothing to prune\n", stderr="")
         if cmd == (macos.LSOF, "-nP", "-F0pcn"):
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-        raise AssertionError(f"Unexpected command: {cmd}")
-
-    def probe(self, *args) -> subprocess.CompletedProcess[str]:
-        cmd = tuple(args)
-        if cmd in self.probes:
-            return self._next(self.probes, cmd)
-        if cmd[:2] == ("/bin/launchctl", "print"):
-            target = cmd[2]
-            info = self.jobs_loaded.get(target)
-            if info and info["running"]:
-                return subprocess.CompletedProcess(
-                    cmd,
-                    0,
-                    stdout=f"path = {info['plist']}\npid = {info['pid']}\n",
-                    stderr="",
-                )
-            return subprocess.CompletedProcess(
-                cmd, 113, stdout="", stderr="Could not find service"
-            )
         if cmd == ("/bin/ps", "-axo", "pid=,ppid=,comm="):
             lines = [
                 f"{info['pid']} 1 {info['label']}"
@@ -150,7 +156,7 @@ class FakeCleanupHost:
             )
         if cmd == ("/bin/ps", "-p", "1", "-o", "ppid=,comm="):
             return subprocess.CompletedProcess(cmd, 0, stdout="0 /sbin/launchd\n", stderr="")
-        if cmd[:3] == ("/bin/ps", "-p", ) or (len(cmd) == 5 and cmd[:2] == ("/bin/ps", "-p") and cmd[3] == "-o" and cmd[4] == "uid=,tty=,lstart=,comm="):
+        if cmd[:2] == ("/bin/ps", "-p"):
             return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
         if cmd == ("mise", "which", "herdr"):
             return subprocess.CompletedProcess(cmd, 0, stdout=f"{self.root}/bin/herdr\n", stderr="")
@@ -165,7 +171,7 @@ class FakeCleanupHost:
                 if info["pid"] in pids and info["open_txt"]:
                     entries.append(f"p{info['pid']}\0\nftxt\0n{info['open_txt']}\0")
             return subprocess.CompletedProcess(cmd, 0, stdout="".join(entries), stderr="")
-        raise AssertionError(f"Unexpected probe: {cmd}")
+        raise AssertionError(f"Unexpected command: {cmd}")
 
     def confirm(self, prompt: str) -> bool:
         self.confirm_calls.append(prompt)
@@ -182,11 +188,10 @@ class FakeCleanupHost:
     def host(self) -> macos.Host:
         return macos.Host(
             brew_prefix=self.root,
-            probe=self.probe,
             run=self.run,
             which=lambda name: f"{self.root}/bin/{name}" if name == "brew" else None,
             kill=self.kill,
-            require_local_terminal=lambda: None,
+            local_terminal_check=lambda **_: None,
             maintenance_lock=self.maintenance_lock,
             wait_for=lambda done, desc, **_: None if done() else (_ for _ in ()).throw(ValueError(f"timed out: {desc}")),
             confirm=self.confirm,
@@ -642,14 +647,8 @@ class CleanupTests(unittest.TestCase):
                     commands={
                         ("mise", "bootstrap", "packages", "prune", "--manager", "brew", "--dry-run"): "remove brew:sketchybar@1.0",
                         (macos.LSOF, "-nP", "-F0pcn"): open_files,
-                    },
-                    probes={
-                        ("/bin/ps", "-axo", "pid=,ppid=,comm="): subprocess.CompletedProcess(
-                            [], 0, stdout="42 1 sketchybar\n43 42 helper\n", stderr=""
-                        ),
-                        (macos.LSOF, "-nP", "-a", "-d", "txt", "-p", "42,43", "-F0pfin"): subprocess.CompletedProcess(
-                            [], 0, stdout=running_txt, stderr=""
-                        ),
+                        ("/bin/ps", "-axo", "pid=,ppid=,comm="): "42 1 sketchybar\n43 42 helper\n",
+                        (macos.LSOF, "-nP", "-a", "-d", "txt", "-p", "42,43", "-F0pfin"): running_txt,
                     },
                 )
                 fake.add_loaded_job("sketchybar", pid=42, executable=installed)
@@ -748,27 +747,12 @@ class CleanupTests(unittest.TestCase):
                     f"p42\0cfish\0\nftxt\0n{keg}/bin/fish\0\n",
                     "",
                 ],
-            },
-            probes={
-                (macos.LSOF, "-nP", "-a", "-d", "txt", "-p", "42", "-F0pn"): subprocess.CompletedProcess(
-                    [],
-                    0,
-                    stdout=f"p42\0\nftxt\0n{keg}/bin/fish\0",
-                    stderr="",
+                (macos.LSOF, "-nP", "-a", "-d", "txt", "-p", "42", "-F0pn"): (
+                    f"p42\0\nftxt\0n{keg}/bin/fish\0"
                 ),
                 ("/bin/ps", "-p", "42", "-o", "uid=,tty=,lstart=,comm="): [
-                    subprocess.CompletedProcess(
-                        [],
-                        0,
-                        stdout="501 ttys001 Sun Nov 25 23:00:00 2026 -fish\n",
-                        stderr="",
-                    ),
-                    subprocess.CompletedProcess(
-                        [],
-                        0,
-                        stdout="501 ttys001 Mon Nov 26 00:00:00 2026 -fish\n",
-                        stderr="",
-                    ),
+                    "501 ttys001 Sun Nov 25 23:00:00 2026 -fish\n",
+                    "501 ttys001 Mon Nov 26 00:00:00 2026 -fish\n",
                 ],
             },
         )
@@ -798,6 +782,47 @@ class CleanupTests(unittest.TestCase):
                     host=base_host,
                 )
         self.assertEqual(fake.calls, [])
+
+    def test_cleanup_host_probe_forwards_explicit_environ(self) -> None:
+        captured: list[tuple[tuple[str, ...], dict[str, object]]] = []
+
+        def fake_run(args, **kwargs):
+            captured.append((tuple(args), kwargs))
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+        host = CleanupHost(run=fake_run, environ={"CUSTOM": "1"})
+        host.probe("/bin/echo", "ok")
+        self.assertEqual(captured[0][0], ("/bin/echo", "ok"))
+        self.assertEqual(captured[0][1].get("env"), {"CUSTOM": "1"})
+
+        default_host = CleanupHost(run=fake_run)
+        default_host.probe("/bin/echo", "default")
+        self.assertNotIn("env", captured[1][1])
+
+    def test_main_restores_signal_handlers_on_darwin(self) -> None:
+        previous_hup = signal.getsignal(signal.SIGHUP)
+        previous_term = signal.getsignal(signal.SIGTERM)
+        active_handlers: dict[signal.Signals, object] = {}
+
+        def fake_cleanup(**_kwargs):
+            active_handlers[signal.SIGHUP] = signal.getsignal(signal.SIGHUP)
+            active_handlers[signal.SIGTERM] = signal.getsignal(signal.SIGTERM)
+            handler = active_handlers[signal.SIGHUP]
+            assert callable(handler)
+            handler(signal.SIGHUP, None)
+
+        with (
+            patch.object(sys, "argv", ["cleanup.py", "apply"]),
+            patch.object(sys, "platform", "darwin"),
+            patch.object(cleanup, "cleanup", side_effect=fake_cleanup),
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            code = cleanup.main()
+        self.assertEqual(code, 1)
+        self.assertNotEqual(active_handlers.get(signal.SIGHUP), previous_hup)
+        self.assertNotEqual(active_handlers.get(signal.SIGTERM), previous_term)
+        self.assertEqual(signal.getsignal(signal.SIGHUP), previous_hup)
+        self.assertEqual(signal.getsignal(signal.SIGTERM), previous_term)
 
 
 if __name__ == "__main__":

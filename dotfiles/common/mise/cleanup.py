@@ -1,9 +1,9 @@
 """Preflight an explicit workstation cleanup, then let the native managers apply it."""
 
+import contextlib
 import json
 import re
 import shlex
-import signal
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -274,15 +274,14 @@ def main() -> int:
         print("usage: cleanup.py apply|plan", file=sys.stderr)
         return 2
     mode = args[0]
+    guard: contextlib.AbstractContextManager[None] = contextlib.nullcontext()
     if mode != "plan" and sys.platform == "darwin":
+        import macos_host
 
-        def interrupt(*_):
-            raise KeyboardInterrupt
-
-        signal.signal(signal.SIGHUP, interrupt)
-        signal.signal(signal.SIGTERM, interrupt)
+        guard = macos_host.interrupt_on_hangup()
     try:
-        return cleanup(apply=mode != "plan", worker=mode == "worker")
+        with guard:
+            return cleanup(apply=mode != "plan", worker=mode == "worker")
     except (KeyboardInterrupt, EOFError):
         print("Cleanup interrupted.", file=sys.stderr)
     except subprocess.CalledProcessError as exc:

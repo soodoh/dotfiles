@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tomllib
 from collections.abc import Callable, Mapping, Sequence
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,17 +37,11 @@ def _confirm(prompt: str) -> bool:
 
 
 @dataclass(frozen=True)
-class Host(CleanupHost):
+class Host(host.MacOSHost, CleanupHost):
     brew_prefix: Path = BREW_PREFIX
-    probe: Callable[..., subprocess.CompletedProcess[str]] = host.probe
     popen: Callable[..., subprocess.Popen] = subprocess.Popen
     which: Callable[[str], str | None] = shutil.which
     kill: Callable[[int, int], None] = os.kill
-    require_local_terminal: Callable[[], None] = host.require_local_terminal
-    maintenance_lock: Callable[[], AbstractContextManager[None]] = (
-        host.maintenance_lock
-    )
-    wait_for: Callable[..., None] = host.wait_for
     confirm: Callable[[str], bool] = _confirm
     ppid: Callable[[], int] = os.getppid
     uid: Callable[[], int] = os.getuid
@@ -276,7 +270,7 @@ def handoff_if_needed(
     worker_command: Sequence[str],
     env: Host = DEFAULT_HOST,
 ) -> bool:
-    env.require_local_terminal()
+    env.check_local_terminal()
     if needs_handoff(env=env):
         if worker:
             raise ValueError("maintenance terminal is not independent of Fish or Herdr")

@@ -4,11 +4,12 @@ import json
 import os
 import plistlib
 import shutil
+import signal
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import tailscale_macos as ts
 
@@ -91,6 +92,18 @@ class FakeTailscaleHost:
         self.executed_root: list[tuple[str, ...]] = []
         self.confirm = Mock(side_effect=self._confirm)
         self.authorize = Mock(side_effect=self._authorize)
+        self.local_terminal_check = Mock()
+        self.lock_depth = 0
+        self.lock_entries = 0
+
+    @contextlib.contextmanager
+    def maintenance_lock(self):
+        self.lock_entries += 1
+        self.lock_depth += 1
+        try:
+            yield
+        finally:
+            self.lock_depth -= 1
 
     def _confirm(self, _message: str) -> None:
         if self.confirm_error is not None:
@@ -182,15 +195,20 @@ class FakeTailscaleHost:
         if not done():
             raise ValueError(f"timed out waiting for {description}")
 
-    def env(self) -> ts.Host:
+    def run(self, args, **_kwargs) -> subprocess.CompletedProcess[str]:
+        return self.probe(*args)
+
+    def env(self, *, environ: dict[str, str] | None = None) -> ts.Host:
         return ts.Host(
             paths=self.paths,
-            probe=self.probe,
+            run=self.run,
             authorize=self.authorize,
             root=self.root_exec,
-            require_local_terminal=lambda: None,
+            local_terminal_check=self.local_terminal_check,
+            maintenance_lock=self.maintenance_lock,
             confirm=self.confirm,
             wait_for=self.wait_for,
+            environ=environ,
             owner_uid=os.getuid(),
             check_writable=False,
         )
@@ -204,7 +222,7 @@ class TailscaleDeploymentTests(unittest.TestCase):
         self.root.chmod(0o755)
 
     def test_system_plist_executes_the_protected_daemon(self):
-        config = ts.validate_plist(ts.SOURCE_PLIST.read_bytes())
+        config = ts.validate_plist(ts.Paths().source_plist.read_bytes())
         config["ProgramArguments"] = ["/Users/someone/bin/tailscaled"]
         with self.assertRaisesRegex(ValueError, "protected daemon"):
             ts.validate_plist(plistlib.dumps(config))
@@ -290,6 +308,66 @@ class TailscaleDeploymentTests(unittest.TestCase):
             ts.deploy(refresh=True, env=fake.env())
         fake.authorize.assert_not_called()
         self.assertEqual(fake.executed_root, [])
+
+    def test_main_crosses_host_seam_for_terminal_and_maintenance_lock(self):
+        fake = FakeTailscaleHost(self.root)
+        previous_hup = signal.getsignal(signal.SIGHUP)
+        previous_term = signal.getsignal(signal.SIGTERM)
+        active_handlers: dict[signal.Signals, object] = {}
+
+        def record_handlers(**_kwargs):
+            active_handlers[signal.SIGHUP] = signal.getsignal(signal.SIGHUP)
+            active_handlers[signal.SIGTERM] = signal.getsignal(signal.SIGTERM)
+
+        fake.local_terminal_check.side_effect = record_handlers
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = ts.main(
+                [],
+                env=fake.env(environ={"MISE_ENV": "personal-macos"}),
+                darwin=True,
+            )
+        self.assertEqual(code, 0)
+        self.assertNotEqual(active_handlers.get(signal.SIGHUP), previous_hup)
+        self.assertNotEqual(active_handlers.get(signal.SIGTERM), previous_term)
+        self.assertEqual(signal.getsignal(signal.SIGHUP), previous_hup)
+        self.assertEqual(signal.getsignal(signal.SIGTERM), previous_term)
+        self.assertEqual(fake.lock_entries, 1)
+        self.assertEqual(fake.lock_depth, 0)
+        self.assertGreaterEqual(fake.local_terminal_check.call_count, 1)
+        fake.local_terminal_check.assert_called_with(
+            environ={"MISE_ENV": "personal-macos"}
+        )
+        self.assertEqual(fake.paths.daemon.read_bytes(), b"new-binary")
+
+        with contextlib.redirect_stderr(io.StringIO()):
+            bad = ts.main(
+                ["--refresh"],
+                env=fake.env(environ={"MISE_ENV": "unknown"}),
+                darwin=True,
+            )
+        self.assertEqual(bad, 2)
+        self.assertEqual(fake.lock_entries, 1)
+
+    def test_host_forwards_explicit_environ_to_probe_and_terminal_check(self):
+        captured: list[tuple[tuple[str, ...], dict[str, object]]] = []
+
+        def fake_run(args, **kwargs):
+            captured.append((tuple(args), kwargs))
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+        scoped = ts.Host(run=fake_run, environ={"CUSTOM": "1", "SSH_CONNECTION": "1"})
+        scoped.probe("/bin/echo", "ok")
+        self.assertEqual(captured[0][0], ("/bin/echo", "ok"))
+        self.assertEqual(captured[0][1].get("env"), {"CUSTOM": "1", "SSH_CONNECTION": "1"})
+        with (
+            patch("sys.stdin.isatty", return_value=True),
+            self.assertRaisesRegex(ValueError, "SSH"),
+        ):
+            scoped.check_local_terminal()
+
+        default_host = ts.Host(run=fake_run)
+        default_host.probe("/bin/echo", "default")
+        self.assertNotIn("env", captured[1][1])
 
 
 if __name__ == "__main__":
