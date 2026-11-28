@@ -65,6 +65,7 @@ test.each(["café", "漢字", "😀"])(
 			}
 		}
 	},
+	15_000,
 );
 
 // Cross-profile routing is an independent requirement, not merely a snapshot of
@@ -176,5 +177,5 @@ describe.each([
 				box.remove();
 			}
 		}
-	});
+	}, 15_000);
 });

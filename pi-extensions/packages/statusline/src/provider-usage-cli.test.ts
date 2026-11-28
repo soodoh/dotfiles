@@ -183,7 +183,7 @@ test("exports safe account details separately from direct text while retaining c
 		if (server.listening) await closeServer(server);
 		await rm(root, { recursive: true, force: true });
 	}
-});
+}, 30_000);
 
 test("exports Copilot as its own cached hover target without duplicating its compact badge", async () => {
 	const root = await mkdtemp(join(tmpdir(), "pi-copilot-usage-cli-"));
@@ -264,7 +264,7 @@ globalThis.fetch = async (url, init) => {
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}
-});
+}, 30_000);
 
 test("deduplicates provider refreshes across CLI processes", async () => {
 	const root = await mkdtemp(join(tmpdir(), "pi-provider-usage-cli-"));

@@ -202,7 +202,7 @@ describe("statusline git status store", () => {
 
 		const onUpdate = vi.fn();
 		store.getStatus(dir, "provider-branch", onUpdate);
-		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
 
 		expect(store.getStatus(dir, "provider-branch", vi.fn())).toEqual({
 			branch: null,
@@ -253,7 +253,7 @@ describe("statusline git status store", () => {
 			unstaged: 0,
 			untracked: 0,
 		});
-		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
 		expect(store.getStatus(invalidCwd, "fallback", vi.fn())).toEqual({
 			branch: null,
 			staged: 0,
